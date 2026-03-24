@@ -36,6 +36,7 @@ class SubprocessProcessRunner(ProcessRunner):
         command: GeneratedCommand,
         *,
         expected_duration_seconds: float | None = None,
+        expected_frame_count: int | None = None,
         progress_callback: Callable[[ProcessProgress], None] | None = None,
         log_callback: Callable[[str], None] | None = None,
     ) -> ProcessExecutionResult:
@@ -61,6 +62,7 @@ class SubprocessProcessRunner(ProcessRunner):
                 process.stdout,
                 started_at,
                 expected_duration_seconds,
+                expected_frame_count,
                 progress_callback,
             ),
             daemon=True,
@@ -164,10 +166,12 @@ class DefaultJobExecutionService(JobExecutionService):
             )
 
         try:
+            expected_frame_count = _estimate_total_frame_count(media_info)
             for pass_index, command in enumerate(commands, start=1):
                 process_result = self._process_runner.run(
                     command,
                     expected_duration_seconds=media_info.duration_seconds,
+                    expected_frame_count=expected_frame_count,
                     progress_callback=_wrap_process_progress_callback(
                         progress_callback,
                         started_at=started_at,
@@ -221,9 +225,15 @@ def parse_progress_update(
     *,
     elapsed_seconds: float,
     expected_duration_seconds: float | None,
+    expected_frame_count: int | None = None,
 ) -> ProcessProgress:
     processed_seconds = _parse_processed_seconds(packet)
-    percentage = _calculate_percentage(processed_seconds, expected_duration_seconds)
+    percentage = _calculate_percentage(
+        processed_seconds,
+        expected_duration_seconds,
+        _parse_frame_count(packet),
+        expected_frame_count,
+    )
     speed = _parse_speed(packet.get("speed"))
     return ProcessProgress(
         elapsed_seconds=elapsed_seconds,
@@ -247,6 +257,7 @@ def _consume_progress_stream(
     stream: TextIO | None,
     started_at: float,
     expected_duration_seconds: float | None,
+    expected_frame_count: int | None,
     progress_callback: Callable[[ProcessProgress], None] | None,
 ) -> None:
     if stream is None:
@@ -268,6 +279,7 @@ def _consume_progress_stream(
                         packet,
                         elapsed_seconds=time.monotonic() - started_at,
                         expected_duration_seconds=expected_duration_seconds,
+                        expected_frame_count=expected_frame_count,
                     )
                 )
             packet = {}
@@ -316,6 +328,17 @@ def _parse_processed_seconds(packet: Mapping[str, str]) -> float | None:
     return None
 
 
+def _parse_frame_count(packet: Mapping[str, str]) -> int | None:
+    frame = packet.get("frame")
+    if frame is None or frame == "":
+        return None
+    try:
+        parsed_frame = int(frame)
+    except ValueError:
+        return None
+    return parsed_frame if parsed_frame >= 0 else None
+
+
 def _parse_timestamp(value: str) -> float | None:
     parts = value.split(":")
     if len(parts) != 3:
@@ -332,14 +355,19 @@ def _parse_timestamp(value: str) -> float | None:
 def _calculate_percentage(
     processed_seconds: float | None,
     expected_duration_seconds: float | None,
+    current_frame: int | None,
+    expected_frame_count: int | None,
 ) -> float | None:
     if (
-        processed_seconds is None
-        or expected_duration_seconds is None
-        or expected_duration_seconds <= 0
+        processed_seconds is not None
+        and expected_duration_seconds is not None
+        and expected_duration_seconds > 0
     ):
+        return min(100.0, (processed_seconds / expected_duration_seconds) * 100.0)
+
+    if current_frame is None or expected_frame_count is None or expected_frame_count <= 0:
         return None
-    return min(100.0, (processed_seconds / expected_duration_seconds) * 100.0)
+    return min(100.0, (current_frame / expected_frame_count) * 100.0)
 
 
 def _parse_speed(value: str | None) -> float | None:
@@ -352,6 +380,19 @@ def _parse_speed(value: str | None) -> float | None:
         return float(normalized_value)
     except ValueError:
         return None
+
+
+def _estimate_total_frame_count(media_info: SourceMediaInfo) -> int | None:
+    primary_video = media_info.primary_video_stream
+    if (
+        primary_video is None
+        or primary_video.frame_rate is None
+        or primary_video.frame_rate <= 0
+        or media_info.duration_seconds is None
+        or media_info.duration_seconds <= 0
+    ):
+        return None
+    return max(1, round(primary_video.frame_rate * media_info.duration_seconds))
 
 
 def _resolve_process_state(return_code: int, was_canceled: bool) -> JobState:

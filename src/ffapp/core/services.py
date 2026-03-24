@@ -86,6 +86,7 @@ class ProcessRunner(Protocol):
         command: GeneratedCommand,
         *,
         expected_duration_seconds: float | None = None,
+        expected_frame_count: int | None = None,
         progress_callback: Callable[[ProcessProgress], None] | None = None,
         log_callback: Callable[[str], None] | None = None,
     ) -> ProcessExecutionResult: ...

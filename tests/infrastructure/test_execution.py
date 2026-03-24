@@ -44,7 +44,15 @@ def _media_info() -> SourceMediaInfo:
     return SourceMediaInfo(
         source_path=Path("/tmp/input.mov"),
         duration_seconds=120.0,
-        video_streams=(VideoStreamInfo(index=0, codec_name="h264", width=1920, height=1080),),
+        video_streams=(
+            VideoStreamInfo(
+                index=0,
+                codec_name="h264",
+                width=1920,
+                height=1080,
+                frame_rate=30.0,
+            ),
+        ),
         audio_streams=(AudioStreamInfo(index=1, codec_name="aac", bit_rate=128_000),),
     )
 
@@ -72,6 +80,7 @@ class FakeProcessRunner:
         self.progress_updates = progress_updates
         self.log_lines = log_lines
         self.calls: list[GeneratedCommand] = []
+        self.expected_frame_counts: list[int | None] = []
         self.cancel_called = False
 
     def run(
@@ -79,10 +88,12 @@ class FakeProcessRunner:
         command: GeneratedCommand,
         *,
         expected_duration_seconds: float | None = None,
+        expected_frame_count: int | None = None,
         progress_callback: Callable[[ProcessProgress], None] | None = None,
         log_callback: Callable[[str], None] | None = None,
     ) -> ProcessExecutionResult:
         self.calls.append(command)
+        self.expected_frame_counts.append(expected_frame_count)
         call_index = len(self.calls) - 1
         progress = (
             self.progress_updates[call_index]
@@ -115,6 +126,22 @@ class ProgressParsingTests(unittest.TestCase):
         self.assertAlmostEqual(progress.processed_seconds or 0.0, 90.5)
         self.assertAlmostEqual(progress.percentage or 0.0, 50.0)
         self.assertEqual(progress.speed, 1.75)
+
+    def test_parse_progress_update_falls_back_to_frame_percentage(self) -> None:
+        progress = parse_progress_update(
+            {
+                "frame": "900",
+                "speed": "2.00x",
+            },
+            elapsed_seconds=8.0,
+            expected_duration_seconds=120.0,
+            expected_frame_count=3600,
+        )
+
+        self.assertEqual(progress.elapsed_seconds, 8.0)
+        self.assertIsNone(progress.processed_seconds)
+        self.assertAlmostEqual(progress.percentage or 0.0, 25.0)
+        self.assertEqual(progress.speed, 2.0)
 
 
 class JobExecutionServiceTests(unittest.TestCase):
@@ -172,6 +199,7 @@ class JobExecutionServiceTests(unittest.TestCase):
         self.assertEqual(progress_events[-1].state, JobState.COMPLETED)
         self.assertEqual(progress_events[-1].percentage, 100.0)
         self.assertEqual(log_lines, ["[Pass 1] frame=1\n", "[Pass 2] frame=2\n"])
+        self.assertEqual(runner.expected_frame_counts, [3600, 3600])
         self.assertIn("Pass 1", result.log_output)
         self.assertIn("first pass log", result.log_output)
         self.assertIn("Pass 2", result.log_output)

@@ -495,7 +495,70 @@ Add the real queue required by MVP and support batch execution with shared setti
 - Batch cancellation behaves consistently.
 - Completed, failed, and canceled states are visible per job.
 
-## Phase 6: Presets and Settings Persistence
+## Phase 6: Main Workflow Layout and UX Rework
+
+### Status
+
+Completed
+
+### Developer Notes
+
+- Reworked the main window from a long vertical stack into a split workflow layout.
+- The main workspace now uses a horizontal splitter with left-side workflow tabs and a right-side settings and inspector column.
+- The left side separates `Source` and `Queue` into distinct tabs so single-file and batch workflows no longer compete for the same screen space.
+- The right side keeps output settings visible while moving command preview and execution inspection into tabs.
+- Queue item inspection moved out of the queue management panel and into the shared execution inspector so commands and logs live in one place.
+- Added a compact output summary at the top of the right pane so the current encode intent is visible without reading the full form.
+- Refined the layout after the initial rework to improve real-world usability:
+  - reduced minimum window size pressure and width constraints so the split panels can be resized more freely
+  - moved `Validation and Output` below the settings groups instead of keeping it in a cramped side column
+  - changed the right pane into a vertical splitter so the bottom inspector tabs can be resized with a visible handle
+  - prevented mouse-wheel scrolling from accidentally changing combo box and spin box values unless the control has focus
+  - added small spacer gaps between stacked group panels on both the left and right sides
+- Verification completed locally via:
+  - `.venv/bin/python -m pytest`
+  - `.venv/bin/python -m ruff check src tests`
+  - `.venv/bin/python -m mypy`
+
+### Objective
+
+Improve the core MVP workflow by restructuring the main UI around task-oriented panels instead of one long scrolling form.
+
+### Tasks
+
+- Replace the long stacked main screen with a horizontal split layout.
+- Add left-side workflow tabs for:
+  - source selection and media summary
+  - queue management
+- Keep output settings persistently visible on the right side.
+- Add a compact output summary above the settings form.
+- Move command preview and execution details into inspector tabs.
+- Consolidate queue item inspection into the shared execution inspector.
+- Make the right-side inspector area user-resizable.
+- Reduce accidental value changes from mouse-wheel scrolling over numeric and selection controls.
+- Improve section spacing and minimum-size behavior so the layout remains usable on smaller displays.
+- Preserve the existing validation, preview, single-job execution, and queue behaviors while changing only the app-layer layout.
+
+### Deliverables
+
+- Split-panel main workspace
+- Tabbed workflow navigation for source and queue modes
+- Shared inspector area for preview and execution context
+- Reduced duplication between single-job and queue inspection areas
+- Resizable bottom inspector via vertical splitter
+- Safer settings controls that ignore wheel changes without focus
+
+### Acceptance Criteria
+
+- Source and queue workflows are separated into distinct tabs.
+- Output settings remain visible while the user inspects preview or execution state.
+- Command preview, current job execution, and queue item inspection are available without returning to the old stacked layout.
+- Validation status sits below the settings form instead of consuming horizontal form space.
+- The lower preview/execution area can be resized by the user.
+- Scrolling the pane does not accidentally change spin box or combo box values under the mouse cursor.
+- Existing MVP encode and queue flows continue to function after the layout refactor.
+
+## Phase 7: Presets and Settings Persistence
 
 ### Status
 
@@ -534,7 +597,7 @@ Make the app practical for repeated use by implementing presets and persistent s
 - Presets reload correctly after app restart.
 - Invalid or outdated preset data is handled gracefully.
 
-## Phase 7: Polish, Hardening, and Packaging Readiness
+## Phase 8: Polish, Hardening, and Packaging Readiness
 
 ### Status
 

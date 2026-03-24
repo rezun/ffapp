@@ -80,7 +80,7 @@ _FOLDER_IMPORT_SUFFIXES: frozenset[str] = frozenset(
 
 try:
     from PySide6.QtCore import QSignalBlocker, Qt, QThread, Signal
-    from PySide6.QtGui import QAction, QDragEnterEvent, QDropEvent
+    from PySide6.QtGui import QAction, QDragEnterEvent, QDropEvent, QWheelEvent
     from PySide6.QtWidgets import (
         QApplication,
         QCheckBox,
@@ -102,13 +102,39 @@ try:
         QScrollArea,
         QSizePolicy,
         QSpinBox,
+        QSplitter,
         QStackedWidget,
+        QTabWidget,
         QToolButton,
         QVBoxLayout,
         QWidget,
     )
 except ModuleNotFoundError as exc:  # pragma: no cover - imported only when PySide6 is missing
     raise RuntimeError("PySide6 must be installed to import the app layer.") from exc
+
+
+class _NoWheelComboBox(QComboBox):
+    def __init__(self) -> None:
+        super().__init__()
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+
+    def wheelEvent(self, event: QWheelEvent) -> None:
+        if not self.hasFocus():
+            event.ignore()
+            return
+        super().wheelEvent(event)
+
+
+class _NoWheelSpinBox(QSpinBox):
+    def __init__(self) -> None:
+        super().__init__()
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+
+    def wheelEvent(self, event: QWheelEvent) -> None:
+        if not self.hasFocus():
+            event.ignore()
+            return
+        super().wheelEvent(event)
 
 
 class DependencySetupWidget(QWidget):
@@ -204,6 +230,10 @@ class OutputSettingsWidget(QWidget):
         self._validation_service = DefaultValidationService(self._compatibility_service)
         self._media_info: SourceMediaInfo | None = None
         self._updating_form = False
+        self.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Preferred,
+        )
 
         layout = QVBoxLayout(self)
         layout.setSpacing(12)
@@ -216,12 +246,12 @@ class OutputSettingsWidget(QWidget):
         intro.setWordWrap(True)
         layout.addWidget(intro)
 
-        self.container_combo = QComboBox()
-        self.video_codec_combo = QComboBox()
-        self.audio_mode_combo = QComboBox()
-        self.audio_codec_combo = QComboBox()
-        self.audio_bitrate_combo = QComboBox()
-        self.audio_bitrate_custom_spin = QSpinBox()
+        self.container_combo = _NoWheelComboBox()
+        self.video_codec_combo = _NoWheelComboBox()
+        self.audio_mode_combo = _NoWheelComboBox()
+        self.audio_codec_combo = _NoWheelComboBox()
+        self.audio_bitrate_combo = _NoWheelComboBox()
+        self.audio_bitrate_custom_spin = _NoWheelSpinBox()
         self.audio_bitrate_custom_spin.setRange(8, 1_536)
         self.audio_bitrate_custom_spin.setSingleStep(16)
         self.audio_bitrate_custom_spin.setValue(128)
@@ -229,8 +259,8 @@ class OutputSettingsWidget(QWidget):
         self.audio_remix_checkbox = QCheckBox("Remix all audio streams to stereo")
         self.remove_subtitles_checkbox = QCheckBox("Remove subtitle streams")
         self.remove_data_checkbox = QCheckBox("Remove data streams")
-        self.resolution_combo = QComboBox()
-        self.strategy_combo = QComboBox()
+        self.resolution_combo = _NoWheelComboBox()
+        self.strategy_combo = _NoWheelComboBox()
 
         self.strategy_stack = QStackedWidget()
         self.strategy_stack.addWidget(self._build_file_size_panel())
@@ -247,7 +277,7 @@ class OutputSettingsWidget(QWidget):
         self.validation_summary.setPlaceholderText(
             "Load a source file to validate output settings."
         )
-        self.validation_summary.setMinimumHeight(220)
+        self.validation_summary.setMinimumHeight(120)
         self.validation_summary.setSizePolicy(
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Expanding,
@@ -255,23 +285,18 @@ class OutputSettingsWidget(QWidget):
 
         self._configure_field_widgets()
 
-        content_layout = QHBoxLayout()
-        content_layout.setSpacing(16)
-        layout.addLayout(content_layout)
+        format_group = self._build_format_group()
+        audio_group = self._build_audio_group()
+        encoding_group = self._build_encoding_group()
+        status_group = self._build_status_group()
 
-        left_column = QVBoxLayout()
-        left_column.setSpacing(12)
-        right_column = QVBoxLayout()
-        right_column.setSpacing(12)
-        content_layout.addLayout(left_column, 3)
-        content_layout.addLayout(right_column, 2)
-
-        left_column.addWidget(self._build_format_group())
-        left_column.addWidget(self._build_audio_group())
-        left_column.addWidget(self._build_encoding_group())
-        left_column.addStretch(1)
-
-        right_column.addWidget(self._build_status_group(), 1)
+        layout.addWidget(format_group)
+        layout.addSpacing(10)
+        layout.addWidget(audio_group)
+        layout.addSpacing(10)
+        layout.addWidget(encoding_group)
+        layout.addSpacing(10)
+        layout.addWidget(status_group)
 
         layout.addStretch(1)
 
@@ -323,7 +348,7 @@ class OutputSettingsWidget(QWidget):
         layout = QFormLayout(panel)
         self._configure_form_layout(layout)
 
-        self.target_size_spin = QSpinBox()
+        self.target_size_spin = _NoWheelSpinBox()
         self.target_size_spin.setRange(1, 100_000)
         self.target_size_spin.setValue(50)
         self.target_size_spin.setSuffix(" MB")
@@ -338,7 +363,7 @@ class OutputSettingsWidget(QWidget):
         layout = QFormLayout(panel)
         self._configure_form_layout(layout)
 
-        self.target_bitrate_spin = QSpinBox()
+        self.target_bitrate_spin = _NoWheelSpinBox()
         self.target_bitrate_spin.setRange(100, 100_000)
         self.target_bitrate_spin.setValue(3_000)
         self.target_bitrate_spin.setSingleStep(100)
@@ -374,16 +399,17 @@ class OutputSettingsWidget(QWidget):
         layout = QFormLayout(panel)
         self._configure_form_layout(layout)
 
-        self.h26x_crf_spin = QSpinBox()
+        self.h26x_crf_spin = _NoWheelSpinBox()
         self.h26x_crf_spin.setRange(0, 51)
         self.h26x_crf_spin.setValue(23)
-        self.h26x_preset_combo = QComboBox()
-        self.h26x_profile_combo = QComboBox()
+        self.h26x_preset_combo = _NoWheelComboBox()
+        self.h26x_profile_combo = _NoWheelComboBox()
         layout.addRow("CRF", self.h26x_crf_spin)
         return panel
 
     def _build_h26x_encoder_group(self) -> QGroupBox:
         group = QGroupBox("H.264 / H.265 Encoder Tuning")
+        self._configure_group_box(group)
         layout = QFormLayout(group)
         self._configure_form_layout(layout)
 
@@ -396,10 +422,10 @@ class OutputSettingsWidget(QWidget):
         layout = QFormLayout(panel)
         self._configure_form_layout(layout)
 
-        self.vpx_quality_spin = QSpinBox()
+        self.vpx_quality_spin = _NoWheelSpinBox()
         self.vpx_quality_spin.setRange(0, 63)
         self.vpx_quality_spin.setValue(32)
-        self.vpx_speed_spin = QSpinBox()
+        self.vpx_speed_spin = _NoWheelSpinBox()
         self.vpx_speed_spin.setRange(VPX_SPEED_RANGE.start, VPX_SPEED_RANGE.stop - 1)
         self.vpx_speed_spin.setValue(2)
 
@@ -409,6 +435,7 @@ class OutputSettingsWidget(QWidget):
 
     def _build_format_group(self) -> QGroupBox:
         group = QGroupBox("Format and Video")
+        self._configure_group_box(group)
         layout = QFormLayout(group)
         self._configure_form_layout(layout)
         layout.addRow("Container", self.container_combo)
@@ -418,6 +445,7 @@ class OutputSettingsWidget(QWidget):
 
     def _build_audio_group(self) -> QGroupBox:
         group = QGroupBox("Audio and Streams")
+        self._configure_group_box(group)
         layout = QGridLayout(group)
         layout.setHorizontalSpacing(12)
         layout.setVerticalSpacing(10)
@@ -445,6 +473,7 @@ class OutputSettingsWidget(QWidget):
 
     def _build_encoding_group(self) -> QGroupBox:
         group = QGroupBox("Encoding")
+        self._configure_group_box(group)
         layout = QVBoxLayout(group)
         form_layout = QFormLayout()
         self._configure_form_layout(form_layout)
@@ -466,6 +495,7 @@ class OutputSettingsWidget(QWidget):
 
     def _build_status_group(self) -> QGroupBox:
         group = QGroupBox("Validation and Output")
+        self._configure_group_box(group)
         layout = QVBoxLayout(group)
 
         resolution_heading = QLabel("Resolved Output")
@@ -498,7 +528,7 @@ class OutputSettingsWidget(QWidget):
             self.vpx_speed_spin,
         )
         for widget in expanding_fields:
-            widget.setMinimumWidth(220)
+            widget.setMinimumWidth(140)
             widget.setSizePolicy(
                 QSizePolicy.Policy.Expanding,
                 QSizePolicy.Policy.Fixed,
@@ -508,6 +538,9 @@ class OutputSettingsWidget(QWidget):
         layout.setHorizontalSpacing(12)
         layout.setVerticalSpacing(10)
         layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+
+    def _configure_group_box(self, group: QGroupBox) -> None:
+        del group
 
     def _populate_static_options(self) -> None:
         for container in OutputContainer:
@@ -882,7 +915,7 @@ class JobDetailsWidget(QWidget):
 
         self.command_output = QPlainTextEdit()
         self.command_output.setReadOnly(True)
-        self.command_output.setMinimumHeight(140)
+        self.command_output.setMinimumHeight(80)
         self.command_output.setPlaceholderText("Prepared commands will appear here.")
         layout.addWidget(self.command_output)
         self.command_output.setVisible(False)
@@ -893,7 +926,7 @@ class JobDetailsWidget(QWidget):
 
         self.log_output = QPlainTextEdit()
         self.log_output.setReadOnly(True)
-        self.log_output.setMinimumHeight(180)
+        self.log_output.setMinimumHeight(100)
         self.log_output.setPlaceholderText("ffmpeg stderr output will appear here during a job.")
         layout.addWidget(self.log_output)
 
@@ -1011,6 +1044,64 @@ class JobDetailsWidget(QWidget):
         return self._running
 
 
+class QueueDetailsWidget(QWidget):
+    def __init__(self) -> None:
+        super().__init__()
+
+        layout = QVBoxLayout(self)
+        intro = QLabel(
+            "Inspect the selected queued item's prepared command, retained state, and log output."
+        )
+        intro.setWordWrap(True)
+        layout.addWidget(intro)
+
+        self.detail_summary_label = QLabel("Select a queued item to inspect it.")
+        self.detail_summary_label.setWordWrap(True)
+        layout.addWidget(self.detail_summary_label)
+
+        self.detail_command_output = QPlainTextEdit()
+        self.detail_command_output.setReadOnly(True)
+        self.detail_command_output.setMinimumHeight(80)
+        self.detail_command_output.setPlaceholderText("Selected commands will appear here.")
+        layout.addWidget(self.detail_command_output)
+
+        self.detail_log_output = QPlainTextEdit()
+        self.detail_log_output.setReadOnly(True)
+        self.detail_log_output.setMinimumHeight(100)
+        self.detail_log_output.setPlaceholderText("Selected queue item logs will appear here.")
+        layout.addWidget(self.detail_log_output)
+
+    def show_item_details(self, item: QueueItem | None, *, live_log: str | None = None) -> None:
+        if item is None:
+            self._show_empty_details()
+            return
+
+        self.detail_summary_label.setText(_format_queue_item_details(item))
+        self.detail_command_output.setPlainText(
+            _format_command_preview_text(item.queued_job.commands, single_command=False)
+        )
+
+        if item.result is not None and item.result.log_output:
+            log_text = item.result.log_output
+        elif item.failure_message:
+            log_text = item.failure_message
+        else:
+            log_text = live_log or ""
+
+        if log_text:
+            self.detail_log_output.setPlainText(log_text)
+        else:
+            self.detail_log_output.clear()
+            self.detail_log_output.setPlaceholderText("Selected queue item logs will appear here.")
+
+    def _show_empty_details(self) -> None:
+        self.detail_summary_label.setText("Select a queued item to inspect it.")
+        self.detail_command_output.clear()
+        self.detail_command_output.setPlaceholderText("Selected commands will appear here.")
+        self.detail_log_output.clear()
+        self.detail_log_output.setPlaceholderText("Selected queue item logs will appear here.")
+
+
 class QueueWidget(QWidget):
     add_current_requested = Signal()
     add_files_requested = Signal()
@@ -1026,13 +1117,14 @@ class QueueWidget(QWidget):
 
         layout = QVBoxLayout(self)
         intro = QLabel(
-            "Queue multiple files with the current settings snapshot, run them sequentially, "
-            "and inspect the selected item's command and log output."
+            "Queue multiple files with the current settings snapshot and run them sequentially. "
+            "Inspect the selected item from the Execution tab."
         )
         intro.setWordWrap(True)
         layout.addWidget(intro)
 
-        button_row = QHBoxLayout()
+        primary_button_row = QHBoxLayout()
+        secondary_button_row = QHBoxLayout()
         self.add_current_button = QPushButton("Add Current Source")
         self.add_current_button.clicked.connect(self.add_current_requested.emit)
         self.add_files_button = QPushButton("Add Files")
@@ -1049,13 +1141,19 @@ class QueueWidget(QWidget):
             self.add_current_button,
             self.add_files_button,
             self.add_folder_button,
+        ):
+            primary_button_row.addWidget(button)
+        primary_button_row.addStretch(1)
+        layout.addLayout(primary_button_row)
+
+        for button in (
             self.remove_selected_button,
             self.start_button,
             self.cancel_button,
         ):
-            button_row.addWidget(button)
-        button_row.addStretch(1)
-        layout.addLayout(button_row)
+            secondary_button_row.addWidget(button)
+        secondary_button_row.addStretch(1)
+        layout.addLayout(secondary_button_row)
 
         self.summary_label = QLabel("Queue is empty.")
         self.summary_label.setWordWrap(True)
@@ -1063,28 +1161,8 @@ class QueueWidget(QWidget):
 
         self.queue_list = QListWidget()
         self.queue_list.currentItemChanged.connect(self._handle_selection_changed)
-        self.queue_list.setMinimumHeight(150)
+        self.queue_list.setMinimumHeight(120)
         layout.addWidget(self.queue_list)
-
-        detail_heading = QLabel("Selected Queue Item")
-        detail_heading.setStyleSheet("font-weight: 600;")
-        layout.addWidget(detail_heading)
-
-        self.detail_summary_label = QLabel("Select a queued item to inspect it.")
-        self.detail_summary_label.setWordWrap(True)
-        layout.addWidget(self.detail_summary_label)
-
-        self.detail_command_output = QPlainTextEdit()
-        self.detail_command_output.setReadOnly(True)
-        self.detail_command_output.setMinimumHeight(120)
-        self.detail_command_output.setPlaceholderText("Selected commands will appear here.")
-        layout.addWidget(self.detail_command_output)
-
-        self.detail_log_output = QPlainTextEdit()
-        self.detail_log_output.setReadOnly(True)
-        self.detail_log_output.setMinimumHeight(140)
-        self.detail_log_output.setPlaceholderText("Selected queue item logs will appear here.")
-        layout.addWidget(self.detail_log_output)
 
         self.set_running(False)
         self.set_add_current_enabled(False)
@@ -1120,8 +1198,6 @@ class QueueWidget(QWidget):
             self.select_item(selected_id)
         elif item_list:
             self.queue_list.setCurrentRow(len(item_list) - 1)
-        else:
-            self._show_empty_details()
 
     def select_item(self, item_id: str) -> None:
         for row in range(self.queue_list.count()):
@@ -1138,29 +1214,6 @@ class QueueWidget(QWidget):
             self.queue_list.currentItem().data(Qt.ItemDataRole.UserRole),
         )
 
-    def show_item_details(self, item: QueueItem | None, *, live_log: str | None = None) -> None:
-        if item is None:
-            self._show_empty_details()
-            return
-
-        self.detail_summary_label.setText(_format_queue_item_details(item))
-        self.detail_command_output.setPlainText(
-            _format_command_preview_text(item.queued_job.commands, single_command=False)
-        )
-
-        if item.result is not None and item.result.log_output:
-            log_text = item.result.log_output
-        elif item.failure_message:
-            log_text = item.failure_message
-        else:
-            log_text = live_log or ""
-
-        if log_text:
-            self.detail_log_output.setPlainText(log_text)
-        else:
-            self.detail_log_output.clear()
-            self.detail_log_output.setPlaceholderText("Selected queue item logs will appear here.")
-
     def _handle_selection_changed(
         self,
         current: QListWidgetItem | None,
@@ -1171,13 +1224,6 @@ class QueueWidget(QWidget):
         if current is not None:
             item_id = cast(str, current.data(Qt.ItemDataRole.UserRole))
         self.selection_changed.emit(item_id)
-
-    def _show_empty_details(self) -> None:
-        self.detail_summary_label.setText("Select a queued item to inspect it.")
-        self.detail_command_output.clear()
-        self.detail_command_output.setPlaceholderText("Selected commands will appear here.")
-        self.detail_log_output.clear()
-        self.detail_log_output.setPlaceholderText("Selected queue item logs will appear here.")
 
 
 class MainWindow(QMainWindow):
@@ -1202,7 +1248,7 @@ class MainWindow(QMainWindow):
         self._queue_live_logs: dict[str, str] = {}
 
         self.setWindowTitle("FFmpeg GUI")
-        self.resize(1040, 780)
+        self.resize(1180, 760)
         self.setAcceptDrops(True)
 
         self._stack = QStackedWidget()
@@ -1249,13 +1295,82 @@ class MainWindow(QMainWindow):
     def _build_main_panel(self) -> QWidget:
         container = QWidget()
         outer_layout = QVBoxLayout(container)
+        outer_layout.setContentsMargins(12, 12, 12, 12)
 
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        outer_layout.addWidget(scroll_area)
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.setChildrenCollapsible(False)
+        splitter.setHandleWidth(10)
+        outer_layout.addWidget(splitter)
 
-        content = QWidget()
-        layout = QVBoxLayout(content)
+        left_panel = QWidget()
+        left_layout = QVBoxLayout(left_panel)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.workflow_tabs = QTabWidget()
+        self._source_workspace = self._build_source_workspace()
+        self._queue_workspace = self._build_queue_workspace()
+        self.workflow_tabs.addTab(self._source_workspace, "Source")
+        self.workflow_tabs.addTab(self._queue_workspace, "Queue")
+        left_layout.addWidget(self.workflow_tabs)
+
+        right_panel = QWidget()
+        right_layout = QVBoxLayout(right_panel)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_splitter = QSplitter(Qt.Orientation.Vertical)
+        right_splitter.setChildrenCollapsible(False)
+        right_splitter.setHandleWidth(10)
+        right_layout.addWidget(right_splitter)
+
+        top_panel = QWidget()
+        top_layout = QVBoxLayout(top_panel)
+        top_layout.setContentsMargins(0, 0, 0, 0)
+        top_layout.setSpacing(12)
+
+        summary_box = QGroupBox("Current Output Summary")
+        summary_layout = QVBoxLayout(summary_box)
+        self.output_summary_label = QLabel(
+            "Load a source and adjust output settings to see the current encode summary."
+        )
+        self.output_summary_label.setWordWrap(True)
+        summary_layout.addWidget(self.output_summary_label)
+        top_layout.addWidget(summary_box)
+
+        output_box = QGroupBox("Output Settings")
+        output_layout = QVBoxLayout(output_box)
+        self.output_settings_widget = OutputSettingsWidget()
+        output_layout.addWidget(self.output_settings_widget)
+        top_layout.addWidget(output_box)
+        top_layout.addStretch(1)
+
+        top_scroll = QScrollArea()
+        top_scroll.setWidgetResizable(True)
+        top_scroll.setWidget(top_panel)
+
+        self.inspector_tabs = QTabWidget()
+        self.command_preview_widget = CommandPreviewWidget()
+        self.execution_inspector_tab = self._build_execution_inspector()
+        self.inspector_tabs.addTab(self.command_preview_widget, "Preview")
+        self.inspector_tabs.addTab(self.execution_inspector_tab, "Execution")
+
+        right_splitter.addWidget(top_scroll)
+        right_splitter.addWidget(self.inspector_tabs)
+        right_splitter.setStretchFactor(0, 3)
+        right_splitter.setStretchFactor(1, 2)
+        right_splitter.setSizes([560, 280])
+
+        splitter.addWidget(left_panel)
+        splitter.addWidget(right_panel)
+        splitter.setStretchFactor(0, 2)
+        splitter.setStretchFactor(1, 5)
+        splitter.setSizes([300, 860])
+
+        self.output_settings_widget.settings_changed.connect(self._refresh_command_preview)
+        self._refresh_queue_ui()
+        return container
+
+    def _build_source_workspace(self) -> QWidget:
+        panel = QWidget()
+        layout = QVBoxLayout(panel)
         layout.setSpacing(16)
 
         source_box = QGroupBox("Source Selection")
@@ -1278,31 +1393,22 @@ class MainWindow(QMainWindow):
         )
         self.source_path_label.setWordWrap(True)
         source_layout.addWidget(self.source_path_label)
+        layout.addWidget(source_box)
+        layout.addSpacing(10)
 
         media_box = QGroupBox("Media Info Summary")
         media_layout = QVBoxLayout(media_box)
         self.media_summary_widget = MediaSummaryWidget()
         media_layout.addWidget(self.media_summary_widget)
+        layout.addWidget(media_box, 1)
 
-        output_box = QGroupBox("Output Settings")
-        output_layout = QVBoxLayout(output_box)
-        self.output_settings_widget = OutputSettingsWidget()
-        output_layout.addWidget(self.output_settings_widget)
+        return panel
 
-        command_box = QGroupBox("Command Preview")
-        command_layout = QVBoxLayout(command_box)
-        self.command_preview_widget = CommandPreviewWidget()
-        command_layout.addWidget(self.command_preview_widget)
+    def _build_queue_workspace(self) -> QWidget:
+        panel = QWidget()
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(0, 0, 0, 0)
 
-        job_box = QGroupBox("Job Details")
-        job_layout = QVBoxLayout(job_box)
-        self.job_details_widget = JobDetailsWidget()
-        self.job_details_widget.start_requested.connect(self._start_job)
-        self.job_details_widget.cancel_requested.connect(self._cancel_job)
-        job_layout.addWidget(self.job_details_widget)
-
-        queue_box = QGroupBox("Queue")
-        queue_layout = QVBoxLayout(queue_box)
         self.queue_widget = QueueWidget()
         self.queue_widget.add_current_requested.connect(self._queue_current_source)
         self.queue_widget.add_files_requested.connect(self._queue_files)
@@ -1311,16 +1417,49 @@ class MainWindow(QMainWindow):
         self.queue_widget.start_requested.connect(self._start_queue)
         self.queue_widget.cancel_requested.connect(self._cancel_queue)
         self.queue_widget.selection_changed.connect(self._handle_queue_selection_changed)
-        queue_layout.addWidget(self.queue_widget)
+        layout.addWidget(self.queue_widget)
+        return panel
 
-        for widget in (source_box, media_box, output_box, command_box, job_box, queue_box):
-            layout.addWidget(widget)
+    def _build_execution_inspector(self) -> QWidget:
+        panel = QWidget()
+        panel.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Preferred,
+        )
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(0, 0, 0, 0)
 
-        layout.addStretch(1)
-        scroll_area.setWidget(content)
-        self.output_settings_widget.settings_changed.connect(self._refresh_command_preview)
-        self._refresh_queue_ui()
-        return container
+        splitter = QSplitter(Qt.Orientation.Vertical)
+        splitter.setChildrenCollapsible(False)
+
+        current_job_box = QGroupBox("Current Job")
+        current_job_layout = QVBoxLayout(current_job_box)
+        self.job_details_widget = JobDetailsWidget()
+        self.job_details_widget.start_requested.connect(self._start_job)
+        self.job_details_widget.cancel_requested.connect(self._cancel_job)
+        current_job_layout.addWidget(self.job_details_widget)
+
+        queue_item_box = QGroupBox("Selected Queue Item")
+        queue_item_layout = QVBoxLayout(queue_item_box)
+        self.queue_details_widget = QueueDetailsWidget()
+        queue_item_layout.addWidget(self.queue_details_widget)
+
+        splitter.addWidget(current_job_box)
+        splitter.addWidget(queue_item_box)
+        splitter.setStretchFactor(0, 3)
+        splitter.setStretchFactor(1, 2)
+        splitter.setSizes([420, 300])
+
+        layout.addWidget(splitter)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Ignored,
+        )
+        scroll.setWidget(panel)
+        return scroll
 
     def _refresh_dependency_ui(self) -> None:
         self._dependency_status = self._dependency_manager.discover(self._settings)
@@ -1395,6 +1534,7 @@ class MainWindow(QMainWindow):
         self.media_summary_widget.set_media_info(media_info)
         self.output_settings_widget.set_media_info(media_info)
         self._stack.setCurrentWidget(self._main_widget)
+        self.workflow_tabs.setCurrentWidget(self._source_workspace)
         self._refresh_command_preview()
         self.queue_widget.set_add_current_enabled(True)
         self._refresh_queue_ui()
@@ -1539,6 +1679,8 @@ class MainWindow(QMainWindow):
         created_items = self._queue_service.enqueue(queued_jobs) if queued_jobs else ()
         if created_items:
             newest_item_id = created_items[-1].id
+            self.workflow_tabs.setCurrentWidget(self._queue_workspace)
+            self.inspector_tabs.setCurrentWidget(self.execution_inspector_tab)
             self._refresh_queue_ui(selected_id=newest_item_id)
         else:
             self._refresh_queue_ui()
@@ -1565,7 +1707,8 @@ class MainWindow(QMainWindow):
         self._show_selected_queue_item()
 
     def _handle_queue_selection_changed(self, item_id: str) -> None:
-        del item_id
+        if item_id:
+            self.inspector_tabs.setCurrentWidget(self.execution_inspector_tab)
         selected_item = self._selected_queue_item()
         self.queue_widget.set_remove_enabled(
             selected_item is not None and selected_item.state is not JobState.RUNNING
@@ -1583,7 +1726,7 @@ class MainWindow(QMainWindow):
         selected_item = self._selected_queue_item()
         selected_item_id = selected_item.id if selected_item is not None else ""
         live_log = self._queue_live_logs.get(selected_item_id or "", "")
-        self.queue_widget.show_item_details(selected_item, live_log=live_log)
+        self.queue_details_widget.show_item_details(selected_item, live_log=live_log)
 
     def _remove_selected_queue_item(self) -> None:
         selected_item = self._selected_queue_item()
@@ -1619,6 +1762,7 @@ class MainWindow(QMainWindow):
 
         self._queue_thread = thread
         self._queue_worker = worker
+        self.inspector_tabs.setCurrentWidget(self.execution_inspector_tab)
         self._refresh_queue_ui()
         thread.start()
 
@@ -1660,7 +1804,14 @@ class MainWindow(QMainWindow):
         self._queue_worker = None
         self._refresh_queue_ui()
 
+    def _refresh_output_summary(self) -> None:
+        settings = self.output_settings_widget.current_settings()
+        self.output_summary_label.setText(
+            _format_output_overview(settings, self._media_info, self._validation_service)
+        )
+
     def _refresh_command_preview(self) -> None:
+        self._refresh_output_summary()
         prepared, message = self._prepare_execution()
         self._prepared_execution = prepared
 
@@ -1757,6 +1908,7 @@ class MainWindow(QMainWindow):
 
         self._execution_thread = thread
         self._execution_worker = worker
+        self.inspector_tabs.setCurrentWidget(self.execution_inspector_tab)
         self.job_details_widget.start_run(prepared)
         thread.start()
 
@@ -1823,7 +1975,7 @@ class CommandPreviewWidget(QWidget):
 
         self.preview = QPlainTextEdit()
         self.preview.setReadOnly(True)
-        self.preview.setMinimumHeight(180)
+        self.preview.setMinimumHeight(110)
         self.preview.setPlaceholderText("No command preview is available yet.")
         layout.addWidget(self.preview)
 
@@ -2085,6 +2237,63 @@ def _resolution_preset_label(preset: ResolutionPreset) -> str:
         ResolutionPreset.P4K: "4K",
     }
     return labels[preset]
+
+
+def _format_output_overview(
+    settings: OutputSettings,
+    media_info: SourceMediaInfo | None,
+    validation_service: DefaultValidationService,
+) -> str:
+    resolution_text = _resolution_preset_label(settings.resolution_preset)
+    if media_info is not None:
+        resolved = validation_service.resolve_output_resolution(settings, media_info)
+        if resolved is not None:
+            resolution_text = f"{resolved.width}x{resolved.height}"
+
+    audio_text = "Copy all audio streams"
+    if settings.audio_options.mode is AudioMode.REMOVE:
+        audio_text = "Remove all audio streams"
+    elif settings.audio_options.mode is AudioMode.REENCODE:
+        bitrate_kbps = (
+            f"{settings.audio_options.bitrate // 1_000} kbps"
+            if settings.audio_options.bitrate is not None
+            else "custom bitrate"
+        )
+        remix_text = " stereo remix" if settings.audio_options.remix_to_stereo else ""
+        audio_text = (
+            f"{_audio_codec_label(settings.audio_options.codec or AudioCodec.AAC)} "
+            f"{bitrate_kbps}{remix_text}"
+        )
+
+    strategy_text = {
+        EncodingStrategy.TARGET_FILE_SIZE: (
+            f"Target size {settings.target_file_size.target_size_mb} MB"
+            f"{' • 2-pass' if settings.target_file_size.two_pass else ''}"
+        ),
+        EncodingStrategy.TARGET_BITRATE: (
+            f"Target bitrate {settings.target_bitrate.video_bitrate // 1_000} kbps"
+            f"{' • 2-pass' if settings.target_bitrate.two_pass else ''}"
+        ),
+        EncodingStrategy.TARGET_QUALITY: _format_quality_summary(settings.target_quality),
+    }[settings.encoding_strategy]
+
+    return " | ".join(
+        (
+            f"Container: {settings.container.upper()}",
+            f"Video: {_video_codec_label(settings.video_codec)}",
+            f"Resolution: {resolution_text}",
+            f"Audio: {audio_text}",
+            strategy_text,
+        )
+    )
+
+
+def _format_quality_summary(options: QualityOptions) -> str:
+    if isinstance(options, H264QualityOptions | H265QualityOptions):
+        return (
+            f"Quality: CRF {options.crf} • Preset {options.preset} • Profile {options.profile}"
+        )
+    return f"Quality: {options.quality} • Speed {options.speed}"
 
 
 def _format_validation_result(result: ValidationResult) -> str:

@@ -6,17 +6,25 @@ from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+from PySide6.QtCore import QPoint, QPointF, Qt
+from PySide6.QtGui import QWheelEvent
 from PySide6.QtWidgets import QApplication
 
 from ffapp.app.main_window import (
     JobDetailsWidget,
+    MainWindow,
+    OutputSettingsWidget,
     PreparedExecution,
+    QueueDetailsWidget,
     QueueWidget,
     _format_command_preview_text,
     _format_queue_summary,
 )
 from ffapp.core.models import (
+    AppSettings,
+    DependencyStatus,
     EncodingStrategy,
+    ExecutableValidation,
     GeneratedCommand,
     H264QualityOptions,
     JobDefinition,
@@ -38,6 +46,41 @@ def _command(text: str) -> GeneratedCommand:
         arguments=(),
         display_string=text,
     )
+
+
+class _FakeSettingsService:
+    def load(self) -> AppSettings:
+        return AppSettings()
+
+    def save(self, settings: AppSettings) -> None:
+        del settings
+
+
+class _FakeDependencyManager:
+    def discover(self, settings: AppSettings) -> DependencyStatus:
+        del settings
+        return self._status()
+
+    def validate_paths(self, executable_paths: object) -> DependencyStatus:
+        del executable_paths
+        return self._status()
+
+    @staticmethod
+    def _status() -> DependencyStatus:
+        return DependencyStatus(
+            ffmpeg=ExecutableValidation(
+                name="ffmpeg",
+                path=None,
+                is_valid=False,
+                error="ffmpeg not configured",
+            ),
+            ffprobe=ExecutableValidation(
+                name="ffprobe",
+                path=None,
+                is_valid=False,
+                error="ffprobe not configured",
+            ),
+        )
 
 
 class CommandPreviewFormattingTests(unittest.TestCase):
@@ -155,17 +198,14 @@ class QueueWidgetTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.application = QApplication.instance() or QApplication([])
 
-    def test_queue_widget_renders_selected_item_details(self) -> None:
+    def test_queue_widget_tracks_summary_and_selection(self) -> None:
         widget = QueueWidget()
         item = _queue_item(JobState.COMPLETED)
 
         widget.set_items((item,), selected_id=item.id)
-        widget.show_item_details(item)
 
         self.assertIn("Completed", widget.summary_label.text())
-        self.assertIn(str(item.queued_job.job.source_path), widget.detail_summary_label.text())
-        self.assertIn("ffmpeg pass1", widget.detail_command_output.toPlainText())
-        self.assertIn("queue log output", widget.detail_log_output.toPlainText())
+        self.assertEqual(widget.selected_item_id(), item.id)
 
     def test_format_queue_summary_counts_queue_states(self) -> None:
         summary = _format_queue_summary(
@@ -188,6 +228,78 @@ class QueueWidgetTests(unittest.TestCase):
 
         widget.set_remove_enabled(False)
         self.assertFalse(widget.remove_selected_button.isEnabled())
+
+
+class QueueDetailsWidgetTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.application = QApplication.instance() or QApplication([])
+
+    def test_queue_details_widget_renders_selected_item_details(self) -> None:
+        widget = QueueDetailsWidget()
+        item = _queue_item(JobState.COMPLETED)
+
+        widget.show_item_details(item)
+
+        self.assertIn(str(item.queued_job.job.source_path), widget.detail_summary_label.text())
+        self.assertIn("ffmpeg pass1", widget.detail_command_output.toPlainText())
+        self.assertIn("queue log output", widget.detail_log_output.toPlainText())
+
+
+class MainWindowLayoutTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.application = QApplication.instance() or QApplication([])
+
+    def test_main_window_builds_split_workflow_tabs_and_inspector_tabs(self) -> None:
+        window = MainWindow(_FakeSettingsService(), _FakeDependencyManager())
+
+        self.assertEqual(window.workflow_tabs.tabText(0), "Source")
+        self.assertEqual(window.workflow_tabs.tabText(1), "Queue")
+        self.assertEqual(window.inspector_tabs.tabText(0), "Preview")
+        self.assertEqual(window.inspector_tabs.tabText(1), "Execution")
+        self.assertIn("Container:", window.output_summary_label.text())
+
+
+class WheelGuardTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.application = QApplication.instance() or QApplication([])
+
+    def test_unfocused_spinbox_ignores_wheel(self) -> None:
+        widget = OutputSettingsWidget()
+        widget.show()
+        widget.container_combo.setFocus()
+        self.application.processEvents()
+        original_value = widget.h26x_crf_spin.value()
+
+        QApplication.sendEvent(widget.h26x_crf_spin, _wheel_event())
+
+        self.assertEqual(widget.h26x_crf_spin.value(), original_value)
+
+    def test_unfocused_combobox_ignores_wheel(self) -> None:
+        widget = OutputSettingsWidget()
+        widget.show()
+        widget.video_codec_combo.setFocus()
+        self.application.processEvents()
+        original_index = widget.container_combo.currentIndex()
+
+        QApplication.sendEvent(widget.container_combo, _wheel_event())
+
+        self.assertEqual(widget.container_combo.currentIndex(), original_index)
+
+
+def _wheel_event() -> QWheelEvent:
+    return QWheelEvent(
+        QPointF(10, 10),
+        QPointF(10, 10),
+        QPoint(0, 0),
+        QPoint(0, -120),
+        Qt.MouseButton.NoButton,
+        Qt.KeyboardModifier.NoModifier,
+        Qt.ScrollPhase.ScrollUpdate,
+        False,
+    )
 
 
 if __name__ == "__main__":

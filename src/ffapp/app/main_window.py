@@ -41,6 +41,8 @@ from ffapp.core.models import (
     VideoCodec,
     Vp8QualityOptions,
     Vp9QualityOptions,
+    VpxEncoderOptions,
+    default_vpx_cpu_used,
 )
 from ffapp.core.validation import (
     VPX_SPEED_RANGE,
@@ -78,6 +80,9 @@ _OUTPUT_SETTINGS_TOOLTIP = (
     "The form only offers valid container/codec combinations and validates against "
     "the currently loaded source."
 )
+_RECOMMENDED_H264_CRF_RANGE = (17, 23)
+_RECOMMENDED_H265_CRF_RANGE = (20, 28)
+_RECOMMENDED_VPX_QUALITY_RANGE = (28, 36)
 _FOLDER_IMPORT_SUFFIXES: frozenset[str] = frozenset(
     {
         ".aac",
@@ -99,14 +104,23 @@ _FOLDER_IMPORT_SUFFIXES: frozenset[str] = frozenset(
 
 try:
     from PySide6.QtCore import QSignalBlocker, Qt, QThread, Signal
-    from PySide6.QtGui import QAction, QDragEnterEvent, QDropEvent, QWheelEvent
+    from PySide6.QtGui import (
+        QAction,
+        QColor,
+        QDragEnterEvent,
+        QDropEvent,
+        QPainter,
+        QPaintEvent,
+        QResizeEvent,
+        QWheelEvent,
+    )
     from PySide6.QtWidgets import (
         QApplication,
         QCheckBox,
         QComboBox,
-        QFrame,
         QFileDialog,
         QFormLayout,
+        QFrame,
         QGridLayout,
         QGroupBox,
         QHBoxLayout,
@@ -122,6 +136,7 @@ try:
         QPushButton,
         QScrollArea,
         QSizePolicy,
+        QSlider,
         QSpinBox,
         QSplitter,
         QStackedWidget,
@@ -156,6 +171,134 @@ class _NoWheelSpinBox(QSpinBox):
             event.ignore()
             return
         super().wheelEvent(event)
+
+
+class _NoWheelSlider(QSlider):
+    def __init__(self, orientation: Qt.Orientation) -> None:
+        super().__init__(orientation)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+
+    def wheelEvent(self, event: QWheelEvent) -> None:
+        event.ignore()
+
+
+class _RecommendedRangeBar(QWidget):
+    def __init__(self, minimum: int, maximum: int) -> None:
+        super().__init__()
+        self._minimum = minimum
+        self._maximum = maximum
+        self._recommended = (minimum, maximum)
+        self.setMinimumHeight(8)
+        self.setMaximumHeight(8)
+
+    def set_bounds(self, minimum: int, maximum: int) -> None:
+        self._minimum = minimum
+        self._maximum = maximum
+        self.update()
+
+    def set_recommended_range(self, lower: int, upper: int) -> None:
+        self._recommended = (lower, upper)
+        self.update()
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        del event
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+
+        groove_color = self.palette().color(self.backgroundRole()).darker(108)
+        band_color = QColor("#5E9B5B")
+        endcap_color = self.palette().color(self.foregroundRole())
+
+        rect = self.rect().adjusted(0, 1, 0, -1)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(groove_color)
+        painter.drawRoundedRect(rect, 3, 3)
+
+        if self._maximum <= self._minimum:
+            return
+
+        span = self._maximum - self._minimum
+        lower = max(self._minimum, min(self._recommended[0], self._maximum))
+        upper = max(lower, min(self._recommended[1], self._maximum))
+        left = rect.left() + round(((lower - self._minimum) / span) * rect.width())
+        right = rect.left() + round(((upper - self._minimum) / span) * rect.width())
+        recommended_rect = rect.adjusted(left - rect.left(), 0, right - rect.right(), 0)
+
+        painter.setBrush(band_color)
+        painter.drawRoundedRect(recommended_rect, 3, 3)
+
+        painter.setBrush(endcap_color)
+        painter.drawEllipse(rect.left(), rect.center().y() - 1, 2, 2)
+        painter.drawEllipse(rect.right() - 1, rect.center().y() - 1, 2, 2)
+
+
+class _SliderField(QWidget):
+    valueChanged = Signal(int)
+
+    def __init__(
+        self,
+        *,
+        minimum: int,
+        maximum: int,
+        value: int,
+        value_prefix: str = "",
+    ) -> None:
+        super().__init__()
+        self._value_prefix = value_prefix
+        layout = QGridLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setHorizontalSpacing(_UI_INLINE_SPACING)
+        layout.setVerticalSpacing(4)
+        layout.setColumnStretch(0, 1)
+
+        self.slider = _NoWheelSlider(Qt.Orientation.Horizontal)
+        self.slider.setRange(minimum, maximum)
+        self.slider.setValue(value)
+        self.slider.setSingleStep(1)
+        self.slider.setPageStep(max(1, (maximum - minimum) // 10))
+        self.slider.setTickInterval(max(1, (maximum - minimum) // 8))
+        self.slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        layout.addWidget(self.slider, 0, 0)
+
+        self.value_label = QLabel()
+        self.value_label.setMinimumWidth(48)
+        self.value_label.setAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        )
+        layout.addWidget(self.value_label, 0, 1)
+
+        self.range_bar = _RecommendedRangeBar(minimum, maximum)
+        layout.addWidget(self.range_bar, 1, 0)
+
+        self.hint_label = QLabel("")
+        self.hint_label.setStyleSheet("font-size: 11px;")
+        self.hint_label.setWordWrap(True)
+        layout.addWidget(self.hint_label, 2, 0)
+
+        self.slider.valueChanged.connect(self._handle_value_changed)
+        self._handle_value_changed(value)
+
+    def setRange(self, minimum: int, maximum: int) -> None:
+        self.slider.setRange(minimum, maximum)
+        self.range_bar.set_bounds(minimum, maximum)
+
+    def setValue(self, value: int) -> None:
+        self.slider.setValue(value)
+
+    def value(self) -> int:
+        return self.slider.value()
+
+    def setSingleStep(self, step: int) -> None:
+        self.slider.setSingleStep(step)
+
+    def set_recommended_range(self, lower: int, upper: int, *, label: str) -> None:
+        self.range_bar.set_recommended_range(lower, upper)
+        self.hint_label.setText(label)
+
+    def _handle_value_changed(self, value: int) -> None:
+        prefix = f"{self._value_prefix} " if self._value_prefix else ""
+        self.value_label.setText(f"{prefix}{value}")
+        self.valueChanged.emit(value)
 
 
 class DependencySetupWidget(QWidget):
@@ -321,7 +464,7 @@ class OutputSettingsWidget(QWidget):
         self._refresh_form_state()
         self._refresh_group_layout()
 
-    def resizeEvent(self, event: object) -> None:
+    def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
         self._refresh_group_layout()
 
@@ -414,7 +557,10 @@ class OutputSettingsWidget(QWidget):
         default_profile = "high" if settings.video_codec is VideoCodec.H264 else "main"
         preset = "medium"
         profile = default_profile
-        if settings.video_encoder_options is not None:
+        if isinstance(
+            settings.video_encoder_options,
+            H264EncoderOptions | H265EncoderOptions,
+        ):
             preset = settings.video_encoder_options.preset
             profile = settings.video_encoder_options.profile
         if isinstance(settings.target_quality, H264QualityOptions | H265QualityOptions):
@@ -430,15 +576,18 @@ class OutputSettingsWidget(QWidget):
     def _apply_vpx_settings(self, settings: OutputSettings) -> None:
         if isinstance(settings.target_quality, Vp8QualityOptions | Vp9QualityOptions):
             self.vpx_quality_spin.setValue(settings.target_quality.quality)
-            self.vpx_speed_spin.setValue(settings.target_quality.speed)
-            return
-
-        if settings.video_codec is VideoCodec.VP8:
-            self.vpx_quality_spin.setValue(31)
-            self.vpx_speed_spin.setValue(4)
+            self.vpx_quality_two_pass_checkbox.setChecked(settings.target_quality.two_pass)
         else:
-            self.vpx_quality_spin.setValue(32)
-            self.vpx_speed_spin.setValue(2)
+            self.vpx_quality_spin.setValue(31 if settings.video_codec is VideoCodec.VP8 else 32)
+            self.vpx_quality_two_pass_checkbox.setChecked(False)
+
+        cpu_used = default_vpx_cpu_used(settings.video_codec)
+        if (
+            isinstance(settings.video_encoder_options, VpxEncoderOptions)
+            and settings.video_encoder_options.codec is settings.video_codec
+        ):
+            cpu_used = settings.video_encoder_options.cpu_used
+        self.vpx_speed_spin.setValue(cpu_used)
 
     def _apply_audio_bitrate(self, bitrate: int | None) -> None:
         if bitrate is None:
@@ -514,9 +663,7 @@ class OutputSettingsWidget(QWidget):
         layout = QFormLayout(panel)
         self._configure_form_layout(layout)
 
-        self.h26x_crf_spin = _NoWheelSpinBox()
-        self.h26x_crf_spin.setRange(0, 51)
-        self.h26x_crf_spin.setValue(23)
+        self.h26x_crf_spin = _SliderField(minimum=0, maximum=51, value=23, value_prefix="CRF")
         self.h26x_preset_combo = _NoWheelComboBox()
         self.h26x_profile_combo = _NoWheelComboBox()
         layout.addRow("CRF", self.h26x_crf_spin)
@@ -532,20 +679,32 @@ class OutputSettingsWidget(QWidget):
         layout.addRow("Profile", self.h26x_profile_combo)
         return group
 
+    def _build_vpx_encoder_group(self) -> QGroupBox:
+        group = QGroupBox("VP8 / VP9 Encoder Tuning")
+        self._configure_group_box(group)
+        layout = QFormLayout(group)
+        self._configure_form_layout(layout)
+        layout.addRow("CPU Used", self.vpx_speed_spin)
+        return group
+
     def _build_vpx_quality_panel(self) -> QWidget:
         panel = QWidget()
         layout = QFormLayout(panel)
         self._configure_form_layout(layout)
 
-        self.vpx_quality_spin = _NoWheelSpinBox()
-        self.vpx_quality_spin.setRange(0, 63)
-        self.vpx_quality_spin.setValue(32)
+        self.vpx_quality_spin = _SliderField(
+            minimum=0,
+            maximum=63,
+            value=32,
+            value_prefix="CQ",
+        )
+        self.vpx_quality_two_pass_checkbox = QCheckBox("Use 2-pass encode")
         self.vpx_speed_spin = _NoWheelSpinBox()
         self.vpx_speed_spin.setRange(VPX_SPEED_RANGE.start, VPX_SPEED_RANGE.stop - 1)
         self.vpx_speed_spin.setValue(2)
 
         layout.addRow("Quality", self.vpx_quality_spin)
-        layout.addRow("Speed", self.vpx_speed_spin)
+        layout.addRow("", self.vpx_quality_two_pass_checkbox)
         return panel
 
     def _build_format_group(self) -> QGroupBox:
@@ -609,6 +768,12 @@ class OutputSettingsWidget(QWidget):
             QSizePolicy.Policy.Fixed,
         )
         layout.addWidget(self.h26x_encoder_group)
+        self.vpx_encoder_group = self._build_vpx_encoder_group()
+        self.vpx_encoder_group.setSizePolicy(
+            QSizePolicy.Policy.Preferred,
+            QSizePolicy.Policy.Fixed,
+        )
+        layout.addWidget(self.vpx_encoder_group)
         layout.addStretch(1)
         return group
 
@@ -684,6 +849,7 @@ class OutputSettingsWidget(QWidget):
             self.h26x_preset_combo,
             self.h26x_profile_combo,
             self.vpx_quality_spin,
+            self.vpx_quality_two_pass_checkbox,
             self.vpx_speed_spin,
         )
         for widget in expanding_fields:
@@ -744,6 +910,7 @@ class OutputSettingsWidget(QWidget):
         self.h26x_preset_combo.currentIndexChanged.connect(self._refresh_validation)
         self.h26x_profile_combo.currentIndexChanged.connect(self._refresh_validation)
         self.vpx_quality_spin.valueChanged.connect(self._refresh_validation)
+        self.vpx_quality_two_pass_checkbox.toggled.connect(self._refresh_validation)
         self.vpx_speed_spin.valueChanged.connect(self._refresh_validation)
 
     def _handle_container_changed(self) -> None:
@@ -833,7 +1000,9 @@ class OutputSettingsWidget(QWidget):
         self.quality_stack.setCurrentIndex(0 if is_h26x else 1)
 
         if is_h26x:
+            self._apply_h26x_quality_recommendation(video_codec)
             self.h26x_encoder_group.setVisible(True)
+            self.vpx_encoder_group.setVisible(False)
             preset_options = quality_preset_options(video_codec)
             profile_options = quality_profile_options(video_codec)
             default_profile = "high" if video_codec is VideoCodec.H264 else "main"
@@ -859,11 +1028,33 @@ class OutputSettingsWidget(QWidget):
             elif video_codec is VideoCodec.H265 and self.h26x_crf_spin.value() == 23:
                 self.h26x_crf_spin.setValue(28)
         else:
+            self._apply_vpx_quality_recommendation()
             self.h26x_encoder_group.setVisible(False)
+            self.vpx_encoder_group.setVisible(True)
             if self.vpx_speed_spin.value() not in VPX_SPEED_RANGE:
-                self.vpx_speed_spin.setValue(2)
+                self.vpx_speed_spin.setValue(default_vpx_cpu_used(video_codec))
 
         self._sync_stack_height(self.quality_stack)
+
+    def _apply_h26x_quality_recommendation(self, video_codec: VideoCodec) -> None:
+        lower, upper = (
+            _RECOMMENDED_H264_CRF_RANGE
+            if video_codec is VideoCodec.H264
+            else _RECOMMENDED_H265_CRF_RANGE
+        )
+        self.h26x_crf_spin.set_recommended_range(
+            lower,
+            upper,
+            label=f"Recommended quality range: {lower}-{upper}",
+        )
+
+    def _apply_vpx_quality_recommendation(self) -> None:
+        lower, upper = _RECOMMENDED_VPX_QUALITY_RANGE
+        self.vpx_quality_spin.set_recommended_range(
+            lower,
+            upper,
+            label=f"Recommended quality range: {lower}-{upper}",
+        )
 
     def _refresh_strategy_panel(self) -> None:
         strategy = self._selected_value(self.strategy_combo, EncodingStrategy.TARGET_QUALITY)
@@ -925,17 +1116,17 @@ class OutputSettingsWidget(QWidget):
         if video_codec is VideoCodec.VP8:
             return Vp8QualityOptions(
                 quality=self.vpx_quality_spin.value(),
-                speed=self.vpx_speed_spin.value(),
+                two_pass=self.vpx_quality_two_pass_checkbox.isChecked(),
             )
         return Vp9QualityOptions(
             quality=self.vpx_quality_spin.value(),
-            speed=self.vpx_speed_spin.value(),
+            two_pass=self.vpx_quality_two_pass_checkbox.isChecked(),
         )
 
     def _current_video_encoder_options(
         self,
         video_codec: VideoCodec,
-    ) -> H264EncoderOptions | H265EncoderOptions | None:
+    ) -> H264EncoderOptions | H265EncoderOptions | VpxEncoderOptions | None:
         if video_codec is VideoCodec.H264:
             return H264EncoderOptions(
                 preset=self.h26x_preset_combo.currentText(),
@@ -946,7 +1137,10 @@ class OutputSettingsWidget(QWidget):
                 preset=self.h26x_preset_combo.currentText(),
                 profile=self.h26x_profile_combo.currentText(),
             )
-        return None
+        return VpxEncoderOptions(
+            codec=video_codec,
+            cpu_used=self.vpx_speed_spin.value(),
+        )
 
     def _selected_audio_codec(self) -> AudioCodec | None:
         current_data = self.audio_codec_combo.currentData()
@@ -2660,7 +2854,10 @@ def _format_output_overview(
             f"Target bitrate {settings.target_bitrate.video_bitrate // 1_000} kbps"
             f"{' • 2-pass' if settings.target_bitrate.two_pass else ''}"
         ),
-        EncodingStrategy.TARGET_QUALITY: _format_quality_summary(settings.target_quality),
+        EncodingStrategy.TARGET_QUALITY: _format_quality_summary(
+            settings.target_quality,
+            settings.video_encoder_options,
+        ),
     }[settings.encoding_strategy]
 
     return " | ".join(
@@ -2674,12 +2871,19 @@ def _format_output_overview(
     )
 
 
-def _format_quality_summary(options: QualityOptions) -> str:
+def _format_quality_summary(
+    options: QualityOptions,
+    video_encoder_options: object,
+) -> str:
     if isinstance(options, H264QualityOptions | H265QualityOptions):
         return (
             f"Quality: CRF {options.crf} • Preset {options.preset} • Profile {options.profile}"
         )
-    return f"Quality: {options.quality} • Speed {options.speed}"
+    cpu_used = "default"
+    if isinstance(video_encoder_options, VpxEncoderOptions):
+        cpu_used = str(video_encoder_options.cpu_used)
+    suffix = " • 2-pass" if options.two_pass else ""
+    return f"Quality: {options.quality} • CPU Used {cpu_used}{suffix}"
 
 
 def _format_validation_result(result: ValidationResult) -> str:

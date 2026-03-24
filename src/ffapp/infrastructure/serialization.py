@@ -24,6 +24,8 @@ from ffapp.core.models import (
     VideoEncoderOptions,
     Vp8QualityOptions,
     Vp9QualityOptions,
+    VpxEncoderOptions,
+    default_vpx_cpu_used,
 )
 from ffapp.core.validation import (
     VPX_SPEED_RANGE,
@@ -153,10 +155,22 @@ def deserialize_output_settings(payload: Mapping[str, Any]) -> OutputSettings:
         if video_encoder_payload not in (None, "")
         else None
     )
+    target_quality_payload = _mapping(payload.get("target_quality"))
     target_quality = _deserialize_quality_options(
         video_codec,
-        _mapping(payload.get("target_quality")),
+        target_quality_payload,
     )
+    if video_encoder_options is None and video_codec in {VideoCodec.VP8, VideoCodec.VP9}:
+        cpu_used = _read_int(
+            target_quality_payload.get("speed"),
+            default=default_vpx_cpu_used(video_codec),
+        )
+        if cpu_used not in VPX_SPEED_RANGE:
+            raise SettingsDecodeError("Invalid VP8/VP9 CPU used setting.")
+        video_encoder_options = VpxEncoderOptions(
+            codec=video_codec,
+            cpu_used=cpu_used,
+        )
 
     return OutputSettings(
         container=container,
@@ -218,6 +232,11 @@ def _serialize_video_encoder_options(
 ) -> dict[str, object] | None:
     if options is None:
         return None
+    if isinstance(options, VpxEncoderOptions):
+        return {
+            "codec": options.codec.value,
+            "cpu_used": options.cpu_used,
+        }
     return {
         "codec": options.codec.value,
         "preset": options.preset,
@@ -236,7 +255,7 @@ def _serialize_quality_options(options: QualityOptions) -> dict[str, object]:
     return {
         "codec": options.codec.value,
         "quality": options.quality,
-        "speed": options.speed,
+        "two_pass": options.two_pass,
     }
 
 
@@ -260,7 +279,13 @@ def _deserialize_video_encoder_options(
         if profile not in quality_profile_options(video_codec):
             raise SettingsDecodeError("Invalid H.265 encoder profile.")
         return H265EncoderOptions(preset=preset, profile=profile)
-    return None
+    cpu_used = _read_int(
+        payload.get("cpu_used"),
+        default=default_vpx_cpu_used(video_codec),
+    )
+    if cpu_used not in VPX_SPEED_RANGE:
+        raise SettingsDecodeError("Invalid VP8/VP9 CPU used setting.")
+    return VpxEncoderOptions(codec=video_codec, cpu_used=cpu_used)
 
 
 def _deserialize_quality_options(
@@ -292,19 +317,13 @@ def _deserialize_quality_options(
             profile=profile,
         )
     if video_codec is VideoCodec.VP8:
-        speed = _read_int(payload.get("speed"), default=4)
-        if speed not in VPX_SPEED_RANGE:
-            raise SettingsDecodeError("Invalid VP8 speed setting.")
         return Vp8QualityOptions(
             quality=_read_int(payload.get("quality"), default=31),
-            speed=speed,
+            two_pass=bool(payload.get("two_pass", False)),
         )
-    speed = _read_int(payload.get("speed"), default=2)
-    if speed not in VPX_SPEED_RANGE:
-        raise SettingsDecodeError("Invalid VP9 speed setting.")
     return Vp9QualityOptions(
         quality=_read_int(payload.get("quality"), default=32),
-        speed=speed,
+        two_pass=bool(payload.get("two_pass", False)),
     )
 
 

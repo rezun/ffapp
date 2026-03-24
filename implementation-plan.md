@@ -248,11 +248,13 @@ Completed
 
 ### Developer Notes
 
-- Added phase-2 output models in `src/ffapp/core/models.py`, including `OutputSettings`, orientation-aware resolution handling, shared H.264/H.265 encoder tuning options, and codec-specific quality option types for H.264, H.265, VP8, and VP9.
+- Added phase-2 output models in `src/ffapp/core/models.py`, including `OutputSettings`, orientation-aware resolution handling, shared H.264/H.265 encoder tuning options, shared VP8/VP9 `cpu-used` encoder tuning, and codec-specific quality option types for H.264, H.265, VP8, and VP9.
 - Implemented the compatibility matrix and structured validation engine in `src/ffapp/core/validation.py`, covering container/codec rules, audio copy and re-encode validation, subtitle/data stream copy constraints, file-size budget checks, bitrate warning thresholds, and validation of shared H.264/H.265 preset/profile selections.
 - Replaced the output-settings placeholder UI in `src/ffapp/app/main_window.py` with a grouped settings panel for container, codec, audio, stream-removal, resolution, and encoding-strategy controls plus inline validation feedback and resolved output-resolution display.
 - The settings UI now includes:
   - shared H.264/H.265 preset and profile controls for quality, target bitrate, and target file size modes
+  - shared VP8/VP9 `CPU Used` controls that apply across target quality, target bitrate, and target file size modes
+  - an optional VP8/VP9 quality-mode 2-pass toggle
   - an audio bitrate preset dropdown with common values plus a custom bitrate field on the same row
   - dynamic strategy-panel sizing so the encoding section only uses the height needed by the active strategy
 - Added `tests/core/test_validation.py` to cover compatibility rules, portrait-aware resolution presets, file-size mode validation, bitrate validation, shared encoder-option validation, and codec-specific quality settings.
@@ -288,8 +290,8 @@ Implement the full MVP settings model and all validation rules before process ex
 - Implement codec-specific quality option models:
   - H.264: CRF, preset, profile
   - H.265: CRF, preset, profile
-  - VP8: quality, speed
-  - VP9: quality, speed
+  - VP8: quality plus shared VPx encoder tuning
+  - VP9: quality plus shared VPx encoder tuning
 - Implement bitrate warning thresholds and severity rules.
 - Implement a validation engine that returns structured issues, not just strings.
 
@@ -315,8 +317,9 @@ Completed
 
 ### Developer Notes
 
-- Implemented deterministic command generation in `src/ffapp/core/commands.py`, including output-file naming, stream mapping, codec argument selection, resolution scaling filters, bitrate/file-size calculations, shared H.264/H.265 preset/profile arguments for bitrate-based modes, compact `k` bitrate formatting, and 2-pass command generation.
-- Added `tests/core/test_commands.py` to cover single-pass quality commands, portrait scaling, stream removal, target-file-size bitrate calculation, bitrate-mode preset/profile handling, 2-pass bitrate generation, and output-path collision handling.
+- Implemented deterministic command generation in `src/ffapp/core/commands.py`, including output-file naming, stream mapping, codec argument selection, resolution scaling filters, bitrate/file-size calculations, shared H.264/H.265 preset/profile arguments for bitrate-based modes, shared VP8/VP9 tuning arguments, compact `k` bitrate formatting, and 2-pass command generation.
+- VP8/VP9 command generation now applies `-deadline good` by default, applies `-cpu-used` across all encoding strategies, enables `-row-mt 1` for VP9, and supports optional 2-pass target-quality encodes with `-auto-alt-ref 1` on the second pass.
+- Added `tests/core/test_commands.py` to cover single-pass quality commands, portrait scaling, stream removal, target-file-size bitrate calculation, bitrate-mode preset/profile handling, VP8/VP9 shared tuning, 2-pass bitrate generation, VP9 2-pass quality generation, and output-path collision handling.
 - Replaced the phase-3 placeholder in `src/ffapp/app/main_window.py` with a live read-only command preview that refreshes from the current source/settings state and supports copy/export actions.
 - The command preview now includes:
   - a `Single Command` option that merges 2-pass commands into one shell-style preview using `&&`
@@ -353,7 +356,7 @@ Generate correct `ffmpeg` commands from validated settings and show them in the 
   - H.265
   - VP8
   - VP9
-- Implement 2-pass command generation for bitrate-based modes.
+- Implement 2-pass command generation for bitrate-based modes and VP8/VP9 quality mode.
 - Add read-only command preview with copy and export actions.
 
 ### Deliverables
@@ -568,6 +571,7 @@ Completed
 
 - Implemented typed JSON serialization for persisted output settings and preset definitions in `src/ffapp/infrastructure/serialization.py`.
 - Expanded `src/ffapp/infrastructure/settings.py` so app settings now persist both executable paths and the last-used output configuration, while still handling older settings files that do not include encode settings.
+- Added backward-compatible migration for older VP8/VP9 settings and presets that stored `speed` inside quality settings so they now hydrate into shared VPx encoder tuning automatically.
 - Added `src/ffapp/infrastructure/presets.py` with JSON-based preset persistence, schema versioning, save/update, rename, delete, and graceful skipping of invalid or outdated preset entries.
 - Updated `src/ffapp/app/main_window.py` to:
   - restore the last-used output settings on startup
@@ -626,11 +630,18 @@ In Progress
 - Removed the oversized nested margins that made `Media Info Summary`, `Output Settings`, and other panels feel visually inconsistent.
 - Reduced left-tab content padding and removed default Qt frame chrome from the right-side scroll and tab containers so the workspace no longer shows stray dark borders.
 - Added responsive layout behavior to `OutputSettingsWidget` so `Validation and Output` moves into a right-side column when enough horizontal space is available, reducing overly wide controls on large windows.
+- Split VP8/VP9 encoder tuning out from the quality-only panel so `CPU Used` is available for target quality, target bitrate, and target file size, while VP8/VP9 quality mode keeps its own optional 2-pass toggle.
+- Replaced the H.264/H.265 CRF and VP8/VP9 quality numeric fields with horizontal slider controls that show the current value inline and a recommended-value band beneath the slider.
+- Adjusted the custom slider field so the recommended band aligns with the actual slider track instead of the full row width, and restored theme-readable helper text for dark backgrounds.
+- Disabled mouse-wheel changes on the CRF and quality sliders so scrolling the form while hovering those controls no longer changes encode settings accidentally.
 - Moved `Selected Queue Item` out of the execution inspector and into the left-side `Queue` workspace so queue inspection lives with queue management instead of the run-state view.
 - Simplified the `Execution` tab by removing redundant wrapper chrome, compressing the always-visible header/status area, and collapsing bulky sections like command details and ffmpeg logs until needed.
 - Removed always-visible explanatory copy from `Presets` and `Output Settings`, replacing it with discoverable tooltip help indicated directly in the group titles.
 - Verification completed locally via:
   - `python3 -m compileall src`
+  - `.venv/bin/python -m pytest`
+  - `.venv/bin/python -m ruff check src tests`
+  - `.venv/bin/python -m mypy`
 
 ### Objective
 

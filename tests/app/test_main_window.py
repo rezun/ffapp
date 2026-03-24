@@ -45,6 +45,7 @@ from ffapp.core.models import (
     VideoCodec,
     VideoStreamInfo,
     Vp9QualityOptions,
+    VpxEncoderOptions,
 )
 
 
@@ -165,7 +166,7 @@ class JobDetailsWidgetTests(unittest.TestCase):
         widget.set_prepared_job(prepared)
         widget.set_start_enabled(True)
 
-        self.assertEqual(widget.state_label.text(), "State: Ready")
+        self.assertEqual(widget.state_label.text(), "Ready")
         self.assertTrue(widget.start_button.isEnabled())
         self.assertFalse(widget.command_toggle.isChecked())
         self.assertFalse(widget.command_output.isVisible())
@@ -188,7 +189,7 @@ class JobDetailsWidgetTests(unittest.TestCase):
 
         widget.show_result(result, can_start=True)
 
-        self.assertEqual(widget.state_label.text(), "State: Completed")
+        self.assertEqual(widget.state_label.text(), "Completed")
         self.assertTrue(widget.start_button.isEnabled())
         self.assertFalse(widget.cancel_button.isEnabled())
         self.assertEqual(widget.progress_bar.value(), 1000)
@@ -307,12 +308,13 @@ class MainWindowLayoutTests(unittest.TestCase):
             video_codec=VideoCodec.VP9,
             encoding_strategy=EncodingStrategy.TARGET_QUALITY,
             resolution_preset=ResolutionPreset.P1080,
+            video_encoder_options=VpxEncoderOptions(codec=VideoCodec.VP9, cpu_used=3),
             audio_options=AudioOptions(
                 mode=AudioMode.REENCODE,
                 codec=AudioCodec.OPUS,
                 bitrate=160_000,
             ),
-            target_quality=Vp9QualityOptions(quality=29, speed=3),
+            target_quality=Vp9QualityOptions(quality=29, two_pass=True),
         )
         settings_service = _FakeSettingsService(
             AppSettings(last_used_settings=saved_settings)
@@ -337,12 +339,13 @@ class MainWindowLayoutTests(unittest.TestCase):
             video_codec=VideoCodec.VP9,
             encoding_strategy=EncodingStrategy.TARGET_QUALITY,
             resolution_preset=ResolutionPreset.P1080,
+            video_encoder_options=VpxEncoderOptions(codec=VideoCodec.VP9, cpu_used=3),
             audio_options=AudioOptions(
                 mode=AudioMode.REENCODE,
                 codec=AudioCodec.OPUS,
                 bitrate=160_000,
             ),
-            target_quality=Vp9QualityOptions(quality=29, speed=3),
+            target_quality=Vp9QualityOptions(quality=29, two_pass=True),
         )
         window = MainWindow(
             _FakeSettingsService(AppSettings(last_used_settings=current_settings)),
@@ -360,12 +363,13 @@ class MainWindowLayoutTests(unittest.TestCase):
             video_codec=VideoCodec.VP9,
             encoding_strategy=EncodingStrategy.TARGET_QUALITY,
             resolution_preset=ResolutionPreset.P720,
+            video_encoder_options=VpxEncoderOptions(codec=VideoCodec.VP9, cpu_used=2),
             audio_options=AudioOptions(
                 mode=AudioMode.REENCODE,
                 codec=AudioCodec.OPUS,
                 bitrate=128_000,
             ),
-            target_quality=Vp9QualityOptions(quality=31, speed=2),
+            target_quality=Vp9QualityOptions(quality=31),
         )
         window = MainWindow(
             _FakeSettingsService(AppSettings(last_used_settings=settings)),
@@ -415,6 +419,17 @@ class WheelGuardTests(unittest.TestCase):
 
         self.assertEqual(widget.h26x_crf_spin.value(), original_value)
 
+    def test_quality_slider_ignores_wheel(self) -> None:
+        widget = OutputSettingsWidget()
+        widget.show()
+        widget.container_combo.setFocus()
+        self.application.processEvents()
+        original_value = widget.h26x_crf_spin.value()
+
+        QApplication.sendEvent(widget.h26x_crf_spin.slider, _wheel_event())
+
+        self.assertEqual(widget.h26x_crf_spin.value(), original_value)
+
     def test_unfocused_combobox_ignores_wheel(self) -> None:
         widget = OutputSettingsWidget()
         widget.show()
@@ -425,6 +440,19 @@ class WheelGuardTests(unittest.TestCase):
         QApplication.sendEvent(widget.container_combo, _wheel_event())
 
         self.assertEqual(widget.container_combo.currentIndex(), original_index)
+
+    def test_vpx_cpu_used_group_stays_visible_outside_quality_mode(self) -> None:
+        widget = OutputSettingsWidget()
+        widget.container_combo.setCurrentIndex(widget.container_combo.findData(OutputContainer.MKV))
+        widget.video_codec_combo.setCurrentIndex(widget.video_codec_combo.findData(VideoCodec.VP9))
+        widget.strategy_combo.setCurrentIndex(
+            widget.strategy_combo.findData(EncodingStrategy.TARGET_BITRATE)
+        )
+
+        widget._refresh_form_state()
+
+        self.assertFalse(widget.vpx_encoder_group.isHidden())
+        self.assertTrue(widget.h26x_encoder_group.isHidden())
 
 
 def _wheel_event() -> QWheelEvent:

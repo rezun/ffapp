@@ -14,6 +14,7 @@ from ffapp.core.models import (
     ResolutionPreset,
     VideoCodec,
     Vp9QualityOptions,
+    VpxEncoderOptions,
 )
 from ffapp.infrastructure.presets import JsonPresetService, PresetStorageError
 
@@ -31,12 +32,13 @@ class JsonPresetServiceTests(unittest.TestCase):
                     video_codec=VideoCodec.VP9,
                     encoding_strategy=EncodingStrategy.TARGET_QUALITY,
                     resolution_preset=ResolutionPreset.P1080,
+                    video_encoder_options=VpxEncoderOptions(codec=VideoCodec.VP9, cpu_used=3),
                     audio_options=AudioOptions(
                         mode=AudioMode.REENCODE,
                         codec=AudioCodec.OPUS,
                         bitrate=160_000,
                     ),
-                    target_quality=Vp9QualityOptions(quality=30, speed=3),
+                    target_quality=Vp9QualityOptions(quality=30, two_pass=True),
                 ),
             )
 

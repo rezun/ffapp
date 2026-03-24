@@ -20,6 +20,8 @@ from ffapp.core.models import (
     VideoCodec,
     Vp8QualityOptions,
     Vp9QualityOptions,
+    VpxEncoderOptions,
+    default_vpx_cpu_used,
 )
 from ffapp.core.services import CompatibilityService, ValidationService
 
@@ -222,6 +224,29 @@ class DefaultValidationService(ValidationService):
                 field_name="video_encoder",
             )
 
+        encoder = settings.video_encoder_options or VpxEncoderOptions(
+            codec=settings.video_codec,
+            cpu_used=default_vpx_cpu_used(settings.video_codec),
+        )
+        if not isinstance(encoder, VpxEncoderOptions) or encoder.codec is not settings.video_codec:
+            return [
+                ValidationIssue(
+                    severity=ValidationSeverity.ERROR,
+                    code="video_encoder_options_required",
+                    message="Choose a valid VP8/VP9 CPU used setting.",
+                    field_name="video_encoder",
+                )
+            ]
+        if encoder.cpu_used not in VPX_SPEED_RANGE:
+            return [
+                ValidationIssue(
+                    severity=ValidationSeverity.ERROR,
+                    code="video_encoder_cpu_used_invalid",
+                    message="VP8/VP9 CPU used must be between 0 and 8.",
+                    field_name="video_encoder",
+                )
+            ]
+
         return []
 
     def _validate_audio_settings(self, settings: OutputSettings) -> list[ValidationIssue]:
@@ -387,26 +412,16 @@ class DefaultValidationService(ValidationService):
             )
 
         if isinstance(quality, (Vp8QualityOptions, Vp9QualityOptions)):
-            issues: list[ValidationIssue] = []
-            if not 0 <= quality.quality <= 63:
-                issues.append(
-                    ValidationIssue(
-                        severity=ValidationSeverity.ERROR,
-                        code="quality_value_invalid",
-                        message="VP8/VP9 quality must be between 0 and 63.",
-                        field_name="target_quality",
-                    )
+            if 0 <= quality.quality <= 63:
+                return []
+            return [
+                ValidationIssue(
+                    severity=ValidationSeverity.ERROR,
+                    code="quality_value_invalid",
+                    message="VP8/VP9 quality must be between 0 and 63.",
+                    field_name="target_quality",
                 )
-            if quality.speed not in VPX_SPEED_RANGE:
-                issues.append(
-                    ValidationIssue(
-                        severity=ValidationSeverity.ERROR,
-                        code="quality_speed_invalid",
-                        message="VP8/VP9 speed must be between 0 and 8.",
-                        field_name="target_quality",
-                    )
-                )
-            return issues
+            ]
 
 
 def quality_preset_options(video_codec: VideoCodec) -> tuple[str, ...]:

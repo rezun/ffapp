@@ -13,6 +13,7 @@ from ffapp.core.models import (
     OutputSettings,
     VideoCodec,
     Vp9QualityOptions,
+    VpxEncoderOptions,
 )
 from ffapp.infrastructure.settings import JsonSettingsService
 
@@ -40,13 +41,14 @@ class JsonSettingsServiceTests(unittest.TestCase):
                 last_used_settings=OutputSettings(
                     container=OutputContainer.MKV,
                     video_codec=VideoCodec.VP9,
+                    video_encoder_options=VpxEncoderOptions(codec=VideoCodec.VP9, cpu_used=3),
                     audio_options=AudioOptions(
                         mode=AudioMode.REENCODE,
                         codec=AudioCodec.OPUS,
                         bitrate=192_000,
                         remix_to_stereo=True,
                     ),
-                    target_quality=Vp9QualityOptions(),
+                    target_quality=Vp9QualityOptions(two_pass=True),
                 ),
             )
 
@@ -77,6 +79,60 @@ class JsonSettingsServiceTests(unittest.TestCase):
             actual = service.load()
 
         self.assertEqual(actual.last_used_settings, OutputSettings())
+
+    def test_load_migrates_legacy_vpx_speed_to_video_encoder_options(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            settings_path = Path(temp_dir) / "settings.json"
+            settings_path.write_text(
+                """
+                {
+                  "schema_version": 2,
+                  "last_used_settings": {
+                    "container": "mkv",
+                    "video_codec": "vp9",
+                    "encoding_strategy": "target_quality",
+                    "resolution_preset": "original",
+                    "audio_options": {
+                      "mode": "copy",
+                      "codec": null,
+                      "bitrate": null,
+                      "remix_to_stereo": false
+                    },
+                    "stream_handling": {
+                      "remove_subtitles": false,
+                      "remove_data": false,
+                      "remove_audio": false
+                    },
+                    "target_file_size": {
+                      "target_size_mb": 50,
+                      "two_pass": false,
+                      "muxing_overhead_ratio": 0.015
+                    },
+                    "target_bitrate": {
+                      "video_bitrate": 3000000,
+                      "two_pass": false
+                    },
+                    "target_quality": {
+                      "codec": "vp9",
+                      "quality": 30,
+                      "speed": 4
+                    }
+                  }
+                }
+                """.strip(),
+                encoding="utf-8",
+            )
+            service = JsonSettingsService(path=settings_path)
+
+            actual = service.load()
+
+        self.assertEqual(
+            actual.last_used_settings.video_encoder_options,
+            VpxEncoderOptions(codec=VideoCodec.VP9, cpu_used=4),
+        )
+        self.assertEqual(actual.last_used_settings.target_quality, Vp9QualityOptions(quality=30))
 
 
 if __name__ == "__main__":

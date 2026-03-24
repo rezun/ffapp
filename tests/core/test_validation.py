@@ -24,6 +24,7 @@ from ffapp.core.models import (
     ValidationSeverity,
     VideoCodec,
     VideoStreamInfo,
+    VpxEncoderOptions,
 )
 from ffapp.core.validation import DefaultCompatibilityService, DefaultValidationService
 
@@ -183,6 +184,21 @@ class ValidationServiceTests(unittest.TestCase):
 
         self.assertTrue(result.has_errors)
         self.assertIn("quality_codec_mismatch", {issue.code for issue in result.errors})
+
+    def test_vpx_encoder_options_must_match_selected_video_codec(self) -> None:
+        result = self.service.validate(
+            OutputSettings(
+                container=OutputContainer.OGG,
+                video_codec=VideoCodec.VP9,
+                encoding_strategy=EncodingStrategy.TARGET_BITRATE,
+                video_encoder_options=VpxEncoderOptions(codec=VideoCodec.VP8, cpu_used=3),
+                target_bitrate=TargetBitrateOptions(video_bitrate=1_500_000),
+            ),
+            _media_info(),
+        )
+
+        self.assertTrue(result.has_errors)
+        self.assertIn("video_encoder_options_required", {issue.code for issue in result.errors})
 
     def test_valid_h265_quality_settings_pass_validation(self) -> None:
         result = self.service.validate(

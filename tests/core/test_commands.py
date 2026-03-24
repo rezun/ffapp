@@ -26,6 +26,7 @@ from ffapp.core.models import (
     VideoCodec,
     VideoStreamInfo,
     Vp9QualityOptions,
+    VpxEncoderOptions,
 )
 
 
@@ -110,7 +111,8 @@ class CommandBuilderTests(unittest.TestCase):
                     remove_subtitles=True,
                     remove_data=True,
                 ),
-                target_quality=Vp9QualityOptions(quality=30, speed=2),
+                video_encoder_options=VpxEncoderOptions(codec=VideoCodec.VP9, cpu_used=2),
+                target_quality=Vp9QualityOptions(quality=30),
             ),
             _media_info(width=1080, height=1920, extra_video_streams=1, include_subtitle=True),
         )[0]
@@ -122,10 +124,59 @@ class CommandBuilderTests(unittest.TestCase):
         self.assertIn("libopus", command.arguments)
         self.assertIn("160000", command.arguments)
         self.assertIn("2", command.arguments)
+        self.assertIn("good", command.arguments)
+        self.assertIn("-row-mt", command.arguments)
         self.assertIn(
             "scale=720:1280:force_original_aspect_ratio=decrease:force_divisible_by=2",
             command.arguments,
         )
+
+    def test_vp8_bitrate_mode_uses_shared_vpx_tuning(self) -> None:
+        command = self.builder.build(
+            JobDefinition(
+                source_path=Path("/tmp/source clip.mov"),
+                output_path=Path("/tmp/source clip.ogv"),
+                container=OutputContainer.OGG,
+                video_codec=VideoCodec.VP8,
+                encoding_strategy=EncodingStrategy.TARGET_BITRATE,
+                video_encoder_options=VpxEncoderOptions(codec=VideoCodec.VP8, cpu_used=5),
+                target_bitrate=TargetBitrateOptions(video_bitrate=1_800_000),
+            ),
+            _media_info(),
+        )[0]
+
+        self.assertIn("libvpx", command.arguments)
+        self.assertIn("good", command.arguments)
+        self.assertIn("5", command.arguments)
+        self.assertNotIn("row-mt", command.arguments)
+
+    def test_vp9_quality_two_pass_uses_alt_ref_and_faster_first_pass(self) -> None:
+        commands = self.builder.build(
+            JobDefinition(
+                source_path=Path("/tmp/source clip.mov"),
+                output_path=Path("/tmp/source clip.webm"),
+                container=OutputContainer.OGG,
+                video_codec=VideoCodec.VP9,
+                encoding_strategy=EncodingStrategy.TARGET_QUALITY,
+                video_encoder_options=VpxEncoderOptions(codec=VideoCodec.VP9, cpu_used=2),
+                target_quality=Vp9QualityOptions(quality=28, two_pass=True),
+            ),
+            _media_info(),
+        )
+
+        self.assertEqual(len(commands), 2)
+        first_pass, second_pass = commands
+        self.assertIn("-pass", first_pass.arguments)
+        self.assertIn("1", first_pass.arguments)
+        self.assertIn("-cpu-used", first_pass.arguments)
+        self.assertIn("4", first_pass.arguments)
+        self.assertNotIn("-auto-alt-ref", first_pass.arguments)
+        self.assertIn("-pass", second_pass.arguments)
+        self.assertIn("2", second_pass.arguments)
+        self.assertIn("-cpu-used", second_pass.arguments)
+        self.assertIn("2", second_pass.arguments)
+        self.assertIn("-auto-alt-ref", second_pass.arguments)
+        self.assertIn("-row-mt", second_pass.arguments)
 
     def test_target_file_size_uses_computed_video_bitrate(self) -> None:
         command = self.builder.build(

@@ -93,6 +93,12 @@ class H265EncoderOptions:
 
 
 @dataclass(slots=True, frozen=True)
+class VpxEncoderOptions:
+    codec: VideoCodec = VideoCodec.VP9
+    cpu_used: int = 2
+
+
+@dataclass(slots=True, frozen=True)
 class H264QualityOptions:
     codec: VideoCodec = VideoCodec.H264
     crf: int = 23
@@ -112,18 +118,22 @@ class H265QualityOptions:
 class Vp8QualityOptions:
     codec: VideoCodec = VideoCodec.VP8
     quality: int = 31
-    speed: int = 4
+    two_pass: bool = False
 
 
 @dataclass(slots=True, frozen=True)
 class Vp9QualityOptions:
     codec: VideoCodec = VideoCodec.VP9
     quality: int = 32
-    speed: int = 2
+    two_pass: bool = False
 
 
-VideoEncoderOptions = H264EncoderOptions | H265EncoderOptions
+VideoEncoderOptions = H264EncoderOptions | H265EncoderOptions | VpxEncoderOptions
 QualityOptions = H264QualityOptions | H265QualityOptions | Vp8QualityOptions | Vp9QualityOptions
+
+
+def default_vpx_cpu_used(video_codec: VideoCodec) -> int:
+    return 4 if video_codec is VideoCodec.VP8 else 2
 
 
 @dataclass(slots=True, frozen=True)

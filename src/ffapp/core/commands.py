@@ -21,6 +21,8 @@ from ffapp.core.models import (
     VideoCodec,
     Vp8QualityOptions,
     Vp9QualityOptions,
+    VpxEncoderOptions,
+    default_vpx_cpu_used,
 )
 from ffapp.core.services import CommandBuilder
 
@@ -51,12 +53,14 @@ class DefaultCommandBuilder(CommandBuilder):
         stream_args = _build_stream_arguments(job, media_info)
 
         if _uses_two_pass(job):
-            bitrate = _resolve_video_bitrate(job, media_info)
+            bitrate = None
+            if job.encoding_strategy.value != "target_quality":
+                bitrate = _resolve_video_bitrate(job, media_info)
             pass_log_path = _pass_log_path(job.output_path)
             first_pass_args = [
                 *input_args,
                 *mapping_args,
-                *_build_video_codec_arguments(job, media_info, bitrate=bitrate),
+                *_build_video_codec_arguments(job, media_info, bitrate=bitrate, pass_index=1),
                 "-pass",
                 "1",
                 "-passlogfile",
@@ -72,7 +76,7 @@ class DefaultCommandBuilder(CommandBuilder):
                 *input_args,
                 *mapping_args,
                 *stream_args,
-                *_build_video_codec_arguments(job, media_info, bitrate=bitrate),
+                *_build_video_codec_arguments(job, media_info, bitrate=bitrate, pass_index=2),
                 "-pass",
                 "2",
                 "-passlogfile",
@@ -173,6 +177,7 @@ def _build_video_codec_arguments(
     media_info: SourceMediaInfo,
     *,
     bitrate: int | None = None,
+    pass_index: int | None = None,
 ) -> list[str]:
     arguments = ["-c:v", _video_encoder_name(job.video_codec)]
 
@@ -181,10 +186,10 @@ def _build_video_codec_arguments(
         arguments.extend(["-vf", scale_filter])
 
     if job.encoding_strategy.value == "target_quality":
-        arguments.extend(_quality_arguments(job))
+        arguments.extend(_quality_arguments(job, pass_index=pass_index))
         return arguments
 
-    arguments.extend(_video_encoder_tuning_arguments(job))
+    arguments.extend(_video_encoder_tuning_arguments(job, pass_index=pass_index))
     resolved_bitrate = bitrate
     if resolved_bitrate is None:
         resolved_bitrate = _resolve_video_bitrate(job, media_info)
@@ -192,7 +197,11 @@ def _build_video_codec_arguments(
     return arguments
 
 
-def _quality_arguments(job: JobDefinition) -> list[str]:
+def _quality_arguments(
+    job: JobDefinition,
+    *,
+    pass_index: int | None = None,
+) -> list[str]:
     quality = job.target_quality
     if quality is None:
         raise CommandBuildError("Quality encoding requires codec-specific quality settings.")
@@ -223,14 +232,21 @@ def _quality_arguments(job: JobDefinition) -> list[str]:
             str(quality.quality),
             "-b:v",
             "0",
-            "-cpu-used",
-            str(quality.speed),
+            *_vpx_encoder_tuning_arguments(
+                job,
+                _resolve_vpx_encoder_options(job.video_codec, job.video_encoder_options),
+                pass_index=pass_index,
+            ),
         ]
 
     raise CommandBuildError("Unsupported quality settings were provided.")
 
 
-def _video_encoder_tuning_arguments(job: JobDefinition) -> list[str]:
+def _video_encoder_tuning_arguments(
+    job: JobDefinition,
+    *,
+    pass_index: int | None = None,
+) -> list[str]:
     if job.video_codec is VideoCodec.H264:
         encoder = job.video_encoder_options or H264EncoderOptions()
         if not isinstance(encoder, H264EncoderOptions):
@@ -253,7 +269,50 @@ def _video_encoder_tuning_arguments(job: JobDefinition) -> list[str]:
             encoder.profile,
         ]
 
-    return []
+    return _vpx_encoder_tuning_arguments(
+        job,
+        _resolve_vpx_encoder_options(job.video_codec, job.video_encoder_options),
+        pass_index=pass_index,
+    )
+
+
+def _resolve_vpx_encoder_options(
+    video_codec: VideoCodec,
+    configured_options: object,
+) -> VpxEncoderOptions:
+    if isinstance(configured_options, VpxEncoderOptions):
+        if configured_options.codec is video_codec:
+            return configured_options
+        raise CommandBuildError("VP8/VP9 encoding requires matching VPx encoder options.")
+    if configured_options is not None:
+        raise CommandBuildError("VP8/VP9 encoding requires VPx encoder options.")
+
+    return VpxEncoderOptions(
+        codec=video_codec,
+        cpu_used=default_vpx_cpu_used(video_codec),
+    )
+
+
+def _vpx_encoder_tuning_arguments(
+    job: JobDefinition,
+    encoder: VpxEncoderOptions,
+    *,
+    pass_index: int | None = None,
+) -> list[str]:
+    cpu_used = encoder.cpu_used
+    if _uses_two_pass(job) and pass_index == 1:
+        cpu_used = max(cpu_used, 4)
+    arguments = [
+        "-deadline",
+        "good",
+        "-cpu-used",
+        str(cpu_used),
+    ]
+    if job.video_codec is VideoCodec.VP9:
+        arguments.extend(["-row-mt", "1"])
+    if _uses_two_pass(job) and pass_index == 2:
+        arguments.extend(["-auto-alt-ref", "1"])
+    return arguments
 
 
 def _resolve_video_bitrate(job: JobDefinition, media_info: SourceMediaInfo | None) -> int:
@@ -345,6 +404,10 @@ def _uses_two_pass(job: JobDefinition) -> bool:
         return bool(job.target_file_size and job.target_file_size.two_pass)
     if job.encoding_strategy.value == "target_bitrate":
         return bool(job.target_bitrate and job.target_bitrate.two_pass)
+    if job.encoding_strategy.value == "target_quality":
+        quality = job.target_quality
+        if isinstance(quality, (Vp8QualityOptions, Vp9QualityOptions)):
+            return quality.two_pass
     return False
 
 

@@ -7,45 +7,63 @@ This document turns the MVP in [mvp-plan.md](mvp-plan.md) into a phased implemen
 - Deliver a usable MVP in small, testable increments.
 - Keep probing, validation, command generation, and process execution separate.
 - Avoid UI-first shortcuts that would make queueing, presets, or future video filters harder to add.
+- Keep non-UI logic independent from PySide6 so it can be tested without a running `QApplication`.
+- Use modern Python 3.12+ conventions with explicit type hints as the default implementation style.
+
+## Coding Standards
+
+- Add explicit type hints to public functions, methods, dataclasses, protocols, and important internal helpers.
+- Prefer `pathlib`, `dataclass`, `Enum`, `Protocol`, and built-in generic types over legacy patterns.
+- Keep core models typed and structured rather than passing loosely shaped dictionaries between layers.
+- Use small, composable functions and classes with clear ownership of side effects.
+- Favor standard-library solutions unless a dependency materially simplifies the design.
 
 ## Recommended Solution Structure
 
-Create a small multi-project solution instead of putting everything into the Photino UI project.
+Create a small Python application package with clear boundaries instead of putting everything into one PySide6 module.
 
-### Projects
+### Package Layout
 
-- `src/FFApp.App`
-  - Photino.Blazor host
-  - UI components and pages
-  - Dependency injection setup
-  - app startup and desktop integration
-- `src/FFApp.Core`
+- `pyproject.toml`
+  - project metadata
+  - runtime dependencies
+  - dev tooling configuration
+- `src/ffapp/__main__.py`
+  - app entry point
+  - startup composition root
+- `src/ffapp/app`
+  - PySide6 application bootstrap
+  - main window, dialogs, and widgets
+  - view models or presentation-state adapters
+  - signal wiring and desktop integration
+- `src/ffapp/core`
   - domain models
   - validation rules
   - compatibility matrix
   - command generation
   - queue orchestration contracts
   - preset and settings contracts
-- `src/FFApp.Infrastructure`
+- `src/ffapp/infrastructure`
   - `ffprobe` integration
   - `ffmpeg` process execution
   - settings persistence
   - preset persistence
   - file system helpers
-- `tests/FFApp.Core.Tests`
+- `tests/core`
   - validation tests
   - command generation tests
   - compatibility tests
-- `tests/FFApp.Infrastructure.Tests`
+- `tests/infrastructure`
   - parsing tests
   - settings serialization tests
   - queue/execution unit tests with fakes where possible
 
 ### High-Level Layering
 
-- `FFApp.App` depends on `FFApp.Core` and `FFApp.Infrastructure`
-- `FFApp.Infrastructure` depends on `FFApp.Core`
-- `FFApp.Core` depends on nothing UI-specific
+- `ffapp.app` depends on `ffapp.core` and `ffapp.infrastructure`
+- `ffapp.infrastructure` depends on `ffapp.core`
+- `ffapp.core` depends on standard-library Python only where practical
+- PySide6 stays in the app layer, except for thin adapter types where desktop integration requires it
 
 ## Core Domain to Define Early
 
@@ -75,17 +93,22 @@ These types should be created before major UI work begins.
 - `ValidationIssue`
 - `ValidationResult`
 
+Use `dataclass` and `Enum` types unless there is a strong reason not to.
+Use modern typing features consistently so the core domain is readable and tool-friendly.
+
 ## Core Services to Define Early
 
-- `IMediaProbeService`
-- `ISettingsService`
-- `IPresetService`
-- `ICompatibilityService`
-- `IValidationService`
-- `ICommandBuilder`
-- `IProcessRunner`
-- `IJobExecutionService`
-- `IQueueService`
+Define these as small contracts, typically via `Protocol`, abstract base classes, or narrow concrete service boundaries.
+
+- `MediaProbeService`
+- `SettingsService`
+- `PresetService`
+- `CompatibilityService`
+- `ValidationService`
+- `CommandBuilder`
+- `ProcessRunner`
+- `JobExecutionService`
+- `QueueService`
 
 ## Cross-Cutting Rules
 
@@ -93,38 +116,41 @@ These types should be created before major UI work begins.
 - Treat command generation as a pure function over validated job settings.
 - Use immutable or near-immutable models for generated jobs where practical.
 - Make validation deterministic and testable outside the UI.
-- Parse `ffmpeg` progress in infrastructure, not in components.
+- Parse `ffmpeg` progress in infrastructure, not in widgets.
+- Keep Qt-specific types out of core models and service contracts.
 - Design video transforms so resize is the first item in a future filter pipeline.
 
 ## Phase 0: Repository and Project Bootstrap
 
 ### Objective
 
-Create the initial solution and the minimum app shell so later phases can land cleanly.
+Create the initial Python project and the minimum app shell so later phases can land cleanly.
 
 ### Tasks
 
-- Create the solution file.
-- Create the `App`, `Core`, `Infrastructure`, and test projects.
-- Wire project references.
-- Add package references needed for Photino.Blazor and test frameworks.
-- Set up dependency injection in the app project.
-- Add a basic layout with placeholder navigation or sections.
+- Create `pyproject.toml`.
+- Create the `src/ffapp` package and the `tests` directories.
+- Add runtime dependencies for PySide6 and any small supporting libraries if truly needed.
+- Add dev dependencies and configuration for `pytest`.
+- Add linting and static type-checking configuration appropriate for a typed Python codebase.
+- Add the application entry point and startup composition root.
+- Set up a basic main window with placeholder sections.
 - Add configuration support for app settings storage locations.
-- Add a shared logging abstraction or use the built-in .NET logging pipeline.
+- Add structured logging using the standard `logging` module.
 
 ### Deliverables
 
-- Buildable solution
+- Runnable project
 - Launchable desktop shell
-- Basic DI container setup
-- Empty but compilable service interfaces and models
+- Basic service composition setup
+- Empty but importable service interfaces and models
 
 ### Acceptance Criteria
 
-- `dotnet build` succeeds for the whole solution.
-- The desktop app launches and shows a placeholder shell.
-- Core and infrastructure projects compile independently of UI logic.
+- `python -m pytest` succeeds for the initial test suite.
+- `python -m ffapp` launches and shows a placeholder window.
+- Core and infrastructure modules import independently of UI logic.
+- The project includes baseline tooling to validate typed, modern Python code.
 
 ## Phase 1: Media Probing and Dependency Detection
 
@@ -137,7 +163,7 @@ Implement dependency discovery and media inspection so the app can load a source
 - Implement executable path discovery for `ffmpeg` and `ffprobe`.
 - Implement manual path configuration and persistence.
 - Implement runtime validation using `ffmpeg -version` and `ffprobe -version`.
-- Implement `IMediaProbeService`.
+- Implement `MediaProbeService`.
 - Probe media metadata using `ffprobe`.
 - Parse:
   - duration
@@ -212,7 +238,7 @@ Implement the full MVP settings model and all validation rules before process ex
 - Invalid copy combinations are blocked before execution.
 - Resolution presets work for portrait and landscape media.
 - File-size mode computes validation outcomes based on probed media info.
-- All validation rules are test-covered in `FFApp.Core.Tests`.
+- All validation rules are test-covered in `tests/core`.
 
 ## Phase 3: Command Generation and Preview
 
@@ -222,7 +248,7 @@ Generate correct `ffmpeg` commands from validated settings and show them in the 
 
 ### Tasks
 
-- Implement `ICommandBuilder`.
+- Implement `CommandBuilder`.
 - Define a `GeneratedCommand` model with:
   - executable path
   - argument list
@@ -265,15 +291,17 @@ Execute one job end-to-end and report progress reliably.
 
 ### Tasks
 
-- Implement `IProcessRunner`.
-- Implement `IJobExecutionService`.
-- Start `ffmpeg` as a child process.
+- Implement `ProcessRunner`.
+- Implement `JobExecutionService`.
+- Start `ffmpeg` as a child process using `subprocess.Popen`.
+- Run process monitoring off the UI thread.
 - Parse progress from process output.
 - Surface:
   - elapsed time
   - processed time
   - percentage when derivable
   - current speed if available
+- Marshal job updates back to the UI safely through signals or a thin event adapter.
 - Capture stderr and store it with the job result.
 - Implement cancellation for the running job.
 - Add a job details panel with command, state, and log output.
@@ -300,7 +328,7 @@ Add the real queue required by MVP and support batch execution with shared setti
 
 ### Tasks
 
-- Implement `IQueueService`.
+- Implement `QueueService`.
 - Model queue items independently from UI form state.
 - Add batch file selection.
 - Add folder import for supported files.
@@ -341,6 +369,7 @@ Make the app practical for repeated use by implementing presets and persistent s
   - executable paths
   - last used settings
   - saved presets
+- Store app data under the platform-appropriate user data directory.
 - Add UI for preset selection and management.
 - Validate loaded presets against the current compatibility rules.
 
@@ -371,8 +400,9 @@ Stabilize the MVP so it is ready for real use across supported desktop platforms
 - Verify path handling for spaces and non-trivial file names.
 - Verify progress parsing on short and long jobs.
 - Add logging where failures are otherwise opaque.
-- Review startup, shutdown, and cancellation edge cases.
+- Review startup, shutdown, threading, and cancellation edge cases.
 - Prepare packaging and release checklist for Windows, macOS, and Linux.
+- Decide and document the packaging path, such as PyInstaller or Nuitka.
 
 ### Deliverables
 
@@ -410,6 +440,9 @@ Cover:
 - preset serialization
 - queue state transitions
 
+Use `pytest` for non-UI tests and keep them runnable without a desktop session.
+Include static type checking in the regular validation workflow once the initial project bootstrap is in place.
+
 ### Manual Smoke Tests
 
 Maintain a small set of real sample files:
@@ -438,6 +471,13 @@ Mitigation:
 
 - Use a single validated settings model as the input to command generation.
 - Keep the preview sourced from the same `GeneratedCommand` used for execution.
+
+### Risk: UI freezes during probing or encoding
+
+Mitigation:
+
+- Keep `ffprobe` and `ffmpeg` execution off the main Qt thread.
+- Send progress back through explicit events or signals rather than letting widgets own process state.
 
 ### Risk: Batch jobs mutating when the user edits the form
 

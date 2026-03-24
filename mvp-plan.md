@@ -2,14 +2,14 @@
 
 ## Purpose
 
-Build a small cross-platform desktop helper application for Windows, macOS, and Linux using .NET 10 and Photino.Blazor.
+Build a small cross-platform desktop helper application for Windows, macOS, and Linux using Python 3.12+ and PySide6.
 
 The app helps users generate and execute valid `ffmpeg` commands through a guided UI instead of typing commands manually.
 
 ## Core Product Decisions
 
 - The app must invoke `ffmpeg` directly for all output generation.
-- Media inspection may use `ffprobe` directly or a small .NET wrapper around `ffprobe`/media metadata.
+- Media inspection should use `ffprobe` directly through Python subprocess execution and JSON parsing.
 - `ffmpeg` and `ffprobe` are required runtime dependencies.
 - The app is greenfield and should be designed as an MVP first, with later expansion after the core workflow is stable.
 - The UI must prevent invalid container/codec combinations instead of allowing them and failing later.
@@ -17,6 +17,7 @@ The app helps users generate and execute valid `ffmpeg` commands through a guide
 - The app targets single-file and batch processing in MVP.
 - Multiple video streams are not supported in MVP. The app should warn and use the first video stream only.
 - Global audio settings apply to all audio streams in a job. Per-stream audio settings are out of scope for MVP.
+- Core business logic should stay independent from PySide6 widgets so validation and command generation remain easy to test.
 
 ## Non-Goals for MVP
 
@@ -30,10 +31,18 @@ The app helps users generate and execute valid `ffmpeg` commands through a guide
 
 ## Runtime Requirements
 
-- .NET 10 runtime for the app.
-- Photino.Blazor desktop shell.
+- Python 3.12+ runtime for development and local execution.
+- PySide6 for the desktop UI.
 - `ffmpeg` available on `PATH` or manually configured by the user.
 - `ffprobe` available on `PATH` or manually configured by the user.
+
+## Engineering Standards
+
+- Implementation should use modern Python 3.12+ style throughout.
+- New Python code should include explicit type hints for public functions, methods, dataclasses, and important module-level values.
+- Prefer `pathlib`, `dataclass`, `Enum`, `Protocol`, and standard-library typing features over older ad hoc patterns.
+- Keep functions focused, side effects explicit, and data models clear enough that non-UI logic remains easy to test.
+- Avoid untyped "stringly typed" dictionaries for core domain data when a typed model is practical.
 
 ## Startup and Dependency Discovery
 
@@ -384,6 +393,7 @@ The app needs a real job queue.
 - Standard error and command details should be retained per job for troubleshooting.
 - The current running job can be canceled.
 - Canceling a batch should stop the active job and leave the remaining jobs pending or canceled according to the chosen UX policy.
+- Process work must happen off the main Qt thread so the UI remains responsive.
 
 ## Output File Naming
 
@@ -453,7 +463,7 @@ Clipboard support only needs to handle file references or paths, not arbitrary b
 
 ## Technical Implementation Notes
 
-- Use a C# domain model to represent:
+- Use Python `dataclass` and `Enum` types to represent:
   - source media info
   - target container
   - target codecs
@@ -464,7 +474,8 @@ Clipboard support only needs to handle file references or paths, not arbitrary b
   - preset definition
   - queue job state
 - Treat command generation as a pure transformation from validated settings to a concrete process invocation model.
-- Keep probing, validation, command generation, and process execution separated into distinct services.
+- Keep probing, validation, command generation, and process execution separated into distinct services or modules.
+- Keep PySide6 widget state and signals at the UI boundary instead of inside the core domain model.
 - Avoid coupling the UI directly to raw `ffmpeg` argument strings.
 
 ## Recommended MVP UI Sections

@@ -120,7 +120,33 @@ Define these as small contracts, typically via `Protocol`, abstract base classes
 - Keep Qt-specific types out of core models and service contracts.
 - Design video transforms so resize is the first item in a future filter pipeline.
 
+## Phase Tracking
+
+Each phase should retain two small handoff fields:
+
+- `Status`
+  - Use one of: `Not Started`, `In Progress`, `Blocked`, `Completed`
+- `Developer Notes`
+  - Record what actually shipped, what was deferred, verification run, and any local environment limits that affected validation
+
 ## Phase 0: Repository and Project Bootstrap
+
+### Status
+
+Completed
+
+### Developer Notes
+
+- Created the Python project bootstrap in `pyproject.toml` with runtime and dev dependency groups plus baseline `pytest`, `ruff`, and `mypy` configuration.
+- Added the initial package layout under `src/ffapp` and `tests`, including importable `core`, `infrastructure`, and `app` modules.
+- Added the application entry point and startup composition root in `src/ffapp/__main__.py` and `src/ffapp/app/bootstrap.py`.
+- Added structured logging setup and app-data/settings path helpers.
+- Added a placeholder desktop shell in `src/ffapp/app/main_window.py` with top-level sections reserved for later phases.
+- Added baseline non-UI unit tests and ensured the code compiles cleanly.
+- Created a local `.venv` and installed the declared dependencies with `pip install -e '.[dev]'`.
+- Verification now completed against the local virtual environment:
+  - `.venv/bin/python -m pytest`
+  - offscreen Qt startup smoke test for the main window
 
 ### Objective
 
@@ -153,6 +179,23 @@ Create the initial Python project and the minimum app shell so later phases can 
 - The project includes baseline tooling to validate typed, modern Python code.
 
 ## Phase 1: Media Probing and Dependency Detection
+
+### Status
+
+Completed
+
+### Developer Notes
+
+- Implemented executable discovery and validation in `src/ffapp/infrastructure/dependencies.py`, including saved-path preference and `-version` checks for both `ffmpeg` and `ffprobe`.
+- Implemented JSON settings persistence for executable paths in `src/ffapp/infrastructure/settings.py`.
+- Implemented `ffprobe`-based media probing and JSON parsing in `src/ffapp/infrastructure/probe.py`.
+- Added typed media models for source/container/stream data in `src/ffapp/core/models.py`.
+- Added the dependency setup screen, dependency status display, source file picker, drag-and-drop handling, clipboard path paste flow, and media summary panel in `src/ffapp/app/main_window.py`.
+- Probe failures and invalid dependency configuration now surface as user-visible messages instead of crashing.
+- Verification completed locally via:
+  - `python3 -m compileall src tests`
+  - `.venv/bin/python -m pytest`
+  - offscreen Qt startup smoke test that instantiated `MainWindow` successfully under `PySide6`
 
 ### Objective
 
@@ -193,6 +236,14 @@ Implement dependency discovery and media inspection so the app can load a source
 - Probe failures produce user-visible errors.
 
 ## Phase 2: Output Settings and Validation Engine
+
+### Status
+
+Not Started
+
+### Developer Notes
+
+- Placeholder only. The main window already reserves an `Output Settings` section for this phase.
 
 ### Objective
 
@@ -242,6 +293,14 @@ Implement the full MVP settings model and all validation rules before process ex
 
 ## Phase 3: Command Generation and Preview
 
+### Status
+
+Not Started
+
+### Developer Notes
+
+- Placeholder only. The main window already reserves a `Command Preview` section for this phase.
+
 ### Objective
 
 Generate correct `ffmpeg` commands from validated settings and show them in the UI.
@@ -285,6 +344,14 @@ Generate correct `ffmpeg` commands from validated settings and show them in the 
 
 ## Phase 4: Single-Job Execution, Progress, and Cancellation
 
+### Status
+
+Not Started
+
+### Developer Notes
+
+- No execution pipeline has been implemented yet.
+
 ### Objective
 
 Execute one job end-to-end and report progress reliably.
@@ -322,6 +389,14 @@ Execute one job end-to-end and report progress reliably.
 
 ## Phase 5: Queue and Batch Processing
 
+### Status
+
+Not Started
+
+### Developer Notes
+
+- Placeholder only. The main window already reserves a `Queue` section for this phase.
+
 ### Objective
 
 Add the real queue required by MVP and support batch execution with shared settings.
@@ -356,6 +431,14 @@ Add the real queue required by MVP and support batch execution with shared setti
 
 ## Phase 6: Presets and Settings Persistence
 
+### Status
+
+Not Started
+
+### Developer Notes
+
+- Executable path persistence exists from Phase 1, but preset persistence and last-used encode settings are still pending.
+
 ### Objective
 
 Make the app practical for repeated use by implementing presets and persistent settings.
@@ -386,6 +469,14 @@ Make the app practical for repeated use by implementing presets and persistent s
 - Invalid or outdated preset data is handled gracefully.
 
 ## Phase 7: Polish, Hardening, and Packaging Readiness
+
+### Status
+
+Not Started
+
+### Developer Notes
+
+- Packaging and cross-platform hardening have not started.
 
 ### Objective
 

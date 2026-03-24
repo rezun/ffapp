@@ -155,7 +155,7 @@ class CommandBuilderTests(unittest.TestCase):
             JobDefinition(
                 source_path=Path("/tmp/source clip.mov"),
                 output_path=Path("/tmp/source clip.webm"),
-                container=OutputContainer.OGG,
+                container=OutputContainer.WEBM,
                 video_codec=VideoCodec.VP9,
                 encoding_strategy=EncodingStrategy.TARGET_QUALITY,
                 video_encoder_options=VpxEncoderOptions(codec=VideoCodec.VP9, cpu_used=2),
@@ -245,6 +245,15 @@ class OutputPathTests(unittest.TestCase):
             suggested = suggest_output_path(source_path, OutputContainer.MP4)
 
             self.assertEqual(suggested, Path(temp_dir) / "example-1.mp4")
+
+    def test_suggest_output_path_uses_webm_extension(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source_path = Path(temp_dir) / "example.mov"
+            source_path.touch()
+
+            suggested = suggest_output_path(source_path, OutputContainer.WEBM)
+
+            self.assertEqual(suggested, Path(temp_dir) / "example.webm")
 
 
 if __name__ == "__main__":

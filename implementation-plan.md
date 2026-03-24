@@ -634,6 +634,7 @@ In Progress
 - Replaced the H.264/H.265 CRF and VP8/VP9 quality numeric fields with horizontal slider controls that show the current value inline and a recommended-value band beneath the slider.
 - Adjusted the custom slider field so the recommended band aligns with the actual slider track instead of the full row width, and restored theme-readable helper text for dark backgrounds.
 - Disabled mouse-wheel changes on the CRF and quality sliders so scrolling the form while hovering those controls no longer changes encode settings accidentally.
+- Added `WEBM` as an MVP output container for VP8/VP9 video with Vorbis/Opus audio, including compatibility, serialization, and output-path support.
 - Moved `Selected Queue Item` out of the execution inspector and into the left-side `Queue` workspace so queue inspection lives with queue management instead of the run-state view.
 - Simplified the `Execution` tab by removing redundant wrapper chrome, compressing the always-visible header/status area, and collapsing bulky sections like command details and ffmpeg logs until needed.
 - Removed always-visible explanatory copy from `Presets` and `Output Settings`, replacing it with discoverable tooltip help indicated directly in the group titles.

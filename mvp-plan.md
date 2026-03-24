@@ -99,6 +99,7 @@ Batch processing must use a real queue with sequential execution, progress track
 
 - MP4
 - MKV
+- WEBM
 - OGG
 
 `MOV` is deferred until after MVP.
@@ -118,6 +119,11 @@ The UI must only allow valid combinations.
 - Audio: MP3, AAC, Vorbis, Opus
 
 ### OGG
+
+- Video: VP8, VP9
+- Audio: Vorbis, Opus
+
+### WEBM
 
 - Video: VP8, VP9
 - Audio: Vorbis, Opus

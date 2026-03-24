@@ -9,6 +9,7 @@ from typing import Self
 class OutputContainer(StrEnum):
     MP4 = "mp4"
     MKV = "mkv"
+    WEBM = "webm"
     OGG = "ogg"
 
 

@@ -336,6 +336,7 @@ def _validate_container_codecs(
     allowed_video_codecs = {
         OutputContainer.MP4: {VideoCodec.H264, VideoCodec.H265},
         OutputContainer.MKV: {VideoCodec.H264, VideoCodec.H265, VideoCodec.VP8, VideoCodec.VP9},
+        OutputContainer.WEBM: {VideoCodec.VP8, VideoCodec.VP9},
         OutputContainer.OGG: {VideoCodec.VP8, VideoCodec.VP9},
     }
     if video_codec not in allowed_video_codecs[container]:
@@ -353,6 +354,7 @@ def _validate_audio_codec(
     allowed_audio_codecs = {
         OutputContainer.MP4: {AudioCodec.AAC, AudioCodec.MP3},
         OutputContainer.MKV: {AudioCodec.MP3, AudioCodec.AAC, AudioCodec.VORBIS, AudioCodec.OPUS},
+        OutputContainer.WEBM: {AudioCodec.VORBIS, AudioCodec.OPUS},
         OutputContainer.OGG: {AudioCodec.VORBIS, AudioCodec.OPUS},
     }
     if audio_codec not in allowed_audio_codecs[container]:

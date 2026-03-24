@@ -304,7 +304,7 @@ class MainWindowLayoutTests(unittest.TestCase):
 
     def test_main_window_restores_last_used_settings_and_lists_presets(self) -> None:
         saved_settings = OutputSettings(
-            container=OutputContainer.MKV,
+            container=OutputContainer.WEBM,
             video_codec=VideoCodec.VP9,
             encoding_strategy=EncodingStrategy.TARGET_QUALITY,
             resolution_preset=ResolutionPreset.P1080,
@@ -335,7 +335,7 @@ class MainWindowLayoutTests(unittest.TestCase):
     def test_selecting_a_preset_applies_it_immediately(self) -> None:
         current_settings = OutputSettings()
         preset_settings = OutputSettings(
-            container=OutputContainer.MKV,
+            container=OutputContainer.WEBM,
             video_codec=VideoCodec.VP9,
             encoding_strategy=EncodingStrategy.TARGET_QUALITY,
             resolution_preset=ResolutionPreset.P1080,

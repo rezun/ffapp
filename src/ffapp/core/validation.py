@@ -43,11 +43,13 @@ VPX_SPEED_RANGE = range(0, 9)
 _VIDEO_CODEC_MATRIX: dict[OutputContainer, tuple[VideoCodec, ...]] = {
     OutputContainer.MP4: (VideoCodec.H264, VideoCodec.H265),
     OutputContainer.MKV: (VideoCodec.H264, VideoCodec.H265, VideoCodec.VP8, VideoCodec.VP9),
+    OutputContainer.WEBM: (VideoCodec.VP8, VideoCodec.VP9),
     OutputContainer.OGG: (VideoCodec.VP8, VideoCodec.VP9),
 }
 _AUDIO_CODEC_MATRIX: dict[OutputContainer, tuple[AudioCodec, ...]] = {
     OutputContainer.MP4: (AudioCodec.AAC, AudioCodec.MP3),
     OutputContainer.MKV: (AudioCodec.MP3, AudioCodec.AAC, AudioCodec.VORBIS, AudioCodec.OPUS),
+    OutputContainer.WEBM: (AudioCodec.VORBIS, AudioCodec.OPUS),
     OutputContainer.OGG: (AudioCodec.VORBIS, AudioCodec.OPUS),
 }
 _PRESET_RESOLUTIONS: dict[ResolutionPreset, Resolution] = {
@@ -502,12 +504,18 @@ def _validate_subtitle_copy_compatibility(
         return []
 
     issues: list[ValidationIssue] = []
-    if settings.container is OutputContainer.OGG and media_info.subtitle_streams:
+    if (
+        settings.container in {OutputContainer.OGG, OutputContainer.WEBM}
+        and media_info.subtitle_streams
+    ):
         issues.append(
             ValidationIssue(
                 severity=ValidationSeverity.ERROR,
                 code="subtitle_copy_incompatible",
-                message="OGG output requires subtitle streams to be removed in MVP.",
+                message=(
+                    f"{settings.container.value.upper()} output requires subtitle streams "
+                    "to be removed in MVP."
+                ),
                 field_name="remove_subtitles",
             )
         )

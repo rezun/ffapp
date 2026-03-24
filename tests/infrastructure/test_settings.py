@@ -39,7 +39,7 @@ class JsonSettingsServiceTests(unittest.TestCase):
                     ffprobe=Path("/usr/local/bin/ffprobe"),
                 ),
                 last_used_settings=OutputSettings(
-                    container=OutputContainer.MKV,
+                    container=OutputContainer.WEBM,
                     video_codec=VideoCodec.VP9,
                     video_encoder_options=VpxEncoderOptions(codec=VideoCodec.VP9, cpu_used=3),
                     audio_options=AudioOptions(

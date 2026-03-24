@@ -74,6 +74,10 @@ class CompatibilityServiceTests(unittest.TestCase):
             (VideoCodec.VP8, VideoCodec.VP9),
         )
         self.assertEqual(
+            service.allowed_audio_codecs(OutputContainer.WEBM),
+            (AudioCodec.VORBIS, AudioCodec.OPUS),
+        )
+        self.assertEqual(
             service.allowed_audio_codecs(OutputContainer.MP4),
             (AudioCodec.AAC, AudioCodec.MP3),
         )
@@ -109,6 +113,23 @@ class ValidationServiceTests(unittest.TestCase):
         result = self.service.validate(
             OutputSettings(),
             _media_info(subtitle_codec="subrip"),
+        )
+
+        self.assertTrue(result.has_errors)
+        self.assertIn("subtitle_copy_incompatible", {issue.code for issue in result.errors})
+
+    def test_webm_subtitle_copy_requires_subtitle_removal(self) -> None:
+        result = self.service.validate(
+            OutputSettings(
+                container=OutputContainer.WEBM,
+                video_codec=VideoCodec.VP9,
+                audio_options=AudioOptions(
+                    mode=AudioMode.REENCODE,
+                    codec=AudioCodec.OPUS,
+                    bitrate=128_000,
+                ),
+            ),
+            _media_info(audio_codec="opus", subtitle_codec="webvtt"),
         )
 
         self.assertTrue(result.has_errors)

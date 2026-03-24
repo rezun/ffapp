@@ -271,10 +271,18 @@ class PresetDefinition:
 
 
 @dataclass(slots=True, frozen=True)
+class SplitterLayout:
+    main_splitter_sizes: tuple[int, ...] = ()
+    right_splitter_sizes: tuple[int, ...] = ()
+    queue_splitter_sizes: tuple[int, ...] = ()
+
+
+@dataclass(slots=True, frozen=True)
 class AppSettings:
     executable_paths: ExecutablePaths = field(default_factory=ExecutablePaths.empty)
     last_used_settings: OutputSettings = field(default_factory=OutputSettings)
-    schema_version: int = 2
+    splitter_layout: SplitterLayout = field(default_factory=SplitterLayout)
+    schema_version: int = 3
 
 
 @dataclass(slots=True, frozen=True)

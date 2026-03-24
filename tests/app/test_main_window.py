@@ -41,6 +41,7 @@ from ffapp.core.models import (
     QueueItem,
     ResolutionPreset,
     SourceMediaInfo,
+    SplitterLayout,
     ValidationResult,
     VideoCodec,
     VideoStreamInfo,
@@ -317,7 +318,14 @@ class MainWindowLayoutTests(unittest.TestCase):
             target_quality=Vp9QualityOptions(quality=29, two_pass=True),
         )
         settings_service = _FakeSettingsService(
-            AppSettings(last_used_settings=saved_settings)
+            AppSettings(
+                last_used_settings=saved_settings,
+                splitter_layout=SplitterLayout(
+                    main_splitter_sizes=(280, 900),
+                    right_splitter_sizes=(500, 340),
+                    queue_splitter_sizes=(330, 310),
+                ),
+            )
         )
         preset_service = _FakePresetService(
             (PresetDefinition(name="Archive", settings=saved_settings),)
@@ -331,6 +339,33 @@ class MainWindowLayoutTests(unittest.TestCase):
 
         self.assertEqual(window.output_settings_widget.current_settings(), saved_settings)
         self.assertEqual(window.preset_combo.currentText(), "Archive")
+        self.assertEqual(window._settings.splitter_layout.main_splitter_sizes, (280, 900))
+
+    def test_splitter_positions_are_persisted_to_settings(self) -> None:
+        settings_service = _FakeSettingsService()
+        window = MainWindow(
+            settings_service,
+            _FakePresetService(),
+            _FakeDependencyManager(),
+        )
+
+        assert window._main_splitter is not None
+        assert window._right_splitter is not None
+        assert window._queue_splitter is not None
+
+        window._main_splitter.setSizes([310, 870])
+        window._right_splitter.setSizes([530, 310])
+        window._queue_splitter.setSizes([340, 300])
+        window._persist_splitter_layout()
+
+        self.assertEqual(
+            settings_service.value.splitter_layout,
+            SplitterLayout(
+                main_splitter_sizes=tuple(window._main_splitter.sizes()),
+                right_splitter_sizes=tuple(window._right_splitter.sizes()),
+                queue_splitter_sizes=tuple(window._queue_splitter.sizes()),
+            ),
+        )
 
     def test_selecting_a_preset_applies_it_immediately(self) -> None:
         current_settings = OutputSettings()
@@ -453,6 +488,21 @@ class WheelGuardTests(unittest.TestCase):
 
         self.assertFalse(widget.vpx_encoder_group.isHidden())
         self.assertTrue(widget.h26x_encoder_group.isHidden())
+
+    def test_vpx_cpu_used_slider_ignores_wheel(self) -> None:
+        widget = OutputSettingsWidget()
+        widget.show()
+        widget.container_combo.setCurrentIndex(widget.container_combo.findData(OutputContainer.MKV))
+        widget.video_codec_combo.setCurrentIndex(widget.video_codec_combo.findData(VideoCodec.VP9))
+        widget.container_combo.setFocus()
+        self.application.processEvents()
+        original_value = widget.vpx_speed_slider.value()
+
+        QApplication.sendEvent(widget.vpx_speed_slider.slider, _wheel_event())
+
+        self.assertEqual(widget.vpx_speed_slider.value(), original_value)
+        self.assertFalse(widget.vpx_speed_slider.range_bar.isVisible())
+        self.assertFalse(widget.vpx_speed_slider.hint_label.isVisible())
 
 
 def _wheel_event() -> QWheelEvent:

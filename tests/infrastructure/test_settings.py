@@ -11,6 +11,7 @@ from ffapp.core.models import (
     ExecutablePaths,
     OutputContainer,
     OutputSettings,
+    SplitterLayout,
     VideoCodec,
     Vp9QualityOptions,
     VpxEncoderOptions,
@@ -49,6 +50,11 @@ class JsonSettingsServiceTests(unittest.TestCase):
                         remix_to_stereo=True,
                     ),
                     target_quality=Vp9QualityOptions(two_pass=True),
+                ),
+                splitter_layout=SplitterLayout(
+                    main_splitter_sizes=(320, 840),
+                    right_splitter_sizes=(540, 300),
+                    queue_splitter_sizes=(350, 290),
                 ),
             )
 
@@ -133,6 +139,7 @@ class JsonSettingsServiceTests(unittest.TestCase):
             VpxEncoderOptions(codec=VideoCodec.VP9, cpu_used=4),
         )
         self.assertEqual(actual.last_used_settings.target_quality, Vp9QualityOptions(quality=30))
+        self.assertEqual(actual.splitter_layout, SplitterLayout())
 
 
 if __name__ == "__main__":

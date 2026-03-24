@@ -33,7 +33,7 @@ from ffapp.core.validation import (
     quality_profile_options,
 )
 
-SETTINGS_SCHEMA_VERSION = 2
+SETTINGS_SCHEMA_VERSION = 3
 PRESET_SCHEMA_VERSION = 1
 PRESET_LIBRARY_SCHEMA_VERSION = 1
 

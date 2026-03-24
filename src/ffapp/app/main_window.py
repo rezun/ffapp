@@ -34,6 +34,7 @@ from ffapp.core.models import (
     QueueItem,
     ResolutionPreset,
     SourceMediaInfo,
+    SplitterLayout,
     StreamHandlingOptions,
     TargetBitrateOptions,
     TargetFileSizeOptions,
@@ -106,6 +107,7 @@ try:
     from PySide6.QtCore import QSignalBlocker, Qt, QThread, Signal
     from PySide6.QtGui import (
         QAction,
+        QCloseEvent,
         QColor,
         QDragEnterEvent,
         QDropEvent,
@@ -242,6 +244,7 @@ class _SliderField(QWidget):
         maximum: int,
         value: int,
         value_prefix: str = "",
+        show_recommendation: bool = True,
     ) -> None:
         super().__init__()
         self._value_prefix = value_prefix
@@ -274,6 +277,8 @@ class _SliderField(QWidget):
         self.hint_label.setStyleSheet("font-size: 11px;")
         self.hint_label.setWordWrap(True)
         layout.addWidget(self.hint_label, 2, 0)
+        self.range_bar.setVisible(show_recommendation)
+        self.hint_label.setVisible(show_recommendation)
 
         self.slider.valueChanged.connect(self._handle_value_changed)
         self._handle_value_changed(value)
@@ -587,7 +592,7 @@ class OutputSettingsWidget(QWidget):
             and settings.video_encoder_options.codec is settings.video_codec
         ):
             cpu_used = settings.video_encoder_options.cpu_used
-        self.vpx_speed_spin.setValue(cpu_used)
+        self.vpx_speed_slider.setValue(cpu_used)
 
     def _apply_audio_bitrate(self, bitrate: int | None) -> None:
         if bitrate is None:
@@ -684,7 +689,7 @@ class OutputSettingsWidget(QWidget):
         self._configure_group_box(group)
         layout = QFormLayout(group)
         self._configure_form_layout(layout)
-        layout.addRow("CPU Used", self.vpx_speed_spin)
+        layout.addRow("CPU Used", self.vpx_speed_slider)
         return group
 
     def _build_vpx_quality_panel(self) -> QWidget:
@@ -699,9 +704,13 @@ class OutputSettingsWidget(QWidget):
             value_prefix="CQ",
         )
         self.vpx_quality_two_pass_checkbox = QCheckBox("Use 2-pass encode")
-        self.vpx_speed_spin = _NoWheelSpinBox()
-        self.vpx_speed_spin.setRange(VPX_SPEED_RANGE.start, VPX_SPEED_RANGE.stop - 1)
-        self.vpx_speed_spin.setValue(2)
+        self.vpx_speed_slider = _SliderField(
+            minimum=VPX_SPEED_RANGE.start,
+            maximum=VPX_SPEED_RANGE.stop - 1,
+            value=2,
+            value_prefix="CPU",
+            show_recommendation=False,
+        )
 
         layout.addRow("Quality", self.vpx_quality_spin)
         layout.addRow("", self.vpx_quality_two_pass_checkbox)
@@ -850,7 +859,7 @@ class OutputSettingsWidget(QWidget):
             self.h26x_profile_combo,
             self.vpx_quality_spin,
             self.vpx_quality_two_pass_checkbox,
-            self.vpx_speed_spin,
+            self.vpx_speed_slider,
         )
         for widget in expanding_fields:
             widget.setMinimumWidth(140)
@@ -911,7 +920,7 @@ class OutputSettingsWidget(QWidget):
         self.h26x_profile_combo.currentIndexChanged.connect(self._refresh_validation)
         self.vpx_quality_spin.valueChanged.connect(self._refresh_validation)
         self.vpx_quality_two_pass_checkbox.toggled.connect(self._refresh_validation)
-        self.vpx_speed_spin.valueChanged.connect(self._refresh_validation)
+        self.vpx_speed_slider.valueChanged.connect(self._refresh_validation)
 
     def _handle_container_changed(self) -> None:
         if self._updating_form:
@@ -1031,8 +1040,8 @@ class OutputSettingsWidget(QWidget):
             self._apply_vpx_quality_recommendation()
             self.h26x_encoder_group.setVisible(False)
             self.vpx_encoder_group.setVisible(True)
-            if self.vpx_speed_spin.value() not in VPX_SPEED_RANGE:
-                self.vpx_speed_spin.setValue(default_vpx_cpu_used(video_codec))
+            if self.vpx_speed_slider.value() not in VPX_SPEED_RANGE:
+                self.vpx_speed_slider.setValue(default_vpx_cpu_used(video_codec))
 
         self._sync_stack_height(self.quality_stack)
 
@@ -1139,7 +1148,7 @@ class OutputSettingsWidget(QWidget):
             )
         return VpxEncoderOptions(
             codec=video_codec,
-            cpu_used=self.vpx_speed_spin.value(),
+            cpu_used=self.vpx_speed_slider.value(),
         )
 
     def _selected_audio_codec(self) -> AudioCodec | None:
@@ -1621,6 +1630,9 @@ class MainWindow(QMainWindow):
         self._queue_thread: QThread | None = None
         self._queue_worker: QueueExecutionWorker | None = None
         self._queue_live_logs: dict[str, str] = {}
+        self._main_splitter: QSplitter | None = None
+        self._right_splitter: QSplitter | None = None
+        self._queue_splitter: QSplitter | None = None
 
         self.setWindowTitle("FFmpeg GUI")
         self.resize(1180, 760)
@@ -1637,6 +1649,10 @@ class MainWindow(QMainWindow):
         self.output_settings_widget.apply_settings(self._settings.last_used_settings)
         self._reload_presets()
         self._refresh_dependency_ui()
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        self._persist_splitter_layout()
+        super().closeEvent(event)
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
         mime_data = event.mimeData()
@@ -1682,6 +1698,33 @@ class MainWindow(QMainWindow):
             last_used_settings=self.output_settings_widget.current_settings(),
         )
         self._settings_service.save(self._settings)
+
+    def _persist_splitter_layout(self) -> None:
+        if (
+            self._main_splitter is None
+            or self._right_splitter is None
+            or self._queue_splitter is None
+        ):
+            return
+
+        self._settings = replace(
+            self._settings,
+            splitter_layout=SplitterLayout(
+                main_splitter_sizes=tuple(self._main_splitter.sizes()),
+                right_splitter_sizes=tuple(self._right_splitter.sizes()),
+                queue_splitter_sizes=tuple(self._queue_splitter.sizes()),
+            ),
+        )
+        self._settings_service.save(self._settings)
+
+    def _restore_splitter_layout(self) -> None:
+        splitter_layout = self._settings.splitter_layout
+        if self._main_splitter is not None and len(splitter_layout.main_splitter_sizes) >= 2:
+            self._main_splitter.setSizes(list(splitter_layout.main_splitter_sizes))
+        if self._right_splitter is not None and len(splitter_layout.right_splitter_sizes) >= 2:
+            self._right_splitter.setSizes(list(splitter_layout.right_splitter_sizes))
+        if self._queue_splitter is not None and len(splitter_layout.queue_splitter_sizes) >= 2:
+            self._queue_splitter.setSizes(list(splitter_layout.queue_splitter_sizes))
 
     def _reload_presets(self, *, selected_name: str | None = None) -> None:
         self._presets = tuple(self._preset_service.load_all())
@@ -1832,10 +1875,13 @@ class MainWindow(QMainWindow):
         outer_layout = QVBoxLayout(container)
         outer_layout.setContentsMargins(*_UI_OUTER_MARGINS)
 
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.setChildrenCollapsible(False)
-        splitter.setHandleWidth(10)
-        outer_layout.addWidget(splitter)
+        self._main_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self._main_splitter.setChildrenCollapsible(False)
+        self._main_splitter.setHandleWidth(10)
+        self._main_splitter.splitterMoved.connect(
+            lambda _pos, _index: self._persist_splitter_layout()
+        )
+        outer_layout.addWidget(self._main_splitter)
 
         left_panel = QWidget()
         left_layout = QVBoxLayout(left_panel)
@@ -1852,10 +1898,13 @@ class MainWindow(QMainWindow):
         right_panel = QWidget()
         right_layout = QVBoxLayout(right_panel)
         right_layout.setContentsMargins(0, 0, 0, 0)
-        right_splitter = QSplitter(Qt.Orientation.Vertical)
-        right_splitter.setChildrenCollapsible(False)
-        right_splitter.setHandleWidth(10)
-        right_layout.addWidget(right_splitter)
+        self._right_splitter = QSplitter(Qt.Orientation.Vertical)
+        self._right_splitter.setChildrenCollapsible(False)
+        self._right_splitter.setHandleWidth(10)
+        self._right_splitter.splitterMoved.connect(
+            lambda _pos, _index: self._persist_splitter_layout()
+        )
+        right_layout.addWidget(self._right_splitter)
 
         top_panel = QWidget()
         top_layout = QVBoxLayout(top_panel)
@@ -1924,21 +1973,22 @@ class MainWindow(QMainWindow):
         self.inspector_tabs.addTab(self.command_preview_widget, "Preview")
         self.inspector_tabs.addTab(self.execution_inspector_tab, "Execution")
 
-        right_splitter.addWidget(top_scroll)
-        right_splitter.addWidget(self.inspector_tabs)
-        right_splitter.setStretchFactor(0, 3)
-        right_splitter.setStretchFactor(1, 2)
-        right_splitter.setSizes([560, 280])
+        self._right_splitter.addWidget(top_scroll)
+        self._right_splitter.addWidget(self.inspector_tabs)
+        self._right_splitter.setStretchFactor(0, 3)
+        self._right_splitter.setStretchFactor(1, 2)
+        self._right_splitter.setSizes([560, 280])
 
-        splitter.addWidget(left_panel)
-        splitter.addWidget(right_panel)
-        splitter.setStretchFactor(0, 2)
-        splitter.setStretchFactor(1, 5)
-        splitter.setSizes([300, 860])
+        self._main_splitter.addWidget(left_panel)
+        self._main_splitter.addWidget(right_panel)
+        self._main_splitter.setStretchFactor(0, 2)
+        self._main_splitter.setStretchFactor(1, 5)
+        self._main_splitter.setSizes([300, 860])
 
         self.output_settings_widget.settings_changed.connect(self._handle_output_settings_changed)
         self._refresh_preset_controls()
         self._refresh_queue_ui()
+        self._restore_splitter_layout()
         return container
 
     def _build_source_workspace(self) -> QWidget:
@@ -2005,15 +2055,18 @@ class MainWindow(QMainWindow):
         self.queue_details_widget = QueueDetailsWidget()
         queue_details_layout.addWidget(self.queue_details_widget)
 
-        splitter = QSplitter(Qt.Orientation.Vertical)
-        splitter.setChildrenCollapsible(False)
-        splitter.addWidget(self.queue_widget)
-        splitter.addWidget(queue_details_box)
-        splitter.setStretchFactor(0, 3)
-        splitter.setStretchFactor(1, 2)
-        splitter.setSizes([360, 280])
+        self._queue_splitter = QSplitter(Qt.Orientation.Vertical)
+        self._queue_splitter.setChildrenCollapsible(False)
+        self._queue_splitter.splitterMoved.connect(
+            lambda _pos, _index: self._persist_splitter_layout()
+        )
+        self._queue_splitter.addWidget(self.queue_widget)
+        self._queue_splitter.addWidget(queue_details_box)
+        self._queue_splitter.setStretchFactor(0, 3)
+        self._queue_splitter.setStretchFactor(1, 2)
+        self._queue_splitter.setSizes([360, 280])
 
-        layout.addWidget(splitter)
+        layout.addWidget(self._queue_splitter)
         return panel
 
     def _build_execution_inspector(self) -> QWidget:

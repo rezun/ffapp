@@ -437,11 +437,31 @@ Execute one job end-to-end and report progress reliably.
 
 ### Status
 
-Not Started
+Completed
 
 ### Developer Notes
 
-- Placeholder only. The main window already reserves a `Queue` section for this phase.
+- Added typed queue snapshots and queue-item state models in `src/ffapp/core/models.py` plus expanded queue service contracts in `src/ffapp/core/services.py`.
+- Implemented the in-memory sequential queue runner in `src/ffapp/infrastructure/queue.py`, including:
+  - per-item command snapshots so queued jobs keep the settings active when they were added
+  - sequential execution over the existing job execution pipeline
+  - active-job cancellation that also marks remaining pending items as canceled
+  - retained per-item results and failure messages for later inspection
+- Added `QueueExecutionWorker` in `src/ffapp/app/execution.py` so batch execution stays off the UI thread.
+- Replaced the phase-5 queue placeholder in `src/ffapp/app/main_window.py` with a real batch queue UI that supports:
+  - adding the currently loaded source
+  - multi-file batch selection
+  - folder import using a supported-extension filter
+  - removing selected non-running items from the queue
+  - sequential queue start/cancel controls
+  - per-item state summaries, command inspection, and retained log output for the selected queue item
+- Added `tests/infrastructure/test_queue.py` for sequential queue execution and cancellation behavior.
+- Expanded `tests/app/test_main_window.py` to cover queue summary/detail rendering.
+- Verification completed locally via:
+  - `.venv/bin/python -m pytest`
+  - `.venv/bin/python -m ruff check src tests`
+  - `.venv/bin/python -m mypy`
+- Manual end-to-end batch encoding with real media files was not exercised as part of the automated verification.
 
 ### Objective
 

@@ -336,6 +336,24 @@ class JobResult:
 
 
 @dataclass(slots=True, frozen=True)
+class QueuedJob:
+    job: JobDefinition
+    media_info: SourceMediaInfo
+    commands: tuple[GeneratedCommand, ...]
+    validation: ValidationResult
+
+
+@dataclass(slots=True, frozen=True)
+class QueueItem:
+    id: str
+    queued_job: QueuedJob
+    state: JobState = JobState.PENDING
+    progress: JobProgress | None = None
+    result: JobResult | None = None
+    failure_message: str | None = None
+
+
+@dataclass(slots=True, frozen=True)
 class ValidationIssue:
     severity: ValidationSeverity
     code: str

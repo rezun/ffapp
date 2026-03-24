@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import TypeVar, cast
 from urllib.parse import unquote, urlparse
 
-from ffapp.app.execution import JobExecutionWorker
+from ffapp.app.execution import JobExecutionWorker, QueueExecutionWorker
 from ffapp.core.commands import CommandBuildError, DefaultCommandBuilder, suggest_output_path
 from ffapp.core.models import (
     AppSettings,
@@ -30,6 +30,8 @@ from ffapp.core.models import (
     OutputContainer,
     OutputSettings,
     QualityOptions,
+    QueuedJob,
+    QueueItem,
     ResolutionPreset,
     SourceMediaInfo,
     StreamHandlingOptions,
@@ -50,12 +52,31 @@ from ffapp.core.validation import (
 from ffapp.infrastructure.dependencies import DependencyManager
 from ffapp.infrastructure.execution import DefaultJobExecutionService, SubprocessProcessRunner
 from ffapp.infrastructure.probe import FfprobeMediaProbeService, MediaProbeError
+from ffapp.infrastructure.queue import InMemoryQueueService
 from ffapp.infrastructure.settings import JsonSettingsService
 
 LOGGER = logging.getLogger(__name__)
 T = TypeVar("T")
 _CUSTOM_AUDIO_BITRATE = "custom"
 _COMMON_AUDIO_BITRATES_KBPS: tuple[int, ...] = (32, 64, 96, 128, 160, 192, 256, 320)
+_FOLDER_IMPORT_SUFFIXES: frozenset[str] = frozenset(
+    {
+        ".aac",
+        ".avi",
+        ".flac",
+        ".m4a",
+        ".mkv",
+        ".mov",
+        ".mp3",
+        ".mp4",
+        ".mpeg",
+        ".mpg",
+        ".ogg",
+        ".opus",
+        ".wav",
+        ".webm",
+    }
+)
 
 try:
     from PySide6.QtCore import QSignalBlocker, Qt, QThread, Signal
@@ -71,6 +92,8 @@ try:
         QHBoxLayout,
         QLabel,
         QLineEdit,
+        QListWidget,
+        QListWidgetItem,
         QMainWindow,
         QMessageBox,
         QPlainTextEdit,
@@ -988,6 +1011,175 @@ class JobDetailsWidget(QWidget):
         return self._running
 
 
+class QueueWidget(QWidget):
+    add_current_requested = Signal()
+    add_files_requested = Signal()
+    add_folder_requested = Signal()
+    remove_selected_requested = Signal()
+    start_requested = Signal()
+    cancel_requested = Signal()
+    selection_changed = Signal(str)
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._items_by_id: dict[str, QueueItem] = {}
+
+        layout = QVBoxLayout(self)
+        intro = QLabel(
+            "Queue multiple files with the current settings snapshot, run them sequentially, "
+            "and inspect the selected item's command and log output."
+        )
+        intro.setWordWrap(True)
+        layout.addWidget(intro)
+
+        button_row = QHBoxLayout()
+        self.add_current_button = QPushButton("Add Current Source")
+        self.add_current_button.clicked.connect(self.add_current_requested.emit)
+        self.add_files_button = QPushButton("Add Files")
+        self.add_files_button.clicked.connect(self.add_files_requested.emit)
+        self.add_folder_button = QPushButton("Add Folder")
+        self.add_folder_button.clicked.connect(self.add_folder_requested.emit)
+        self.remove_selected_button = QPushButton("Remove Selected")
+        self.remove_selected_button.clicked.connect(self.remove_selected_requested.emit)
+        self.start_button = QPushButton("Start Queue")
+        self.start_button.clicked.connect(self.start_requested.emit)
+        self.cancel_button = QPushButton("Cancel Queue")
+        self.cancel_button.clicked.connect(self.cancel_requested.emit)
+        for button in (
+            self.add_current_button,
+            self.add_files_button,
+            self.add_folder_button,
+            self.remove_selected_button,
+            self.start_button,
+            self.cancel_button,
+        ):
+            button_row.addWidget(button)
+        button_row.addStretch(1)
+        layout.addLayout(button_row)
+
+        self.summary_label = QLabel("Queue is empty.")
+        self.summary_label.setWordWrap(True)
+        layout.addWidget(self.summary_label)
+
+        self.queue_list = QListWidget()
+        self.queue_list.currentItemChanged.connect(self._handle_selection_changed)
+        self.queue_list.setMinimumHeight(150)
+        layout.addWidget(self.queue_list)
+
+        detail_heading = QLabel("Selected Queue Item")
+        detail_heading.setStyleSheet("font-weight: 600;")
+        layout.addWidget(detail_heading)
+
+        self.detail_summary_label = QLabel("Select a queued item to inspect it.")
+        self.detail_summary_label.setWordWrap(True)
+        layout.addWidget(self.detail_summary_label)
+
+        self.detail_command_output = QPlainTextEdit()
+        self.detail_command_output.setReadOnly(True)
+        self.detail_command_output.setMinimumHeight(120)
+        self.detail_command_output.setPlaceholderText("Selected commands will appear here.")
+        layout.addWidget(self.detail_command_output)
+
+        self.detail_log_output = QPlainTextEdit()
+        self.detail_log_output.setReadOnly(True)
+        self.detail_log_output.setMinimumHeight(140)
+        self.detail_log_output.setPlaceholderText("Selected queue item logs will appear here.")
+        layout.addWidget(self.detail_log_output)
+
+        self.set_running(False)
+        self.set_add_current_enabled(False)
+        self.set_remove_enabled(False)
+
+    def set_add_current_enabled(self, enabled: bool) -> None:
+        self.add_current_button.setEnabled(enabled)
+
+    def set_running(self, running: bool) -> None:
+        self.start_button.setEnabled(not running)
+        self.cancel_button.setEnabled(running)
+
+    def set_remove_enabled(self, enabled: bool) -> None:
+        self.remove_selected_button.setEnabled(enabled)
+
+    def set_items(self, items: Iterable[QueueItem], *, selected_id: str | None = None) -> None:
+        item_list = tuple(items)
+        self._items_by_id = {item.id: item for item in item_list}
+        if selected_id is None and self.queue_list.currentItem() is not None:
+            selected_id = cast(
+                str | None,
+                self.queue_list.currentItem().data(Qt.ItemDataRole.UserRole),
+            )
+
+        self.queue_list.clear()
+        for item in item_list:
+            list_item = QListWidgetItem(_format_queue_item_label(item))
+            list_item.setData(Qt.ItemDataRole.UserRole, item.id)
+            self.queue_list.addItem(list_item)
+
+        self.summary_label.setText(_format_queue_summary(item_list))
+        if selected_id is not None:
+            self.select_item(selected_id)
+        elif item_list:
+            self.queue_list.setCurrentRow(len(item_list) - 1)
+        else:
+            self._show_empty_details()
+
+    def select_item(self, item_id: str) -> None:
+        for row in range(self.queue_list.count()):
+            item = self.queue_list.item(row)
+            if item.data(Qt.ItemDataRole.UserRole) == item_id:
+                self.queue_list.setCurrentRow(row)
+                return
+
+    def selected_item_id(self) -> str | None:
+        if self.queue_list.currentRow() < 0:
+            return None
+        return cast(
+            str | None,
+            self.queue_list.currentItem().data(Qt.ItemDataRole.UserRole),
+        )
+
+    def show_item_details(self, item: QueueItem | None, *, live_log: str | None = None) -> None:
+        if item is None:
+            self._show_empty_details()
+            return
+
+        self.detail_summary_label.setText(_format_queue_item_details(item))
+        self.detail_command_output.setPlainText(
+            _format_command_preview_text(item.queued_job.commands, single_command=False)
+        )
+
+        if item.result is not None and item.result.log_output:
+            log_text = item.result.log_output
+        elif item.failure_message:
+            log_text = item.failure_message
+        else:
+            log_text = live_log or ""
+
+        if log_text:
+            self.detail_log_output.setPlainText(log_text)
+        else:
+            self.detail_log_output.clear()
+            self.detail_log_output.setPlaceholderText("Selected queue item logs will appear here.")
+
+    def _handle_selection_changed(
+        self,
+        current: QListWidgetItem | None,
+        previous: QListWidgetItem | None,
+    ) -> None:
+        del previous
+        item_id = ""
+        if current is not None:
+            item_id = cast(str, current.data(Qt.ItemDataRole.UserRole))
+        self.selection_changed.emit(item_id)
+
+    def _show_empty_details(self) -> None:
+        self.detail_summary_label.setText("Select a queued item to inspect it.")
+        self.detail_command_output.clear()
+        self.detail_command_output.setPlaceholderText("Selected commands will appear here.")
+        self.detail_log_output.clear()
+        self.detail_log_output.setPlaceholderText("Selected queue item logs will appear here.")
+
+
 class MainWindow(QMainWindow):
     def __init__(
         self,
@@ -1004,6 +1196,10 @@ class MainWindow(QMainWindow):
         self._prepared_execution: PreparedExecution | None = None
         self._execution_thread: QThread | None = None
         self._execution_worker: JobExecutionWorker | None = None
+        self._queue_service = InMemoryQueueService()
+        self._queue_thread: QThread | None = None
+        self._queue_worker: QueueExecutionWorker | None = None
+        self._queue_live_logs: dict[str, str] = {}
 
         self.setWindowTitle("FFmpeg GUI")
         self.resize(1040, 780)
@@ -1107,7 +1303,15 @@ class MainWindow(QMainWindow):
 
         queue_box = QGroupBox("Queue")
         queue_layout = QVBoxLayout(queue_box)
-        queue_layout.addWidget(QLabel("Phase 5 will add queueing and batch execution here."))
+        self.queue_widget = QueueWidget()
+        self.queue_widget.add_current_requested.connect(self._queue_current_source)
+        self.queue_widget.add_files_requested.connect(self._queue_files)
+        self.queue_widget.add_folder_requested.connect(self._queue_folder)
+        self.queue_widget.remove_selected_requested.connect(self._remove_selected_queue_item)
+        self.queue_widget.start_requested.connect(self._start_queue)
+        self.queue_widget.cancel_requested.connect(self._cancel_queue)
+        self.queue_widget.selection_changed.connect(self._handle_queue_selection_changed)
+        queue_layout.addWidget(self.queue_widget)
 
         for widget in (source_box, media_box, output_box, command_box, job_box, queue_box):
             layout.addWidget(widget)
@@ -1115,6 +1319,7 @@ class MainWindow(QMainWindow):
         layout.addStretch(1)
         scroll_area.setWidget(content)
         self.output_settings_widget.settings_changed.connect(self._refresh_command_preview)
+        self._refresh_queue_ui()
         return container
 
     def _refresh_dependency_ui(self) -> None:
@@ -1131,6 +1336,7 @@ class MainWindow(QMainWindow):
         else:
             self._stack.setCurrentWidget(self._setup_widget)
         self._refresh_command_preview()
+        self._refresh_queue_ui()
 
     def _save_dependency_paths(self, executable_paths: ExecutablePaths) -> None:
         status = self._dependency_manager.validate_paths(executable_paths)
@@ -1190,6 +1396,269 @@ class MainWindow(QMainWindow):
         self.output_settings_widget.set_media_info(media_info)
         self._stack.setCurrentWidget(self._main_widget)
         self._refresh_command_preview()
+        self.queue_widget.set_add_current_enabled(True)
+        self._refresh_queue_ui()
+
+    def _queue_current_source(self) -> None:
+        if self._media_info is None:
+            QMessageBox.warning(
+                self,
+                "No Source Loaded",
+                "Load and probe a source file before adding the current item to the queue.",
+            )
+            return
+
+        settings = self.output_settings_widget.current_settings()
+        queued_jobs, errors = self._build_queued_jobs(
+            ((self._media_info.source_path, self._media_info),),
+            settings,
+        )
+        self._enqueue_jobs(queued_jobs, errors)
+
+    def _queue_files(self) -> None:
+        filenames, _ = QFileDialog.getOpenFileNames(self, "Select Files for Queue")
+        if not filenames:
+            return
+        self._queue_source_paths(Path(filename) for filename in filenames)
+
+    def _queue_folder(self) -> None:
+        directory = QFileDialog.getExistingDirectory(self, "Select Folder for Queue")
+        if not directory:
+            return
+
+        source_paths = sorted(
+            path
+            for path in Path(directory).iterdir()
+            if path.is_file() and path.suffix.lower() in _FOLDER_IMPORT_SUFFIXES
+        )
+        if not source_paths:
+            QMessageBox.information(
+                self,
+                "No Supported Files",
+                "The selected folder does not contain any supported media file extensions.",
+            )
+            return
+
+        self._queue_source_paths(source_paths)
+
+    def _queue_source_paths(self, paths: Iterable[Path]) -> None:
+        settings = self.output_settings_widget.current_settings()
+        cached_media_info = (
+            {self._media_info.source_path.resolve(): self._media_info}
+            if self._media_info is not None
+            else {}
+        )
+        sources: list[tuple[Path, SourceMediaInfo]] = []
+        errors: list[str] = []
+
+        for path in paths:
+            source_path = path.expanduser()
+            cached = cached_media_info.get(source_path.resolve())
+            if cached is not None:
+                sources.append((source_path, cached))
+                continue
+
+            media_info, error = self._probe_media_for_queue(source_path)
+            if media_info is None:
+                if error is not None:
+                    errors.append(error)
+                continue
+            sources.append((source_path, media_info))
+
+        queued_jobs, queue_errors = self._build_queued_jobs(sources, settings)
+        self._enqueue_jobs(queued_jobs, [*errors, *queue_errors])
+
+    def _probe_media_for_queue(
+        self,
+        source_path: Path,
+    ) -> tuple[SourceMediaInfo | None, str | None]:
+        if not self._dependency_status.is_ready or self._dependency_status.ffprobe.path is None:
+            return None, "Configure valid ffmpeg and ffprobe paths before using the queue."
+        if not source_path.exists() or not source_path.is_file():
+            return None, f"{source_path} is not a readable file."
+
+        probe_service = FfprobeMediaProbeService(self._dependency_status.ffprobe.path)
+        try:
+            return probe_service.probe(source_path), None
+        except MediaProbeError as exc:
+            LOGGER.exception("Failed to probe queued source media: %s", source_path)
+            return None, f"{source_path.name}: {exc}"
+
+    def _build_queued_jobs(
+        self,
+        sources: Iterable[tuple[Path, SourceMediaInfo]],
+        settings: OutputSettings,
+    ) -> tuple[list[QueuedJob], list[str]]:
+        if not self._dependency_status.is_ready or self._dependency_status.ffmpeg.path is None:
+            return [], ["Configure a valid ffmpeg executable before queueing jobs."]
+
+        queued_jobs: list[QueuedJob] = []
+        errors: list[str] = []
+        reserved_outputs = {
+            item.queued_job.job.output_path.resolve()
+            for item in self._queue_service.items()
+        }
+        builder = DefaultCommandBuilder(self._dependency_status.ffmpeg.path)
+
+        for source_path, media_info in sources:
+            validation = self._validation_service.validate(settings, media_info)
+            if validation.has_errors:
+                message = "; ".join(issue.message for issue in validation.errors)
+                errors.append(f"{source_path.name}: {message}")
+                continue
+
+            output_path = _suggest_queue_output_path(
+                source_path,
+                settings.container,
+                reserved_outputs=reserved_outputs,
+            )
+            reserved_outputs.add(output_path.resolve())
+            job = _build_job_definition(
+                source_path=source_path,
+                output_path=output_path,
+                settings=settings,
+            )
+            try:
+                commands = tuple(builder.build(job, media_info))
+            except CommandBuildError as exc:
+                errors.append(f"{source_path.name}: {exc}")
+                continue
+
+            queued_jobs.append(
+                QueuedJob(
+                    job=job,
+                    media_info=media_info,
+                    commands=commands,
+                    validation=validation,
+                )
+            )
+
+        return queued_jobs, errors
+
+    def _enqueue_jobs(self, queued_jobs: list[QueuedJob], errors: list[str]) -> None:
+        created_items = self._queue_service.enqueue(queued_jobs) if queued_jobs else ()
+        if created_items:
+            newest_item_id = created_items[-1].id
+            self._refresh_queue_ui(selected_id=newest_item_id)
+        else:
+            self._refresh_queue_ui()
+
+        if errors:
+            QMessageBox.warning(
+                self,
+                "Queue Import Issues",
+                "\n".join(errors[:12]),
+            )
+
+    def _refresh_queue_ui(self, *, selected_id: str | None = None) -> None:
+        items = tuple(self._queue_service.items())
+        self.queue_widget.set_items(items, selected_id=selected_id)
+        self.queue_widget.set_running(self._queue_worker is not None)
+        self.queue_widget.start_button.setEnabled(
+            self._queue_worker is None and self._queue_service.has_pending()
+        )
+        self.queue_widget.set_add_current_enabled(self._media_info is not None)
+        selected_item = self._selected_queue_item()
+        self.queue_widget.set_remove_enabled(
+            selected_item is not None and selected_item.state is not JobState.RUNNING
+        )
+        self._show_selected_queue_item()
+
+    def _handle_queue_selection_changed(self, item_id: str) -> None:
+        del item_id
+        selected_item = self._selected_queue_item()
+        self.queue_widget.set_remove_enabled(
+            selected_item is not None and selected_item.state is not JobState.RUNNING
+        )
+        self._show_selected_queue_item()
+
+    def _selected_queue_item(self) -> QueueItem | None:
+        selected_item_id = self.queue_widget.selected_item_id()
+        for item in self._queue_service.items():
+            if item.id == selected_item_id:
+                return item
+        return None
+
+    def _show_selected_queue_item(self) -> None:
+        selected_item = self._selected_queue_item()
+        selected_item_id = selected_item.id if selected_item is not None else ""
+        live_log = self._queue_live_logs.get(selected_item_id or "", "")
+        self.queue_widget.show_item_details(selected_item, live_log=live_log)
+
+    def _remove_selected_queue_item(self) -> None:
+        selected_item = self._selected_queue_item()
+        if selected_item is None or selected_item.state is JobState.RUNNING:
+            self._refresh_queue_ui()
+            return
+        self._queue_service.remove((selected_item.id,))
+        self._queue_live_logs.pop(selected_item.id, None)
+        self._refresh_queue_ui()
+
+    def _start_queue(self) -> None:
+        if self._queue_worker is not None or not self._queue_service.has_pending():
+            self._refresh_queue_ui()
+            return
+
+        worker = QueueExecutionWorker(self._queue_service)
+        thread = QThread(self)
+        worker.moveToThread(thread)
+
+        thread.started.connect(worker.run)
+        worker.item_started.connect(self._handle_queue_item_update)
+        worker.item_progress.connect(self._handle_queue_item_update)
+        worker.item_finished.connect(self._handle_queue_item_update)
+        worker.log_line.connect(self._handle_queue_log_line)
+        worker.finished.connect(self._handle_queue_finished)
+        worker.failed.connect(self._handle_queue_failure)
+        worker.finished.connect(thread.quit)
+        worker.failed.connect(thread.quit)
+        worker.finished.connect(worker.deleteLater)
+        worker.failed.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        thread.finished.connect(self._clear_queue_worker)
+
+        self._queue_thread = thread
+        self._queue_worker = worker
+        self._refresh_queue_ui()
+        thread.start()
+
+    def _cancel_queue(self) -> None:
+        if self._queue_worker is None:
+            return
+        self._queue_worker.cancel()
+        self._refresh_queue_ui()
+
+    def _handle_queue_item_update(self, item: object) -> None:
+        if not isinstance(item, QueueItem):
+            return
+        if item.state is JobState.RUNNING:
+            self._queue_live_logs.setdefault(item.id, "")
+        elif item.result is not None:
+            self._queue_live_logs[item.id] = item.result.log_output
+        self._refresh_queue_ui(selected_id=item.id)
+
+    def _handle_queue_log_line(self, item_id: str, line: str) -> None:
+        existing = self._queue_live_logs.get(item_id, "")
+        self._queue_live_logs[item_id] = f"{existing}{line}"
+        if self.queue_widget.selected_item_id() == item_id:
+            self._show_selected_queue_item()
+
+    def _handle_queue_finished(self, result: object) -> None:
+        del result
+        self._refresh_queue_ui()
+
+    def _handle_queue_failure(self, message: str) -> None:
+        self._refresh_queue_ui()
+        QMessageBox.critical(
+            self,
+            "Queue Failed",
+            message or "Queue execution failed unexpectedly.",
+        )
+
+    def _clear_queue_worker(self) -> None:
+        self._queue_thread = None
+        self._queue_worker = None
+        self._refresh_queue_ui()
 
     def _refresh_command_preview(self) -> None:
         prepared, message = self._prepare_execution()
@@ -1707,6 +2176,75 @@ def _format_speed(value: float | None) -> str:
     if value is None:
         return "Unknown"
     return f"{value:.2f}x"
+
+
+def _format_queue_summary(items: Iterable[QueueItem]) -> str:
+    item_list = tuple(items)
+    if not item_list:
+        return "Queue is empty."
+
+    counts = {
+        state: sum(1 for item in item_list if item.state is state)
+        for state in JobState
+    }
+    return (
+        f"Items: {len(item_list)} | "
+        f"Pending: {counts[JobState.PENDING]} | "
+        f"Running: {counts[JobState.RUNNING]} | "
+        f"Completed: {counts[JobState.COMPLETED]} | "
+        f"Failed: {counts[JobState.FAILED]} | "
+        f"Canceled: {counts[JobState.CANCELED]}"
+    )
+
+
+def _format_queue_item_label(item: QueueItem) -> str:
+    progress = ""
+    if item.progress is not None and item.progress.percentage is not None:
+        progress = f" | {_format_percentage(item.progress.percentage)}"
+    return (
+        f"{item.queued_job.job.source_path.name} -> "
+        f"{item.queued_job.job.output_path.name} | "
+        f"{_job_state_label(item.state)}{progress}"
+    )
+
+
+def _format_queue_item_details(item: QueueItem) -> str:
+    lines = [
+        f"Source: {item.queued_job.job.source_path}",
+        f"Output: {item.queued_job.job.output_path}",
+        f"State: {_job_state_label(item.state)}",
+        f"Passes: {len(item.queued_job.commands)}",
+    ]
+    if item.progress is not None:
+        lines.append(_format_job_progress(item.progress))
+    elif item.result is not None:
+        lines.append(_format_job_result_summary(item.result))
+
+    if item.queued_job.validation.has_warnings:
+        lines.append(f"Warnings: {len(item.queued_job.validation.warnings)}")
+    if item.failure_message:
+        lines.append(f"Failure: {item.failure_message}")
+    return "\n".join(lines)
+
+
+def _suggest_queue_output_path(
+    source_path: Path,
+    container: OutputContainer,
+    *,
+    reserved_outputs: set[Path],
+) -> Path:
+    candidate = source_path.with_suffix(f".{container.value}")
+    if not candidate.exists() and candidate.resolve() not in reserved_outputs:
+        return candidate
+
+    counter = 1
+    while True:
+        numbered_candidate = candidate.with_name(
+            f"{candidate.stem}-{counter}{candidate.suffix}"
+        )
+        if not numbered_candidate.exists() and numbered_candidate.resolve() not in reserved_outputs:
+            return numbered_candidate
+        counter += 1
 
 
 def _build_job_definition(

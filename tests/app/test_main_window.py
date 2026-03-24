@@ -11,7 +11,9 @@ from PySide6.QtWidgets import QApplication
 from ffapp.app.main_window import (
     JobDetailsWidget,
     PreparedExecution,
+    QueueWidget,
     _format_command_preview_text,
+    _format_queue_summary,
 )
 from ffapp.core.models import (
     EncodingStrategy,
@@ -21,8 +23,12 @@ from ffapp.core.models import (
     JobResult,
     JobState,
     OutputContainer,
+    QueuedJob,
+    QueueItem,
+    SourceMediaInfo,
     ValidationResult,
     VideoCodec,
+    VideoStreamInfo,
 )
 
 
@@ -107,6 +113,81 @@ class JobDetailsWidgetTests(unittest.TestCase):
         self.assertFalse(widget.cancel_button.isEnabled())
         self.assertEqual(widget.progress_bar.value(), 1000)
         self.assertIn("encoded successfully", widget.log_output.toPlainText())
+
+
+def _queue_item(state: JobState = JobState.PENDING) -> QueueItem:
+    queued_job = QueuedJob(
+        job=JobDefinition(
+            source_path=Path("/tmp/input.mov"),
+            output_path=Path("/tmp/output.mp4"),
+            container=OutputContainer.MP4,
+            video_codec=VideoCodec.H264,
+            encoding_strategy=EncodingStrategy.TARGET_QUALITY,
+            target_quality=H264QualityOptions(),
+        ),
+        media_info=SourceMediaInfo(
+            source_path=Path("/tmp/input.mov"),
+            video_streams=(VideoStreamInfo(index=0, codec_name="h264", width=1920, height=1080),),
+        ),
+        commands=(_command("ffmpeg pass1"),),
+        validation=ValidationResult(),
+    )
+    result = None
+    if state is not JobState.PENDING and state is not JobState.RUNNING:
+        result = JobResult(
+            job=queued_job.job,
+            state=state,
+            commands=queued_job.commands,
+            process_results=(),
+            elapsed_seconds=3.0,
+            log_output="queue log output\n",
+        )
+    return QueueItem(
+        id="queue-1",
+        queued_job=queued_job,
+        state=state,
+        result=result,
+    )
+
+
+class QueueWidgetTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.application = QApplication.instance() or QApplication([])
+
+    def test_queue_widget_renders_selected_item_details(self) -> None:
+        widget = QueueWidget()
+        item = _queue_item(JobState.COMPLETED)
+
+        widget.set_items((item,), selected_id=item.id)
+        widget.show_item_details(item)
+
+        self.assertIn("Completed", widget.summary_label.text())
+        self.assertIn(str(item.queued_job.job.source_path), widget.detail_summary_label.text())
+        self.assertIn("ffmpeg pass1", widget.detail_command_output.toPlainText())
+        self.assertIn("queue log output", widget.detail_log_output.toPlainText())
+
+    def test_format_queue_summary_counts_queue_states(self) -> None:
+        summary = _format_queue_summary(
+            (
+                _queue_item(JobState.PENDING),
+                _queue_item(JobState.RUNNING),
+                _queue_item(JobState.CANCELED),
+            )
+        )
+
+        self.assertIn("Pending: 1", summary)
+        self.assertIn("Running: 1", summary)
+        self.assertIn("Canceled: 1", summary)
+
+    def test_remove_selected_button_can_be_toggled(self) -> None:
+        widget = QueueWidget()
+
+        widget.set_remove_enabled(True)
+        self.assertTrue(widget.remove_selected_button.isEnabled())
+
+        widget.set_remove_enabled(False)
+        self.assertFalse(widget.remove_selected_button.isEnabled())
 
 
 if __name__ == "__main__":

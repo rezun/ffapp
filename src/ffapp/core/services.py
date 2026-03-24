@@ -17,6 +17,8 @@ from ffapp.core.models import (
     PresetDefinition,
     ProcessExecutionResult,
     ProcessProgress,
+    QueuedJob,
+    QueueItem,
     Resolution,
     SourceMediaInfo,
     ValidationResult,
@@ -101,7 +103,22 @@ class JobExecutionService(Protocol):
 
 
 class QueueService(Protocol):
-    def enqueue(self, jobs: Iterable[JobDefinition]) -> None: ...
+    def enqueue(self, jobs: Iterable[QueuedJob]) -> Sequence[QueueItem]: ...
+
+    def items(self) -> Sequence[QueueItem]: ...
+
+    def has_pending(self) -> bool: ...
+
+    def remove(self, item_ids: Iterable[str]) -> Sequence[QueueItem]: ...
+
+    def execute_all(
+        self,
+        *,
+        item_started_callback: Callable[[QueueItem], None] | None = None,
+        item_progress_callback: Callable[[QueueItem], None] | None = None,
+        item_finished_callback: Callable[[QueueItem], None] | None = None,
+        log_callback: Callable[[QueueItem, str], None] | None = None,
+    ) -> Sequence[QueueItem]: ...
 
     def cancel_active(self) -> None: ...
 

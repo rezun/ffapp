@@ -373,11 +373,30 @@ Generate correct `ffmpeg` commands from validated settings and show them in the 
 
 ### Status
 
-Not Started
+Completed
 
 ### Developer Notes
 
-- No execution pipeline has been implemented yet.
+- Added execution progress and result models in `src/ffapp/core/models.py` plus updated execution service contracts in `src/ffapp/core/services.py`.
+- Implemented the execution pipeline in `src/ffapp/infrastructure/execution.py`, including:
+  - `subprocess.Popen`-based `ffmpeg` execution
+  - `-progress pipe:1` parsing for elapsed time, processed time, percentage, and speed
+  - stderr capture for troubleshooting output
+  - cancellation support for the active child process
+  - automatic cleanup of 2-pass log files after the job finishes
+- Added the Qt worker adapter in `src/ffapp/app/execution.py` so execution runs off the UI thread and progress/log updates marshal back through signals.
+- Replaced the phase-4 placeholder in `src/ffapp/app/main_window.py` with a `Job Details` panel that includes:
+  - start and cancel controls for the current single job
+  - live state and progress reporting
+  - captured `ffmpeg` log output
+  - a collapsible `Job Command` section that is collapsed by default to avoid duplicating the always-visible command preview
+- Added `tests/infrastructure/test_execution.py` for progress parsing, multi-pass execution behavior, failure short-circuiting, and cancellation delegation.
+- Expanded `tests/app/test_main_window.py` to cover the job-details widget behavior, including the collapsed-by-default command section.
+- Verification completed locally via:
+  - `.venv/bin/python -m ruff check src tests`
+  - `.venv/bin/python -m mypy`
+  - `.venv/bin/python -m pytest`
+- Manual end-to-end encoding with a real source file was not exercised as part of the automated verification.
 
 ### Objective
 

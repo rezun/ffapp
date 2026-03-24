@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 from typing import Protocol
 
@@ -10,9 +10,13 @@ from ffapp.core.models import (
     DependencyStatus,
     GeneratedCommand,
     JobDefinition,
+    JobProgress,
+    JobResult,
     OutputContainer,
     OutputSettings,
     PresetDefinition,
+    ProcessExecutionResult,
+    ProcessProgress,
     Resolution,
     SourceMediaInfo,
     ValidationResult,
@@ -71,11 +75,29 @@ class CommandBuilder(Protocol):
 
 
 class ProcessRunner(Protocol):
-    def run(self, command: GeneratedCommand) -> int: ...
+    def run(
+        self,
+        command: GeneratedCommand,
+        *,
+        expected_duration_seconds: float | None = None,
+        progress_callback: Callable[[ProcessProgress], None] | None = None,
+        log_callback: Callable[[str], None] | None = None,
+    ) -> ProcessExecutionResult: ...
+
+    def cancel(self) -> None: ...
 
 
 class JobExecutionService(Protocol):
-    def execute(self, job: JobDefinition) -> int: ...
+    def execute(
+        self,
+        job: JobDefinition,
+        media_info: SourceMediaInfo,
+        *,
+        progress_callback: Callable[[JobProgress], None] | None = None,
+        log_callback: Callable[[str], None] | None = None,
+    ) -> JobResult: ...
+
+    def cancel(self) -> None: ...
 
 
 class QueueService(Protocol):

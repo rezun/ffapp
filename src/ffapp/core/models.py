@@ -298,6 +298,44 @@ class GeneratedCommand:
 
 
 @dataclass(slots=True, frozen=True)
+class ProcessProgress:
+    elapsed_seconds: float
+    processed_seconds: float | None = None
+    percentage: float | None = None
+    speed: float | None = None
+
+
+@dataclass(slots=True, frozen=True)
+class ProcessExecutionResult:
+    command: GeneratedCommand
+    state: JobState
+    return_code: int
+    elapsed_seconds: float
+    stderr_output: str
+
+
+@dataclass(slots=True, frozen=True)
+class JobProgress:
+    state: JobState
+    pass_index: int
+    pass_count: int
+    elapsed_seconds: float
+    processed_seconds: float | None = None
+    percentage: float | None = None
+    speed: float | None = None
+
+
+@dataclass(slots=True, frozen=True)
+class JobResult:
+    job: JobDefinition
+    state: JobState
+    commands: tuple[GeneratedCommand, ...]
+    process_results: tuple[ProcessExecutionResult, ...]
+    elapsed_seconds: float
+    log_output: str
+
+
+@dataclass(slots=True, frozen=True)
 class ValidationIssue:
     severity: ValidationSeverity
     code: str

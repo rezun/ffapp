@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable, Iterable
+from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 from typing import TypeVar, cast
 from urllib.parse import unquote, urlparse
 
+from ffapp.app.execution import JobExecutionWorker
 from ffapp.core.commands import CommandBuildError, DefaultCommandBuilder, suggest_output_path
 from ffapp.core.models import (
     AppSettings,
@@ -22,6 +24,9 @@ from ffapp.core.models import (
     H265EncoderOptions,
     H265QualityOptions,
     JobDefinition,
+    JobProgress,
+    JobResult,
+    JobState,
     OutputContainer,
     OutputSettings,
     QualityOptions,
@@ -43,6 +48,7 @@ from ffapp.core.validation import (
     quality_profile_options,
 )
 from ffapp.infrastructure.dependencies import DependencyManager
+from ffapp.infrastructure.execution import DefaultJobExecutionService, SubprocessProcessRunner
 from ffapp.infrastructure.probe import FfprobeMediaProbeService, MediaProbeError
 from ffapp.infrastructure.settings import JsonSettingsService
 
@@ -52,7 +58,7 @@ _CUSTOM_AUDIO_BITRATE = "custom"
 _COMMON_AUDIO_BITRATES_KBPS: tuple[int, ...] = (32, 64, 96, 128, 160, 192, 256, 320)
 
 try:
-    from PySide6.QtCore import QSignalBlocker, Signal
+    from PySide6.QtCore import QSignalBlocker, Qt, QThread, Signal
     from PySide6.QtGui import QAction, QDragEnterEvent, QDropEvent
     from PySide6.QtWidgets import (
         QApplication,
@@ -68,11 +74,13 @@ try:
         QMainWindow,
         QMessageBox,
         QPlainTextEdit,
+        QProgressBar,
         QPushButton,
         QScrollArea,
         QSizePolicy,
         QSpinBox,
         QStackedWidget,
+        QToolButton,
         QVBoxLayout,
         QWidget,
     )
@@ -788,6 +796,198 @@ class OutputSettingsWidget(QWidget):
                 combo_box.setCurrentIndex(index)
 
 
+@dataclass(slots=True, frozen=True)
+class PreparedExecution:
+    job: JobDefinition
+    commands: tuple[GeneratedCommand, ...]
+    validation: ValidationResult
+
+
+class JobDetailsWidget(QWidget):
+    start_requested = Signal()
+    cancel_requested = Signal()
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._running = False
+
+        layout = QVBoxLayout(self)
+        intro = QLabel(
+            "Run the current job here. Progress, pass state, and ffmpeg log output stay attached "
+            "to the active execution."
+        )
+        intro.setWordWrap(True)
+        layout.addWidget(intro)
+
+        button_row = QHBoxLayout()
+        self.start_button = QPushButton("Start Job")
+        self.start_button.clicked.connect(self.start_requested.emit)
+        self.cancel_button = QPushButton("Cancel Job")
+        self.cancel_button.clicked.connect(self.cancel_requested.emit)
+        button_row.addWidget(self.start_button)
+        button_row.addWidget(self.cancel_button)
+        button_row.addStretch(1)
+        layout.addLayout(button_row)
+
+        self.state_label = QLabel("State: Idle")
+        self.state_label.setStyleSheet("font-weight: 600;")
+        layout.addWidget(self.state_label)
+
+        self.output_path_label = QLabel("Output: No job prepared.")
+        self.output_path_label.setWordWrap(True)
+        layout.addWidget(self.output_path_label)
+
+        self.progress_summary_label = QLabel(
+            "Load a source file and choose valid settings to prepare a job."
+        )
+        self.progress_summary_label.setWordWrap(True)
+        layout.addWidget(self.progress_summary_label)
+
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setRange(0, 1000)
+        self.progress_bar.setValue(0)
+        layout.addWidget(self.progress_bar)
+
+        self.command_toggle = QToolButton()
+        self.command_toggle.setText("Job Command")
+        self.command_toggle.setCheckable(True)
+        self.command_toggle.setChecked(False)
+        self.command_toggle.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.command_toggle.setArrowType(Qt.ArrowType.RightArrow)
+        self.command_toggle.toggled.connect(self._set_command_section_visible)
+        layout.addWidget(self.command_toggle)
+
+        self.command_output = QPlainTextEdit()
+        self.command_output.setReadOnly(True)
+        self.command_output.setMinimumHeight(140)
+        self.command_output.setPlaceholderText("Prepared commands will appear here.")
+        layout.addWidget(self.command_output)
+        self.command_output.setVisible(False)
+
+        log_heading = QLabel("ffmpeg Log")
+        log_heading.setStyleSheet("font-weight: 600;")
+        layout.addWidget(log_heading)
+
+        self.log_output = QPlainTextEdit()
+        self.log_output.setReadOnly(True)
+        self.log_output.setMinimumHeight(180)
+        self.log_output.setPlaceholderText("ffmpeg stderr output will appear here during a job.")
+        layout.addWidget(self.log_output)
+
+        self.set_start_enabled(False)
+        self.cancel_button.setEnabled(False)
+
+    def _set_command_section_visible(self, visible: bool) -> None:
+        self.command_toggle.setArrowType(
+            Qt.ArrowType.DownArrow if visible else Qt.ArrowType.RightArrow
+        )
+        self.command_output.setVisible(visible)
+
+    def set_idle_message(self, message: str) -> None:
+        self._running = False
+        self.state_label.setText("State: Idle")
+        self.output_path_label.setText("Output: No job prepared.")
+        self.progress_summary_label.setText(message)
+        self.progress_bar.setRange(0, 1000)
+        self.progress_bar.setValue(0)
+        self.command_output.clear()
+        self.command_output.setPlaceholderText("Prepared commands will appear here.")
+        self.command_toggle.setChecked(False)
+        self.log_output.clear()
+        self.start_button.setEnabled(False)
+        self.cancel_button.setEnabled(False)
+
+    def set_prepared_job(self, prepared: PreparedExecution) -> None:
+        if self._running:
+            return
+
+        warning_text = ""
+        if prepared.validation.has_warnings:
+            warning_count = len(prepared.validation.warnings)
+            warning_text = f" {warning_count} warning(s) will not block execution."
+
+        self.state_label.setText("State: Ready")
+        self.output_path_label.setText(f"Output: {prepared.job.output_path}")
+        self.progress_summary_label.setText(
+            "Ready to run."
+            f"{warning_text} "
+            f"Passes: {len(prepared.commands)}."
+        )
+        self.progress_bar.setRange(0, 1000)
+        self.progress_bar.setValue(0)
+        self.command_output.setPlainText(
+            _format_command_preview_text(prepared.commands, single_command=False)
+        )
+        self.log_output.clear()
+        self.log_output.setPlaceholderText("ffmpeg stderr output will appear here during a job.")
+        self.cancel_button.setEnabled(False)
+
+    def start_run(self, prepared: PreparedExecution) -> None:
+        self._running = True
+        self.state_label.setText("State: Running")
+        self.output_path_label.setText(f"Output: {prepared.job.output_path}")
+        self.progress_summary_label.setText(
+            f"Running pass 1 of {len(prepared.commands)}."
+        )
+        self.progress_bar.setRange(0, 0)
+        self.command_output.setPlainText(
+            _format_command_preview_text(prepared.commands, single_command=False)
+        )
+        self.log_output.clear()
+        self.log_output.setPlaceholderText("ffmpeg stderr output will appear here during a job.")
+        self.start_button.setEnabled(False)
+        self.cancel_button.setEnabled(True)
+
+    def update_progress(self, progress: JobProgress) -> None:
+        if progress.state is JobState.RUNNING:
+            self.state_label.setText(
+                f"State: Running (Pass {progress.pass_index} of {progress.pass_count})"
+            )
+            if progress.percentage is None:
+                self.progress_bar.setRange(0, 0)
+            else:
+                self.progress_bar.setRange(0, 1000)
+                self.progress_bar.setValue(round(progress.percentage * 10))
+        self.progress_summary_label.setText(_format_job_progress(progress))
+
+    def append_log_line(self, line: str) -> None:
+        self.log_output.appendPlainText(line.rstrip("\n"))
+        self.log_output.ensureCursorVisible()
+
+    def show_result(self, result: JobResult, *, can_start: bool) -> None:
+        self._running = False
+        self.state_label.setText(f"State: {_job_state_label(result.state)}")
+        self.output_path_label.setText(f"Output: {result.job.output_path}")
+        self.progress_summary_label.setText(_format_job_result_summary(result))
+        self.progress_bar.setRange(0, 1000)
+        self.progress_bar.setValue(1000 if result.state is JobState.COMPLETED else 0)
+        self.command_output.setPlainText(
+            _format_command_preview_text(result.commands, single_command=False)
+        )
+        self.log_output.setPlainText(
+            result.log_output or "No ffmpeg stderr output was captured for this job."
+        )
+        self.start_button.setEnabled(can_start)
+        self.cancel_button.setEnabled(False)
+
+    def show_failure(self, message: str, *, can_start: bool) -> None:
+        self._running = False
+        self.state_label.setText("State: Failed")
+        self.progress_summary_label.setText(message)
+        self.progress_bar.setRange(0, 1000)
+        self.progress_bar.setValue(0)
+        self.start_button.setEnabled(can_start)
+        self.cancel_button.setEnabled(False)
+
+    def set_start_enabled(self, enabled: bool) -> None:
+        if not self._running:
+            self.start_button.setEnabled(enabled)
+
+    @property
+    def is_running(self) -> bool:
+        return self._running
+
+
 class MainWindow(QMainWindow):
     def __init__(
         self,
@@ -801,6 +1001,9 @@ class MainWindow(QMainWindow):
         self._settings = self._settings_service.load()
         self._dependency_status = self._dependency_manager.discover(self._settings)
         self._media_info: SourceMediaInfo | None = None
+        self._prepared_execution: PreparedExecution | None = None
+        self._execution_thread: QThread | None = None
+        self._execution_worker: JobExecutionWorker | None = None
 
         self.setWindowTitle("FFmpeg GUI")
         self.resize(1040, 780)
@@ -895,11 +1098,18 @@ class MainWindow(QMainWindow):
         self.command_preview_widget = CommandPreviewWidget()
         command_layout.addWidget(self.command_preview_widget)
 
+        job_box = QGroupBox("Job Details")
+        job_layout = QVBoxLayout(job_box)
+        self.job_details_widget = JobDetailsWidget()
+        self.job_details_widget.start_requested.connect(self._start_job)
+        self.job_details_widget.cancel_requested.connect(self._cancel_job)
+        job_layout.addWidget(self.job_details_widget)
+
         queue_box = QGroupBox("Queue")
         queue_layout = QVBoxLayout(queue_box)
         queue_layout.addWidget(QLabel("Phase 5 will add queueing and batch execution here."))
 
-        for widget in (source_box, media_box, output_box, command_box, queue_box):
+        for widget in (source_box, media_box, output_box, command_box, job_box, queue_box):
             layout.addWidget(widget)
 
         layout.addStretch(1)
@@ -982,27 +1192,40 @@ class MainWindow(QMainWindow):
         self._refresh_command_preview()
 
     def _refresh_command_preview(self) -> None:
-        if not self._dependency_status.is_ready or self._dependency_status.ffmpeg.path is None:
+        prepared, message = self._prepare_execution()
+        self._prepared_execution = prepared
+
+        if prepared is None:
             self.command_preview_widget.show_message(
-                "Configure a valid ffmpeg executable to preview commands."
+                message or "No command preview is available yet."
             )
+            if not self.job_details_widget.is_running:
+                self.job_details_widget.set_idle_message(
+                    message or "No command preview is available yet."
+                )
             return
 
+        self.command_preview_widget.set_commands(prepared.commands)
+        if not self.job_details_widget.is_running:
+            self.job_details_widget.set_prepared_job(prepared)
+            self.job_details_widget.set_start_enabled(True)
+
+    def _prepare_execution(self) -> tuple[PreparedExecution | None, str | None]:
+        if not self._dependency_status.is_ready or self._dependency_status.ffmpeg.path is None:
+            return None, "Configure a valid ffmpeg executable to preview commands."
+
         if self._media_info is None:
-            self.command_preview_widget.show_message(
-                "Load a source file to generate a command preview."
-            )
-            return
+            return None, "Load a source file to generate a command preview."
 
         settings = self.output_settings_widget.current_settings()
         validation = self._validation_service.validate(settings, self._media_info)
         if validation.has_errors:
             error_lines = "\n".join(f"- {issue.message}" for issue in validation.errors)
-            self.command_preview_widget.show_message(
+            return (
+                None,
                 "Resolve the current validation errors before a command can be generated.\n\n"
-                f"{error_lines}"
+                f"{error_lines}",
             )
-            return
 
         output_path = suggest_output_path(self._media_info.source_path, settings.container)
         job = _build_job_definition(
@@ -1012,12 +1235,94 @@ class MainWindow(QMainWindow):
         )
         builder = DefaultCommandBuilder(self._dependency_status.ffmpeg.path)
         try:
-            commands = builder.build(job, self._media_info)
+            commands = tuple(builder.build(job, self._media_info))
         except CommandBuildError as exc:
-            self.command_preview_widget.show_message(str(exc))
+            return None, str(exc)
+
+        return PreparedExecution(job=job, commands=commands, validation=validation), None
+
+    def _start_job(self) -> None:
+        if self.job_details_widget.is_running:
             return
 
-        self.command_preview_widget.set_commands(commands)
+        prepared = self._prepared_execution
+        if prepared is None:
+            prepared, message = self._prepare_execution()
+            self._prepared_execution = prepared
+            if prepared is None:
+                QMessageBox.warning(
+                    self,
+                    "Job Not Ready",
+                    message or "The current source and settings cannot be executed yet.",
+                )
+                self._refresh_command_preview()
+                return
+
+        if self._media_info is None or self._dependency_status.ffmpeg.path is None:
+            QMessageBox.warning(
+                self,
+                "Job Not Ready",
+                "Load a source file and configure a valid ffmpeg path before starting a job.",
+            )
+            return
+
+        execution_service = DefaultJobExecutionService(
+            command_builder=DefaultCommandBuilder(self._dependency_status.ffmpeg.path),
+            process_runner=SubprocessProcessRunner(),
+        )
+        worker = JobExecutionWorker(execution_service, prepared.job, self._media_info)
+        thread = QThread(self)
+        worker.moveToThread(thread)
+
+        thread.started.connect(worker.run)
+        worker.progress.connect(self._handle_job_progress)
+        worker.log_line.connect(self.job_details_widget.append_log_line)
+        worker.finished.connect(self._handle_job_finished)
+        worker.failed.connect(self._handle_job_failure)
+        worker.finished.connect(thread.quit)
+        worker.failed.connect(thread.quit)
+        worker.finished.connect(worker.deleteLater)
+        worker.failed.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        thread.finished.connect(self._clear_execution_worker)
+
+        self._execution_thread = thread
+        self._execution_worker = worker
+        self.job_details_widget.start_run(prepared)
+        thread.start()
+
+    def _cancel_job(self) -> None:
+        if self._execution_worker is None:
+            return
+        self.job_details_widget.progress_summary_label.setText(
+            "Cancel requested. Waiting for ffmpeg to stop."
+        )
+        self._execution_worker.cancel()
+
+    def _handle_job_progress(self, progress: object) -> None:
+        if not isinstance(progress, JobProgress):
+            return
+        self.job_details_widget.update_progress(progress)
+
+    def _handle_job_finished(self, result: object) -> None:
+        if not isinstance(result, JobResult):
+            return
+        self.job_details_widget.show_result(result, can_start=self._can_start_current_job())
+
+    def _handle_job_failure(self, message: str) -> None:
+        self.job_details_widget.show_failure(
+            message or "Job execution failed unexpectedly.",
+            can_start=self._can_start_current_job(),
+        )
+
+    def _clear_execution_worker(self) -> None:
+        self._execution_thread = None
+        self._execution_worker = None
+
+    def _can_start_current_job(self) -> bool:
+        prepared, _ = self._prepare_execution()
+        self._prepared_execution = prepared
+        return prepared is not None
 
 
 class CommandPreviewWidget(QWidget):
@@ -1349,6 +1654,59 @@ def _format_command_preview_text(
         sections.append(f"Pass {index}")
         sections.append(command.display_string)
     return "\n\n".join(sections)
+
+
+def _job_state_label(state: JobState) -> str:
+    labels = {
+        JobState.PENDING: "Pending",
+        JobState.RUNNING: "Running",
+        JobState.COMPLETED: "Completed",
+        JobState.FAILED: "Failed",
+        JobState.CANCELED: "Canceled",
+    }
+    return labels[state]
+
+
+def _format_job_progress(progress: JobProgress) -> str:
+    details = [
+        f"State: {_job_state_label(progress.state)}",
+        f"Pass: {progress.pass_index} of {progress.pass_count}",
+        f"Elapsed: {_format_precise_duration(progress.elapsed_seconds)}",
+        f"Processed: {_format_precise_duration(progress.processed_seconds)}",
+        f"Progress: {_format_percentage(progress.percentage)}",
+        f"Speed: {_format_speed(progress.speed)}",
+    ]
+    return " | ".join(details)
+
+
+def _format_job_result_summary(result: JobResult) -> str:
+    return (
+        f"State: {_job_state_label(result.state)} | "
+        f"Elapsed: {_format_precise_duration(result.elapsed_seconds)} | "
+        f"Commands Run: {len(result.process_results)} of {len(result.commands)}"
+    )
+
+
+def _format_precise_duration(seconds: float | None) -> str:
+    if seconds is None:
+        return "Unknown"
+    total_seconds = int(seconds)
+    milliseconds = int((seconds - total_seconds) * 10)
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, remaining_seconds = divmod(remainder, 60)
+    return f"{hours:02d}:{minutes:02d}:{remaining_seconds:02d}.{milliseconds}"
+
+
+def _format_percentage(value: float | None) -> str:
+    if value is None:
+        return "Unknown"
+    return f"{value:.1f}%"
+
+
+def _format_speed(value: float | None) -> str:
+    if value is None:
+        return "Unknown"
+    return f"{value:.2f}x"
 
 
 def _build_job_definition(

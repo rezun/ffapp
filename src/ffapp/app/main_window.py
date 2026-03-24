@@ -61,6 +61,23 @@ T = TypeVar("T")
 _CUSTOM_AUDIO_BITRATE = "custom"
 _CUSTOM_PRESET_VALUE = "__custom__"
 _COMMON_AUDIO_BITRATES_KBPS: tuple[int, ...] = (32, 64, 96, 128, 160, 192, 256, 320)
+_UI_OUTER_MARGINS = (10, 10, 10, 10)
+_UI_GROUP_MARGINS = (8, 6, 8, 8)
+_UI_SECTION_SPACING = 8
+_UI_GROUP_STACK_SPACING = 10
+_UI_FORM_HORIZONTAL_SPACING = 10
+_UI_FORM_VERTICAL_SPACING = 8
+_UI_INLINE_SPACING = 6
+_UI_SETTINGS_TWO_COLUMN_MIN_WIDTH = 600
+_INFO_GLYPH = " ⓘ"
+_PRESETS_TOOLTIP = (
+    "Save reusable output configurations and reload them without rebuilding the form."
+)
+_OUTPUT_SETTINGS_TOOLTIP = (
+    "Choose a container, codec set, resolution preset, and encoding strategy. "
+    "The form only offers valid container/codec combinations and validates against "
+    "the currently loaded source."
+)
 _FOLDER_IMPORT_SUFFIXES: frozenset[str] = frozenset(
     {
         ".aac",
@@ -87,6 +104,7 @@ try:
         QApplication,
         QCheckBox,
         QComboBox,
+        QFrame,
         QFileDialog,
         QFormLayout,
         QGridLayout,
@@ -146,7 +164,8 @@ class DependencySetupWidget(QWidget):
         self._save_callback = save_callback
 
         layout = QVBoxLayout(self)
-        layout.setSpacing(12)
+        layout.setContentsMargins(*_UI_OUTER_MARGINS)
+        layout.setSpacing(_UI_SECTION_SPACING)
 
         intro = QLabel(
             "ffmpeg and ffprobe are required before the app can probe media files. "
@@ -167,6 +186,7 @@ class DependencySetupWidget(QWidget):
         layout.addWidget(self.status_label)
 
         button_row = QHBoxLayout()
+        button_row.setSpacing(_UI_INLINE_SPACING)
         save_button = QPushButton("Validate and Save")
         save_button.clicked.connect(self._handle_save)
         button_row.addWidget(save_button)
@@ -210,6 +230,7 @@ class MediaSummaryWidget(QWidget):
     def __init__(self) -> None:
         super().__init__()
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
         self.summary = QPlainTextEdit()
         self.summary.setReadOnly(True)
         self.summary.setPlaceholderText("No source file selected.")
@@ -239,15 +260,8 @@ class OutputSettingsWidget(QWidget):
         )
 
         layout = QVBoxLayout(self)
-        layout.setSpacing(12)
-
-        intro = QLabel(
-            "Choose a container, codec set, resolution preset, and encoding strategy. "
-            "The form only offers valid container/codec combinations and validates against "
-            "the currently loaded source."
-        )
-        intro.setWordWrap(True)
-        layout.addWidget(intro)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
 
         self.container_combo = _NoWheelComboBox()
         self.video_codec_combo = _NoWheelComboBox()
@@ -288,24 +302,28 @@ class OutputSettingsWidget(QWidget):
 
         self._configure_field_widgets()
 
-        format_group = self._build_format_group()
-        audio_group = self._build_audio_group()
-        encoding_group = self._build_encoding_group()
-        status_group = self._build_status_group()
+        self.format_group = self._build_format_group()
+        self.audio_group = self._build_audio_group()
+        self.encoding_group = self._build_encoding_group()
+        self.status_group = self._build_status_group()
+        self._using_two_column_layout = False
 
-        layout.addWidget(format_group)
-        layout.addSpacing(10)
-        layout.addWidget(audio_group)
-        layout.addSpacing(10)
-        layout.addWidget(encoding_group)
-        layout.addSpacing(10)
-        layout.addWidget(status_group)
+        self._group_layout = QGridLayout()
+        self._group_layout.setContentsMargins(0, 0, 0, 0)
+        self._group_layout.setHorizontalSpacing(_UI_GROUP_STACK_SPACING)
+        self._group_layout.setVerticalSpacing(_UI_GROUP_STACK_SPACING)
 
+        layout.addLayout(self._group_layout)
         layout.addStretch(1)
 
         self._populate_static_options()
         self._connect_signals()
         self._refresh_form_state()
+        self._refresh_group_layout()
+
+    def resizeEvent(self, event: object) -> None:
+        super().resizeEvent(event)
+        self._refresh_group_layout()
 
     def set_media_info(self, media_info: SourceMediaInfo | None) -> None:
         self._media_info = media_info
@@ -544,8 +562,9 @@ class OutputSettingsWidget(QWidget):
         group = QGroupBox("Audio and Streams")
         self._configure_group_box(group)
         layout = QGridLayout(group)
-        layout.setHorizontalSpacing(12)
-        layout.setVerticalSpacing(10)
+        layout.setContentsMargins(*_UI_GROUP_MARGINS)
+        layout.setHorizontalSpacing(_UI_FORM_HORIZONTAL_SPACING)
+        layout.setVerticalSpacing(_UI_FORM_VERTICAL_SPACING)
         layout.setColumnStretch(1, 1)
 
         layout.addWidget(QLabel("Audio Mode"), 0, 0)
@@ -563,7 +582,7 @@ class OutputSettingsWidget(QWidget):
         row = QWidget()
         layout = QHBoxLayout(row)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(8)
+        layout.setSpacing(_UI_INLINE_SPACING)
         layout.addWidget(self.audio_bitrate_combo, 2)
         layout.addWidget(self.audio_bitrate_custom_spin, 1)
         return row
@@ -572,8 +591,11 @@ class OutputSettingsWidget(QWidget):
         group = QGroupBox("Encoding")
         self._configure_group_box(group)
         layout = QVBoxLayout(group)
+        layout.setContentsMargins(*_UI_GROUP_MARGINS)
+        layout.setSpacing(_UI_SECTION_SPACING)
         form_layout = QFormLayout()
         self._configure_form_layout(form_layout)
+        form_layout.setContentsMargins(0, 0, 0, 0)
         form_layout.addRow("Strategy", self.strategy_combo)
         layout.addLayout(form_layout)
         self.strategy_stack.setSizePolicy(
@@ -594,6 +616,8 @@ class OutputSettingsWidget(QWidget):
         group = QGroupBox("Validation and Output")
         self._configure_group_box(group)
         layout = QVBoxLayout(group)
+        layout.setContentsMargins(*_UI_GROUP_MARGINS)
+        layout.setSpacing(_UI_SECTION_SPACING)
 
         resolution_heading = QLabel("Resolved Output")
         resolution_heading.setStyleSheet("font-weight: 600;")
@@ -605,6 +629,44 @@ class OutputSettingsWidget(QWidget):
         layout.addWidget(validation_heading)
         layout.addWidget(self.validation_summary, 1)
         return group
+
+    def _refresh_group_layout(self) -> None:
+        use_two_columns = self.width() >= _UI_SETTINGS_TWO_COLUMN_MIN_WIDTH
+        if use_two_columns == self._using_two_column_layout and self._group_layout.count() > 0:
+            return
+
+        self._using_two_column_layout = use_two_columns
+        for group in (
+            self.format_group,
+            self.audio_group,
+            self.encoding_group,
+            self.status_group,
+        ):
+            self._group_layout.removeWidget(group)
+
+        if use_two_columns:
+            self._group_layout.addWidget(self.format_group, 0, 0)
+            self._group_layout.addWidget(self.audio_group, 1, 0)
+            self._group_layout.addWidget(self.encoding_group, 2, 0)
+            self._group_layout.addWidget(self.status_group, 0, 1, 3, 1)
+            self._group_layout.setColumnStretch(0, 3)
+            self._group_layout.setColumnStretch(1, 2)
+            self._group_layout.setRowStretch(0, 0)
+            self._group_layout.setRowStretch(1, 0)
+            self._group_layout.setRowStretch(2, 1)
+            self._group_layout.setRowStretch(3, 0)
+            return
+
+        self._group_layout.addWidget(self.format_group, 0, 0)
+        self._group_layout.addWidget(self.audio_group, 1, 0)
+        self._group_layout.addWidget(self.encoding_group, 2, 0)
+        self._group_layout.addWidget(self.status_group, 3, 0)
+        self._group_layout.setColumnStretch(0, 1)
+        self._group_layout.setColumnStretch(1, 0)
+        self._group_layout.setRowStretch(0, 0)
+        self._group_layout.setRowStretch(1, 0)
+        self._group_layout.setRowStretch(2, 0)
+        self._group_layout.setRowStretch(3, 1)
 
     def _configure_field_widgets(self) -> None:
         expanding_fields: tuple[QWidget, ...] = (
@@ -632,8 +694,9 @@ class OutputSettingsWidget(QWidget):
             )
 
     def _configure_form_layout(self, layout: QFormLayout) -> None:
-        layout.setHorizontalSpacing(12)
-        layout.setVerticalSpacing(10)
+        layout.setContentsMargins(*_UI_GROUP_MARGINS)
+        layout.setHorizontalSpacing(_UI_FORM_HORIZONTAL_SPACING)
+        layout.setVerticalSpacing(_UI_FORM_VERTICAL_SPACING)
         layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
 
     def _configure_group_box(self, group: QGroupBox) -> None:
@@ -965,28 +1028,25 @@ class JobDetailsWidget(QWidget):
         self._running = False
 
         layout = QVBoxLayout(self)
-        intro = QLabel(
-            "Run the current job here. Progress, pass state, and ffmpeg log output stay attached "
-            "to the active execution."
-        )
-        intro.setWordWrap(True)
-        layout.addWidget(intro)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(_UI_SECTION_SPACING)
 
-        button_row = QHBoxLayout()
+        header_row = QHBoxLayout()
+        header_row.setSpacing(_UI_INLINE_SPACING)
+        self.state_label = QLabel("Idle")
+        self.state_label.setStyleSheet("font-weight: 600;")
+        header_row.addWidget(self.state_label)
+        header_row.addStretch(1)
+
         self.start_button = QPushButton("Start Job")
         self.start_button.clicked.connect(self.start_requested.emit)
         self.cancel_button = QPushButton("Cancel Job")
         self.cancel_button.clicked.connect(self.cancel_requested.emit)
-        button_row.addWidget(self.start_button)
-        button_row.addWidget(self.cancel_button)
-        button_row.addStretch(1)
-        layout.addLayout(button_row)
+        header_row.addWidget(self.start_button)
+        header_row.addWidget(self.cancel_button)
+        layout.addLayout(header_row)
 
-        self.state_label = QLabel("State: Idle")
-        self.state_label.setStyleSheet("font-weight: 600;")
-        layout.addWidget(self.state_label)
-
-        self.output_path_label = QLabel("Output: No job prepared.")
+        self.output_path_label = QLabel("No job prepared.")
         self.output_path_label.setWordWrap(True)
         layout.addWidget(self.output_path_label)
 
@@ -999,6 +1059,8 @@ class JobDetailsWidget(QWidget):
         self.progress_bar = QProgressBar()
         self.progress_bar.setRange(0, 1000)
         self.progress_bar.setValue(0)
+        self.progress_bar.setTextVisible(False)
+        self.progress_bar.setFixedHeight(10)
         layout.addWidget(self.progress_bar)
 
         self.command_toggle = QToolButton()
@@ -1017,15 +1079,21 @@ class JobDetailsWidget(QWidget):
         layout.addWidget(self.command_output)
         self.command_output.setVisible(False)
 
-        log_heading = QLabel("ffmpeg Log")
-        log_heading.setStyleSheet("font-weight: 600;")
-        layout.addWidget(log_heading)
+        self.log_toggle = QToolButton()
+        self.log_toggle.setText("ffmpeg Log")
+        self.log_toggle.setCheckable(True)
+        self.log_toggle.setChecked(False)
+        self.log_toggle.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.log_toggle.setArrowType(Qt.ArrowType.RightArrow)
+        self.log_toggle.toggled.connect(self._set_log_section_visible)
+        layout.addWidget(self.log_toggle)
 
         self.log_output = QPlainTextEdit()
         self.log_output.setReadOnly(True)
-        self.log_output.setMinimumHeight(100)
+        self.log_output.setMinimumHeight(90)
         self.log_output.setPlaceholderText("ffmpeg stderr output will appear here during a job.")
         layout.addWidget(self.log_output)
+        self.log_output.setVisible(False)
 
         self.set_start_enabled(False)
         self.cancel_button.setEnabled(False)
@@ -1036,10 +1104,16 @@ class JobDetailsWidget(QWidget):
         )
         self.command_output.setVisible(visible)
 
+    def _set_log_section_visible(self, visible: bool) -> None:
+        self.log_toggle.setArrowType(
+            Qt.ArrowType.DownArrow if visible else Qt.ArrowType.RightArrow
+        )
+        self.log_output.setVisible(visible)
+
     def set_idle_message(self, message: str) -> None:
         self._running = False
-        self.state_label.setText("State: Idle")
-        self.output_path_label.setText("Output: No job prepared.")
+        self.state_label.setText("Idle")
+        self.output_path_label.setText("No job prepared.")
         self.progress_summary_label.setText(message)
         self.progress_bar.setRange(0, 1000)
         self.progress_bar.setValue(0)
@@ -1047,6 +1121,7 @@ class JobDetailsWidget(QWidget):
         self.command_output.setPlaceholderText("Prepared commands will appear here.")
         self.command_toggle.setChecked(False)
         self.log_output.clear()
+        self.log_toggle.setChecked(False)
         self.start_button.setEnabled(False)
         self.cancel_button.setEnabled(False)
 
@@ -1059,8 +1134,8 @@ class JobDetailsWidget(QWidget):
             warning_count = len(prepared.validation.warnings)
             warning_text = f" {warning_count} warning(s) will not block execution."
 
-        self.state_label.setText("State: Ready")
-        self.output_path_label.setText(f"Output: {prepared.job.output_path}")
+        self.state_label.setText("Ready")
+        self.output_path_label.setText(str(prepared.job.output_path))
         self.progress_summary_label.setText(
             "Ready to run."
             f"{warning_text} "
@@ -1073,12 +1148,13 @@ class JobDetailsWidget(QWidget):
         )
         self.log_output.clear()
         self.log_output.setPlaceholderText("ffmpeg stderr output will appear here during a job.")
+        self.log_toggle.setChecked(False)
         self.cancel_button.setEnabled(False)
 
     def start_run(self, prepared: PreparedExecution) -> None:
         self._running = True
-        self.state_label.setText("State: Running")
-        self.output_path_label.setText(f"Output: {prepared.job.output_path}")
+        self.state_label.setText("Running")
+        self.output_path_label.setText(str(prepared.job.output_path))
         self.progress_summary_label.setText(
             f"Running pass 1 of {len(prepared.commands)}."
         )
@@ -1093,9 +1169,7 @@ class JobDetailsWidget(QWidget):
 
     def update_progress(self, progress: JobProgress) -> None:
         if progress.state is JobState.RUNNING:
-            self.state_label.setText(
-                f"State: Running (Pass {progress.pass_index} of {progress.pass_count})"
-            )
+            self.state_label.setText(f"Running {progress.pass_index}/{progress.pass_count}")
             if progress.percentage is None:
                 self.progress_bar.setRange(0, 0)
             else:
@@ -1109,8 +1183,8 @@ class JobDetailsWidget(QWidget):
 
     def show_result(self, result: JobResult, *, can_start: bool) -> None:
         self._running = False
-        self.state_label.setText(f"State: {_job_state_label(result.state)}")
-        self.output_path_label.setText(f"Output: {result.job.output_path}")
+        self.state_label.setText(_job_state_label(result.state))
+        self.output_path_label.setText(str(result.job.output_path))
         self.progress_summary_label.setText(_format_job_result_summary(result))
         self.progress_bar.setRange(0, 1000)
         self.progress_bar.setValue(1000 if result.state is JobState.COMPLETED else 0)
@@ -1120,12 +1194,13 @@ class JobDetailsWidget(QWidget):
         self.log_output.setPlainText(
             result.log_output or "No ffmpeg stderr output was captured for this job."
         )
+        self.log_toggle.setChecked(bool(result.log_output))
         self.start_button.setEnabled(can_start)
         self.cancel_button.setEnabled(False)
 
     def show_failure(self, message: str, *, can_start: bool) -> None:
         self._running = False
-        self.state_label.setText("State: Failed")
+        self.state_label.setText("Failed")
         self.progress_summary_label.setText(message)
         self.progress_bar.setRange(0, 1000)
         self.progress_bar.setValue(0)
@@ -1146,6 +1221,8 @@ class QueueDetailsWidget(QWidget):
         super().__init__()
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(_UI_SECTION_SPACING)
         intro = QLabel(
             "Inspect the selected queued item's prepared command, retained state, and log output."
         )
@@ -1213,15 +1290,19 @@ class QueueWidget(QWidget):
         self._items_by_id: dict[str, QueueItem] = {}
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(*_UI_OUTER_MARGINS)
+        layout.setSpacing(_UI_SECTION_SPACING)
         intro = QLabel(
             "Queue multiple files with the current settings snapshot and run them sequentially. "
-            "Inspect the selected item from the Execution tab."
+            "Inspect the selected item below."
         )
         intro.setWordWrap(True)
         layout.addWidget(intro)
 
         primary_button_row = QHBoxLayout()
         secondary_button_row = QHBoxLayout()
+        primary_button_row.setSpacing(_UI_INLINE_SPACING)
+        secondary_button_row.setSpacing(_UI_INLINE_SPACING)
         self.add_current_button = QPushButton("Add Current Source")
         self.add_current_button.clicked.connect(self.add_current_requested.emit)
         self.add_files_button = QPushButton("Add Files")
@@ -1555,7 +1636,7 @@ class MainWindow(QMainWindow):
     def _build_main_panel(self) -> QWidget:
         container = QWidget()
         outer_layout = QVBoxLayout(container)
-        outer_layout.setContentsMargins(12, 12, 12, 12)
+        outer_layout.setContentsMargins(*_UI_OUTER_MARGINS)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.setChildrenCollapsible(False)
@@ -1567,6 +1648,7 @@ class MainWindow(QMainWindow):
         left_layout.setContentsMargins(0, 0, 0, 0)
 
         self.workflow_tabs = QTabWidget()
+        self.workflow_tabs.setStyleSheet("QTabWidget::pane { border: 0; }")
         self._source_workspace = self._build_source_workspace()
         self._queue_workspace = self._build_queue_workspace()
         self.workflow_tabs.addTab(self._source_workspace, "Source")
@@ -1584,21 +1666,17 @@ class MainWindow(QMainWindow):
         top_panel = QWidget()
         top_layout = QVBoxLayout(top_panel)
         top_layout.setContentsMargins(0, 0, 0, 0)
-        top_layout.setSpacing(12)
+        top_layout.setSpacing(0)
 
-        presets_box = QGroupBox("Presets")
+        presets_box = QGroupBox(f"Presets{_INFO_GLYPH}")
+        presets_box.setToolTip(_PRESETS_TOOLTIP)
         presets_layout = QVBoxLayout(presets_box)
-        presets_layout.setContentsMargins(12, 8, 12, 10)
-        presets_layout.setSpacing(8)
-        presets_intro = QLabel(
-            "Save reusable output configurations and reload them without rebuilding the form."
-        )
-        presets_intro.setWordWrap(True)
-        presets_layout.addWidget(presets_intro)
+        presets_layout.setContentsMargins(*_UI_GROUP_MARGINS)
+        presets_layout.setSpacing(_UI_SECTION_SPACING)
 
         preset_row = QHBoxLayout()
         preset_row.setContentsMargins(0, 0, 0, 0)
-        preset_row.setSpacing(8)
+        preset_row.setSpacing(_UI_INLINE_SPACING)
         self.preset_combo = _NoWheelComboBox()
         self.preset_combo.currentIndexChanged.connect(self._handle_preset_selection_changed)
         preset_row.addWidget(self.preset_combo, 2)
@@ -1616,28 +1694,37 @@ class MainWindow(QMainWindow):
         preset_row.addWidget(self.delete_preset_button)
         presets_layout.addLayout(preset_row)
         top_layout.addWidget(presets_box)
+        top_layout.addSpacing(_UI_GROUP_STACK_SPACING)
 
         summary_box = QGroupBox("Current Output Summary")
         summary_layout = QVBoxLayout(summary_box)
+        summary_layout.setContentsMargins(*_UI_GROUP_MARGINS)
+        summary_layout.setSpacing(_UI_SECTION_SPACING)
         self.output_summary_label = QLabel(
             "Load a source and adjust output settings to see the current encode summary."
         )
         self.output_summary_label.setWordWrap(True)
         summary_layout.addWidget(self.output_summary_label)
         top_layout.addWidget(summary_box)
+        top_layout.addSpacing(_UI_GROUP_STACK_SPACING)
 
-        output_box = QGroupBox("Output Settings")
+        output_box = QGroupBox(f"Output Settings{_INFO_GLYPH}")
+        output_box.setToolTip(_OUTPUT_SETTINGS_TOOLTIP)
         output_layout = QVBoxLayout(output_box)
+        output_layout.setContentsMargins(*_UI_GROUP_MARGINS)
+        output_layout.setSpacing(_UI_SECTION_SPACING)
         self.output_settings_widget = OutputSettingsWidget()
         output_layout.addWidget(self.output_settings_widget)
         top_layout.addWidget(output_box)
         top_layout.addStretch(1)
 
         top_scroll = QScrollArea()
+        top_scroll.setFrameShape(QFrame.Shape.NoFrame)
         top_scroll.setWidgetResizable(True)
         top_scroll.setWidget(top_panel)
 
         self.inspector_tabs = QTabWidget()
+        self.inspector_tabs.setStyleSheet("QTabWidget::pane { border: 0; }")
         self.command_preview_widget = CommandPreviewWidget()
         self.execution_inspector_tab = self._build_execution_inspector()
         self.inspector_tabs.addTab(self.command_preview_widget, "Preview")
@@ -1663,11 +1750,15 @@ class MainWindow(QMainWindow):
     def _build_source_workspace(self) -> QWidget:
         panel = QWidget()
         layout = QVBoxLayout(panel)
-        layout.setSpacing(16)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
 
         source_box = QGroupBox("Source Selection")
         source_layout = QVBoxLayout(source_box)
+        source_layout.setContentsMargins(*_UI_GROUP_MARGINS)
+        source_layout.setSpacing(_UI_SECTION_SPACING)
         button_row = QHBoxLayout()
+        button_row.setSpacing(_UI_INLINE_SPACING)
         open_button = QPushButton("Choose File")
         open_button.clicked.connect(self._choose_source_file)
         button_row.addWidget(open_button)
@@ -1686,10 +1777,12 @@ class MainWindow(QMainWindow):
         self.source_path_label.setWordWrap(True)
         source_layout.addWidget(self.source_path_label)
         layout.addWidget(source_box)
-        layout.addSpacing(10)
+        layout.addSpacing(_UI_GROUP_STACK_SPACING)
 
         media_box = QGroupBox("Media Info Summary")
         media_layout = QVBoxLayout(media_box)
+        media_layout.setContentsMargins(*_UI_GROUP_MARGINS)
+        media_layout.setSpacing(_UI_SECTION_SPACING)
         self.media_summary_widget = MediaSummaryWidget()
         media_layout.addWidget(self.media_summary_widget)
         layout.addWidget(media_box, 1)
@@ -1700,6 +1793,7 @@ class MainWindow(QMainWindow):
         panel = QWidget()
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(_UI_GROUP_STACK_SPACING)
 
         self.queue_widget = QueueWidget()
         self.queue_widget.add_current_requested.connect(self._queue_current_source)
@@ -1709,7 +1803,23 @@ class MainWindow(QMainWindow):
         self.queue_widget.start_requested.connect(self._start_queue)
         self.queue_widget.cancel_requested.connect(self._cancel_queue)
         self.queue_widget.selection_changed.connect(self._handle_queue_selection_changed)
-        layout.addWidget(self.queue_widget)
+
+        queue_details_box = QGroupBox("Selected Queue Item")
+        queue_details_layout = QVBoxLayout(queue_details_box)
+        queue_details_layout.setContentsMargins(*_UI_GROUP_MARGINS)
+        queue_details_layout.setSpacing(_UI_SECTION_SPACING)
+        self.queue_details_widget = QueueDetailsWidget()
+        queue_details_layout.addWidget(self.queue_details_widget)
+
+        splitter = QSplitter(Qt.Orientation.Vertical)
+        splitter.setChildrenCollapsible(False)
+        splitter.addWidget(self.queue_widget)
+        splitter.addWidget(queue_details_box)
+        splitter.setStretchFactor(0, 3)
+        splitter.setStretchFactor(1, 2)
+        splitter.setSizes([360, 280])
+
+        layout.addWidget(splitter)
         return panel
 
     def _build_execution_inspector(self) -> QWidget:
@@ -1719,32 +1829,16 @@ class MainWindow(QMainWindow):
             QSizePolicy.Policy.Preferred,
         )
         layout = QVBoxLayout(panel)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(*_UI_GROUP_MARGINS)
+        layout.setSpacing(0)
 
-        splitter = QSplitter(Qt.Orientation.Vertical)
-        splitter.setChildrenCollapsible(False)
-
-        current_job_box = QGroupBox("Current Job")
-        current_job_layout = QVBoxLayout(current_job_box)
         self.job_details_widget = JobDetailsWidget()
         self.job_details_widget.start_requested.connect(self._start_job)
         self.job_details_widget.cancel_requested.connect(self._cancel_job)
-        current_job_layout.addWidget(self.job_details_widget)
-
-        queue_item_box = QGroupBox("Selected Queue Item")
-        queue_item_layout = QVBoxLayout(queue_item_box)
-        self.queue_details_widget = QueueDetailsWidget()
-        queue_item_layout.addWidget(self.queue_details_widget)
-
-        splitter.addWidget(current_job_box)
-        splitter.addWidget(queue_item_box)
-        splitter.setStretchFactor(0, 3)
-        splitter.setStretchFactor(1, 2)
-        splitter.setSizes([420, 300])
-
-        layout.addWidget(splitter)
+        layout.addWidget(self.job_details_widget)
 
         scroll = QScrollArea()
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setWidgetResizable(True)
         scroll.setSizePolicy(
             QSizePolicy.Policy.Expanding,
@@ -1972,7 +2066,6 @@ class MainWindow(QMainWindow):
         if created_items:
             newest_item_id = created_items[-1].id
             self.workflow_tabs.setCurrentWidget(self._queue_workspace)
-            self.inspector_tabs.setCurrentWidget(self.execution_inspector_tab)
             self._refresh_queue_ui(selected_id=newest_item_id)
         else:
             self._refresh_queue_ui()
@@ -1999,8 +2092,6 @@ class MainWindow(QMainWindow):
         self._show_selected_queue_item()
 
     def _handle_queue_selection_changed(self, item_id: str) -> None:
-        if item_id:
-            self.inspector_tabs.setCurrentWidget(self.execution_inspector_tab)
         selected_item = self._selected_queue_item()
         self.queue_widget.set_remove_enabled(
             selected_item is not None and selected_item.state is not JobState.RUNNING
@@ -2245,6 +2336,8 @@ class CommandPreviewWidget(QWidget):
         self._preview_text = ""
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(*_UI_GROUP_MARGINS)
+        layout.setSpacing(_UI_SECTION_SPACING)
         intro = QLabel(
             "The preview below reflects the effective ffmpeg command for the current source "
             "and settings. It stays read-only, but you can copy or export it."
@@ -2253,6 +2346,7 @@ class CommandPreviewWidget(QWidget):
         layout.addWidget(intro)
 
         button_row = QHBoxLayout()
+        button_row.setSpacing(_UI_INLINE_SPACING)
         self.single_command_checkbox = QCheckBox("Single Command")
         self.single_command_checkbox.toggled.connect(self._refresh_preview_text)
         button_row.addWidget(self.single_command_checkbox)

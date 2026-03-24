@@ -614,7 +614,55 @@ Make the app practical for repeated use by implementing presets and persistent s
 - Presets reload correctly after app restart.
 - Invalid or outdated preset data is handled gracefully.
 
-## Phase 8: Polish, Hardening, and Packaging Readiness
+## Phase 8: Fixing, Refinement and Review
+
+### Status
+
+In Progress
+
+### Developer Notes
+
+- Tightened and normalized the main-window spacing in `src/ffapp/app/main_window.py` so group panels use smaller, more consistent internal padding and explicit spacing between stacked sections.
+- Removed the oversized nested margins that made `Media Info Summary`, `Output Settings`, and other panels feel visually inconsistent.
+- Reduced left-tab content padding and removed default Qt frame chrome from the right-side scroll and tab containers so the workspace no longer shows stray dark borders.
+- Added responsive layout behavior to `OutputSettingsWidget` so `Validation and Output` moves into a right-side column when enough horizontal space is available, reducing overly wide controls on large windows.
+- Moved `Selected Queue Item` out of the execution inspector and into the left-side `Queue` workspace so queue inspection lives with queue management instead of the run-state view.
+- Simplified the `Execution` tab by removing redundant wrapper chrome, compressing the always-visible header/status area, and collapsing bulky sections like command details and ffmpeg logs until needed.
+- Removed always-visible explanatory copy from `Presets` and `Output Settings`, replacing it with discoverable tooltip help indicated directly in the group titles.
+- Verification completed locally via:
+  - `python3 -m compileall src`
+
+### Objective
+
+Improve the MVP's day-to-day usability by refining layout, spacing, information density, and panel placement after feature completion.
+
+### Tasks
+
+- Normalize panel padding, spacing, and group separation across the main workspace.
+- Remove unnecessary frame chrome and visual clutter from scroll areas and tab panes.
+- Make the output-settings area responsive so secondary status information can move beside the main controls on wider windows.
+- Revisit where queue inspection lives and place it with queue management instead of single-job execution.
+- Compress the execution view so idle and ready states consume less vertical space.
+- Replace always-visible helper copy with lighter-weight affordances such as tooltips and title-level info markers.
+- Review the revised layout against real source files and queue states to catch remaining UX inconsistencies.
+
+### Deliverables
+
+- Consistent panel spacing and padding across the main window
+- Responsive two-column output-settings layout on wider windows
+- Queue details integrated into the queue workspace
+- Slimmer execution inspector with collapsible secondary sections
+- Lighter-weight contextual help for presets and output settings
+
+### Acceptance Criteria
+
+- Group panels are visually separated without large or inconsistent padding.
+- Wide windows no longer leave output-setting controls stretched excessively across the available width.
+- Queue item inspection is available directly in the `Queue` tab.
+- The `Execution` tab focuses on current-job state and does not waste large amounts of vertical space when idle.
+- Static explanatory text is reduced where tooltip-based guidance is sufficient.
+
+## Phase 9: Polish, Hardening, and Packaging Readiness
 
 ### Status
 

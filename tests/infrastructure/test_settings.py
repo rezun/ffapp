@@ -3,7 +3,17 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-from ffapp.core.models import AppSettings, ExecutablePaths
+from ffapp.core.models import (
+    AppSettings,
+    AudioCodec,
+    AudioMode,
+    AudioOptions,
+    ExecutablePaths,
+    OutputContainer,
+    OutputSettings,
+    VideoCodec,
+    Vp9QualityOptions,
+)
 from ffapp.infrastructure.settings import JsonSettingsService
 
 
@@ -26,13 +36,47 @@ class JsonSettingsServiceTests(unittest.TestCase):
                 executable_paths=ExecutablePaths(
                     ffmpeg=Path("/usr/local/bin/ffmpeg"),
                     ffprobe=Path("/usr/local/bin/ffprobe"),
-                )
+                ),
+                last_used_settings=OutputSettings(
+                    container=OutputContainer.MKV,
+                    video_codec=VideoCodec.VP9,
+                    audio_options=AudioOptions(
+                        mode=AudioMode.REENCODE,
+                        codec=AudioCodec.OPUS,
+                        bitrate=192_000,
+                        remix_to_stereo=True,
+                    ),
+                    target_quality=Vp9QualityOptions(),
+                ),
             )
 
             service.save(expected)
             actual = service.load()
 
         self.assertEqual(actual, expected)
+
+    def test_load_defaults_last_used_settings_when_legacy_payload_omits_it(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            settings_path = Path(temp_dir) / "settings.json"
+            settings_path.write_text(
+                """
+                {
+                  "schema_version": 1,
+                  "executable_paths": {
+                    "ffmpeg": "/usr/local/bin/ffmpeg",
+                    "ffprobe": "/usr/local/bin/ffprobe"
+                  }
+                }
+                """.strip(),
+                encoding="utf-8",
+            )
+            service = JsonSettingsService(path=settings_path)
+
+            actual = service.load()
+
+        self.assertEqual(actual.last_used_settings, OutputSettings())
 
 
 if __name__ == "__main__":

@@ -4,6 +4,7 @@ import logging
 import sys
 
 from ffapp.infrastructure.dependencies import DependencyManager
+from ffapp.infrastructure.presets import JsonPresetService
 from ffapp.infrastructure.settings import JsonSettingsService
 
 
@@ -28,8 +29,8 @@ def main() -> int:
     application = QApplication(sys.argv)
     window = MainWindow(
         settings_service=JsonSettingsService(),
+        preset_service=JsonPresetService(),
         dependency_manager=DependencyManager(),
     )
     window.show()
     return application.exec()
-

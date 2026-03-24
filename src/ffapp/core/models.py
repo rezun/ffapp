@@ -255,23 +255,15 @@ class DependencyStatus:
 @dataclass(slots=True, frozen=True)
 class PresetDefinition:
     name: str
-    container: OutputContainer
-    video_codec: VideoCodec
-    encoding_strategy: EncodingStrategy
-    resolution_preset: ResolutionPreset = ResolutionPreset.ORIGINAL
-    video_encoder_options: VideoEncoderOptions | None = None
-    audio_options: AudioOptions = field(default_factory=AudioOptions)
-    stream_handling: StreamHandlingOptions = field(default_factory=StreamHandlingOptions)
-    target_file_size: TargetFileSizeOptions | None = None
-    target_bitrate: TargetBitrateOptions | None = None
-    target_quality: QualityOptions | None = None
+    settings: OutputSettings = field(default_factory=OutputSettings)
     schema_version: int = 1
 
 
 @dataclass(slots=True, frozen=True)
 class AppSettings:
     executable_paths: ExecutablePaths = field(default_factory=ExecutablePaths.empty)
-    schema_version: int = 1
+    last_used_settings: OutputSettings = field(default_factory=OutputSettings)
+    schema_version: int = 2
 
 
 @dataclass(slots=True, frozen=True)

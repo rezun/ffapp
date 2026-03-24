@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 from pathlib import Path
 from typing import TypeVar, cast
@@ -11,7 +11,6 @@ from urllib.parse import unquote, urlparse
 from ffapp.app.execution import JobExecutionWorker, QueueExecutionWorker
 from ffapp.core.commands import CommandBuildError, DefaultCommandBuilder, suggest_output_path
 from ffapp.core.models import (
-    AppSettings,
     AudioCodec,
     AudioMode,
     AudioOptions,
@@ -29,6 +28,7 @@ from ffapp.core.models import (
     JobState,
     OutputContainer,
     OutputSettings,
+    PresetDefinition,
     QualityOptions,
     QueuedJob,
     QueueItem,
@@ -51,6 +51,7 @@ from ffapp.core.validation import (
 )
 from ffapp.infrastructure.dependencies import DependencyManager
 from ffapp.infrastructure.execution import DefaultJobExecutionService, SubprocessProcessRunner
+from ffapp.infrastructure.presets import JsonPresetService, PresetStorageError
 from ffapp.infrastructure.probe import FfprobeMediaProbeService, MediaProbeError
 from ffapp.infrastructure.queue import InMemoryQueueService
 from ffapp.infrastructure.settings import JsonSettingsService
@@ -58,6 +59,7 @@ from ffapp.infrastructure.settings import JsonSettingsService
 LOGGER = logging.getLogger(__name__)
 T = TypeVar("T")
 _CUSTOM_AUDIO_BITRATE = "custom"
+_CUSTOM_PRESET_VALUE = "__custom__"
 _COMMON_AUDIO_BITRATES_KBPS: tuple[int, ...] = (32, 64, 96, 128, 160, 192, 256, 320)
 _FOLDER_IMPORT_SUFFIXES: frozenset[str] = frozenset(
     {
@@ -90,6 +92,7 @@ try:
         QGridLayout,
         QGroupBox,
         QHBoxLayout,
+        QInputDialog,
         QLabel,
         QLineEdit,
         QListWidget,
@@ -308,8 +311,54 @@ class OutputSettingsWidget(QWidget):
         self._media_info = media_info
         self._refresh_validation()
 
+    def apply_settings(self, settings: OutputSettings) -> None:
+        self._updating_form = True
+        try:
+            self._set_combo_value(self.container_combo, settings.container)
+            self._refresh_video_codec_options()
+            self._refresh_audio_codec_options()
+
+            self._set_combo_value(self.video_codec_combo, settings.video_codec)
+            self._set_combo_value(self.resolution_combo, settings.resolution_preset)
+            self._set_combo_value(self.strategy_combo, settings.encoding_strategy)
+
+            self._set_combo_value(self.audio_mode_combo, settings.audio_options.mode)
+            self._refresh_audio_codec_options()
+            if settings.audio_options.codec is not None:
+                self._set_combo_value(self.audio_codec_combo, settings.audio_options.codec)
+            self._apply_audio_bitrate(settings.audio_options.bitrate)
+            self.audio_remix_checkbox.setChecked(settings.audio_options.remix_to_stereo)
+
+            self.remove_subtitles_checkbox.setChecked(
+                settings.stream_handling.remove_subtitles
+            )
+            self.remove_data_checkbox.setChecked(settings.stream_handling.remove_data)
+
+            self.target_size_spin.setValue(settings.target_file_size.target_size_mb)
+            self.file_size_two_pass_checkbox.setChecked(settings.target_file_size.two_pass)
+            self.target_bitrate_spin.setValue(settings.target_bitrate.video_bitrate // 1_000)
+            self.bitrate_two_pass_checkbox.setChecked(settings.target_bitrate.two_pass)
+
+            self._refresh_quality_controls()
+            if settings.video_codec in {VideoCodec.H264, VideoCodec.H265}:
+                self._apply_h26x_settings(settings)
+            else:
+                self._apply_vpx_settings(settings)
+
+            self._refresh_audio_controls()
+            self._refresh_strategy_panel()
+        finally:
+            self._updating_form = False
+
+        self._refresh_validation()
+
     def current_settings(self) -> OutputSettings:
         video_codec = self._selected_value(self.video_codec_combo, VideoCodec.H264)
+        audio_mode = self._selected_value(self.audio_mode_combo, AudioMode.COPY)
+        audio_codec = self._selected_audio_codec() if audio_mode is AudioMode.REENCODE else None
+        audio_bitrate = (
+            self._selected_audio_bitrate() * 1_000 if audio_mode is AudioMode.REENCODE else None
+        )
         return OutputSettings(
             container=self._selected_value(self.container_combo, OutputContainer.MP4),
             video_codec=video_codec,
@@ -323,9 +372,9 @@ class OutputSettingsWidget(QWidget):
             ),
             video_encoder_options=self._current_video_encoder_options(video_codec),
             audio_options=AudioOptions(
-                mode=self._selected_value(self.audio_mode_combo, AudioMode.COPY),
-                codec=self._selected_audio_codec(),
-                bitrate=self._selected_audio_bitrate() * 1_000,
+                mode=audio_mode,
+                codec=audio_codec,
+                bitrate=audio_bitrate,
                 remix_to_stereo=self.audio_remix_checkbox.isChecked(),
             ),
             stream_handling=StreamHandlingOptions(
@@ -342,6 +391,54 @@ class OutputSettingsWidget(QWidget):
             ),
             target_quality=self._current_quality_options(video_codec),
         )
+
+    def _apply_h26x_settings(self, settings: OutputSettings) -> None:
+        default_profile = "high" if settings.video_codec is VideoCodec.H264 else "main"
+        preset = "medium"
+        profile = default_profile
+        if settings.video_encoder_options is not None:
+            preset = settings.video_encoder_options.preset
+            profile = settings.video_encoder_options.profile
+        if isinstance(settings.target_quality, H264QualityOptions | H265QualityOptions):
+            preset = settings.target_quality.preset
+            profile = settings.target_quality.profile
+            self.h26x_crf_spin.setValue(settings.target_quality.crf)
+        else:
+            self.h26x_crf_spin.setValue(23 if settings.video_codec is VideoCodec.H264 else 28)
+
+        self._set_combo_value(self.h26x_preset_combo, preset)
+        self._set_combo_value(self.h26x_profile_combo, profile)
+
+    def _apply_vpx_settings(self, settings: OutputSettings) -> None:
+        if isinstance(settings.target_quality, Vp8QualityOptions | Vp9QualityOptions):
+            self.vpx_quality_spin.setValue(settings.target_quality.quality)
+            self.vpx_speed_spin.setValue(settings.target_quality.speed)
+            return
+
+        if settings.video_codec is VideoCodec.VP8:
+            self.vpx_quality_spin.setValue(31)
+            self.vpx_speed_spin.setValue(4)
+        else:
+            self.vpx_quality_spin.setValue(32)
+            self.vpx_speed_spin.setValue(2)
+
+    def _apply_audio_bitrate(self, bitrate: int | None) -> None:
+        if bitrate is None:
+            default_index = self.audio_bitrate_combo.findData(128)
+            self.audio_bitrate_combo.setCurrentIndex(default_index if default_index >= 0 else 0)
+            self.audio_bitrate_custom_spin.setValue(128)
+            return
+
+        bitrate_kbps = max(8, bitrate // 1_000)
+        index = self.audio_bitrate_combo.findData(bitrate_kbps)
+        if index >= 0:
+            self.audio_bitrate_combo.setCurrentIndex(index)
+            self.audio_bitrate_custom_spin.setValue(bitrate_kbps)
+            return
+
+        custom_index = self.audio_bitrate_combo.findData(_CUSTOM_AUDIO_BITRATE)
+        self.audio_bitrate_combo.setCurrentIndex(custom_index if custom_index >= 0 else 0)
+        self.audio_bitrate_custom_spin.setValue(bitrate_kbps)
 
     def _build_file_size_panel(self) -> QWidget:
         panel = QWidget()
@@ -1230,14 +1327,17 @@ class MainWindow(QMainWindow):
     def __init__(
         self,
         settings_service: JsonSettingsService,
+        preset_service: JsonPresetService,
         dependency_manager: DependencyManager,
     ) -> None:
         super().__init__()
         self._settings_service = settings_service
+        self._preset_service = preset_service
         self._dependency_manager = dependency_manager
         self._validation_service = DefaultValidationService(DefaultCompatibilityService())
         self._settings = self._settings_service.load()
         self._dependency_status = self._dependency_manager.discover(self._settings)
+        self._presets: tuple[PresetDefinition, ...] = ()
         self._media_info: SourceMediaInfo | None = None
         self._prepared_execution: PreparedExecution | None = None
         self._execution_thread: QThread | None = None
@@ -1259,6 +1359,8 @@ class MainWindow(QMainWindow):
         self._stack.addWidget(self._main_widget)
 
         self._configure_actions()
+        self.output_settings_widget.apply_settings(self._settings.last_used_settings)
+        self._reload_presets()
         self._refresh_dependency_ui()
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
@@ -1291,6 +1393,164 @@ class MainWindow(QMainWindow):
             lambda: self._stack.setCurrentWidget(self._setup_widget)
         )
         self.addAction(dependencies_action)
+
+    def _handle_output_settings_changed(self) -> None:
+        self._persist_last_used_settings()
+        self._sync_preset_selection()
+        self._refresh_command_preview()
+
+    def _persist_last_used_settings(self) -> None:
+        if not hasattr(self, "output_settings_widget"):
+            return
+        self._settings = replace(
+            self._settings,
+            last_used_settings=self.output_settings_widget.current_settings(),
+        )
+        self._settings_service.save(self._settings)
+
+    def _reload_presets(self, *, selected_name: str | None = None) -> None:
+        self._presets = tuple(self._preset_service.load_all())
+        with QSignalBlocker(self.preset_combo):
+            self.preset_combo.clear()
+            self.preset_combo.addItem("Current Settings", _CUSTOM_PRESET_VALUE)
+            for preset in self._presets:
+                self.preset_combo.addItem(preset.name, preset.name)
+
+        if selected_name is not None:
+            self._set_combo_value(self.preset_combo, selected_name)
+        else:
+            self._sync_preset_selection()
+        self._refresh_preset_controls()
+
+    def _sync_preset_selection(self) -> None:
+        current_settings = self.output_settings_widget.current_settings()
+        selected_value = _CUSTOM_PRESET_VALUE
+        for preset in self._presets:
+            if preset.settings == current_settings:
+                selected_value = preset.name
+                break
+        self._set_combo_value(self.preset_combo, selected_value)
+        self._refresh_preset_controls()
+
+    def _selected_preset_name(self) -> str | None:
+        selected = self.preset_combo.currentData()
+        if selected in (None, _CUSTOM_PRESET_VALUE):
+            return None
+        return cast(str, selected)
+
+    def _selected_preset(self) -> PresetDefinition | None:
+        selected_name = self._selected_preset_name()
+        if selected_name is None:
+            return None
+        for preset in self._presets:
+            if preset.name == selected_name:
+                return preset
+        return None
+
+    def _refresh_preset_controls(self) -> None:
+        has_selection = self._selected_preset_name() is not None
+        self.rename_preset_button.setEnabled(has_selection)
+        self.delete_preset_button.setEnabled(has_selection)
+
+    def _handle_preset_selection_changed(self) -> None:
+        self._refresh_preset_controls()
+        preset = self._selected_preset()
+        if preset is None:
+            return
+        if preset.settings == self.output_settings_widget.current_settings():
+            return
+        self._apply_preset(preset)
+
+    def _apply_preset(self, preset: PresetDefinition) -> None:
+        self.output_settings_widget.apply_settings(preset.settings)
+
+        if self._media_info is not None:
+            validation = self._validation_service.validate(preset.settings, self._media_info)
+            if validation.has_errors:
+                issues = "\n".join(f"- {issue.message}" for issue in validation.errors)
+                QMessageBox.warning(
+                    self,
+                    "Preset Loaded With Validation Errors",
+                    f"'{preset.name}' was loaded, but the current source does not satisfy it.\n\n"
+                    f"{issues}",
+                )
+
+        self._persist_last_used_settings()
+        self._refresh_command_preview()
+        self._refresh_preset_controls()
+
+    def _save_preset_as(self) -> None:
+        suggested_name = self._selected_preset_name() or ""
+        name, accepted = QInputDialog.getText(
+            self,
+            "Save Preset",
+            "Preset name",
+            text=suggested_name,
+        )
+        if not accepted:
+            return
+
+        try:
+            self._preset_service.save(
+                PresetDefinition(
+                    name=name,
+                    settings=self.output_settings_widget.current_settings(),
+                )
+            )
+        except PresetStorageError as exc:
+            QMessageBox.warning(self, "Preset Not Saved", str(exc))
+            return
+
+        self._reload_presets(selected_name=name.strip())
+
+    def _rename_selected_preset(self) -> None:
+        preset = self._selected_preset()
+        if preset is None:
+            return
+
+        new_name, accepted = QInputDialog.getText(
+            self,
+            "Rename Preset",
+            "Preset name",
+            text=preset.name,
+        )
+        if not accepted:
+            return
+
+        try:
+            renamed = self._preset_service.rename(preset.name, new_name)
+        except PresetStorageError as exc:
+            QMessageBox.warning(self, "Preset Not Renamed", str(exc))
+            return
+
+        self._reload_presets(selected_name=renamed.name)
+
+    def _delete_selected_preset(self) -> None:
+        preset = self._selected_preset()
+        if preset is None:
+            return
+
+        answer = QMessageBox.question(
+            self,
+            "Delete Preset",
+            f"Delete preset '{preset.name}'?",
+        )
+        if answer is not QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            self._preset_service.delete(preset.name)
+        except PresetStorageError as exc:
+            QMessageBox.warning(self, "Preset Not Deleted", str(exc))
+            return
+
+        self._reload_presets()
+
+    def _set_combo_value(self, combo_box: QComboBox, value: object) -> None:
+        index = combo_box.findData(value)
+        if index >= 0:
+            with QSignalBlocker(combo_box):
+                combo_box.setCurrentIndex(index)
 
     def _build_main_panel(self) -> QWidget:
         container = QWidget()
@@ -1325,6 +1585,37 @@ class MainWindow(QMainWindow):
         top_layout = QVBoxLayout(top_panel)
         top_layout.setContentsMargins(0, 0, 0, 0)
         top_layout.setSpacing(12)
+
+        presets_box = QGroupBox("Presets")
+        presets_layout = QVBoxLayout(presets_box)
+        presets_layout.setContentsMargins(12, 8, 12, 10)
+        presets_layout.setSpacing(8)
+        presets_intro = QLabel(
+            "Save reusable output configurations and reload them without rebuilding the form."
+        )
+        presets_intro.setWordWrap(True)
+        presets_layout.addWidget(presets_intro)
+
+        preset_row = QHBoxLayout()
+        preset_row.setContentsMargins(0, 0, 0, 0)
+        preset_row.setSpacing(8)
+        self.preset_combo = _NoWheelComboBox()
+        self.preset_combo.currentIndexChanged.connect(self._handle_preset_selection_changed)
+        preset_row.addWidget(self.preset_combo, 2)
+
+        self.save_preset_button = QPushButton("Save As")
+        self.save_preset_button.clicked.connect(self._save_preset_as)
+        preset_row.addWidget(self.save_preset_button)
+
+        self.rename_preset_button = QPushButton("Rename")
+        self.rename_preset_button.clicked.connect(self._rename_selected_preset)
+        preset_row.addWidget(self.rename_preset_button)
+
+        self.delete_preset_button = QPushButton("Delete")
+        self.delete_preset_button.clicked.connect(self._delete_selected_preset)
+        preset_row.addWidget(self.delete_preset_button)
+        presets_layout.addLayout(preset_row)
+        top_layout.addWidget(presets_box)
 
         summary_box = QGroupBox("Current Output Summary")
         summary_layout = QVBoxLayout(summary_box)
@@ -1364,7 +1655,8 @@ class MainWindow(QMainWindow):
         splitter.setStretchFactor(1, 5)
         splitter.setSizes([300, 860])
 
-        self.output_settings_widget.settings_changed.connect(self._refresh_command_preview)
+        self.output_settings_widget.settings_changed.connect(self._handle_output_settings_changed)
+        self._refresh_preset_controls()
         self._refresh_queue_ui()
         return container
 
@@ -1483,7 +1775,7 @@ class MainWindow(QMainWindow):
         if not status.is_ready:
             return
 
-        self._settings = AppSettings(executable_paths=status.executable_paths)
+        self._settings = replace(self._settings, executable_paths=status.executable_paths)
         self._settings_service.save(self._settings)
         self._refresh_dependency_ui()
 

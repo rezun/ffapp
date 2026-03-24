@@ -6,6 +6,7 @@ from pathlib import Path
 
 APP_DIRECTORY_NAME = "ffapp"
 SETTINGS_FILE_NAME = "settings.json"
+PRESETS_FILE_NAME = "presets.json"
 
 
 def app_data_directory() -> Path:
@@ -22,3 +23,6 @@ def app_data_directory() -> Path:
 def settings_file_path() -> Path:
     return app_data_directory() / SETTINGS_FILE_NAME
 
+
+def presets_file_path() -> Path:
+    return app_data_directory() / PRESETS_FILE_NAME

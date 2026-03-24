@@ -3,12 +3,13 @@ from __future__ import annotations
 import os
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QPoint, QPointF, Qt
 from PySide6.QtGui import QWheelEvent
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QMessageBox
 
 from ffapp.app.main_window import (
     JobDetailsWidget,
@@ -22,6 +23,9 @@ from ffapp.app.main_window import (
 )
 from ffapp.core.models import (
     AppSettings,
+    AudioCodec,
+    AudioMode,
+    AudioOptions,
     DependencyStatus,
     EncodingStrategy,
     ExecutableValidation,
@@ -31,12 +35,16 @@ from ffapp.core.models import (
     JobResult,
     JobState,
     OutputContainer,
+    OutputSettings,
+    PresetDefinition,
     QueuedJob,
     QueueItem,
+    ResolutionPreset,
     SourceMediaInfo,
     ValidationResult,
     VideoCodec,
     VideoStreamInfo,
+    Vp9QualityOptions,
 )
 
 
@@ -49,11 +57,40 @@ def _command(text: str) -> GeneratedCommand:
 
 
 class _FakeSettingsService:
+    def __init__(self, settings: AppSettings | None = None) -> None:
+        self.value = settings or AppSettings()
+
     def load(self) -> AppSettings:
-        return AppSettings()
+        return self.value
 
     def save(self, settings: AppSettings) -> None:
-        del settings
+        self.value = settings
+
+
+class _FakePresetService:
+    def __init__(self, presets: tuple[PresetDefinition, ...] = ()) -> None:
+        self.presets = list(presets)
+
+    def load_all(self) -> tuple[PresetDefinition, ...]:
+        return tuple(sorted(self.presets, key=lambda preset: preset.name.casefold()))
+
+    def save(self, preset: PresetDefinition) -> None:
+        for index, existing in enumerate(self.presets):
+            if existing.name.casefold() == preset.name.casefold():
+                self.presets[index] = preset
+                return
+        self.presets.append(preset)
+
+    def rename(self, current_name: str, new_name: str) -> PresetDefinition:
+        for index, preset in enumerate(self.presets):
+            if preset.name == current_name:
+                renamed = PresetDefinition(name=new_name, settings=preset.settings)
+                self.presets[index] = renamed
+                return renamed
+        raise AssertionError("Preset not found")
+
+    def delete(self, name: str) -> None:
+        self.presets = [preset for preset in self.presets if preset.name != name]
 
 
 class _FakeDependencyManager:
@@ -252,13 +289,114 @@ class MainWindowLayoutTests(unittest.TestCase):
         cls.application = QApplication.instance() or QApplication([])
 
     def test_main_window_builds_split_workflow_tabs_and_inspector_tabs(self) -> None:
-        window = MainWindow(_FakeSettingsService(), _FakeDependencyManager())
+        window = MainWindow(
+            _FakeSettingsService(),
+            _FakePresetService(),
+            _FakeDependencyManager(),
+        )
 
         self.assertEqual(window.workflow_tabs.tabText(0), "Source")
         self.assertEqual(window.workflow_tabs.tabText(1), "Queue")
         self.assertEqual(window.inspector_tabs.tabText(0), "Preview")
         self.assertEqual(window.inspector_tabs.tabText(1), "Execution")
         self.assertIn("Container:", window.output_summary_label.text())
+
+    def test_main_window_restores_last_used_settings_and_lists_presets(self) -> None:
+        saved_settings = OutputSettings(
+            container=OutputContainer.MKV,
+            video_codec=VideoCodec.VP9,
+            encoding_strategy=EncodingStrategy.TARGET_QUALITY,
+            resolution_preset=ResolutionPreset.P1080,
+            audio_options=AudioOptions(
+                mode=AudioMode.REENCODE,
+                codec=AudioCodec.OPUS,
+                bitrate=160_000,
+            ),
+            target_quality=Vp9QualityOptions(quality=29, speed=3),
+        )
+        settings_service = _FakeSettingsService(
+            AppSettings(last_used_settings=saved_settings)
+        )
+        preset_service = _FakePresetService(
+            (PresetDefinition(name="Archive", settings=saved_settings),)
+        )
+
+        window = MainWindow(
+            settings_service,
+            preset_service,
+            _FakeDependencyManager(),
+        )
+
+        self.assertEqual(window.output_settings_widget.current_settings(), saved_settings)
+        self.assertEqual(window.preset_combo.currentText(), "Archive")
+
+    def test_selecting_a_preset_applies_it_immediately(self) -> None:
+        current_settings = OutputSettings()
+        preset_settings = OutputSettings(
+            container=OutputContainer.MKV,
+            video_codec=VideoCodec.VP9,
+            encoding_strategy=EncodingStrategy.TARGET_QUALITY,
+            resolution_preset=ResolutionPreset.P1080,
+            audio_options=AudioOptions(
+                mode=AudioMode.REENCODE,
+                codec=AudioCodec.OPUS,
+                bitrate=160_000,
+            ),
+            target_quality=Vp9QualityOptions(quality=29, speed=3),
+        )
+        window = MainWindow(
+            _FakeSettingsService(AppSettings(last_used_settings=current_settings)),
+            _FakePresetService((PresetDefinition(name="Archive", settings=preset_settings),)),
+            _FakeDependencyManager(),
+        )
+
+        window.preset_combo.setCurrentText("Archive")
+
+        self.assertEqual(window.output_settings_widget.current_settings(), preset_settings)
+
+    def test_preset_management_actions_update_service_and_selection(self) -> None:
+        settings = OutputSettings(
+            container=OutputContainer.MKV,
+            video_codec=VideoCodec.VP9,
+            encoding_strategy=EncodingStrategy.TARGET_QUALITY,
+            resolution_preset=ResolutionPreset.P720,
+            audio_options=AudioOptions(
+                mode=AudioMode.REENCODE,
+                codec=AudioCodec.OPUS,
+                bitrate=128_000,
+            ),
+            target_quality=Vp9QualityOptions(quality=31, speed=2),
+        )
+        window = MainWindow(
+            _FakeSettingsService(AppSettings(last_used_settings=settings)),
+            _FakePresetService(),
+            _FakeDependencyManager(),
+        )
+
+        with patch(
+            "ffapp.app.main_window.QInputDialog.getText",
+            return_value=("Streaming", True),
+        ):
+            window._save_preset_as()
+
+        self.assertEqual(window.preset_combo.currentText(), "Streaming")
+
+        with patch(
+            "ffapp.app.main_window.QInputDialog.getText",
+            return_value=("Archive", True),
+        ):
+            window._rename_selected_preset()
+
+        self.assertEqual(window.preset_combo.currentText(), "Archive")
+
+        with patch(
+            "ffapp.app.main_window.QMessageBox.question",
+            return_value=QMessageBox.StandardButton.Yes,
+        ):
+            window._delete_selected_preset()
+
+        self.assertEqual(window.preset_combo.currentText(), "Current Settings")
+        self.assertEqual(window.preset_combo.count(), 1)
 
 
 class WheelGuardTests(unittest.TestCase):

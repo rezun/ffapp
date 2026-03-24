@@ -562,11 +562,28 @@ Improve the core MVP workflow by restructuring the main UI around task-oriented 
 
 ### Status
 
-Not Started
+Completed
 
 ### Developer Notes
 
-- Executable path persistence exists from Phase 1, but preset persistence and last-used encode settings are still pending.
+- Implemented typed JSON serialization for persisted output settings and preset definitions in `src/ffapp/infrastructure/serialization.py`.
+- Expanded `src/ffapp/infrastructure/settings.py` so app settings now persist both executable paths and the last-used output configuration, while still handling older settings files that do not include encode settings.
+- Added `src/ffapp/infrastructure/presets.py` with JSON-based preset persistence, schema versioning, save/update, rename, delete, and graceful skipping of invalid or outdated preset entries.
+- Updated `src/ffapp/app/main_window.py` to:
+  - restore the last-used output settings on startup
+  - persist output setting changes as the user edits the form
+  - add preset save/rename/delete controls
+  - apply a preset immediately when it is selected
+  - warn when a loaded preset is not valid for the currently probed source
+- Updated `src/ffapp/app/bootstrap.py` to compose the preset service into the desktop app.
+- Expanded test coverage with:
+  - `tests/infrastructure/test_settings.py`
+  - `tests/infrastructure/test_presets.py`
+  - `tests/app/test_main_window.py`
+- Verification completed locally via:
+  - `.venv/bin/python -m pytest`
+  - `.venv/bin/python -m ruff check src tests`
+  - `.venv/bin/python -m mypy`
 
 ### Objective
 

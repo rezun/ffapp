@@ -1,44 +1,44 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Self
 
 
-class OutputContainer(str, Enum):
+class OutputContainer(StrEnum):
     MP4 = "mp4"
     MKV = "mkv"
     OGG = "ogg"
 
 
-class VideoCodec(str, Enum):
+class VideoCodec(StrEnum):
     H264 = "h264"
     H265 = "h265"
     VP8 = "vp8"
     VP9 = "vp9"
 
 
-class AudioCodec(str, Enum):
+class AudioCodec(StrEnum):
     MP3 = "mp3"
     AAC = "aac"
     VORBIS = "vorbis"
     OPUS = "opus"
 
 
-class EncodingStrategy(str, Enum):
+class EncodingStrategy(StrEnum):
     TARGET_FILE_SIZE = "target_file_size"
     TARGET_BITRATE = "target_bitrate"
     TARGET_QUALITY = "target_quality"
 
 
-class AudioMode(str, Enum):
+class AudioMode(StrEnum):
     COPY = "copy"
     REENCODE = "reencode"
     REMOVE = "remove"
 
 
-class ResolutionPreset(str, Enum):
+class ResolutionPreset(StrEnum):
     ORIGINAL = "original"
     P720 = "720p"
     P1080 = "1080p"
@@ -46,7 +46,7 @@ class ResolutionPreset(str, Enum):
     P4K = "4k"
 
 
-class JobState(str, Enum):
+class JobState(StrEnum):
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -54,9 +54,15 @@ class JobState(str, Enum):
     CANCELED = "canceled"
 
 
-class ValidationSeverity(str, Enum):
+class ValidationSeverity(StrEnum):
     ERROR = "error"
     WARNING = "warning"
+
+
+@dataclass(slots=True, frozen=True)
+class Resolution:
+    width: int
+    height: int
 
 
 @dataclass(slots=True, frozen=True)
@@ -73,12 +79,36 @@ class TargetBitrateOptions:
 
 
 @dataclass(slots=True, frozen=True)
-class TargetQualityOptions:
-    codec: VideoCodec
-    crf: int | None = None
-    preset: str | None = None
-    profile: str | None = None
-    speed: int | None = None
+class H264QualityOptions:
+    codec: VideoCodec = VideoCodec.H264
+    crf: int = 23
+    preset: str = "medium"
+    profile: str = "high"
+
+
+@dataclass(slots=True, frozen=True)
+class H265QualityOptions:
+    codec: VideoCodec = VideoCodec.H265
+    crf: int = 28
+    preset: str = "medium"
+    profile: str = "main"
+
+
+@dataclass(slots=True, frozen=True)
+class Vp8QualityOptions:
+    codec: VideoCodec = VideoCodec.VP8
+    quality: int = 31
+    speed: int = 4
+
+
+@dataclass(slots=True, frozen=True)
+class Vp9QualityOptions:
+    codec: VideoCodec = VideoCodec.VP9
+    quality: int = 32
+    speed: int = 2
+
+
+QualityOptions = H264QualityOptions | H265QualityOptions | Vp8QualityOptions | Vp9QualityOptions
 
 
 @dataclass(slots=True, frozen=True)
@@ -112,12 +142,14 @@ class AudioStreamInfo:
     codec_name: str | None = None
     bit_rate: int | None = None
     channels: int | None = None
+    language: str | None = None
 
 
 @dataclass(slots=True, frozen=True)
 class SubtitleStreamInfo:
     index: int
     codec_name: str | None = None
+    language: str | None = None
 
 
 @dataclass(slots=True, frozen=True)
@@ -149,6 +181,23 @@ class SourceMediaInfo:
             + len(self.subtitle_streams)
             + len(self.data_streams)
         )
+
+
+@dataclass(slots=True, frozen=True)
+class OutputSettings:
+    container: OutputContainer = OutputContainer.MP4
+    video_codec: VideoCodec = VideoCodec.H264
+    encoding_strategy: EncodingStrategy = EncodingStrategy.TARGET_QUALITY
+    resolution_preset: ResolutionPreset = ResolutionPreset.ORIGINAL
+    audio_options: AudioOptions = field(default_factory=AudioOptions)
+    stream_handling: StreamHandlingOptions = field(default_factory=StreamHandlingOptions)
+    target_file_size: TargetFileSizeOptions = field(
+        default_factory=lambda: TargetFileSizeOptions(target_size_mb=50)
+    )
+    target_bitrate: TargetBitrateOptions = field(
+        default_factory=lambda: TargetBitrateOptions(video_bitrate=3_000_000)
+    )
+    target_quality: QualityOptions = field(default_factory=H264QualityOptions)
 
 
 @dataclass(slots=True, frozen=True)
@@ -198,7 +247,7 @@ class PresetDefinition:
     stream_handling: StreamHandlingOptions = field(default_factory=StreamHandlingOptions)
     target_file_size: TargetFileSizeOptions | None = None
     target_bitrate: TargetBitrateOptions | None = None
-    target_quality: TargetQualityOptions | None = None
+    target_quality: QualityOptions | None = None
     schema_version: int = 1
 
 
@@ -220,7 +269,7 @@ class JobDefinition:
     resolution_preset: ResolutionPreset = ResolutionPreset.ORIGINAL
     target_file_size: TargetFileSizeOptions | None = None
     target_bitrate: TargetBitrateOptions | None = None
-    target_quality: TargetQualityOptions | None = None
+    target_quality: QualityOptions | None = None
 
 
 @dataclass(slots=True, frozen=True)
@@ -250,3 +299,10 @@ class ValidationResult:
     def has_warnings(self) -> bool:
         return any(issue.severity is ValidationSeverity.WARNING for issue in self.issues)
 
+    @property
+    def errors(self) -> tuple[ValidationIssue, ...]:
+        return tuple(issue for issue in self.issues if issue.severity is ValidationSeverity.ERROR)
+
+    @property
+    def warnings(self) -> tuple[ValidationIssue, ...]:
+        return tuple(issue for issue in self.issues if issue.severity is ValidationSeverity.WARNING)

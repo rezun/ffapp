@@ -46,7 +46,11 @@ class FfprobeMediaProbeService(MediaProbeService):
         )
 
         if completed.returncode != 0:
-            error_output = completed.stderr.strip() or completed.stdout.strip() or "Unknown ffprobe error"
+            error_output = (
+                completed.stderr.strip()
+                or completed.stdout.strip()
+                or "Unknown ffprobe error"
+            )
             raise MediaProbeError(error_output)
 
         try:
@@ -72,10 +76,12 @@ def parse_media_info(source_path: Path, payload: dict[str, Any]) -> SourceMediaI
 
     for raw_stream in streams_payload:
         stream = _expect_mapping(raw_stream)
+        tags = _expect_mapping(stream.get("tags"))
         codec_type = str(stream.get("codec_type", "")).lower()
         index = _parse_int(stream.get("index")) or 0
         codec_name = _optional_str(stream.get("codec_name"))
         bit_rate = _parse_int(stream.get("bit_rate"))
+        language = _optional_str(tags.get("language"))
 
         if codec_type == "video":
             video_streams.append(
@@ -97,12 +103,19 @@ def parse_media_info(source_path: Path, payload: dict[str, Any]) -> SourceMediaI
                     codec_name=codec_name,
                     bit_rate=bit_rate,
                     channels=_parse_int(stream.get("channels")),
+                    language=language,
                 )
             )
             continue
 
         if codec_type == "subtitle":
-            subtitle_streams.append(SubtitleStreamInfo(index=index, codec_name=codec_name))
+            subtitle_streams.append(
+                SubtitleStreamInfo(
+                    index=index,
+                    codec_name=codec_name,
+                    language=language,
+                )
+            )
             continue
 
         if codec_type in {"data", "attachment"}:

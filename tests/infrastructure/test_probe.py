@@ -33,11 +33,17 @@ class ParseMediaInfoTests(unittest.TestCase):
                     "codec_name": "aac",
                     "bit_rate": "128000",
                     "channels": 2,
+                    "tags": {
+                        "language": "eng",
+                    },
                 },
                 {
                     "index": 2,
                     "codec_type": "subtitle",
                     "codec_name": "mov_text",
+                    "tags": {
+                        "language": "deu",
+                    },
                 },
             ],
         }
@@ -50,6 +56,8 @@ class ParseMediaInfoTests(unittest.TestCase):
         self.assertEqual(len(media_info.video_streams), 1)
         self.assertEqual(len(media_info.audio_streams), 1)
         self.assertEqual(len(media_info.subtitle_streams), 1)
+        self.assertEqual(media_info.audio_streams[0].language, "eng")
+        self.assertEqual(media_info.subtitle_streams[0].language, "deu")
         self.assertAlmostEqual(media_info.video_streams[0].frame_rate or 0.0, 29.97, places=2)
 
 
@@ -91,4 +99,3 @@ class ProbeServiceTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

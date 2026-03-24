@@ -188,9 +188,10 @@ Completed
 
 - Implemented executable discovery and validation in `src/ffapp/infrastructure/dependencies.py`, including saved-path preference and `-version` checks for both `ffmpeg` and `ffprobe`.
 - Implemented JSON settings persistence for executable paths in `src/ffapp/infrastructure/settings.py`.
-- Implemented `ffprobe`-based media probing and JSON parsing in `src/ffapp/infrastructure/probe.py`.
+- Implemented `ffprobe`-based media probing and JSON parsing in `src/ffapp/infrastructure/probe.py`, including audio and subtitle language tags when available.
 - Added typed media models for source/container/stream data in `src/ffapp/core/models.py`.
-- Added the dependency setup screen, dependency status display, source file picker, drag-and-drop handling, clipboard path paste flow, and media summary panel in `src/ffapp/app/main_window.py`.
+- Added the dependency setup screen, source file picker, drag-and-drop handling, clipboard path paste flow, and media summary panel in `src/ffapp/app/main_window.py`.
+- The media summary now includes per-audio-stream details such as codec, language, channel count, and bitrate.
 - Probe failures and invalid dependency configuration now surface as user-visible messages instead of crashing.
 - Verification completed locally via:
   - `python3 -m compileall src tests`
@@ -239,11 +240,18 @@ Implement dependency discovery and media inspection so the app can load a source
 
 ### Status
 
-Not Started
+Completed
 
 ### Developer Notes
 
-- Placeholder only. The main window already reserves an `Output Settings` section for this phase.
+- Added phase-2 output models in `src/ffapp/core/models.py`, including `OutputSettings`, orientation-aware resolution handling, and codec-specific quality option types for H.264, H.265, VP8, and VP9.
+- Implemented the compatibility matrix and structured validation engine in `src/ffapp/core/validation.py`, covering container/codec rules, audio copy and re-encode validation, subtitle/data stream copy constraints, file-size budget checks, and bitrate warning thresholds.
+- Replaced the output-settings placeholder UI in `src/ffapp/app/main_window.py` with a grouped, space-efficient settings panel for container, codec, audio, stream-removal, resolution, and encoding-strategy controls plus inline validation feedback and resolved output-resolution display.
+- Added `tests/core/test_validation.py` to cover compatibility rules, portrait-aware resolution presets, file-size mode validation, bitrate validation, and codec-specific quality settings.
+- Verification completed locally via:
+  - `.venv/bin/python -m ruff check src tests`
+  - `.venv/bin/python -m pytest`
+  - offscreen Qt startup smoke test that instantiated `MainWindow` successfully under `PySide6`
 
 ### Objective
 

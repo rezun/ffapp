@@ -6,12 +6,17 @@ from typing import Protocol
 
 from ffapp.core.models import (
     AppSettings,
+    AudioCodec,
     DependencyStatus,
     GeneratedCommand,
     JobDefinition,
+    OutputContainer,
+    OutputSettings,
     PresetDefinition,
+    Resolution,
     SourceMediaInfo,
     ValidationResult,
+    VideoCodec,
 )
 
 
@@ -32,15 +37,37 @@ class PresetService(Protocol):
 
 
 class CompatibilityService(Protocol):
-    def validate(self, job: JobDefinition) -> ValidationResult: ...
+    def allowed_video_codecs(self, container: OutputContainer) -> Sequence[VideoCodec]: ...
+
+    def allowed_audio_codecs(self, container: OutputContainer) -> Sequence[AudioCodec]: ...
+
+    def validate(
+        self,
+        settings: OutputSettings,
+        media_info: SourceMediaInfo,
+    ) -> ValidationResult: ...
 
 
 class ValidationService(Protocol):
-    def validate(self, job: JobDefinition, media_info: SourceMediaInfo) -> ValidationResult: ...
+    def resolve_output_resolution(
+        self,
+        settings: OutputSettings,
+        media_info: SourceMediaInfo,
+    ) -> Resolution | None: ...
+
+    def validate(
+        self,
+        settings: OutputSettings,
+        media_info: SourceMediaInfo,
+    ) -> ValidationResult: ...
 
 
 class CommandBuilder(Protocol):
-    def build(self, job: JobDefinition, media_info: SourceMediaInfo) -> Sequence[GeneratedCommand]: ...
+    def build(
+        self,
+        job: JobDefinition,
+        media_info: SourceMediaInfo,
+    ) -> Sequence[GeneratedCommand]: ...
 
 
 class ProcessRunner(Protocol):
@@ -59,4 +86,3 @@ class QueueService(Protocol):
 
 class DependencyService(Protocol):
     def discover(self, settings: AppSettings) -> DependencyStatus: ...
-

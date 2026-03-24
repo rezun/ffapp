@@ -1,10 +1,40 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
+from enum import StrEnum
 from pathlib import Path
+from urllib.parse import unquote, urlparse
 
-from ffapp.core.models import AppSettings, DependencyStatus, ExecutablePaths, SourceMediaInfo
+from ffapp.core.models import (
+    AppSettings,
+    AudioCodec,
+    AudioMode,
+    AudioOptions,
+    DependencyStatus,
+    EncodingStrategy,
+    ExecutablePaths,
+    H264QualityOptions,
+    H265QualityOptions,
+    OutputContainer,
+    OutputSettings,
+    ResolutionPreset,
+    SourceMediaInfo,
+    StreamHandlingOptions,
+    TargetBitrateOptions,
+    TargetFileSizeOptions,
+    ValidationResult,
+    VideoCodec,
+    Vp8QualityOptions,
+    Vp9QualityOptions,
+)
+from ffapp.core.validation import (
+    VPX_SPEED_RANGE,
+    DefaultCompatibilityService,
+    DefaultValidationService,
+    quality_preset_options,
+    quality_profile_options,
+)
 from ffapp.infrastructure.dependencies import DependencyManager
 from ffapp.infrastructure.probe import FfprobeMediaProbeService, MediaProbeError
 from ffapp.infrastructure.settings import JsonSettingsService
@@ -12,20 +42,26 @@ from ffapp.infrastructure.settings import JsonSettingsService
 LOGGER = logging.getLogger(__name__)
 
 try:
+    from PySide6.QtCore import QSignalBlocker
     from PySide6.QtGui import QAction, QDragEnterEvent, QDropEvent
     from PySide6.QtWidgets import (
         QApplication,
+        QCheckBox,
+        QComboBox,
         QFileDialog,
         QFormLayout,
+        QGridLayout,
         QGroupBox,
         QHBoxLayout,
         QLabel,
         QLineEdit,
         QMainWindow,
         QMessageBox,
-        QPushButton,
         QPlainTextEdit,
+        QPushButton,
         QScrollArea,
+        QSizePolicy,
+        QSpinBox,
         QStackedWidget,
         QVBoxLayout,
         QWidget,
@@ -115,35 +151,531 @@ class MediaSummaryWidget(QWidget):
             self.summary.setPlaceholderText("No source file selected.")
             return
 
-        primary_video = media_info.primary_video_stream
-        lines = [
-            f"Source: {media_info.source_path}",
-            f"Format: {media_info.container_format or 'Unknown'}",
-            f"Duration: {_format_duration(media_info.duration_seconds)}",
-            f"Overall bitrate: {_format_bitrate(media_info.bit_rate)}",
-            "",
-            f"Video streams: {len(media_info.video_streams)}",
-            f"Audio streams: {len(media_info.audio_streams)}",
-            f"Subtitle streams: {len(media_info.subtitle_streams)}",
-            f"Data streams: {len(media_info.data_streams)}",
-        ]
+        self.summary.setPlainText(_build_media_summary_text(media_info))
 
-        if primary_video is not None:
-            lines.extend(
-                [
-                    "",
-                    "Primary video stream",
-                    f"Codec: {primary_video.codec_name or 'Unknown'}",
-                    f"Resolution: {_format_dimensions(primary_video.width, primary_video.height)}",
-                    f"Frame rate: {_format_frame_rate(primary_video.frame_rate)}",
-                    f"Bitrate: {_format_bitrate(primary_video.bit_rate)}",
-                ]
+
+class OutputSettingsWidget(QWidget):
+    def __init__(self) -> None:
+        super().__init__()
+        self._compatibility_service = DefaultCompatibilityService()
+        self._validation_service = DefaultValidationService(self._compatibility_service)
+        self._media_info: SourceMediaInfo | None = None
+        self._updating_form = False
+
+        layout = QVBoxLayout(self)
+        layout.setSpacing(12)
+
+        intro = QLabel(
+            "Choose a container, codec set, resolution preset, and encoding strategy. "
+            "The form only offers valid container/codec combinations and validates against "
+            "the currently loaded source."
+        )
+        intro.setWordWrap(True)
+        layout.addWidget(intro)
+
+        self.container_combo = QComboBox()
+        self.video_codec_combo = QComboBox()
+        self.audio_mode_combo = QComboBox()
+        self.audio_codec_combo = QComboBox()
+        self.audio_bitrate_spin = QSpinBox()
+        self.audio_bitrate_spin.setRange(32, 512)
+        self.audio_bitrate_spin.setSingleStep(16)
+        self.audio_bitrate_spin.setSuffix(" kbps")
+        self.audio_remix_checkbox = QCheckBox("Remix all audio streams to stereo")
+        self.remove_subtitles_checkbox = QCheckBox("Remove subtitle streams")
+        self.remove_data_checkbox = QCheckBox("Remove data streams")
+        self.resolution_combo = QComboBox()
+        self.strategy_combo = QComboBox()
+
+        self.strategy_stack = QStackedWidget()
+        self.strategy_stack.addWidget(self._build_file_size_panel())
+        self.strategy_stack.addWidget(self._build_bitrate_panel())
+        self.strategy_stack.addWidget(self._build_quality_panel())
+
+        self.output_resolution_label = QLabel(
+            "Output resolution will appear here after probing media."
+        )
+        self.output_resolution_label.setWordWrap(True)
+
+        self.validation_summary = QPlainTextEdit()
+        self.validation_summary.setReadOnly(True)
+        self.validation_summary.setPlaceholderText(
+            "Load a source file to validate output settings."
+        )
+        self.validation_summary.setMinimumHeight(220)
+        self.validation_summary.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Expanding,
+        )
+
+        self._configure_field_widgets()
+
+        content_layout = QHBoxLayout()
+        content_layout.setSpacing(16)
+        layout.addLayout(content_layout)
+
+        left_column = QVBoxLayout()
+        left_column.setSpacing(12)
+        right_column = QVBoxLayout()
+        right_column.setSpacing(12)
+        content_layout.addLayout(left_column, 3)
+        content_layout.addLayout(right_column, 2)
+
+        left_column.addWidget(self._build_format_group())
+        left_column.addWidget(self._build_audio_group())
+        left_column.addWidget(self._build_encoding_group())
+        left_column.addStretch(1)
+
+        right_column.addWidget(self._build_status_group(), 1)
+
+        layout.addStretch(1)
+
+        self._populate_static_options()
+        self._connect_signals()
+        self._refresh_form_state()
+
+    def set_media_info(self, media_info: SourceMediaInfo | None) -> None:
+        self._media_info = media_info
+        self._refresh_validation()
+
+    def current_settings(self) -> OutputSettings:
+        video_codec = self._selected_value(self.video_codec_combo, VideoCodec.H264)
+        return OutputSettings(
+            container=self._selected_value(self.container_combo, OutputContainer.MP4),
+            video_codec=video_codec,
+            encoding_strategy=self._selected_value(
+                self.strategy_combo,
+                EncodingStrategy.TARGET_QUALITY,
+            ),
+            resolution_preset=self._selected_value(
+                self.resolution_combo,
+                ResolutionPreset.ORIGINAL,
+            ),
+            audio_options=AudioOptions(
+                mode=self._selected_value(self.audio_mode_combo, AudioMode.COPY),
+                codec=self._selected_audio_codec(),
+                bitrate=self.audio_bitrate_spin.value() * 1_000,
+                remix_to_stereo=self.audio_remix_checkbox.isChecked(),
+            ),
+            stream_handling=StreamHandlingOptions(
+                remove_subtitles=self.remove_subtitles_checkbox.isChecked(),
+                remove_data=self.remove_data_checkbox.isChecked(),
+            ),
+            target_file_size=TargetFileSizeOptions(
+                target_size_mb=self.target_size_spin.value(),
+                two_pass=self.file_size_two_pass_checkbox.isChecked(),
+            ),
+            target_bitrate=TargetBitrateOptions(
+                video_bitrate=self.target_bitrate_spin.value() * 1_000,
+                two_pass=self.bitrate_two_pass_checkbox.isChecked(),
+            ),
+            target_quality=self._current_quality_options(video_codec),
+        )
+
+    def _build_file_size_panel(self) -> QWidget:
+        panel = QWidget()
+        layout = QFormLayout(panel)
+        self._configure_form_layout(layout)
+
+        self.target_size_spin = QSpinBox()
+        self.target_size_spin.setRange(1, 100_000)
+        self.target_size_spin.setValue(50)
+        self.target_size_spin.setSuffix(" MB")
+        self.file_size_two_pass_checkbox = QCheckBox("Use 2-pass encode")
+
+        layout.addRow("Target Size", self.target_size_spin)
+        layout.addRow("", self.file_size_two_pass_checkbox)
+        return panel
+
+    def _build_bitrate_panel(self) -> QWidget:
+        panel = QWidget()
+        layout = QFormLayout(panel)
+        self._configure_form_layout(layout)
+
+        self.target_bitrate_spin = QSpinBox()
+        self.target_bitrate_spin.setRange(100, 100_000)
+        self.target_bitrate_spin.setValue(3_000)
+        self.target_bitrate_spin.setSingleStep(100)
+        self.target_bitrate_spin.setSuffix(" kbps")
+        self.bitrate_two_pass_checkbox = QCheckBox("Use 2-pass encode")
+
+        layout.addRow("Video Bitrate", self.target_bitrate_spin)
+        layout.addRow("", self.bitrate_two_pass_checkbox)
+        return panel
+
+    def _build_quality_panel(self) -> QWidget:
+        panel = QWidget()
+        outer_layout = QVBoxLayout(panel)
+
+        self.quality_stack = QStackedWidget()
+        self.quality_stack.addWidget(self._build_h26x_quality_panel())
+        self.quality_stack.addWidget(self._build_vpx_quality_panel())
+        outer_layout.addWidget(self.quality_stack)
+
+        return panel
+
+    def _build_h26x_quality_panel(self) -> QWidget:
+        panel = QWidget()
+        layout = QFormLayout(panel)
+        self._configure_form_layout(layout)
+
+        self.h26x_crf_spin = QSpinBox()
+        self.h26x_crf_spin.setRange(0, 51)
+        self.h26x_crf_spin.setValue(23)
+        self.h26x_preset_combo = QComboBox()
+        self.h26x_profile_combo = QComboBox()
+
+        layout.addRow("CRF", self.h26x_crf_spin)
+        layout.addRow("Preset", self.h26x_preset_combo)
+        layout.addRow("Profile", self.h26x_profile_combo)
+        return panel
+
+    def _build_vpx_quality_panel(self) -> QWidget:
+        panel = QWidget()
+        layout = QFormLayout(panel)
+        self._configure_form_layout(layout)
+
+        self.vpx_quality_spin = QSpinBox()
+        self.vpx_quality_spin.setRange(0, 63)
+        self.vpx_quality_spin.setValue(32)
+        self.vpx_speed_spin = QSpinBox()
+        self.vpx_speed_spin.setRange(VPX_SPEED_RANGE.start, VPX_SPEED_RANGE.stop - 1)
+        self.vpx_speed_spin.setValue(2)
+
+        layout.addRow("Quality", self.vpx_quality_spin)
+        layout.addRow("Speed", self.vpx_speed_spin)
+        return panel
+
+    def _build_format_group(self) -> QGroupBox:
+        group = QGroupBox("Format and Video")
+        layout = QFormLayout(group)
+        self._configure_form_layout(layout)
+        layout.addRow("Container", self.container_combo)
+        layout.addRow("Video Codec", self.video_codec_combo)
+        layout.addRow("Resolution", self.resolution_combo)
+        return group
+
+    def _build_audio_group(self) -> QGroupBox:
+        group = QGroupBox("Audio and Streams")
+        layout = QGridLayout(group)
+        layout.setHorizontalSpacing(12)
+        layout.setVerticalSpacing(10)
+        layout.setColumnStretch(1, 1)
+
+        layout.addWidget(QLabel("Audio Mode"), 0, 0)
+        layout.addWidget(self.audio_mode_combo, 0, 1)
+        layout.addWidget(QLabel("Audio Codec"), 1, 0)
+        layout.addWidget(self.audio_codec_combo, 1, 1)
+        layout.addWidget(QLabel("Audio Bitrate"), 2, 0)
+        layout.addWidget(self.audio_bitrate_spin, 2, 1)
+        layout.addWidget(self.audio_remix_checkbox, 3, 1)
+        layout.addWidget(self.remove_subtitles_checkbox, 4, 1)
+        layout.addWidget(self.remove_data_checkbox, 5, 1)
+        return group
+
+    def _build_encoding_group(self) -> QGroupBox:
+        group = QGroupBox("Encoding")
+        layout = QVBoxLayout(group)
+        form_layout = QFormLayout()
+        self._configure_form_layout(form_layout)
+        form_layout.addRow("Strategy", self.strategy_combo)
+        layout.addLayout(form_layout)
+        layout.addWidget(self.strategy_stack)
+        return group
+
+    def _build_status_group(self) -> QGroupBox:
+        group = QGroupBox("Validation and Output")
+        layout = QVBoxLayout(group)
+
+        resolution_heading = QLabel("Resolved Output")
+        resolution_heading.setStyleSheet("font-weight: 600;")
+        layout.addWidget(resolution_heading)
+        layout.addWidget(self.output_resolution_label)
+
+        validation_heading = QLabel("Validation")
+        validation_heading.setStyleSheet("font-weight: 600;")
+        layout.addWidget(validation_heading)
+        layout.addWidget(self.validation_summary, 1)
+        return group
+
+    def _configure_field_widgets(self) -> None:
+        expanding_fields: tuple[QWidget, ...] = (
+            self.container_combo,
+            self.video_codec_combo,
+            self.audio_mode_combo,
+            self.audio_codec_combo,
+            self.resolution_combo,
+            self.strategy_combo,
+            self.target_size_spin,
+            self.target_bitrate_spin,
+            self.h26x_crf_spin,
+            self.h26x_preset_combo,
+            self.h26x_profile_combo,
+            self.vpx_quality_spin,
+            self.vpx_speed_spin,
+        )
+        for widget in expanding_fields:
+            widget.setMinimumWidth(220)
+            widget.setSizePolicy(
+                QSizePolicy.Policy.Expanding,
+                QSizePolicy.Policy.Fixed,
             )
 
-        if media_info.video_streams and len(media_info.video_streams) > 1:
-            lines.extend(["", "Warning: multiple video streams detected. MVP uses the first stream only."])
+    def _configure_form_layout(self, layout: QFormLayout) -> None:
+        layout.setHorizontalSpacing(12)
+        layout.setVerticalSpacing(10)
+        layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
 
-        self.summary.setPlainText("\n".join(lines))
+    def _populate_static_options(self) -> None:
+        for container in OutputContainer:
+            self.container_combo.addItem(container.value.upper(), container)
+
+        for mode in AudioMode:
+            self.audio_mode_combo.addItem(_audio_mode_label(mode), mode)
+
+        for preset in ResolutionPreset:
+            self.resolution_combo.addItem(_resolution_preset_label(preset), preset)
+
+        self.strategy_combo.addItem("Target File Size", EncodingStrategy.TARGET_FILE_SIZE)
+        self.strategy_combo.addItem("Target Bitrate", EncodingStrategy.TARGET_BITRATE)
+        self.strategy_combo.addItem("Target Quality", EncodingStrategy.TARGET_QUALITY)
+        self.strategy_combo.setCurrentIndex(2)
+
+    def _connect_signals(self) -> None:
+        self.container_combo.currentIndexChanged.connect(self._handle_container_changed)
+        self.video_codec_combo.currentIndexChanged.connect(self._refresh_form_state)
+        self.audio_mode_combo.currentIndexChanged.connect(self._handle_audio_mode_changed)
+        self.audio_codec_combo.currentIndexChanged.connect(self._refresh_validation)
+        self.audio_bitrate_spin.valueChanged.connect(self._refresh_validation)
+        self.audio_remix_checkbox.toggled.connect(self._handle_audio_remix_toggled)
+        self.remove_subtitles_checkbox.toggled.connect(self._refresh_validation)
+        self.remove_data_checkbox.toggled.connect(self._refresh_validation)
+        self.resolution_combo.currentIndexChanged.connect(self._refresh_validation)
+        self.strategy_combo.currentIndexChanged.connect(self._refresh_form_state)
+        self.target_size_spin.valueChanged.connect(self._refresh_validation)
+        self.file_size_two_pass_checkbox.toggled.connect(self._refresh_validation)
+        self.target_bitrate_spin.valueChanged.connect(self._refresh_validation)
+        self.bitrate_two_pass_checkbox.toggled.connect(self._refresh_validation)
+        self.h26x_crf_spin.valueChanged.connect(self._refresh_validation)
+        self.h26x_preset_combo.currentIndexChanged.connect(self._refresh_validation)
+        self.h26x_profile_combo.currentIndexChanged.connect(self._refresh_validation)
+        self.vpx_quality_spin.valueChanged.connect(self._refresh_validation)
+        self.vpx_speed_spin.valueChanged.connect(self._refresh_validation)
+
+    def _handle_container_changed(self) -> None:
+        if self._updating_form:
+            return
+        self._refresh_form_state()
+
+    def _handle_audio_mode_changed(self) -> None:
+        if self._updating_form:
+            return
+        self._refresh_audio_controls()
+        self._refresh_validation()
+
+    def _handle_audio_remix_toggled(self, checked: bool) -> None:
+        if self._updating_form:
+            return
+        if (
+            checked
+            and self._selected_value(self.audio_mode_combo, AudioMode.COPY)
+            is not AudioMode.REENCODE
+        ):
+            self._set_combo_value(self.audio_mode_combo, AudioMode.REENCODE)
+            self._refresh_form_state()
+            return
+        self._refresh_audio_controls()
+        self._refresh_validation()
+
+    def _refresh_form_state(self) -> None:
+        if self._updating_form:
+            return
+
+        self._updating_form = True
+        try:
+            self._refresh_video_codec_options()
+            self._refresh_audio_codec_options()
+            self._refresh_audio_controls()
+            self._refresh_quality_controls()
+            self._refresh_strategy_panel()
+        finally:
+            self._updating_form = False
+
+        self._refresh_validation()
+
+    def _refresh_video_codec_options(self) -> None:
+        allowed_codecs = self._compatibility_service.allowed_video_codecs(
+            self._selected_value(self.container_combo, OutputContainer.MP4)
+        )
+        current_value = self._selected_value(self.video_codec_combo, allowed_codecs[0])
+        self._replace_combo_items(
+            self.video_codec_combo,
+            allowed_codecs,
+            labeler=_video_codec_label,
+            selected=current_value,
+        )
+
+    def _refresh_audio_codec_options(self) -> None:
+        allowed_codecs = self._compatibility_service.allowed_audio_codecs(
+            self._selected_value(self.container_combo, OutputContainer.MP4)
+        )
+        current_value = self._selected_audio_codec() or allowed_codecs[0]
+        self._replace_combo_items(
+            self.audio_codec_combo,
+            allowed_codecs,
+            labeler=_audio_codec_label,
+            selected=current_value,
+        )
+
+    def _refresh_audio_controls(self) -> None:
+        audio_mode = self._selected_value(self.audio_mode_combo, AudioMode.COPY)
+        is_reencode = audio_mode is AudioMode.REENCODE
+        self.audio_codec_combo.setEnabled(is_reencode)
+        self.audio_bitrate_spin.setEnabled(is_reencode)
+        self.audio_remix_checkbox.setEnabled(audio_mode is not AudioMode.REMOVE)
+
+    def _refresh_quality_controls(self) -> None:
+        video_codec = self._selected_value(self.video_codec_combo, VideoCodec.H264)
+        is_h26x = video_codec in {VideoCodec.H264, VideoCodec.H265}
+        self.quality_stack.setCurrentIndex(0 if is_h26x else 1)
+
+        if is_h26x:
+            preset_options = quality_preset_options(video_codec)
+            profile_options = quality_profile_options(video_codec)
+            default_profile = "high" if video_codec is VideoCodec.H264 else "main"
+            current_preset = self._selected_value(self.h26x_preset_combo, "medium")
+            current_profile = self._selected_value(self.h26x_profile_combo, default_profile)
+            self._replace_combo_items(
+                self.h26x_preset_combo,
+                preset_options,
+                labeler=lambda value: value,
+                selected=current_preset,
+            )
+            self._replace_combo_items(
+                self.h26x_profile_combo,
+                profile_options,
+                labeler=lambda value: value,
+                selected=current_profile,
+            )
+            if self.h26x_profile_combo.currentText() not in profile_options:
+                self._set_combo_value(self.h26x_profile_combo, default_profile)
+
+            if video_codec is VideoCodec.H264 and self.h26x_crf_spin.value() == 28:
+                self.h26x_crf_spin.setValue(23)
+            elif video_codec is VideoCodec.H265 and self.h26x_crf_spin.value() == 23:
+                self.h26x_crf_spin.setValue(28)
+        else:
+            if self.vpx_speed_spin.value() not in VPX_SPEED_RANGE:
+                self.vpx_speed_spin.setValue(2)
+
+    def _refresh_strategy_panel(self) -> None:
+        strategy = self._selected_value(self.strategy_combo, EncodingStrategy.TARGET_QUALITY)
+        panel_index = {
+            EncodingStrategy.TARGET_FILE_SIZE: 0,
+            EncodingStrategy.TARGET_BITRATE: 1,
+            EncodingStrategy.TARGET_QUALITY: 2,
+        }[strategy]
+        self.strategy_stack.setCurrentIndex(panel_index)
+
+    def _refresh_validation(self) -> None:
+        settings = self.current_settings()
+        self._update_output_resolution_label(settings)
+
+        if self._media_info is None:
+            self.validation_summary.clear()
+            self.validation_summary.setPlaceholderText(
+                "Load a source file to validate output settings."
+            )
+            return
+
+        validation = self._validation_service.validate(settings, self._media_info)
+        self.validation_summary.setPlainText(_format_validation_result(validation))
+
+    def _update_output_resolution_label(self, settings: OutputSettings) -> None:
+        if self._media_info is None:
+            self.output_resolution_label.setText(
+                "Output resolution will be derived from the loaded source."
+            )
+            return
+
+        resolution = self._validation_service.resolve_output_resolution(settings, self._media_info)
+        if resolution is None:
+            self.output_resolution_label.setText(
+                "Output resolution is unavailable until ffprobe returns source dimensions."
+            )
+            return
+
+        self.output_resolution_label.setText(
+            f"Resolved output resolution: {resolution.width}x{resolution.height}"
+        )
+
+    def _current_quality_options(self, video_codec: VideoCodec) -> object:
+        if video_codec is VideoCodec.H264:
+            return H264QualityOptions(
+                crf=self.h26x_crf_spin.value(),
+                preset=self.h26x_preset_combo.currentText(),
+                profile=self.h26x_profile_combo.currentText(),
+            )
+        if video_codec is VideoCodec.H265:
+            return H265QualityOptions(
+                crf=self.h26x_crf_spin.value(),
+                preset=self.h26x_preset_combo.currentText(),
+                profile=self.h26x_profile_combo.currentText(),
+            )
+        if video_codec is VideoCodec.VP8:
+            return Vp8QualityOptions(
+                quality=self.vpx_quality_spin.value(),
+                speed=self.vpx_speed_spin.value(),
+            )
+        return Vp9QualityOptions(
+            quality=self.vpx_quality_spin.value(),
+            speed=self.vpx_speed_spin.value(),
+        )
+
+    def _selected_audio_codec(self) -> AudioCodec | None:
+        current_data = self.audio_codec_combo.currentData()
+        if current_data is None:
+            return None
+        try:
+            return AudioCodec(current_data)
+        except ValueError:
+            return None
+
+    def _selected_value(self, combo_box: QComboBox, fallback: object) -> object:
+        current_data = combo_box.currentData()
+        if current_data is None:
+            return fallback
+        if isinstance(fallback, StrEnum):
+            try:
+                return type(fallback)(current_data)
+            except ValueError:
+                return fallback
+        return current_data
+
+    def _replace_combo_items(
+        self,
+        combo_box: QComboBox,
+        values: Iterable[object],
+        *,
+        labeler: Callable[[object], str],
+        selected: object,
+    ) -> None:
+        with QSignalBlocker(combo_box):
+            combo_box.clear()
+            values_tuple = tuple(values)
+            for value in values_tuple:
+                combo_box.addItem(labeler(value), value)
+            if not values_tuple:
+                return
+            target_value = selected if selected in values_tuple else values_tuple[0]
+            index = combo_box.findData(target_value)
+            combo_box.setCurrentIndex(index if index >= 0 else 0)
+
+    def _set_combo_value(self, combo_box: QComboBox, value: object) -> None:
+        index = combo_box.findData(value)
+        if index >= 0:
+            with QSignalBlocker(combo_box):
+                combo_box.setCurrentIndex(index)
 
 
 class MainWindow(QMainWindow):
@@ -199,7 +731,9 @@ class MainWindow(QMainWindow):
         self.addAction(paste_action)
 
         dependencies_action = QAction("Configure Dependencies", self)
-        dependencies_action.triggered.connect(lambda: self._stack.setCurrentWidget(self._setup_widget))
+        dependencies_action.triggered.connect(
+            lambda: self._stack.setCurrentWidget(self._setup_widget)
+        )
         self.addAction(dependencies_action)
 
     def _build_main_panel(self) -> QWidget:
@@ -213,12 +747,6 @@ class MainWindow(QMainWindow):
         content = QWidget()
         layout = QVBoxLayout(content)
         layout.setSpacing(16)
-
-        dependency_box = QGroupBox("Dependency Status")
-        dependency_layout = QVBoxLayout(dependency_box)
-        self.dependency_status_label = QLabel("")
-        self.dependency_status_label.setWordWrap(True)
-        dependency_layout.addWidget(self.dependency_status_label)
 
         source_box = QGroupBox("Source Selection")
         source_layout = QVBoxLayout(source_box)
@@ -235,7 +763,9 @@ class MainWindow(QMainWindow):
         button_row.addStretch(1)
         source_layout.addLayout(button_row)
 
-        self.source_path_label = QLabel("Drop a file here, choose one, or paste a file path from the clipboard.")
+        self.source_path_label = QLabel(
+            "Drop a file here, choose one, or paste a file path from the clipboard."
+        )
         self.source_path_label.setWordWrap(True)
         source_layout.addWidget(self.source_path_label)
 
@@ -246,9 +776,8 @@ class MainWindow(QMainWindow):
 
         output_box = QGroupBox("Output Settings")
         output_layout = QVBoxLayout(output_box)
-        output_layout.addWidget(
-            QLabel("Phase 2 will add container, codec, validation, and resolution controls here.")
-        )
+        self.output_settings_widget = OutputSettingsWidget()
+        output_layout.addWidget(self.output_settings_widget)
 
         command_box = QGroupBox("Command Preview")
         command_layout = QVBoxLayout(command_box)
@@ -260,7 +789,7 @@ class MainWindow(QMainWindow):
         queue_layout = QVBoxLayout(queue_box)
         queue_layout.addWidget(QLabel("Phase 5 will add queueing and batch execution here."))
 
-        for widget in (dependency_box, source_box, media_box, output_box, command_box, queue_box):
+        for widget in (source_box, media_box, output_box, command_box, queue_box):
             layout.addWidget(widget)
 
         layout.addStretch(1)
@@ -275,7 +804,6 @@ class MainWindow(QMainWindow):
         )
         self._setup_widget.set_paths(configured_paths)
         self._setup_widget.set_status(_format_dependency_status(self._dependency_status))
-        self.dependency_status_label.setText(_format_dependency_status(self._dependency_status))
 
         if self._dependency_status.is_ready:
             self._stack.setCurrentWidget(self._main_widget)
@@ -337,12 +865,66 @@ class MainWindow(QMainWindow):
         self._media_info = media_info
         self.source_path_label.setText(str(source_path))
         self.media_summary_widget.set_media_info(media_info)
+        self.output_settings_widget.set_media_info(media_info)
         self._stack.setCurrentWidget(self._main_widget)
 
 
 def _line_edit_path(line_edit: QLineEdit) -> Path | None:
     value = line_edit.text().strip()
     return Path(value).expanduser() if value else None
+
+
+def _build_media_summary_text(media_info: SourceMediaInfo) -> str:
+    primary_video = media_info.primary_video_stream
+    lines = [
+        f"Source: {media_info.source_path}",
+        f"Format: {media_info.container_format or 'Unknown'}",
+        f"Duration: {_format_duration(media_info.duration_seconds)}",
+        f"Overall bitrate: {_format_bitrate(media_info.bit_rate)}",
+        "",
+        f"Video streams: {len(media_info.video_streams)}",
+        f"Audio streams: {len(media_info.audio_streams)}",
+        f"Subtitle streams: {len(media_info.subtitle_streams)}",
+        f"Data streams: {len(media_info.data_streams)}",
+    ]
+
+    if primary_video is not None:
+        lines.extend(
+            [
+                "",
+                "Primary video stream",
+                f"Codec: {primary_video.codec_name or 'Unknown'}",
+                f"Resolution: {_format_dimensions(primary_video.width, primary_video.height)}",
+                f"Frame rate: {_format_frame_rate(primary_video.frame_rate)}",
+                f"Bitrate: {_format_bitrate(primary_video.bit_rate)}",
+            ]
+        )
+
+    if media_info.audio_streams:
+        lines.extend(["", "Audio streams detail"])
+        for stream in media_info.audio_streams:
+            lines.extend(
+                [
+                    f"Track {stream.index}",
+                    f"Codec: {stream.codec_name or 'Unknown'}",
+                    f"Language: {_format_language(stream.language)}",
+                    f"Channels: {_format_channels(stream.channels)}",
+                    f"Bitrate: {_format_audio_bitrate(stream.bit_rate)}",
+                    "",
+                ]
+            )
+        lines.pop()
+
+    if media_info.video_streams and len(media_info.video_streams) > 1:
+        lines.extend(
+            [
+                "",
+                "Warning: multiple video streams detected. "
+                "MVP uses the first stream only.",
+            ]
+        )
+
+    return "\n".join(lines)
 
 
 def _format_dependency_status(status: DependencyStatus) -> str:
@@ -361,7 +943,11 @@ def _format_single_dependency(validation: object) -> str:
         return "Unknown dependency state"
 
     if validation.is_valid:
-        version = validation.version_output.splitlines()[0] if validation.version_output else "Validated"
+        version = (
+            validation.version_output.splitlines()[0]
+            if validation.version_output
+            else "Validated"
+        )
         return f"{validation.name}: ready at {validation.path}\n{version}"
     return f"{validation.name}: {validation.error or 'Not configured'}"
 
@@ -386,8 +972,6 @@ def _extract_path_from_mime_data(mime_data: object) -> Path | None:
         if not raw_text:
             return None
         if raw_text.startswith("file://"):
-            from urllib.parse import urlparse, unquote
-
             parsed = urlparse(raw_text)
             return Path(unquote(parsed.path))
         return Path(raw_text)
@@ -410,6 +994,12 @@ def _format_bitrate(bit_rate: int | None) -> str:
     return f"{bit_rate / 1_000_000:.2f} Mbps"
 
 
+def _format_audio_bitrate(bit_rate: int | None) -> str:
+    if bit_rate is None:
+        return "Unknown"
+    return f"{bit_rate / 1_000:.0f} kbps"
+
+
 def _format_dimensions(width: int | None, height: int | None) -> str:
     if width is None or height is None:
         return "Unknown"
@@ -420,3 +1010,73 @@ def _format_frame_rate(frame_rate: float | None) -> str:
     if frame_rate is None:
         return "Unknown"
     return f"{frame_rate:.2f} fps"
+
+
+def _format_channels(channels: int | None) -> str:
+    if channels is None:
+        return "Unknown"
+    if channels == 1:
+        return "1 channel"
+    return f"{channels} channels"
+
+
+def _format_language(language: str | None) -> str:
+    if language is None:
+        return "Unknown"
+    return language
+
+
+def _video_codec_label(codec: object) -> str:
+    labels = {
+        VideoCodec.H264: "H.264",
+        VideoCodec.H265: "H.265",
+        VideoCodec.VP8: "VP8",
+        VideoCodec.VP9: "VP9",
+    }
+    return labels.get(codec, str(codec))
+
+
+def _audio_codec_label(codec: object) -> str:
+    labels = {
+        AudioCodec.AAC: "AAC",
+        AudioCodec.MP3: "MP3",
+        AudioCodec.VORBIS: "Vorbis",
+        AudioCodec.OPUS: "Opus",
+    }
+    return labels.get(codec, str(codec))
+
+
+def _audio_mode_label(mode: AudioMode) -> str:
+    labels = {
+        AudioMode.COPY: "Copy All Audio Streams",
+        AudioMode.REENCODE: "Re-encode All Audio Streams",
+        AudioMode.REMOVE: "Remove All Audio Streams",
+    }
+    return labels[mode]
+
+
+def _resolution_preset_label(preset: ResolutionPreset) -> str:
+    labels = {
+        ResolutionPreset.ORIGINAL: "Original Source Resolution",
+        ResolutionPreset.P720: "720p",
+        ResolutionPreset.P1080: "1080p",
+        ResolutionPreset.P1440: "1440p",
+        ResolutionPreset.P4K: "4K",
+    }
+    return labels[preset]
+
+
+def _format_validation_result(result: ValidationResult) -> str:
+    if not result.issues:
+        return "Current settings are valid for the loaded source."
+
+    lines: list[str] = []
+    if result.errors:
+        lines.append("Errors")
+        lines.extend(f"- {issue.message}" for issue in result.errors)
+    if result.warnings:
+        if lines:
+            lines.append("")
+        lines.append("Warnings")
+        lines.extend(f"- {issue.message}" for issue in result.warnings)
+    return "\n".join(lines)

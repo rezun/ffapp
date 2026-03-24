@@ -79,6 +79,20 @@ class TargetBitrateOptions:
 
 
 @dataclass(slots=True, frozen=True)
+class H264EncoderOptions:
+    codec: VideoCodec = VideoCodec.H264
+    preset: str = "medium"
+    profile: str = "high"
+
+
+@dataclass(slots=True, frozen=True)
+class H265EncoderOptions:
+    codec: VideoCodec = VideoCodec.H265
+    preset: str = "medium"
+    profile: str = "main"
+
+
+@dataclass(slots=True, frozen=True)
 class H264QualityOptions:
     codec: VideoCodec = VideoCodec.H264
     crf: int = 23
@@ -108,6 +122,7 @@ class Vp9QualityOptions:
     speed: int = 2
 
 
+VideoEncoderOptions = H264EncoderOptions | H265EncoderOptions
 QualityOptions = H264QualityOptions | H265QualityOptions | Vp8QualityOptions | Vp9QualityOptions
 
 
@@ -189,6 +204,7 @@ class OutputSettings:
     video_codec: VideoCodec = VideoCodec.H264
     encoding_strategy: EncodingStrategy = EncodingStrategy.TARGET_QUALITY
     resolution_preset: ResolutionPreset = ResolutionPreset.ORIGINAL
+    video_encoder_options: VideoEncoderOptions | None = None
     audio_options: AudioOptions = field(default_factory=AudioOptions)
     stream_handling: StreamHandlingOptions = field(default_factory=StreamHandlingOptions)
     target_file_size: TargetFileSizeOptions = field(
@@ -243,6 +259,7 @@ class PresetDefinition:
     video_codec: VideoCodec
     encoding_strategy: EncodingStrategy
     resolution_preset: ResolutionPreset = ResolutionPreset.ORIGINAL
+    video_encoder_options: VideoEncoderOptions | None = None
     audio_options: AudioOptions = field(default_factory=AudioOptions)
     stream_handling: StreamHandlingOptions = field(default_factory=StreamHandlingOptions)
     target_file_size: TargetFileSizeOptions | None = None
@@ -264,6 +281,7 @@ class JobDefinition:
     container: OutputContainer
     video_codec: VideoCodec
     encoding_strategy: EncodingStrategy
+    video_encoder_options: VideoEncoderOptions | None = None
     audio_options: AudioOptions = field(default_factory=AudioOptions)
     stream_handling: StreamHandlingOptions = field(default_factory=StreamHandlingOptions)
     resolution_preset: ResolutionPreset = ResolutionPreset.ORIGINAL

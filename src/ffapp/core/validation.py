@@ -5,7 +5,9 @@ from collections.abc import Sequence
 from ffapp.core.models import (
     AudioCodec,
     AudioMode,
+    H264EncoderOptions,
     H264QualityOptions,
+    H265EncoderOptions,
     H265QualityOptions,
     OutputContainer,
     OutputSettings,
@@ -154,6 +156,7 @@ class DefaultValidationService(ValidationService):
                 )
             )
 
+        issues.extend(self._validate_video_encoder_settings(settings))
         issues.extend(self._validate_audio_settings(settings))
 
         if (
@@ -179,6 +182,47 @@ class DefaultValidationService(ValidationService):
             issues.extend(self._validate_quality_strategy(settings))
 
         return ValidationResult(issues=tuple(issues))
+
+    def _validate_video_encoder_settings(self, settings: OutputSettings) -> list[ValidationIssue]:
+        if settings.video_codec is VideoCodec.H264:
+            encoder = settings.video_encoder_options or H264EncoderOptions()
+            if not isinstance(encoder, H264EncoderOptions):
+                return [
+                    ValidationIssue(
+                        severity=ValidationSeverity.ERROR,
+                        code="video_encoder_options_required",
+                        message="Choose a valid H.264 preset and profile.",
+                        field_name="video_encoder",
+                    )
+                ]
+            return _validate_h26x_encoder_options(
+                preset=encoder.preset,
+                profile=encoder.profile,
+                preset_options=H26X_PRESET_OPTIONS,
+                profile_options=H264_PROFILE_OPTIONS,
+                field_name="video_encoder",
+            )
+
+        if settings.video_codec is VideoCodec.H265:
+            encoder = settings.video_encoder_options or H265EncoderOptions()
+            if not isinstance(encoder, H265EncoderOptions):
+                return [
+                    ValidationIssue(
+                        severity=ValidationSeverity.ERROR,
+                        code="video_encoder_options_required",
+                        message="Choose a valid H.265 preset and profile.",
+                        field_name="video_encoder",
+                    )
+                ]
+            return _validate_h26x_encoder_options(
+                preset=encoder.preset,
+                profile=encoder.profile,
+                preset_options=H26X_PRESET_OPTIONS,
+                profile_options=H265_PROFILE_OPTIONS,
+                field_name="video_encoder",
+            )
+
+        return []
 
     def _validate_audio_settings(self, settings: OutputSettings) -> list[ValidationIssue]:
         issues: list[ValidationIssue] = []
@@ -363,8 +407,6 @@ class DefaultValidationService(ValidationService):
                     )
                 )
             return issues
-
-        return []
 
 
 def quality_preset_options(video_codec: VideoCodec) -> tuple[str, ...]:
@@ -579,6 +621,36 @@ def _validate_h26x_quality(
                 field_name=field_name,
             )
         )
+    if preset not in preset_options:
+        issues.append(
+            ValidationIssue(
+                severity=ValidationSeverity.ERROR,
+                code="quality_preset_invalid",
+                message="The selected encoder preset is not valid for this codec.",
+                field_name=field_name,
+            )
+        )
+    if profile not in profile_options:
+        issues.append(
+            ValidationIssue(
+                severity=ValidationSeverity.ERROR,
+                code="quality_profile_invalid",
+                message="The selected encoder profile is not valid for this codec.",
+                field_name=field_name,
+            )
+        )
+    return issues
+
+
+def _validate_h26x_encoder_options(
+    *,
+    preset: str,
+    profile: str,
+    preset_options: Sequence[str],
+    profile_options: Sequence[str],
+    field_name: str,
+) -> list[ValidationIssue]:
+    issues: list[ValidationIssue] = []
     if preset not in preset_options:
         issues.append(
             ValidationIssue(

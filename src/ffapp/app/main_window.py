@@ -4,8 +4,10 @@ import logging
 from collections.abc import Callable, Iterable
 from enum import StrEnum
 from pathlib import Path
+from typing import TypeVar, cast
 from urllib.parse import unquote, urlparse
 
+from ffapp.core.commands import CommandBuildError, DefaultCommandBuilder, suggest_output_path
 from ffapp.core.models import (
     AppSettings,
     AudioCodec,
@@ -14,10 +16,15 @@ from ffapp.core.models import (
     DependencyStatus,
     EncodingStrategy,
     ExecutablePaths,
+    GeneratedCommand,
+    H264EncoderOptions,
     H264QualityOptions,
+    H265EncoderOptions,
     H265QualityOptions,
+    JobDefinition,
     OutputContainer,
     OutputSettings,
+    QualityOptions,
     ResolutionPreset,
     SourceMediaInfo,
     StreamHandlingOptions,
@@ -40,9 +47,12 @@ from ffapp.infrastructure.probe import FfprobeMediaProbeService, MediaProbeError
 from ffapp.infrastructure.settings import JsonSettingsService
 
 LOGGER = logging.getLogger(__name__)
+T = TypeVar("T")
+_CUSTOM_AUDIO_BITRATE = "custom"
+_COMMON_AUDIO_BITRATES_KBPS: tuple[int, ...] = (32, 64, 96, 128, 160, 192, 256, 320)
 
 try:
-    from PySide6.QtCore import QSignalBlocker
+    from PySide6.QtCore import QSignalBlocker, Signal
     from PySide6.QtGui import QAction, QDragEnterEvent, QDropEvent
     from PySide6.QtWidgets import (
         QApplication,
@@ -155,6 +165,8 @@ class MediaSummaryWidget(QWidget):
 
 
 class OutputSettingsWidget(QWidget):
+    settings_changed = Signal()
+
     def __init__(self) -> None:
         super().__init__()
         self._compatibility_service = DefaultCompatibilityService()
@@ -177,10 +189,12 @@ class OutputSettingsWidget(QWidget):
         self.video_codec_combo = QComboBox()
         self.audio_mode_combo = QComboBox()
         self.audio_codec_combo = QComboBox()
-        self.audio_bitrate_spin = QSpinBox()
-        self.audio_bitrate_spin.setRange(32, 512)
-        self.audio_bitrate_spin.setSingleStep(16)
-        self.audio_bitrate_spin.setSuffix(" kbps")
+        self.audio_bitrate_combo = QComboBox()
+        self.audio_bitrate_custom_spin = QSpinBox()
+        self.audio_bitrate_custom_spin.setRange(8, 1_536)
+        self.audio_bitrate_custom_spin.setSingleStep(16)
+        self.audio_bitrate_custom_spin.setValue(128)
+        self.audio_bitrate_custom_spin.setSuffix(" kbps")
         self.audio_remix_checkbox = QCheckBox("Remix all audio streams to stereo")
         self.remove_subtitles_checkbox = QCheckBox("Remove subtitle streams")
         self.remove_data_checkbox = QCheckBox("Remove data streams")
@@ -251,10 +265,11 @@ class OutputSettingsWidget(QWidget):
                 self.resolution_combo,
                 ResolutionPreset.ORIGINAL,
             ),
+            video_encoder_options=self._current_video_encoder_options(video_codec),
             audio_options=AudioOptions(
                 mode=self._selected_value(self.audio_mode_combo, AudioMode.COPY),
                 codec=self._selected_audio_codec(),
-                bitrate=self.audio_bitrate_spin.value() * 1_000,
+                bitrate=self._selected_audio_bitrate() * 1_000,
                 remix_to_stereo=self.audio_remix_checkbox.isChecked(),
             ),
             stream_handling=StreamHandlingOptions(
@@ -305,9 +320,18 @@ class OutputSettingsWidget(QWidget):
 
     def _build_quality_panel(self) -> QWidget:
         panel = QWidget()
+        panel.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Fixed,
+        )
         outer_layout = QVBoxLayout(panel)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
 
         self.quality_stack = QStackedWidget()
+        self.quality_stack.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Fixed,
+        )
         self.quality_stack.addWidget(self._build_h26x_quality_panel())
         self.quality_stack.addWidget(self._build_vpx_quality_panel())
         outer_layout.addWidget(self.quality_stack)
@@ -324,11 +348,17 @@ class OutputSettingsWidget(QWidget):
         self.h26x_crf_spin.setValue(23)
         self.h26x_preset_combo = QComboBox()
         self.h26x_profile_combo = QComboBox()
-
         layout.addRow("CRF", self.h26x_crf_spin)
+        return panel
+
+    def _build_h26x_encoder_group(self) -> QGroupBox:
+        group = QGroupBox("H.264 / H.265 Encoder Tuning")
+        layout = QFormLayout(group)
+        self._configure_form_layout(layout)
+
         layout.addRow("Preset", self.h26x_preset_combo)
         layout.addRow("Profile", self.h26x_profile_combo)
-        return panel
+        return group
 
     def _build_vpx_quality_panel(self) -> QWidget:
         panel = QWidget()
@@ -367,11 +397,20 @@ class OutputSettingsWidget(QWidget):
         layout.addWidget(QLabel("Audio Codec"), 1, 0)
         layout.addWidget(self.audio_codec_combo, 1, 1)
         layout.addWidget(QLabel("Audio Bitrate"), 2, 0)
-        layout.addWidget(self.audio_bitrate_spin, 2, 1)
+        layout.addWidget(self._build_audio_bitrate_row(), 2, 1)
         layout.addWidget(self.audio_remix_checkbox, 3, 1)
         layout.addWidget(self.remove_subtitles_checkbox, 4, 1)
         layout.addWidget(self.remove_data_checkbox, 5, 1)
         return group
+
+    def _build_audio_bitrate_row(self) -> QWidget:
+        row = QWidget()
+        layout = QHBoxLayout(row)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
+        layout.addWidget(self.audio_bitrate_combo, 2)
+        layout.addWidget(self.audio_bitrate_custom_spin, 1)
+        return row
 
     def _build_encoding_group(self) -> QGroupBox:
         group = QGroupBox("Encoding")
@@ -380,7 +419,18 @@ class OutputSettingsWidget(QWidget):
         self._configure_form_layout(form_layout)
         form_layout.addRow("Strategy", self.strategy_combo)
         layout.addLayout(form_layout)
+        self.strategy_stack.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Fixed,
+        )
         layout.addWidget(self.strategy_stack)
+        self.h26x_encoder_group = self._build_h26x_encoder_group()
+        self.h26x_encoder_group.setSizePolicy(
+            QSizePolicy.Policy.Preferred,
+            QSizePolicy.Policy.Fixed,
+        )
+        layout.addWidget(self.h26x_encoder_group)
+        layout.addStretch(1)
         return group
 
     def _build_status_group(self) -> QGroupBox:
@@ -404,6 +454,8 @@ class OutputSettingsWidget(QWidget):
             self.video_codec_combo,
             self.audio_mode_combo,
             self.audio_codec_combo,
+            self.audio_bitrate_combo,
+            self.audio_bitrate_custom_spin,
             self.resolution_combo,
             self.strategy_combo,
             self.target_size_spin,
@@ -433,6 +485,13 @@ class OutputSettingsWidget(QWidget):
         for mode in AudioMode:
             self.audio_mode_combo.addItem(_audio_mode_label(mode), mode)
 
+        for bitrate in _COMMON_AUDIO_BITRATES_KBPS:
+            self.audio_bitrate_combo.addItem(f"{bitrate} kbps", bitrate)
+        self.audio_bitrate_combo.addItem("Custom", _CUSTOM_AUDIO_BITRATE)
+        default_audio_bitrate_index = self.audio_bitrate_combo.findData(128)
+        if default_audio_bitrate_index >= 0:
+            self.audio_bitrate_combo.setCurrentIndex(default_audio_bitrate_index)
+
         for preset in ResolutionPreset:
             self.resolution_combo.addItem(_resolution_preset_label(preset), preset)
 
@@ -446,7 +505,8 @@ class OutputSettingsWidget(QWidget):
         self.video_codec_combo.currentIndexChanged.connect(self._refresh_form_state)
         self.audio_mode_combo.currentIndexChanged.connect(self._handle_audio_mode_changed)
         self.audio_codec_combo.currentIndexChanged.connect(self._refresh_validation)
-        self.audio_bitrate_spin.valueChanged.connect(self._refresh_validation)
+        self.audio_bitrate_combo.currentIndexChanged.connect(self._handle_audio_bitrate_changed)
+        self.audio_bitrate_custom_spin.valueChanged.connect(self._refresh_validation)
         self.audio_remix_checkbox.toggled.connect(self._handle_audio_remix_toggled)
         self.remove_subtitles_checkbox.toggled.connect(self._refresh_validation)
         self.remove_data_checkbox.toggled.connect(self._refresh_validation)
@@ -468,6 +528,12 @@ class OutputSettingsWidget(QWidget):
         self._refresh_form_state()
 
     def _handle_audio_mode_changed(self) -> None:
+        if self._updating_form:
+            return
+        self._refresh_audio_controls()
+        self._refresh_validation()
+
+    def _handle_audio_bitrate_changed(self) -> None:
         if self._updating_form:
             return
         self._refresh_audio_controls()
@@ -531,7 +597,10 @@ class OutputSettingsWidget(QWidget):
         audio_mode = self._selected_value(self.audio_mode_combo, AudioMode.COPY)
         is_reencode = audio_mode is AudioMode.REENCODE
         self.audio_codec_combo.setEnabled(is_reencode)
-        self.audio_bitrate_spin.setEnabled(is_reencode)
+        self.audio_bitrate_combo.setEnabled(is_reencode)
+        self.audio_bitrate_custom_spin.setEnabled(
+            is_reencode and self.audio_bitrate_combo.currentData() == _CUSTOM_AUDIO_BITRATE
+        )
         self.audio_remix_checkbox.setEnabled(audio_mode is not AudioMode.REMOVE)
 
     def _refresh_quality_controls(self) -> None:
@@ -540,6 +609,7 @@ class OutputSettingsWidget(QWidget):
         self.quality_stack.setCurrentIndex(0 if is_h26x else 1)
 
         if is_h26x:
+            self.h26x_encoder_group.setVisible(True)
             preset_options = quality_preset_options(video_codec)
             profile_options = quality_profile_options(video_codec)
             default_profile = "high" if video_codec is VideoCodec.H264 else "main"
@@ -548,13 +618,13 @@ class OutputSettingsWidget(QWidget):
             self._replace_combo_items(
                 self.h26x_preset_combo,
                 preset_options,
-                labeler=lambda value: value,
+                labeler=str,
                 selected=current_preset,
             )
             self._replace_combo_items(
                 self.h26x_profile_combo,
                 profile_options,
-                labeler=lambda value: value,
+                labeler=str,
                 selected=current_profile,
             )
             if self.h26x_profile_combo.currentText() not in profile_options:
@@ -565,8 +635,11 @@ class OutputSettingsWidget(QWidget):
             elif video_codec is VideoCodec.H265 and self.h26x_crf_spin.value() == 23:
                 self.h26x_crf_spin.setValue(28)
         else:
+            self.h26x_encoder_group.setVisible(False)
             if self.vpx_speed_spin.value() not in VPX_SPEED_RANGE:
                 self.vpx_speed_spin.setValue(2)
+
+        self._sync_stack_height(self.quality_stack)
 
     def _refresh_strategy_panel(self) -> None:
         strategy = self._selected_value(self.strategy_combo, EncodingStrategy.TARGET_QUALITY)
@@ -576,6 +649,7 @@ class OutputSettingsWidget(QWidget):
             EncodingStrategy.TARGET_QUALITY: 2,
         }[strategy]
         self.strategy_stack.setCurrentIndex(panel_index)
+        self._sync_stack_height(self.strategy_stack)
 
     def _refresh_validation(self) -> None:
         settings = self.current_settings()
@@ -586,10 +660,12 @@ class OutputSettingsWidget(QWidget):
             self.validation_summary.setPlaceholderText(
                 "Load a source file to validate output settings."
             )
+            self.settings_changed.emit()
             return
 
         validation = self._validation_service.validate(settings, self._media_info)
         self.validation_summary.setPlainText(_format_validation_result(validation))
+        self.settings_changed.emit()
 
     def _update_output_resolution_label(self, settings: OutputSettings) -> None:
         if self._media_info is None:
@@ -609,7 +685,7 @@ class OutputSettingsWidget(QWidget):
             f"Resolved output resolution: {resolution.width}x{resolution.height}"
         )
 
-    def _current_quality_options(self, video_codec: VideoCodec) -> object:
+    def _current_quality_options(self, video_codec: VideoCodec) -> QualityOptions:
         if video_codec is VideoCodec.H264:
             return H264QualityOptions(
                 crf=self.h26x_crf_spin.value(),
@@ -632,6 +708,22 @@ class OutputSettingsWidget(QWidget):
             speed=self.vpx_speed_spin.value(),
         )
 
+    def _current_video_encoder_options(
+        self,
+        video_codec: VideoCodec,
+    ) -> H264EncoderOptions | H265EncoderOptions | None:
+        if video_codec is VideoCodec.H264:
+            return H264EncoderOptions(
+                preset=self.h26x_preset_combo.currentText(),
+                profile=self.h26x_profile_combo.currentText(),
+            )
+        if video_codec is VideoCodec.H265:
+            return H265EncoderOptions(
+                preset=self.h26x_preset_combo.currentText(),
+                profile=self.h26x_profile_combo.currentText(),
+            )
+        return None
+
     def _selected_audio_codec(self) -> AudioCodec | None:
         current_data = self.audio_codec_combo.currentData()
         if current_data is None:
@@ -641,7 +733,15 @@ class OutputSettingsWidget(QWidget):
         except ValueError:
             return None
 
-    def _selected_value(self, combo_box: QComboBox, fallback: object) -> object:
+    def _selected_audio_bitrate(self) -> int:
+        current_data = self.audio_bitrate_combo.currentData()
+        if current_data == _CUSTOM_AUDIO_BITRATE:
+            return self.audio_bitrate_custom_spin.value()
+        if isinstance(current_data, int):
+            return current_data
+        return 128
+
+    def _selected_value(self, combo_box: QComboBox, fallback: T) -> T:
         current_data = combo_box.currentData()
         if current_data is None:
             return fallback
@@ -650,7 +750,17 @@ class OutputSettingsWidget(QWidget):
                 return type(fallback)(current_data)
             except ValueError:
                 return fallback
-        return current_data
+        return cast(T, current_data)
+
+    def _sync_stack_height(self, stack: QStackedWidget) -> None:
+        current_widget = stack.currentWidget()
+        layout = current_widget.layout()
+        if layout is not None:
+            layout.activate()
+        current_widget.adjustSize()
+        hint = current_widget.sizeHint()
+        target_height = hint.height() + (stack.frameWidth() * 2)
+        stack.setFixedHeight(target_height)
 
     def _replace_combo_items(
         self,
@@ -687,6 +797,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self._settings_service = settings_service
         self._dependency_manager = dependency_manager
+        self._validation_service = DefaultValidationService(DefaultCompatibilityService())
         self._settings = self._settings_service.load()
         self._dependency_status = self._dependency_manager.discover(self._settings)
         self._media_info: SourceMediaInfo | None = None
@@ -781,9 +892,8 @@ class MainWindow(QMainWindow):
 
         command_box = QGroupBox("Command Preview")
         command_layout = QVBoxLayout(command_box)
-        command_layout.addWidget(
-            QLabel("Phase 3 will add a read-only ffmpeg command preview here.")
-        )
+        self.command_preview_widget = CommandPreviewWidget()
+        command_layout.addWidget(self.command_preview_widget)
 
         queue_box = QGroupBox("Queue")
         queue_layout = QVBoxLayout(queue_box)
@@ -794,6 +904,7 @@ class MainWindow(QMainWindow):
 
         layout.addStretch(1)
         scroll_area.setWidget(content)
+        self.output_settings_widget.settings_changed.connect(self._refresh_command_preview)
         return container
 
     def _refresh_dependency_ui(self) -> None:
@@ -809,6 +920,7 @@ class MainWindow(QMainWindow):
             self._stack.setCurrentWidget(self._main_widget)
         else:
             self._stack.setCurrentWidget(self._setup_widget)
+        self._refresh_command_preview()
 
     def _save_dependency_paths(self, executable_paths: ExecutablePaths) -> None:
         status = self._dependency_manager.validate_paths(executable_paths)
@@ -867,6 +979,137 @@ class MainWindow(QMainWindow):
         self.media_summary_widget.set_media_info(media_info)
         self.output_settings_widget.set_media_info(media_info)
         self._stack.setCurrentWidget(self._main_widget)
+        self._refresh_command_preview()
+
+    def _refresh_command_preview(self) -> None:
+        if not self._dependency_status.is_ready or self._dependency_status.ffmpeg.path is None:
+            self.command_preview_widget.show_message(
+                "Configure a valid ffmpeg executable to preview commands."
+            )
+            return
+
+        if self._media_info is None:
+            self.command_preview_widget.show_message(
+                "Load a source file to generate a command preview."
+            )
+            return
+
+        settings = self.output_settings_widget.current_settings()
+        validation = self._validation_service.validate(settings, self._media_info)
+        if validation.has_errors:
+            error_lines = "\n".join(f"- {issue.message}" for issue in validation.errors)
+            self.command_preview_widget.show_message(
+                "Resolve the current validation errors before a command can be generated.\n\n"
+                f"{error_lines}"
+            )
+            return
+
+        output_path = suggest_output_path(self._media_info.source_path, settings.container)
+        job = _build_job_definition(
+            source_path=self._media_info.source_path,
+            output_path=output_path,
+            settings=settings,
+        )
+        builder = DefaultCommandBuilder(self._dependency_status.ffmpeg.path)
+        try:
+            commands = builder.build(job, self._media_info)
+        except CommandBuildError as exc:
+            self.command_preview_widget.show_message(str(exc))
+            return
+
+        self.command_preview_widget.set_commands(commands)
+
+
+class CommandPreviewWidget(QWidget):
+    def __init__(self) -> None:
+        super().__init__()
+        self._commands: tuple[GeneratedCommand, ...] = ()
+        self._preview_text = ""
+
+        layout = QVBoxLayout(self)
+        intro = QLabel(
+            "The preview below reflects the effective ffmpeg command for the current source "
+            "and settings. It stays read-only, but you can copy or export it."
+        )
+        intro.setWordWrap(True)
+        layout.addWidget(intro)
+
+        button_row = QHBoxLayout()
+        self.single_command_checkbox = QCheckBox("Single Command")
+        self.single_command_checkbox.toggled.connect(self._refresh_preview_text)
+        button_row.addWidget(self.single_command_checkbox)
+        self.copy_button = QPushButton("Copy Command")
+        self.copy_button.clicked.connect(self._copy_command)
+        self.export_button = QPushButton("Export Command")
+        self.export_button.clicked.connect(self._export_command)
+        button_row.addWidget(self.copy_button)
+        button_row.addWidget(self.export_button)
+        button_row.addStretch(1)
+        layout.addLayout(button_row)
+
+        self.preview = QPlainTextEdit()
+        self.preview.setReadOnly(True)
+        self.preview.setMinimumHeight(180)
+        self.preview.setPlaceholderText("No command preview is available yet.")
+        layout.addWidget(self.preview)
+
+        self._refresh_actions()
+
+    def show_message(self, message: str) -> None:
+        self._commands = ()
+        self._preview_text = ""
+        self.preview.clear()
+        self.preview.setPlaceholderText(message)
+        self._refresh_actions()
+
+    def set_commands(self, commands: Iterable[GeneratedCommand]) -> None:
+        self._commands = tuple(commands)
+        if not self._commands:
+            self.show_message("No command preview is available yet.")
+            return
+
+        self._refresh_preview_text()
+        self._refresh_actions()
+
+    def _copy_command(self) -> None:
+        if not self._preview_text:
+            return
+        QApplication.clipboard().setText(self._preview_text)
+
+    def _export_command(self) -> None:
+        if not self._preview_text:
+            return
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Command Preview",
+            "ffmpeg-command.txt",
+            "Text Files (*.txt);;All Files (*)",
+        )
+        if not filename:
+            return
+
+        try:
+            Path(filename).write_text(self._preview_text, encoding="utf-8")
+        except OSError as exc:
+            LOGGER.exception("Failed to export command preview.")
+            QMessageBox.critical(self, "Export Failed", str(exc))
+
+    def _refresh_actions(self) -> None:
+        has_text = bool(self._preview_text)
+        can_merge = len(self._commands) > 1
+        self.single_command_checkbox.setEnabled(can_merge)
+        self.copy_button.setEnabled(has_text)
+        self.export_button.setEnabled(has_text)
+
+    def _refresh_preview_text(self) -> None:
+        if not self._commands:
+            return
+
+        self._preview_text = _format_command_preview_text(
+            self._commands,
+            single_command=self.single_command_checkbox.isChecked(),
+        )
+        self.preview.setPlainText(self._preview_text)
 
 
 def _line_edit_path(line_edit: QLineEdit) -> Path | None:
@@ -1033,7 +1276,9 @@ def _video_codec_label(codec: object) -> str:
         VideoCodec.VP8: "VP8",
         VideoCodec.VP9: "VP9",
     }
-    return labels.get(codec, str(codec))
+    if isinstance(codec, VideoCodec):
+        return labels[codec]
+    return str(codec)
 
 
 def _audio_codec_label(codec: object) -> str:
@@ -1043,7 +1288,9 @@ def _audio_codec_label(codec: object) -> str:
         AudioCodec.VORBIS: "Vorbis",
         AudioCodec.OPUS: "Opus",
     }
-    return labels.get(codec, str(codec))
+    if isinstance(codec, AudioCodec):
+        return labels[codec]
+    return str(codec)
 
 
 def _audio_mode_label(mode: AudioMode) -> str:
@@ -1080,3 +1327,47 @@ def _format_validation_result(result: ValidationResult) -> str:
         lines.append("Warnings")
         lines.extend(f"- {issue.message}" for issue in result.warnings)
     return "\n".join(lines)
+
+
+def _format_command_preview_text(
+    commands: Iterable[GeneratedCommand],
+    *,
+    single_command: bool,
+) -> str:
+    command_list = tuple(commands)
+    if not command_list:
+        return ""
+
+    if len(command_list) == 1:
+        return command_list[0].display_string
+
+    if single_command:
+        return " && ".join(command.display_string for command in command_list)
+
+    sections: list[str] = []
+    for index, command in enumerate(command_list, start=1):
+        sections.append(f"Pass {index}")
+        sections.append(command.display_string)
+    return "\n\n".join(sections)
+
+
+def _build_job_definition(
+    *,
+    source_path: Path,
+    output_path: Path,
+    settings: OutputSettings,
+) -> JobDefinition:
+    return JobDefinition(
+        source_path=source_path,
+        output_path=output_path,
+        container=settings.container,
+        video_codec=settings.video_codec,
+        encoding_strategy=settings.encoding_strategy,
+        video_encoder_options=settings.video_encoder_options,
+        audio_options=settings.audio_options,
+        stream_handling=settings.stream_handling,
+        resolution_preset=settings.resolution_preset,
+        target_file_size=settings.target_file_size,
+        target_bitrate=settings.target_bitrate,
+        target_quality=settings.target_quality,
+    )

@@ -11,6 +11,7 @@ from ffapp.core.models import (
     DataStreamInfo,
     EncodingStrategy,
     H264QualityOptions,
+    H265EncoderOptions,
     H265QualityOptions,
     OutputContainer,
     OutputSettings,
@@ -156,6 +157,20 @@ class ValidationServiceTests(unittest.TestCase):
         self.assertEqual(result.errors[0].severity, ValidationSeverity.ERROR)
         self.assertEqual(result.errors[0].code, "video_bitrate_invalid")
 
+    def test_h264_bitrate_mode_requires_matching_encoder_options(self) -> None:
+        result = self.service.validate(
+            OutputSettings(
+                video_codec=VideoCodec.H264,
+                encoding_strategy=EncodingStrategy.TARGET_BITRATE,
+                video_encoder_options=H265EncoderOptions(),
+                target_bitrate=TargetBitrateOptions(video_bitrate=2_000_000),
+            ),
+            _media_info(),
+        )
+
+        self.assertTrue(result.has_errors)
+        self.assertIn("video_encoder_options_required", {issue.code for issue in result.errors})
+
     def test_quality_options_must_match_selected_video_codec(self) -> None:
         result = self.service.validate(
             OutputSettings(
@@ -175,6 +190,7 @@ class ValidationServiceTests(unittest.TestCase):
                 container=OutputContainer.MKV,
                 video_codec=VideoCodec.H265,
                 encoding_strategy=EncodingStrategy.TARGET_QUALITY,
+                video_encoder_options=H265EncoderOptions(preset="slow", profile="main"),
                 target_quality=H265QualityOptions(crf=26, preset="slow", profile="main"),
                 audio_options=AudioOptions(
                     mode=AudioMode.REENCODE,

@@ -45,6 +45,7 @@ fi
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SPEC_FILE="$PROJECT_ROOT/pysidedeploy.spec"
 DIST_DIR="$PROJECT_ROOT/dist"
+ICON_FILE="$PROJECT_ROOT/assets/icons/macos/app-icon.icns"
 
 if [[ -n "${PYTHON_BIN:-}" ]]; then
   PYTHON="$PYTHON_BIN"
@@ -88,7 +89,9 @@ if [[ ! -f "$SPEC_FILE" ]]; then
   exit 1
 fi
 
-"$PYTHON" - <<'PY' "$SPEC_FILE" "$PYTHON"
+export CCACHE_DISABLE="${CCACHE_DISABLE:-1}"
+
+"$PYTHON" - <<'PY' "$SPEC_FILE" "$PYTHON" "$ICON_FILE"
 from __future__ import annotations
 
 import configparser
@@ -97,15 +100,14 @@ from pathlib import Path
 
 spec_path = Path(sys.argv[1])
 python_path = sys.argv[2]
+icon_path = Path(sys.argv[3])
 
 spec = configparser.ConfigParser()
 spec.read(spec_path)
 
 spec["python"]["python_path"] = python_path
 
-icon_value = spec["app"].get("icon", "").strip()
-if icon_value and not Path(icon_value).exists():
-    spec["app"]["icon"] = ""
+spec["app"]["icon"] = str(icon_path) if icon_path.is_file() else ""
 
 with spec_path.open("w", encoding="utf-8") as handle:
     spec.write(handle)

@@ -62,6 +62,7 @@ if (-not $IsWindows) {
 $ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $SpecFile = Join-Path $ProjectRoot "pysidedeploy.spec"
 $DistDir = Join-Path $ProjectRoot "dist"
+$IconFile = Join-Path $ProjectRoot "assets\icons\windows\app-icon.ico"
 $Python = Get-PythonPath
 $PythonVersion = Get-PythonVersion -PythonCommand $Python
 
@@ -88,6 +89,10 @@ if (-not (Test-Path $SpecFile)) {
     throw "Missing $SpecFile"
 }
 
+if (-not $env:CCACHE_DISABLE) {
+    $env:CCACHE_DISABLE = "1"
+}
+
 $normalizeScript = @'
 from __future__ import annotations
 
@@ -97,14 +102,12 @@ from pathlib import Path
 
 spec_path = Path(sys.argv[1])
 python_path = sys.argv[2]
+icon_path = Path(sys.argv[3])
 
 spec = configparser.ConfigParser()
 spec.read(spec_path)
 spec["python"]["python_path"] = python_path
-
-icon_value = spec["app"].get("icon", "").strip()
-if icon_value and not Path(icon_value).exists():
-    spec["app"]["icon"] = ""
+spec["app"]["icon"] = str(icon_path) if icon_path.is_file() else ""
 
 with spec_path.open("w", encoding="utf-8") as handle:
     spec.write(handle)
@@ -119,7 +122,7 @@ if ($Python -eq "py -3.13") {
 $normalizeScriptPath = Join-Path $env:TEMP "ffapp-normalize-spec.py"
 Set-Content -Path $normalizeScriptPath -Value $normalizeScript -Encoding UTF8
 try {
-    Invoke-Python -PythonCommand $Python -Arguments @($normalizeScriptPath, $SpecFile, $ResolvedPython)
+    Invoke-Python -PythonCommand $Python -Arguments @($normalizeScriptPath, $SpecFile, $ResolvedPython, $IconFile)
 } finally {
     if (Test-Path $normalizeScriptPath) {
         Remove-Item -Force $normalizeScriptPath

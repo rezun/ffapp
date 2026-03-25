@@ -8,7 +8,7 @@ The canonical app version lives in [pyproject.toml](pyproject.toml):
 
 ```toml
 [project]
-version = "0.1.0"
+version = "1.0.0"
 ```
 
 Update that value before building a release. The build scripts refresh the local editable package metadata from `pyproject.toml` before packaging so the bundled app version stays in sync.
@@ -17,9 +17,23 @@ Update that value before building a release. The build scripts refresh the local
 
 - [main.py](main.py): packaging entry point that adds `src/` to `sys.path`
 - [pysidedeploy.spec](pysidedeploy.spec): checked-in deployment config
+- [logo.png](logo.png): master square source image for app icons
+- [scripts/generate-icons.sh](scripts/generate-icons.sh): generates platform icon assets from `logo.png`
 - [scripts/build-macos.sh](scripts/build-macos.sh): macOS build command
 - [scripts/build-linux.sh](scripts/build-linux.sh): Linux build command
 - [scripts/build-windows.ps1](scripts/build-windows.ps1): Windows build command
+
+Generated icon assets live under `assets/icons/`:
+
+- `assets/icons/macos/app-icon.icns`
+- `assets/icons/windows/app-icon.ico`
+- `assets/icons/linux/app-icon.png`
+
+Regenerate them after changing the source logo:
+
+```bash
+scripts/generate-icons.sh
+```
 
 ## macOS Build
 
@@ -32,7 +46,7 @@ python -m pip install -U pip
 python -m pip install -e ".[dev]"
 ```
 
-`pyside6-deploy` currently depends on a Nuitka version that does not support Python 3.14 for this project, so use Python 3.13 for packaging. The build is configured to auto-accept one-time Nuitka helper downloads such as `ccache`, so the script can run non-interactively.
+`pyside6-deploy` currently depends on a Nuitka version that does not support Python 3.14 for this project, so use Python 3.13 for packaging. The build scripts disable `ccache` by default to keep packaging non-interactive and avoid extra local tool setup.
 
 Dry run the deployment command:
 

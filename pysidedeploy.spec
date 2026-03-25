@@ -4,7 +4,7 @@ project_dir = .
 input_file = main.py
 exec_directory = dist
 project_file = 
-icon = .venv/lib/python3.13/site-packages/PySide6/scripts/deploy_lib/pyside_icon.icns
+icon = assets/icons/macos/app-icon.icns
 
 [python]
 python_path = .venv/bin/python3

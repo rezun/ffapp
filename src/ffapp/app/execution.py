@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 from ffapp.core.models import JobDefinition, JobProgress, QueueItem, SourceMediaInfo
-from ffapp.core.services import JobExecutionService, QueueService
+from ffapp.core.services import JobExecutionService, MediaProbeService, QueueService
 
 LOGGER = logging.getLogger(__name__)
 
@@ -11,6 +12,55 @@ try:
     from PySide6.QtCore import QObject, Signal, Slot
 except ModuleNotFoundError as exc:  # pragma: no cover - imported only when PySide6 is missing
     raise RuntimeError("PySide6 must be installed to import the app layer.") from exc
+
+
+class MediaProbeWorker(QObject):
+    finished = Signal(object)
+    failed = Signal(str)
+
+    def __init__(
+        self,
+        probe_service: MediaProbeService,
+        source_path: Path,
+    ) -> None:
+        super().__init__()
+        self._probe_service = probe_service
+        self._source_path = source_path
+
+    @Slot()
+    def run(self) -> None:
+        try:
+            media_info = self._probe_service.probe(self._source_path)
+        except Exception as exc:
+            LOGGER.exception("Failed to probe source media: %s", self._source_path)
+            self.failed.emit(str(exc))
+            return
+        self.finished.emit(media_info)
+
+
+class BatchMediaProbeWorker(QObject):
+    finished = Signal(object)
+
+    def __init__(
+        self,
+        probe_service: MediaProbeService,
+        source_paths: tuple[Path, ...],
+    ) -> None:
+        super().__init__()
+        self._probe_service = probe_service
+        self._source_paths = source_paths
+
+    @Slot()
+    def run(self) -> None:
+        results: list[tuple[Path, SourceMediaInfo | None, str | None]] = []
+        for path in self._source_paths:
+            try:
+                media_info = self._probe_service.probe(path)
+                results.append((path, media_info, None))
+            except Exception as exc:
+                LOGGER.exception("Failed to probe queued source: %s", path)
+                results.append((path, None, str(exc)))
+        self.finished.emit(results)
 
 
 class JobExecutionWorker(QObject):

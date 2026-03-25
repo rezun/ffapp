@@ -28,6 +28,8 @@ from ffapp.core.models import (
     default_vpx_cpu_used,
 )
 from ffapp.core.validation import (
+    AUDIO_CODEC_MATRIX,
+    VIDEO_CODEC_MATRIX,
     VPX_SPEED_RANGE,
     quality_preset_options,
     quality_profile_options,
@@ -333,13 +335,7 @@ def _validate_container_codecs(
     *,
     error_type: type[ValueError],
 ) -> None:
-    allowed_video_codecs = {
-        OutputContainer.MP4: {VideoCodec.H264, VideoCodec.H265},
-        OutputContainer.MKV: {VideoCodec.H264, VideoCodec.H265, VideoCodec.VP8, VideoCodec.VP9},
-        OutputContainer.WEBM: {VideoCodec.VP8, VideoCodec.VP9},
-        OutputContainer.OGG: {VideoCodec.VP8, VideoCodec.VP9},
-    }
-    if video_codec not in allowed_video_codecs[container]:
+    if video_codec not in VIDEO_CODEC_MATRIX[container]:
         raise error_type(
             f"{video_codec.value} is not supported in the {container.value} container."
         )
@@ -351,13 +347,7 @@ def _validate_audio_codec(
     *,
     error_type: type[ValueError],
 ) -> None:
-    allowed_audio_codecs = {
-        OutputContainer.MP4: {AudioCodec.AAC, AudioCodec.MP3},
-        OutputContainer.MKV: {AudioCodec.MP3, AudioCodec.AAC, AudioCodec.VORBIS, AudioCodec.OPUS},
-        OutputContainer.WEBM: {AudioCodec.VORBIS, AudioCodec.OPUS},
-        OutputContainer.OGG: {AudioCodec.VORBIS, AudioCodec.OPUS},
-    }
-    if audio_codec not in allowed_audio_codecs[container]:
+    if audio_codec not in AUDIO_CODEC_MATRIX[container]:
         raise error_type(
             f"{audio_codec.value} is not supported in the {container.value} container."
         )

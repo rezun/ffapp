@@ -5,6 +5,7 @@ from collections.abc import Sequence
 from ffapp.core.models import (
     AudioCodec,
     AudioMode,
+    AudioStreamInfo,
     H264EncoderOptions,
     H264QualityOptions,
     H265EncoderOptions,
@@ -40,19 +41,19 @@ H264_PROFILE_OPTIONS: tuple[str, ...] = ("baseline", "main", "high")
 H265_PROFILE_OPTIONS: tuple[str, ...] = ("main", "main10")
 VPX_SPEED_RANGE = range(0, 9)
 
-_VIDEO_CODEC_MATRIX: dict[OutputContainer, tuple[VideoCodec, ...]] = {
+VIDEO_CODEC_MATRIX: dict[OutputContainer, tuple[VideoCodec, ...]] = {
     OutputContainer.MP4: (VideoCodec.H264, VideoCodec.H265),
     OutputContainer.MKV: (VideoCodec.H264, VideoCodec.H265, VideoCodec.VP8, VideoCodec.VP9),
     OutputContainer.WEBM: (VideoCodec.VP8, VideoCodec.VP9),
     OutputContainer.OGG: (VideoCodec.VP8, VideoCodec.VP9),
 }
-_AUDIO_CODEC_MATRIX: dict[OutputContainer, tuple[AudioCodec, ...]] = {
+AUDIO_CODEC_MATRIX: dict[OutputContainer, tuple[AudioCodec, ...]] = {
     OutputContainer.MP4: (AudioCodec.AAC, AudioCodec.MP3),
     OutputContainer.MKV: (AudioCodec.AAC, AudioCodec.MP3, AudioCodec.OPUS, AudioCodec.VORBIS),
     OutputContainer.WEBM: (AudioCodec.OPUS, AudioCodec.VORBIS),
     OutputContainer.OGG: (AudioCodec.OPUS, AudioCodec.VORBIS),
 }
-_PRESET_RESOLUTIONS: dict[ResolutionPreset, Resolution] = {
+PRESET_RESOLUTIONS: dict[ResolutionPreset, Resolution] = {
     ResolutionPreset.P720: Resolution(width=1280, height=720),
     ResolutionPreset.P1080: Resolution(width=1920, height=1080),
     ResolutionPreset.P1440: Resolution(width=2560, height=1440),
@@ -73,15 +74,15 @@ _MP4_SUBTITLE_CODECS = {"mov_text", "tx3g"}
 
 class DefaultCompatibilityService(CompatibilityService):
     def allowed_video_codecs(self, container: OutputContainer) -> Sequence[VideoCodec]:
-        return _VIDEO_CODEC_MATRIX[container]
+        return VIDEO_CODEC_MATRIX[container]
 
     def allowed_audio_codecs(self, container: OutputContainer) -> Sequence[AudioCodec]:
-        return _AUDIO_CODEC_MATRIX[container]
+        return AUDIO_CODEC_MATRIX[container]
 
     def validate(self, settings: OutputSettings, media_info: SourceMediaInfo) -> ValidationResult:
         issues: list[ValidationIssue] = []
 
-        if settings.video_codec not in _VIDEO_CODEC_MATRIX[settings.container]:
+        if settings.video_codec not in VIDEO_CODEC_MATRIX[settings.container]:
             issues.append(
                 ValidationIssue(
                     severity=ValidationSeverity.ERROR,
@@ -95,7 +96,7 @@ class DefaultCompatibilityService(CompatibilityService):
             )
 
         if _effective_audio_mode(settings) is AudioMode.REENCODE:
-            if settings.audio_options.codec not in _AUDIO_CODEC_MATRIX[settings.container]:
+            if settings.audio_options.codec not in AUDIO_CODEC_MATRIX[settings.container]:
                 issues.append(
                     ValidationIssue(
                         severity=ValidationSeverity.ERROR,
@@ -130,7 +131,7 @@ class DefaultValidationService(ValidationService):
         if settings.resolution_preset is ResolutionPreset.ORIGINAL:
             return source_resolution
 
-        target = _PRESET_RESOLUTIONS[settings.resolution_preset]
+        target = PRESET_RESOLUTIONS[settings.resolution_preset]
         is_portrait = source_resolution.height > source_resolution.width
         if is_portrait:
             return Resolution(width=target.height, height=target.width)
@@ -461,7 +462,7 @@ def _validate_audio_copy_compatibility(
     media_info: SourceMediaInfo,
 ) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
-    allowed_codecs = set(_AUDIO_CODEC_MATRIX[settings.container])
+    allowed_codecs = set(AUDIO_CODEC_MATRIX[settings.container])
 
     for stream in media_info.audio_streams:
         codec_name = (stream.codec_name or "").lower()
@@ -563,28 +564,38 @@ def _validate_data_copy_compatibility(
     ]
 
 
-def _estimate_audio_bits(settings: OutputSettings, media_info: SourceMediaInfo) -> int | None:
-    mode = _effective_audio_mode(settings)
-    duration_seconds = media_info.duration_seconds
+def estimate_audio_bits(
+    audio_mode: AudioMode,
+    audio_bitrate: int | None,
+    audio_streams: Sequence[AudioStreamInfo],
+    duration_seconds: float | None,
+) -> int | None:
     if duration_seconds is None:
         return None
 
-    if mode is AudioMode.REMOVE or not media_info.audio_streams:
+    if audio_mode is AudioMode.REMOVE or not audio_streams:
         return 0
 
-    if mode is AudioMode.REENCODE:
-        if settings.audio_options.bitrate is None:
+    if audio_mode is AudioMode.REENCODE:
+        if audio_bitrate is None:
             return None
-        return int(
-            settings.audio_options.bitrate * duration_seconds * len(media_info.audio_streams)
-        )
+        return int(audio_bitrate * duration_seconds * len(audio_streams))
 
     total_bitrate = 0
-    for stream in media_info.audio_streams:
+    for stream in audio_streams:
         if stream.bit_rate is None:
             return None
         total_bitrate += stream.bit_rate
     return int(total_bitrate * duration_seconds)
+
+
+def _estimate_audio_bits(settings: OutputSettings, media_info: SourceMediaInfo) -> int | None:
+    return estimate_audio_bits(
+        _effective_audio_mode(settings),
+        settings.audio_options.bitrate,
+        media_info.audio_streams,
+        media_info.duration_seconds,
+    )
 
 
 def _effective_audio_mode(settings: OutputSettings) -> AudioMode:

@@ -25,13 +25,7 @@ from ffapp.core.models import (
     default_vpx_cpu_used,
 )
 from ffapp.core.services import CommandBuilder
-
-_PRESET_BOUNDS: dict[ResolutionPreset, Resolution] = {
-    ResolutionPreset.P720: Resolution(width=1280, height=720),
-    ResolutionPreset.P1080: Resolution(width=1920, height=1080),
-    ResolutionPreset.P1440: Resolution(width=2560, height=1440),
-    ResolutionPreset.P4K: Resolution(width=3840, height=2160),
-}
+from ffapp.core.validation import PRESET_RESOLUTIONS, estimate_audio_bits
 _NULL_OUTPUT_PATH = "NUL" if os.name == "nt" else "/dev/null"
 
 
@@ -343,27 +337,17 @@ def _resolve_video_bitrate(job: JobDefinition, media_info: SourceMediaInfo | Non
 
 
 def _estimate_audio_bits(job: JobDefinition, media_info: SourceMediaInfo) -> int:
-    audio_mode = _effective_audio_mode(job)
-    if media_info.duration_seconds is None:
-        raise CommandBuildError("Audio size estimation requires a valid source duration.")
-
-    if audio_mode is AudioMode.REMOVE or not media_info.audio_streams:
-        return 0
-
-    if audio_mode is AudioMode.REENCODE:
-        bitrate = job.audio_options.bitrate
-        if bitrate is None or bitrate <= 0:
-            raise CommandBuildError("Audio re-encode size estimation requires bitrate.")
-        return int(bitrate * media_info.duration_seconds * len(media_info.audio_streams))
-
-    total_bitrate = 0
-    for stream in media_info.audio_streams:
-        if stream.bit_rate is None:
-            raise CommandBuildError(
-                "Audio copy size estimation requires known bitrates for every audio stream."
-            )
-        total_bitrate += stream.bit_rate
-    return int(total_bitrate * media_info.duration_seconds)
+    result = estimate_audio_bits(
+        _effective_audio_mode(job),
+        job.audio_options.bitrate,
+        media_info.audio_streams,
+        media_info.duration_seconds,
+    )
+    if result is None:
+        raise CommandBuildError(
+            "Audio size estimation failed: missing duration, bitrate, or stream information."
+        )
+    return result
 
 
 def _video_scale_filter(job: JobDefinition, media_info: SourceMediaInfo) -> str | None:
@@ -379,7 +363,7 @@ def _video_scale_filter(job: JobDefinition, media_info: SourceMediaInfo) -> str 
 
 def _target_bounding_box(job: JobDefinition, media_info: SourceMediaInfo) -> Resolution:
     try:
-        resolution = _PRESET_BOUNDS[job.resolution_preset]
+        resolution = PRESET_RESOLUTIONS[job.resolution_preset]
     except KeyError as exc:  # pragma: no cover - defensive only
         raise CommandBuildError("Unsupported resolution preset.") from exc
     primary_video = media_info.primary_video_stream

@@ -7,7 +7,12 @@ from pathlib import Path
 from typing import cast
 
 from ffapp import get_app_version
-from ffapp.app.execution import JobExecutionWorker, QueueExecutionWorker
+from ffapp.app.execution import (
+    BatchMediaProbeWorker,
+    JobExecutionWorker,
+    MediaProbeWorker,
+    QueueExecutionWorker,
+)
 from ffapp.app.formatting import (
     _audio_codec_label,
     _audio_mode_label,
@@ -141,6 +146,12 @@ class MainWindow(QMainWindow):
         self._presets: tuple[PresetDefinition, ...] = ()
         self._media_info: SourceMediaInfo | None = None
         self._prepared_execution: PreparedExecution | None = None
+        self._probe_thread: QThread | None = None
+        self._probe_worker: MediaProbeWorker | None = None
+        self._batch_probe_thread: QThread | None = None
+        self._batch_probe_worker: BatchMediaProbeWorker | None = None
+        self._batch_probe_cached_sources: list[tuple[Path, SourceMediaInfo]] = []
+        self._batch_probe_errors: list[str] = []
         self._execution_thread: QThread | None = None
         self._execution_worker: JobExecutionWorker | None = None
         self._queue_service = InMemoryQueueService()
@@ -692,6 +703,9 @@ class MainWindow(QMainWindow):
         return _extract_path_from_mime_data(QApplication.clipboard().mimeData())
 
     def _load_source(self, path: Path) -> None:
+        if self._probe_thread is not None:
+            return
+
         if not self._dependency_status.is_ready or self._dependency_status.ffprobe.path is None:
             QMessageBox.warning(
                 self,
@@ -707,15 +721,30 @@ class MainWindow(QMainWindow):
             return
 
         probe_service = FfprobeMediaProbeService(self._dependency_status.ffprobe.path)
-        try:
-            media_info = probe_service.probe(source_path)
-        except MediaProbeError as exc:
-            LOGGER.exception("Failed to probe source media: %s", source_path)
-            QMessageBox.critical(self, "Probe Failed", str(exc))
-            return
+        worker = MediaProbeWorker(probe_service, source_path)
+        thread = QThread(self)
+        worker.moveToThread(thread)
 
+        thread.started.connect(worker.run)
+        worker.finished.connect(self._handle_probe_finished)
+        worker.failed.connect(self._handle_probe_failed)
+        worker.finished.connect(thread.quit)
+        worker.failed.connect(thread.quit)
+        worker.finished.connect(worker.deleteLater)
+        worker.failed.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        thread.finished.connect(self._clear_probe_worker)
+
+        self._probe_thread = thread
+        self._probe_worker = worker
+        self.source_path_label.setText(f"Probing {source_path.name}...")
+        thread.start()
+
+    def _handle_probe_finished(self, media_info: object) -> None:
+        if not isinstance(media_info, SourceMediaInfo):
+            return
         self._media_info = media_info
-        self.source_path_label.setText(str(source_path))
+        self.source_path_label.setText(str(media_info.source_path))
         self.media_summary_widget.set_media_info(media_info)
         self.output_settings_widget.set_media_info(media_info)
         self._stack.setCurrentWidget(self._main_widget)
@@ -723,6 +752,14 @@ class MainWindow(QMainWindow):
         self._refresh_command_preview()
         self.queue_widget.set_add_current_enabled(True)
         self._refresh_queue_ui()
+
+    def _handle_probe_failed(self, error_message: str) -> None:
+        self.source_path_label.setText("")
+        QMessageBox.critical(self, "Probe Failed", error_message)
+
+    def _clear_probe_worker(self) -> None:
+        self._probe_thread = None
+        self._probe_worker = None
 
     def _queue_current_source(self) -> None:
         if self._media_info is None:
@@ -767,47 +804,81 @@ class MainWindow(QMainWindow):
         self._queue_source_paths(source_paths)
 
     def _queue_source_paths(self, paths: Iterable[Path]) -> None:
-        settings = self.output_settings_widget.current_settings()
+        if self._batch_probe_thread is not None:
+            return
+
+        if not self._dependency_status.is_ready or self._dependency_status.ffprobe.path is None:
+            QMessageBox.warning(
+                self,
+                "Dependencies Required",
+                "Configure valid ffmpeg and ffprobe paths before using the queue.",
+            )
+            return
+
         cached_media_info = (
             {self._media_info.source_path.resolve(): self._media_info}
             if self._media_info is not None
             else {}
         )
-        sources: list[tuple[Path, SourceMediaInfo]] = []
+        cached_sources: list[tuple[Path, SourceMediaInfo]] = []
+        paths_to_probe: list[Path] = []
         errors: list[str] = []
 
         for path in paths:
             source_path = path.expanduser()
+            if not source_path.exists() or not source_path.is_file():
+                errors.append(f"{source_path} is not a readable file.")
+                continue
             cached = cached_media_info.get(source_path.resolve())
             if cached is not None:
-                sources.append((source_path, cached))
-                continue
+                cached_sources.append((source_path, cached))
+            else:
+                paths_to_probe.append(source_path)
 
-            media_info, error = self._probe_media_for_queue(source_path)
-            if media_info is None:
-                if error is not None:
-                    errors.append(error)
-                continue
-            sources.append((source_path, media_info))
+        if not paths_to_probe:
+            settings = self.output_settings_widget.current_settings()
+            queued_jobs, queue_errors = self._build_queued_jobs(cached_sources, settings)
+            self._enqueue_jobs(queued_jobs, [*errors, *queue_errors])
+            return
 
+        self._batch_probe_cached_sources = cached_sources
+        self._batch_probe_errors = errors
+
+        probe_service = FfprobeMediaProbeService(self._dependency_status.ffprobe.path)
+        worker = BatchMediaProbeWorker(probe_service, tuple(paths_to_probe))
+        thread = QThread(self)
+        worker.moveToThread(thread)
+
+        thread.started.connect(worker.run)
+        worker.finished.connect(self._handle_batch_probe_finished)
+        worker.finished.connect(thread.quit)
+        worker.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        thread.finished.connect(self._clear_batch_probe_worker)
+
+        self._batch_probe_thread = thread
+        self._batch_probe_worker = worker
+        thread.start()
+
+    def _handle_batch_probe_finished(self, results: object) -> None:
+        if not isinstance(results, list):
+            return
+        sources = list(self._batch_probe_cached_sources)
+        errors = list(self._batch_probe_errors)
+
+        for path, media_info, error in results:
+            if media_info is not None:
+                sources.append((path, media_info))
+            elif error is not None:
+                errors.append(f"{path.name}: {error}")
+
+        settings = self.output_settings_widget.current_settings()
         queued_jobs, queue_errors = self._build_queued_jobs(sources, settings)
         self._enqueue_jobs(queued_jobs, [*errors, *queue_errors])
 
-    def _probe_media_for_queue(
-        self,
-        source_path: Path,
-    ) -> tuple[SourceMediaInfo | None, str | None]:
-        if not self._dependency_status.is_ready or self._dependency_status.ffprobe.path is None:
-            return None, "Configure valid ffmpeg and ffprobe paths before using the queue."
-        if not source_path.exists() or not source_path.is_file():
-            return None, f"{source_path} is not a readable file."
-
-        probe_service = FfprobeMediaProbeService(self._dependency_status.ffprobe.path)
-        try:
-            return probe_service.probe(source_path), None
-        except MediaProbeError as exc:
-            LOGGER.exception("Failed to probe queued source media: %s", source_path)
-            return None, f"{source_path.name}: {exc}"
+    def _clear_batch_probe_worker(self) -> None:
+        self._batch_probe_thread = None
+        self._batch_probe_worker = None
 
     def _build_queued_jobs(
         self,

@@ -366,10 +366,10 @@ def _format_precise_duration(seconds: float | None) -> str:
     if seconds is None:
         return "Unknown"
     total_seconds = int(seconds)
-    milliseconds = int((seconds - total_seconds) * 10)
+    tenths = int((seconds - total_seconds) * 10)
     hours, remainder = divmod(total_seconds, 3600)
     minutes, remaining_seconds = divmod(remainder, 60)
-    return f"{hours:02d}:{minutes:02d}:{remaining_seconds:02d}.{milliseconds}"
+    return f"{hours:02d}:{minutes:02d}:{remaining_seconds:02d}.{tenths}"
 
 
 def _format_percentage(value: float | None) -> str:

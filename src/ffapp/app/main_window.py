@@ -14,20 +14,20 @@ from ffapp.app.execution import (
     QueueExecutionWorker,
 )
 from ffapp.app.formatting import (
-    _audio_codec_label,
-    _audio_mode_label,
-    _build_job_definition,
-    _build_media_summary_text,
-    _extract_path_from_mime_data,
-    _format_command_preview_text,
-    _format_dependency_status,
-    _format_output_overview,
-    _format_queue_summary,
-    _format_validation_result,
-    _job_state_label,
-    _resolution_preset_label,
-    _suggest_queue_output_path,
-    _video_codec_label,
+    audio_codec_label,
+    audio_mode_label,
+    build_job_definition,
+    build_media_summary_text,
+    extract_path_from_mime_data,
+    format_command_preview_text,
+    format_dependency_status,
+    format_output_overview,
+    format_queue_summary,
+    format_validation_result,
+    job_state_label,
+    resolution_preset_label,
+    suggest_queue_output_path,
+    video_codec_label,
 )
 from ffapp.app.output_settings import (
     DependencySetupWidget,
@@ -192,7 +192,7 @@ class MainWindow(QMainWindow):
         event.ignore()
 
     def dropEvent(self, event: QDropEvent) -> None:
-        path = _extract_path_from_mime_data(event.mimeData())
+        path = extract_path_from_mime_data(event.mimeData())
         if path is not None:
             self._load_source(path)
             event.acceptProposedAction()
@@ -664,7 +664,7 @@ class MainWindow(QMainWindow):
             ffprobe=self._dependency_status.ffprobe.path or self._settings.executable_paths.ffprobe,
         )
         self._setup_widget.set_paths(configured_paths)
-        self._setup_widget.set_status(_format_dependency_status(self._dependency_status))
+        self._setup_widget.set_status(format_dependency_status(self._dependency_status))
 
         if self._dependency_status.is_ready:
             self._stack.setCurrentWidget(self._main_widget)
@@ -675,7 +675,7 @@ class MainWindow(QMainWindow):
 
     def _save_dependency_paths(self, executable_paths: ExecutablePaths) -> None:
         status = self._dependency_manager.validate_paths(executable_paths)
-        self._setup_widget.set_status(_format_dependency_status(status))
+        self._setup_widget.set_status(format_dependency_status(status))
         if not status.is_ready:
             return
 
@@ -700,7 +700,7 @@ class MainWindow(QMainWindow):
         self._load_source(path)
 
     def _extract_path_from_mime(self) -> Path | None:
-        return _extract_path_from_mime_data(QApplication.clipboard().mimeData())
+        return extract_path_from_mime_data(QApplication.clipboard().mimeData())
 
     def _load_source(self, path: Path) -> None:
         if self._probe_thread is not None:
@@ -903,13 +903,13 @@ class MainWindow(QMainWindow):
                 errors.append(f"{source_path.name}: {message}")
                 continue
 
-            output_path = _suggest_queue_output_path(
+            output_path = suggest_queue_output_path(
                 source_path,
                 settings.container,
                 reserved_outputs=reserved_outputs,
             )
             reserved_outputs.add(output_path.resolve())
-            job = _build_job_definition(
+            job = build_job_definition(
                 source_path=source_path,
                 output_path=output_path,
                 settings=settings,
@@ -1061,7 +1061,7 @@ class MainWindow(QMainWindow):
     def _refresh_output_summary(self) -> None:
         settings = self.output_settings_widget.current_settings()
         self.output_summary_label.setText(
-            _format_output_overview(settings, self._media_info, self._validation_service)
+            format_output_overview(settings, self._media_info, self._validation_service)
         )
 
     def _refresh_command_preview(self) -> None:
@@ -1102,7 +1102,7 @@ class MainWindow(QMainWindow):
             )
 
         output_path = suggest_output_path(self._media_info.source_path, settings.container)
-        job = _build_job_definition(
+        job = build_job_definition(
             source_path=self._media_info.source_path,
             output_path=output_path,
             settings=settings,
@@ -1210,18 +1210,18 @@ __all__ = [
     "QueueWidget",
     "CommandPreviewWidget",
     "JobDetailsWidget",
-    "_audio_codec_label",
-    "_audio_mode_label",
-    "_build_job_definition",
-    "_build_media_summary_text",
-    "_extract_path_from_mime_data",
-    "_format_command_preview_text",
-    "_format_dependency_status",
-    "_format_output_overview",
-    "_format_queue_summary",
-    "_format_validation_result",
-    "_job_state_label",
-    "_resolution_preset_label",
-    "_suggest_queue_output_path",
-    "_video_codec_label",
+    "audio_codec_label",
+    "audio_mode_label",
+    "build_job_definition",
+    "build_media_summary_text",
+    "extract_path_from_mime_data",
+    "format_command_preview_text",
+    "format_dependency_status",
+    "format_output_overview",
+    "format_queue_summary",
+    "format_validation_result",
+    "job_state_label",
+    "resolution_preset_label",
+    "suggest_queue_output_path",
+    "video_codec_label",
 ]

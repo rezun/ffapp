@@ -6,6 +6,7 @@ from ffapp.core.models import (
     AudioCodec,
     AudioMode,
     AudioStreamInfo,
+    EncodingStrategy,
     H264EncoderOptions,
     H264QualityOptions,
     H265EncoderOptions,
@@ -179,9 +180,9 @@ class DefaultValidationService(ValidationService):
                 )
             )
 
-        if settings.encoding_strategy.value == "target_file_size":
+        if settings.encoding_strategy is EncodingStrategy.TARGET_FILE_SIZE:
             issues.extend(self._validate_file_size_strategy(settings, media_info))
-        elif settings.encoding_strategy.value == "target_bitrate":
+        elif settings.encoding_strategy is EncodingStrategy.TARGET_BITRATE:
             issues.extend(self._validate_target_bitrate_strategy(settings, media_info))
         else:
             issues.extend(self._validate_quality_strategy(settings))
@@ -425,6 +426,8 @@ class DefaultValidationService(ValidationService):
                     field_name="target_quality",
                 )
             ]
+
+        return []
 
 
 def quality_preset_options(video_codec: VideoCodec) -> tuple[str, ...]:

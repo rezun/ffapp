@@ -7,13 +7,13 @@ from pathlib import Path
 from typing import cast
 
 from ffapp.app.formatting import (
-    _format_command_preview_text,
-    _format_job_progress,
-    _format_job_result_summary,
-    _format_queue_item_details,
-    _format_queue_item_label,
-    _format_queue_summary,
-    _job_state_label,
+    format_command_preview_text,
+    format_job_progress,
+    format_job_result_summary,
+    format_queue_item_details,
+    format_queue_item_label,
+    format_queue_summary,
+    job_state_label,
 )
 from ffapp.app.qt import (
     QApplication,
@@ -174,7 +174,7 @@ class JobDetailsWidget(QWidget):
         self.progress_bar.setRange(0, 1000)
         self.progress_bar.setValue(0)
         self.command_output.setPlainText(
-            _format_command_preview_text(prepared.commands, single_command=False)
+            format_command_preview_text(prepared.commands, single_command=False)
         )
         self.log_output.clear()
         self.log_output.setPlaceholderText("ffmpeg stderr output will appear here during a job.")
@@ -190,7 +190,7 @@ class JobDetailsWidget(QWidget):
         )
         self.progress_bar.setRange(0, 0)
         self.command_output.setPlainText(
-            _format_command_preview_text(prepared.commands, single_command=False)
+            format_command_preview_text(prepared.commands, single_command=False)
         )
         self.log_output.clear()
         self.log_output.setPlaceholderText("ffmpeg stderr output will appear here during a job.")
@@ -205,7 +205,7 @@ class JobDetailsWidget(QWidget):
             else:
                 self.progress_bar.setRange(0, 1000)
                 self.progress_bar.setValue(round(progress.percentage * 10))
-        self.progress_summary_label.setText(_format_job_progress(progress))
+        self.progress_summary_label.setText(format_job_progress(progress))
 
     def append_log_line(self, line: str) -> None:
         self.log_output.appendPlainText(line.rstrip("\n"))
@@ -213,13 +213,13 @@ class JobDetailsWidget(QWidget):
 
     def show_result(self, result: JobResult, *, can_start: bool) -> None:
         self._running = False
-        self.state_label.setText(_job_state_label(result.state))
+        self.state_label.setText(job_state_label(result.state))
         self.output_path_label.setText(str(result.job.output_path))
-        self.progress_summary_label.setText(_format_job_result_summary(result))
+        self.progress_summary_label.setText(format_job_result_summary(result))
         self.progress_bar.setRange(0, 1000)
         self.progress_bar.setValue(1000 if result.state is JobState.COMPLETED else 0)
         self.command_output.setPlainText(
-            _format_command_preview_text(result.commands, single_command=False)
+            format_command_preview_text(result.commands, single_command=False)
         )
         self.log_output.setPlainText(
             result.log_output or "No ffmpeg stderr output was captured for this job."
@@ -280,9 +280,9 @@ class QueueDetailsWidget(QWidget):
             self._show_empty_details()
             return
 
-        self.detail_summary_label.setText(_format_queue_item_details(item))
+        self.detail_summary_label.setText(format_queue_item_details(item))
         self.detail_command_output.setPlainText(
-            _format_command_preview_text(item.queued_job.commands, single_command=False)
+            format_command_preview_text(item.queued_job.commands, single_command=False)
         )
 
         if item.result is not None and item.result.log_output:
@@ -397,11 +397,11 @@ class QueueWidget(QWidget):
 
         self.queue_list.clear()
         for item in item_list:
-            list_item = QListWidgetItem(_format_queue_item_label(item))
+            list_item = QListWidgetItem(format_queue_item_label(item))
             list_item.setData(Qt.ItemDataRole.UserRole, item.id)
             self.queue_list.addItem(list_item)
 
-        self.summary_label.setText(_format_queue_summary(item_list))
+        self.summary_label.setText(format_queue_summary(item_list))
         if selected_id is not None:
             self.select_item(selected_id)
         elif item_list:
@@ -522,7 +522,7 @@ class CommandPreviewWidget(QWidget):
         if not self._commands:
             return
 
-        self._preview_text = _format_command_preview_text(
+        self._preview_text = format_command_preview_text(
             self._commands,
             single_command=self.single_command_checkbox.isChecked(),
         )

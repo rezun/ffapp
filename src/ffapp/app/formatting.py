@@ -32,7 +32,7 @@ from ffapp.core.models import (
 from ffapp.core.validation import DefaultValidationService
 
 
-def _build_media_summary_text(media_info: SourceMediaInfo) -> str:
+def build_media_summary_text(media_info: SourceMediaInfo) -> str:
     primary_video = media_info.primary_video_stream
     lines = [
         f"Source: {media_info.source_path}",
@@ -85,7 +85,7 @@ def _build_media_summary_text(media_info: SourceMediaInfo) -> str:
     return "\n".join(lines)
 
 
-def _format_dependency_status(status: DependencyStatus) -> str:
+def format_dependency_status(status: DependencyStatus) -> str:
     return "\n".join(
         [
             _format_single_dependency(status.ffmpeg),
@@ -108,7 +108,7 @@ def _format_single_dependency(validation: object) -> str:
     return f"{validation.name}: {validation.error or 'Not configured'}"
 
 
-def _extract_path_from_mime_data(mime_data: object) -> Path | None:
+def extract_path_from_mime_data(mime_data: object) -> Path | None:
     if mime_data is None:
         return None
 
@@ -182,7 +182,7 @@ def _format_language(language: str | None) -> str:
     return language
 
 
-def _video_codec_label(codec: object) -> str:
+def video_codec_label(codec: object) -> str:
     labels = {
         VideoCodec.H264: "H.264",
         VideoCodec.H265: "H.265",
@@ -194,7 +194,7 @@ def _video_codec_label(codec: object) -> str:
     return str(codec)
 
 
-def _audio_codec_label(codec: object) -> str:
+def audio_codec_label(codec: object) -> str:
     labels = {
         AudioCodec.AAC: "AAC",
         AudioCodec.MP3: "MP3",
@@ -206,7 +206,7 @@ def _audio_codec_label(codec: object) -> str:
     return str(codec)
 
 
-def _audio_mode_label(mode: AudioMode) -> str:
+def audio_mode_label(mode: AudioMode) -> str:
     labels = {
         AudioMode.COPY: "Copy All Audio Streams",
         AudioMode.REENCODE: "Re-encode All Audio Streams",
@@ -215,7 +215,7 @@ def _audio_mode_label(mode: AudioMode) -> str:
     return labels[mode]
 
 
-def _resolution_preset_label(preset: ResolutionPreset) -> str:
+def resolution_preset_label(preset: ResolutionPreset) -> str:
     labels = {
         ResolutionPreset.ORIGINAL: "Original Source Resolution",
         ResolutionPreset.P720: "720p",
@@ -226,12 +226,12 @@ def _resolution_preset_label(preset: ResolutionPreset) -> str:
     return labels[preset]
 
 
-def _format_output_overview(
+def format_output_overview(
     settings: OutputSettings,
     media_info: SourceMediaInfo | None,
     validation_service: DefaultValidationService,
 ) -> str:
-    resolution_text = _resolution_preset_label(settings.resolution_preset)
+    resolution_text = resolution_preset_label(settings.resolution_preset)
     if media_info is not None:
         resolved = validation_service.resolve_output_resolution(settings, media_info)
         if resolved is not None:
@@ -248,7 +248,7 @@ def _format_output_overview(
         )
         remix_text = " stereo remix" if settings.audio_options.remix_to_stereo else ""
         audio_text = (
-            f"{_audio_codec_label(settings.audio_options.codec or AudioCodec.AAC)} "
+            f"{audio_codec_label(settings.audio_options.codec or AudioCodec.AAC)} "
             f"{bitrate_kbps}{remix_text}"
         )
 
@@ -270,7 +270,7 @@ def _format_output_overview(
     return " | ".join(
         (
             f"Container: {settings.container.upper()}",
-            f"Video: {_video_codec_label(settings.video_codec)}",
+            f"Video: {video_codec_label(settings.video_codec)}",
             f"Resolution: {resolution_text}",
             f"Audio: {audio_text}",
             strategy_text,
@@ -293,7 +293,7 @@ def _format_quality_summary(
     return f"Quality: {options.quality} • CPU Used {cpu_used}{suffix}"
 
 
-def _format_validation_result(result: ValidationResult) -> str:
+def format_validation_result(result: ValidationResult) -> str:
     if not result.issues:
         return "Current settings are valid for the loaded source."
 
@@ -309,7 +309,7 @@ def _format_validation_result(result: ValidationResult) -> str:
     return "\n".join(lines)
 
 
-def _format_command_preview_text(
+def format_command_preview_text(
     commands: Iterable[GeneratedCommand],
     *,
     single_command: bool,
@@ -331,7 +331,7 @@ def _format_command_preview_text(
     return "\n\n".join(sections)
 
 
-def _job_state_label(state: JobState) -> str:
+def job_state_label(state: JobState) -> str:
     labels = {
         JobState.PENDING: "Pending",
         JobState.RUNNING: "Running",
@@ -342,9 +342,9 @@ def _job_state_label(state: JobState) -> str:
     return labels[state]
 
 
-def _format_job_progress(progress: JobProgress) -> str:
+def format_job_progress(progress: JobProgress) -> str:
     details = [
-        f"State: {_job_state_label(progress.state)}",
+        f"State: {job_state_label(progress.state)}",
         f"Pass: {progress.pass_index} of {progress.pass_count}",
         f"Elapsed: {_format_precise_duration(progress.elapsed_seconds)}",
         f"Processed: {_format_precise_duration(progress.processed_seconds)}",
@@ -354,9 +354,9 @@ def _format_job_progress(progress: JobProgress) -> str:
     return " | ".join(details)
 
 
-def _format_job_result_summary(result: JobResult) -> str:
+def format_job_result_summary(result: JobResult) -> str:
     return (
-        f"State: {_job_state_label(result.state)} | "
+        f"State: {job_state_label(result.state)} | "
         f"Elapsed: {_format_precise_duration(result.elapsed_seconds)} | "
         f"Commands Run: {len(result.process_results)} of {len(result.commands)}"
     )
@@ -384,7 +384,7 @@ def _format_speed(value: float | None) -> str:
     return f"{value:.2f}x"
 
 
-def _format_queue_summary(items: Iterable[QueueItem]) -> str:
+def format_queue_summary(items: Iterable[QueueItem]) -> str:
     item_list = tuple(items)
     if not item_list:
         return "Queue is empty."
@@ -403,28 +403,28 @@ def _format_queue_summary(items: Iterable[QueueItem]) -> str:
     )
 
 
-def _format_queue_item_label(item: QueueItem) -> str:
+def format_queue_item_label(item: QueueItem) -> str:
     progress = ""
     if item.progress is not None and item.progress.percentage is not None:
         progress = f" | {_format_percentage(item.progress.percentage)}"
     return (
         f"{item.queued_job.job.source_path.name} -> "
         f"{item.queued_job.job.output_path.name} | "
-        f"{_job_state_label(item.state)}{progress}"
+        f"{job_state_label(item.state)}{progress}"
     )
 
 
-def _format_queue_item_details(item: QueueItem) -> str:
+def format_queue_item_details(item: QueueItem) -> str:
     lines = [
         f"Source: {item.queued_job.job.source_path}",
         f"Output: {item.queued_job.job.output_path}",
-        f"State: {_job_state_label(item.state)}",
+        f"State: {job_state_label(item.state)}",
         f"Passes: {len(item.queued_job.commands)}",
     ]
     if item.progress is not None:
-        lines.append(_format_job_progress(item.progress))
+        lines.append(format_job_progress(item.progress))
     elif item.result is not None:
-        lines.append(_format_job_result_summary(item.result))
+        lines.append(format_job_result_summary(item.result))
 
     if item.queued_job.validation.has_warnings:
         lines.append(f"Warnings: {len(item.queued_job.validation.warnings)}")
@@ -433,7 +433,7 @@ def _format_queue_item_details(item: QueueItem) -> str:
     return "\n".join(lines)
 
 
-def _suggest_queue_output_path(
+def suggest_queue_output_path(
     source_path: Path,
     container: OutputContainer,
     *,
@@ -453,7 +453,7 @@ def _suggest_queue_output_path(
         counter += 1
 
 
-def _build_job_definition(
+def build_job_definition(
     *,
     source_path: Path,
     output_path: Path,
@@ -476,18 +476,22 @@ def _build_job_definition(
 
 
 __all__ = [
-    "_audio_codec_label",
-    "_audio_mode_label",
-    "_build_job_definition",
-    "_build_media_summary_text",
-    "_extract_path_from_mime_data",
-    "_format_command_preview_text",
-    "_format_dependency_status",
-    "_format_output_overview",
-    "_format_queue_summary",
-    "_format_validation_result",
-    "_job_state_label",
-    "_resolution_preset_label",
-    "_suggest_queue_output_path",
-    "_video_codec_label",
+    "audio_codec_label",
+    "audio_mode_label",
+    "build_job_definition",
+    "build_media_summary_text",
+    "extract_path_from_mime_data",
+    "format_command_preview_text",
+    "format_dependency_status",
+    "format_job_progress",
+    "format_job_result_summary",
+    "format_output_overview",
+    "format_queue_item_details",
+    "format_queue_item_label",
+    "format_queue_summary",
+    "format_validation_result",
+    "job_state_label",
+    "resolution_preset_label",
+    "suggest_queue_output_path",
+    "video_codec_label",
 ]

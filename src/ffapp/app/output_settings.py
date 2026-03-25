@@ -6,12 +6,12 @@ from pathlib import Path
 from typing import TypeVar, cast
 
 from ffapp.app.formatting import (
-    _audio_codec_label,
-    _audio_mode_label,
-    _build_media_summary_text,
-    _format_validation_result,
-    _resolution_preset_label,
-    _video_codec_label,
+    audio_codec_label,
+    audio_mode_label,
+    build_media_summary_text,
+    format_validation_result,
+    resolution_preset_label,
+    video_codec_label,
 )
 from ffapp.app.qt import (
     QCheckBox,
@@ -170,7 +170,7 @@ class MediaSummaryWidget(QWidget):
             self.summary.setPlaceholderText("No source file selected.")
             return
 
-        self.summary.setPlainText(_build_media_summary_text(media_info))
+        self.summary.setPlainText(build_media_summary_text(media_info))
 
 
 class OutputSettingsWidget(QWidget):
@@ -655,6 +655,7 @@ class OutputSettingsWidget(QWidget):
         layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
 
     def _configure_group_box(self, group: QGroupBox) -> None:
+        """Extension point for subclasses to apply custom styling to group boxes."""
         del group
 
     def _populate_static_options(self) -> None:
@@ -662,7 +663,7 @@ class OutputSettingsWidget(QWidget):
             self.container_combo.addItem(container.value.upper(), container)
 
         for mode in AudioMode:
-            self.audio_mode_combo.addItem(_audio_mode_label(mode), mode)
+            self.audio_mode_combo.addItem(audio_mode_label(mode), mode)
 
         for bitrate in _COMMON_AUDIO_BITRATES_KBPS:
             self.audio_bitrate_combo.addItem(f"{bitrate} kbps", bitrate)
@@ -672,7 +673,7 @@ class OutputSettingsWidget(QWidget):
             self.audio_bitrate_combo.setCurrentIndex(default_audio_bitrate_index)
 
         for preset in ResolutionPreset:
-            self.resolution_combo.addItem(_resolution_preset_label(preset), preset)
+            self.resolution_combo.addItem(resolution_preset_label(preset), preset)
 
         self.strategy_combo.addItem("Target File Size", EncodingStrategy.TARGET_FILE_SIZE)
         self.strategy_combo.addItem("Target Bitrate", EncodingStrategy.TARGET_BITRATE)
@@ -757,7 +758,7 @@ class OutputSettingsWidget(QWidget):
         self._replace_combo_items(
             self.video_codec_combo,
             allowed_codecs,
-            labeler=_video_codec_label,
+            labeler=video_codec_label,
             selected=current_value,
         )
 
@@ -769,7 +770,7 @@ class OutputSettingsWidget(QWidget):
         self._replace_combo_items(
             self.audio_codec_combo,
             allowed_codecs,
-            labeler=_audio_codec_label,
+            labeler=audio_codec_label,
             selected=current_value,
         )
 
@@ -868,7 +869,7 @@ class OutputSettingsWidget(QWidget):
             return
 
         validation = self._validation_service.validate(settings, self._media_info)
-        self.validation_summary.setPlainText(_format_validation_result(validation))
+        self.validation_summary.setPlainText(format_validation_result(validation))
         self.settings_changed.emit()
 
     def _update_output_resolution_label(self, settings: OutputSettings) -> None:

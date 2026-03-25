@@ -18,8 +18,8 @@ from ffapp.app.main_window import (
     PreparedExecution,
     QueueDetailsWidget,
     QueueWidget,
-    _format_command_preview_text,
-    _format_queue_summary,
+    format_command_preview_text,
+    format_queue_summary,
 )
 from ffapp.core.models import (
     AppSettings,
@@ -125,7 +125,7 @@ class _FakeDependencyManager:
 
 class CommandPreviewFormattingTests(unittest.TestCase):
     def test_two_pass_preview_can_render_as_separate_commands(self) -> None:
-        text = _format_command_preview_text(
+        text = format_command_preview_text(
             (_command("ffmpeg pass1"), _command("ffmpeg pass2")),
             single_command=False,
         )
@@ -133,7 +133,7 @@ class CommandPreviewFormattingTests(unittest.TestCase):
         self.assertEqual(text, "Pass 1\n\nffmpeg pass1\n\nPass 2\n\nffmpeg pass2")
 
     def test_two_pass_preview_can_render_as_single_command(self) -> None:
-        text = _format_command_preview_text(
+        text = format_command_preview_text(
             (_command("ffmpeg pass1"), _command("ffmpeg pass2")),
             single_command=True,
         )
@@ -248,7 +248,7 @@ class QueueWidgetTests(unittest.TestCase):
         self.assertEqual(widget.selected_item_id(), item.id)
 
     def test_format_queue_summary_counts_queue_states(self) -> None:
-        summary = _format_queue_summary(
+        summary = format_queue_summary(
             (
                 _queue_item(JobState.PENDING),
                 _queue_item(JobState.RUNNING),

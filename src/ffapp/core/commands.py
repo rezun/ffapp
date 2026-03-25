@@ -8,6 +8,7 @@ from pathlib import Path
 from ffapp.core.models import (
     AudioCodec,
     AudioMode,
+    EncodingStrategy,
     GeneratedCommand,
     H264EncoderOptions,
     H264QualityOptions,
@@ -48,7 +49,7 @@ class DefaultCommandBuilder(CommandBuilder):
 
         if _uses_two_pass(job):
             bitrate = None
-            if job.encoding_strategy.value != "target_quality":
+            if job.encoding_strategy is not EncodingStrategy.TARGET_QUALITY:
                 bitrate = _resolve_video_bitrate(job, media_info)
             pass_log_path = _pass_log_path(job.output_path)
             first_pass_args = [
@@ -179,7 +180,7 @@ def _build_video_codec_arguments(
     if scale_filter is not None:
         arguments.extend(["-vf", scale_filter])
 
-    if job.encoding_strategy.value == "target_quality":
+    if job.encoding_strategy is EncodingStrategy.TARGET_QUALITY:
         arguments.extend(_quality_arguments(job, pass_index=pass_index))
         return arguments
 
@@ -310,12 +311,12 @@ def _vpx_encoder_tuning_arguments(
 
 
 def _resolve_video_bitrate(job: JobDefinition, media_info: SourceMediaInfo | None) -> int:
-    if job.encoding_strategy.value == "target_bitrate":
+    if job.encoding_strategy is EncodingStrategy.TARGET_BITRATE:
         if job.target_bitrate is None or job.target_bitrate.video_bitrate <= 0:
             raise CommandBuildError("Target bitrate mode requires a positive video bitrate.")
         return job.target_bitrate.video_bitrate
 
-    if job.encoding_strategy.value == "target_file_size":
+    if job.encoding_strategy is EncodingStrategy.TARGET_FILE_SIZE:
         if job.target_file_size is None:
             raise CommandBuildError("Target file size mode requires file size options.")
         if media_info is None:
@@ -384,11 +385,11 @@ def _effective_audio_mode(job: JobDefinition) -> AudioMode:
 
 
 def _uses_two_pass(job: JobDefinition) -> bool:
-    if job.encoding_strategy.value == "target_file_size":
+    if job.encoding_strategy is EncodingStrategy.TARGET_FILE_SIZE:
         return bool(job.target_file_size and job.target_file_size.two_pass)
-    if job.encoding_strategy.value == "target_bitrate":
+    if job.encoding_strategy is EncodingStrategy.TARGET_BITRATE:
         return bool(job.target_bitrate and job.target_bitrate.two_pass)
-    if job.encoding_strategy.value == "target_quality":
+    if job.encoding_strategy is EncodingStrategy.TARGET_QUALITY:
         quality = job.target_quality
         if isinstance(quality, (Vp8QualityOptions, Vp9QualityOptions)):
             return quality.two_pass

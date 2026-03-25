@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ffapp"
-version = "0.1.0"
+version = "1.0.0"
 description = "Guided desktop helper for building ffmpeg commands."
 readme = "mvp-plan.md"
-requires-python = ">=3.12"
+requires-python = ">=3.13,<3.14"
 dependencies = [
   "PySide6>=6.8,<7",
 ]
@@ -34,15 +34,14 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py312"
+target-version = "py313"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.13"
 mypy_path = ["src"]
 packages = ["ffapp"]
 strict = true
 warn_unreachable = true
-

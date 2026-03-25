@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TypeVar, cast
 from urllib.parse import unquote, urlparse
 
+from ffapp import get_app_version
 from ffapp.app.execution import JobExecutionWorker, QueueExecutionWorker
 from ffapp.core.commands import CommandBuildError, DefaultCommandBuilder, suggest_output_path
 from ffapp.core.models import (
@@ -1634,7 +1635,7 @@ class MainWindow(QMainWindow):
         self._right_splitter: QSplitter | None = None
         self._queue_splitter: QSplitter | None = None
 
-        self.setWindowTitle("FFmpeg GUI")
+        self.setWindowTitle(f"FFApp [{get_app_version()}]")
         self.resize(1180, 760)
         self.setAcceptDrops(True)
 

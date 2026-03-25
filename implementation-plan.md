@@ -678,11 +678,28 @@ Improve the MVP's day-to-day usability by refining layout, spacing, information 
 
 ### Status
 
-Not Started
+In Progress
 
 ### Developer Notes
 
-- Packaging and cross-platform hardening have not started.
+- Chose `pyside6-deploy` as the packaging path for desktop builds, which uses Nuitka underneath for the frozen application bundle.
+- Added a dedicated packaging entry point in `main.py` so deployment uses the project source tree cleanly instead of relying on direct package execution from `src/`.
+- Added checked-in deployment configuration in `pysidedeploy.spec`.
+- Added a macOS packaging workflow in `scripts/build-macos.sh` that:
+  - validates Python 3.13 for packaging
+  - normalizes the deploy spec against the active virtual environment
+  - builds `dist/FFApp.app`
+  - optionally wraps the app bundle into a versioned DMG
+- Added initial Linux and Windows packaging scripts in `scripts/build-linux.sh` and `scripts/build-windows.ps1` that follow the same deployment model and emit versioned archive artifacts.
+- Added `scripts/sync_editable_version.py` so the editable install metadata in the active virtual environment is synchronized from `pyproject.toml` before packaging, keeping frozen build version metadata aligned with the project version.
+- Added `docs/release.md` with the current release workflow and artifact expectations for macOS, Linux, and Windows.
+- Updated the app window title to include the current version in brackets and changed version lookup so `pyproject.toml` remains the single authoritative version source while still supporting packaged builds.
+- Verified locally on macOS:
+  - `scripts/build-macos.sh --dry-run`
+  - `scripts/build-macos.sh --skip-dmg`
+  - generated `dist/FFApp.app` successfully
+- Linux and Windows packaging scripts were added and syntax-checked, but they were not executed in this macOS environment.
+- The broader hardening items for Phase 9, such as extra UX polish, collision testing, and full cross-platform smoke testing, are still pending.
 
 ### Objective
 

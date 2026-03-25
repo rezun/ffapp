@@ -48,9 +48,9 @@ _VIDEO_CODEC_MATRIX: dict[OutputContainer, tuple[VideoCodec, ...]] = {
 }
 _AUDIO_CODEC_MATRIX: dict[OutputContainer, tuple[AudioCodec, ...]] = {
     OutputContainer.MP4: (AudioCodec.AAC, AudioCodec.MP3),
-    OutputContainer.MKV: (AudioCodec.MP3, AudioCodec.AAC, AudioCodec.VORBIS, AudioCodec.OPUS),
-    OutputContainer.WEBM: (AudioCodec.VORBIS, AudioCodec.OPUS),
-    OutputContainer.OGG: (AudioCodec.VORBIS, AudioCodec.OPUS),
+    OutputContainer.MKV: (AudioCodec.AAC, AudioCodec.MP3, AudioCodec.OPUS, AudioCodec.VORBIS),
+    OutputContainer.WEBM: (AudioCodec.OPUS, AudioCodec.VORBIS),
+    OutputContainer.OGG: (AudioCodec.OPUS, AudioCodec.VORBIS),
 }
 _PRESET_RESOLUTIONS: dict[ResolutionPreset, Resolution] = {
     ResolutionPreset.P720: Resolution(width=1280, height=720),

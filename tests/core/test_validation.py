@@ -75,7 +75,7 @@ class CompatibilityServiceTests(unittest.TestCase):
         )
         self.assertEqual(
             service.allowed_audio_codecs(OutputContainer.WEBM),
-            (AudioCodec.VORBIS, AudioCodec.OPUS),
+            (AudioCodec.OPUS, AudioCodec.VORBIS),
         )
         self.assertEqual(
             service.allowed_audio_codecs(OutputContainer.MP4),

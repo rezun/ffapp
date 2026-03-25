@@ -92,6 +92,7 @@ def parse_media_info(source_path: Path, payload: dict[str, Any]) -> SourceMediaI
                     width=_parse_int(stream.get("width")),
                     height=_parse_int(stream.get("height")),
                     frame_rate=_parse_frame_rate(stream),
+                    frame_count=_parse_int(stream.get("nb_frames")),
                 )
             )
             continue
@@ -134,14 +135,10 @@ def parse_media_info(source_path: Path, payload: dict[str, Any]) -> SourceMediaI
 
 
 def _parse_frame_rate(stream: dict[str, Any]) -> float | None:
-    for key in ("avg_frame_rate", "r_frame_rate"):
-        raw_value = _optional_str(stream.get(key))
-        if raw_value is None:
-            continue
-        value = _parse_fraction(raw_value)
-        if value is not None:
-            return value
-    return None
+    raw_value = _optional_str(stream.get("avg_frame_rate"))
+    if raw_value is None:
+        return None
+    return _parse_fraction(raw_value)
 
 
 def _parse_fraction(value: str) -> float | None:

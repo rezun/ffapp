@@ -26,6 +26,7 @@ class ParseMediaInfoTests(unittest.TestCase):
                     "width": 1920,
                     "height": 1080,
                     "avg_frame_rate": "30000/1001",
+                    "nb_frames": "375",
                 },
                 {
                     "index": 1,
@@ -59,6 +60,30 @@ class ParseMediaInfoTests(unittest.TestCase):
         self.assertEqual(media_info.audio_streams[0].language, "eng")
         self.assertEqual(media_info.subtitle_streams[0].language, "deu")
         self.assertAlmostEqual(media_info.video_streams[0].frame_rate or 0.0, 29.97, places=2)
+        self.assertEqual(media_info.video_streams[0].frame_count, 375)
+
+    def test_parse_media_info_ignores_r_frame_rate_for_playback_fps(self) -> None:
+        payload = {
+            "format": {
+                "format_name": "matroska",
+                "duration": "10.0",
+            },
+            "streams": [
+                {
+                    "index": 0,
+                    "codec_type": "video",
+                    "codec_name": "h264",
+                    "avg_frame_rate": "0/0",
+                    "r_frame_rate": "90000/1",
+                    "nb_frames": "240",
+                },
+            ],
+        }
+
+        media_info = parse_media_info(Path("/tmp/example.mkv"), payload)
+
+        self.assertIsNone(media_info.video_streams[0].frame_rate)
+        self.assertEqual(media_info.video_streams[0].frame_count, 240)
 
 
 class ProbeServiceTests(unittest.TestCase):

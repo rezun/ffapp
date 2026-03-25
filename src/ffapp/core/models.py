@@ -160,6 +160,7 @@ class VideoStreamInfo:
     width: int | None = None
     height: int | None = None
     frame_rate: float | None = None
+    frame_count: int | None = None
 
 
 @dataclass(slots=True, frozen=True)

@@ -40,7 +40,11 @@ def _job_definition() -> JobDefinition:
     )
 
 
-def _media_info() -> SourceMediaInfo:
+def _media_info(
+    *,
+    frame_rate: float | None = 30.0,
+    frame_count: int | None = 3600,
+) -> SourceMediaInfo:
     return SourceMediaInfo(
         source_path=Path("/tmp/input.mov"),
         duration_seconds=120.0,
@@ -50,7 +54,8 @@ def _media_info() -> SourceMediaInfo:
                 codec_name="h264",
                 width=1920,
                 height=1080,
-                frame_rate=30.0,
+                frame_rate=frame_rate,
+                frame_count=frame_count,
             ),
         ),
         audio_streams=(AudioStreamInfo(index=1, codec_name="aac", bit_rate=128_000),),
@@ -232,6 +237,44 @@ class JobExecutionServiceTests(unittest.TestCase):
         self.assertEqual(result.state, JobState.FAILED)
         self.assertEqual(runner.calls, [commands[0]])
         self.assertEqual(len(result.process_results), 1)
+
+    def test_execute_prefers_reported_frame_count_for_progress_estimate(self) -> None:
+        command = _command("single-pass")
+        runner = FakeProcessRunner(
+            results=(
+                ProcessExecutionResult(
+                    command=command,
+                    state=JobState.COMPLETED,
+                    return_code=0,
+                    elapsed_seconds=3.0,
+                    stderr_output="",
+                ),
+            ),
+        )
+        service = DefaultJobExecutionService(FakeCommandBuilder((command,)), runner)
+
+        service.execute(_job_definition(), _media_info(frame_rate=None, frame_count=240))
+
+        self.assertEqual(runner.expected_frame_counts, [240])
+
+    def test_execute_skips_frame_fallback_without_frame_count_or_average_fps(self) -> None:
+        command = _command("single-pass")
+        runner = FakeProcessRunner(
+            results=(
+                ProcessExecutionResult(
+                    command=command,
+                    state=JobState.COMPLETED,
+                    return_code=0,
+                    elapsed_seconds=3.0,
+                    stderr_output="",
+                ),
+            ),
+        )
+        service = DefaultJobExecutionService(FakeCommandBuilder((command,)), runner)
+
+        service.execute(_job_definition(), _media_info(frame_rate=None, frame_count=None))
+
+        self.assertEqual(runner.expected_frame_counts, [None])
 
     def test_cancel_forwards_to_process_runner(self) -> None:
         runner = FakeProcessRunner(results=())

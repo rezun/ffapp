@@ -386,7 +386,12 @@ def _estimate_total_frame_count(media_info: SourceMediaInfo) -> int | None:
     primary_video = media_info.primary_video_stream
     if (
         primary_video is None
-        or primary_video.frame_rate is None
+    ):
+        return None
+    if primary_video.frame_count is not None and primary_video.frame_count > 0:
+        return primary_video.frame_count
+    if (
+        primary_video.frame_rate is None
         or primary_video.frame_rate <= 0
         or media_info.duration_seconds is None
         or media_info.duration_seconds <= 0

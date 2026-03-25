@@ -15,6 +15,7 @@ from ffapp.core.models import (
     VideoCodec,
     Vp9QualityOptions,
     VpxEncoderOptions,
+    WindowGeometry,
 )
 from ffapp.infrastructure.settings import JsonSettingsService
 
@@ -55,6 +56,13 @@ class JsonSettingsServiceTests(unittest.TestCase):
                     main_splitter_sizes=(320, 840),
                     right_splitter_sizes=(540, 300),
                     queue_splitter_sizes=(350, 290),
+                ),
+                window_geometry=WindowGeometry(
+                    x=120,
+                    y=80,
+                    width=1440,
+                    height=900,
+                    is_maximized=True,
                 ),
             )
 
@@ -140,6 +148,36 @@ class JsonSettingsServiceTests(unittest.TestCase):
         )
         self.assertEqual(actual.last_used_settings.target_quality, Vp9QualityOptions(quality=30))
         self.assertEqual(actual.splitter_layout, SplitterLayout())
+        self.assertEqual(actual.window_geometry, WindowGeometry())
+
+    def test_load_defaults_window_geometry_when_payload_is_invalid(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            settings_path = Path(temp_dir) / "settings.json"
+            settings_path.write_text(
+                """
+                {
+                  "schema_version": 4,
+                  "window_geometry": {
+                    "x": "abc",
+                    "y": [],
+                    "width": 0,
+                    "height": -4,
+                    "is_maximized": true
+                  }
+                }
+                """.strip(),
+                encoding="utf-8",
+            )
+            service = JsonSettingsService(path=settings_path)
+
+            actual = service.load()
+
+        self.assertEqual(
+            actual.window_geometry,
+            WindowGeometry(is_maximized=True),
+        )
 
 
 if __name__ == "__main__":

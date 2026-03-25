@@ -45,6 +45,7 @@ from ffapp.core.models import (
     ValidationResult,
     VideoCodec,
     VideoStreamInfo,
+    WindowGeometry,
     Vp9QualityOptions,
     VpxEncoderOptions,
 )
@@ -325,6 +326,7 @@ class MainWindowLayoutTests(unittest.TestCase):
                     right_splitter_sizes=(500, 340),
                     queue_splitter_sizes=(330, 310),
                 ),
+                window_geometry=WindowGeometry(x=90, y=70, width=1320, height=840),
             )
         )
         preset_service = _FakePresetService(
@@ -340,6 +342,32 @@ class MainWindowLayoutTests(unittest.TestCase):
         self.assertEqual(window.output_settings_widget.current_settings(), saved_settings)
         self.assertEqual(window.preset_combo.currentText(), "Archive")
         self.assertEqual(window._settings.splitter_layout.main_splitter_sizes, (280, 900))
+        self.assertEqual(window.geometry().x(), 90)
+        self.assertEqual(window.geometry().y(), 70)
+        self.assertEqual(window.geometry().width(), 1320)
+        self.assertEqual(window.geometry().height(), 840)
+
+    def test_main_window_persists_window_geometry_to_settings(self) -> None:
+        settings_service = _FakeSettingsService()
+        window = MainWindow(
+            settings_service,
+            _FakePresetService(),
+            _FakeDependencyManager(),
+        )
+
+        window.setGeometry(110, 85, 1280, 820)
+        window._persist_window_geometry()
+
+        self.assertEqual(
+            settings_service.value.window_geometry,
+            WindowGeometry(
+                x=110,
+                y=85,
+                width=1280,
+                height=820,
+                is_maximized=False,
+            ),
+        )
 
     def test_splitter_positions_are_persisted_to_settings(self) -> None:
         settings_service = _FakeSettingsService()

@@ -4,7 +4,13 @@ import json
 from pathlib import Path
 from typing import Any
 
-from ffapp.core.models import AppSettings, ExecutablePaths, OutputSettings, SplitterLayout
+from ffapp.core.models import (
+    AppSettings,
+    ExecutablePaths,
+    OutputSettings,
+    SplitterLayout,
+    WindowGeometry,
+)
 from ffapp.core.services import SettingsService
 from ffapp.infrastructure.app_paths import settings_file_path
 from ffapp.infrastructure.serialization import (
@@ -43,6 +49,7 @@ class JsonSettingsService(SettingsService):
             ),
             last_used_settings=last_used_settings,
             splitter_layout=_deserialize_splitter_layout(_mapping(payload.get("splitter_layout"))),
+            window_geometry=_deserialize_window_geometry(_mapping(payload.get("window_geometry"))),
         )
 
     def save(self, settings: AppSettings) -> None:
@@ -58,6 +65,13 @@ class JsonSettingsService(SettingsService):
                 "main_splitter_sizes": list(settings.splitter_layout.main_splitter_sizes),
                 "right_splitter_sizes": list(settings.splitter_layout.right_splitter_sizes),
                 "queue_splitter_sizes": list(settings.splitter_layout.queue_splitter_sizes),
+            },
+            "window_geometry": {
+                "x": settings.window_geometry.x,
+                "y": settings.window_geometry.y,
+                "width": settings.window_geometry.width,
+                "height": settings.window_geometry.height,
+                "is_maximized": settings.window_geometry.is_maximized,
             },
         }
         self._path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
@@ -87,6 +101,16 @@ def _deserialize_splitter_layout(payload: dict[str, Any]) -> SplitterLayout:
     )
 
 
+def _deserialize_window_geometry(payload: dict[str, Any]) -> WindowGeometry:
+    return WindowGeometry(
+        x=_read_optional_int(payload.get("x")),
+        y=_read_optional_int(payload.get("y")),
+        width=_read_optional_positive_int(payload.get("width")),
+        height=_read_optional_positive_int(payload.get("height")),
+        is_maximized=bool(payload.get("is_maximized", False)),
+    )
+
+
 def _read_splitter_sizes(value: object) -> tuple[int, ...]:
     if not isinstance(value, list):
         return ()
@@ -101,3 +125,19 @@ def _read_splitter_sizes(value: object) -> tuple[int, ...]:
             return ()
         sizes.append(size)
     return tuple(sizes)
+
+
+def _read_optional_int(value: object) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _read_optional_positive_int(value: object) -> int | None:
+    result = _read_optional_int(value)
+    if result is None or result <= 0:
+        return None
+    return result

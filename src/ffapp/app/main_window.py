@@ -41,6 +41,7 @@ from ffapp.core.models import (
     TargetFileSizeOptions,
     ValidationResult,
     VideoCodec,
+    WindowGeometry,
     Vp8QualityOptions,
     Vp9QualityOptions,
     VpxEncoderOptions,
@@ -105,13 +106,14 @@ _FOLDER_IMPORT_SUFFIXES: frozenset[str] = frozenset(
 )
 
 try:
-    from PySide6.QtCore import QSignalBlocker, Qt, QThread, Signal
+    from PySide6.QtCore import QSignalBlocker, QRect, Qt, QThread, Signal
     from PySide6.QtGui import (
         QAction,
         QCloseEvent,
         QColor,
         QDragEnterEvent,
         QDropEvent,
+        QGuiApplication,
         QPainter,
         QPaintEvent,
         QResizeEvent,
@@ -1646,12 +1648,14 @@ class MainWindow(QMainWindow):
         self._stack.addWidget(self._setup_widget)
         self._stack.addWidget(self._main_widget)
 
+        self._restore_window_geometry()
         self._configure_actions()
         self.output_settings_widget.apply_settings(self._settings.last_used_settings)
         self._reload_presets()
         self._refresh_dependency_ui()
 
     def closeEvent(self, event: QCloseEvent) -> None:
+        self._persist_window_geometry()
         self._persist_splitter_layout()
         super().closeEvent(event)
 
@@ -1718,6 +1722,23 @@ class MainWindow(QMainWindow):
         )
         self._settings_service.save(self._settings)
 
+    def _persist_window_geometry(self) -> None:
+        geometry = self.normalGeometry() if self.isMaximized() else self.geometry()
+        if not geometry.isValid():
+            return
+
+        self._settings = replace(
+            self._settings,
+            window_geometry=WindowGeometry(
+                x=geometry.x(),
+                y=geometry.y(),
+                width=geometry.width(),
+                height=geometry.height(),
+                is_maximized=self.isMaximized(),
+            ),
+        )
+        self._settings_service.save(self._settings)
+
     def _restore_splitter_layout(self) -> None:
         splitter_layout = self._settings.splitter_layout
         if self._main_splitter is not None and len(splitter_layout.main_splitter_sizes) >= 2:
@@ -1726,6 +1747,22 @@ class MainWindow(QMainWindow):
             self._right_splitter.setSizes(list(splitter_layout.right_splitter_sizes))
         if self._queue_splitter is not None and len(splitter_layout.queue_splitter_sizes) >= 2:
             self._queue_splitter.setSizes(list(splitter_layout.queue_splitter_sizes))
+
+    def _restore_window_geometry(self) -> None:
+        geometry = self._settings.window_geometry
+        if geometry.width is not None and geometry.height is not None:
+            self.resize(geometry.width, geometry.height)
+
+        if None not in (geometry.x, geometry.y, geometry.width, geometry.height):
+            saved_rect = QRect(geometry.x, geometry.y, geometry.width, geometry.height)
+            if any(
+                screen.availableGeometry().intersects(saved_rect)
+                for screen in QGuiApplication.screens()
+            ):
+                self.move(geometry.x, geometry.y)
+
+        if geometry.is_maximized:
+            self.setWindowState(self.windowState() | Qt.WindowState.WindowMaximized)
 
     def _reload_presets(self, *, selected_name: str | None = None) -> None:
         self._presets = tuple(self._preset_service.load_all())

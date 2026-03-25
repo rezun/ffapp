@@ -279,11 +279,21 @@ class SplitterLayout:
 
 
 @dataclass(slots=True, frozen=True)
+class WindowGeometry:
+    x: int | None = None
+    y: int | None = None
+    width: int | None = None
+    height: int | None = None
+    is_maximized: bool = False
+
+
+@dataclass(slots=True, frozen=True)
 class AppSettings:
     executable_paths: ExecutablePaths = field(default_factory=ExecutablePaths.empty)
     last_used_settings: OutputSettings = field(default_factory=OutputSettings)
     splitter_layout: SplitterLayout = field(default_factory=SplitterLayout)
-    schema_version: int = 3
+    window_geometry: WindowGeometry = field(default_factory=WindowGeometry)
+    schema_version: int = 4
 
 
 @dataclass(slots=True, frozen=True)

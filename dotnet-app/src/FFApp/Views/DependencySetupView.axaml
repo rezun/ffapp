@@ -1,0 +1,68 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:FFApp.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="400"
+             x:Class="FFApp.Views.DependencySetupView"
+             x:CompileBindings="True"
+             x:DataType="vm:DependencySetupViewModel">
+
+    <StackPanel HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Width="500"
+                Spacing="16">
+
+        <TextBlock Text="FFApp Setup"
+                   FontSize="24"
+                   FontWeight="Bold"
+                   HorizontalAlignment="Center"
+                   Margin="0,0,0,8" />
+
+        <TextBlock Text="Configure paths to ffmpeg and ffprobe executables."
+                   HorizontalAlignment="Center"
+                   Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+
+        <!-- ffmpeg path -->
+        <StackPanel Spacing="4">
+            <TextBlock Text="ffmpeg Path" FontWeight="SemiBold" />
+            <DockPanel>
+                <Button Content="Browse..."
+                        DockPanel.Dock="Right"
+                        Margin="8,0,0,0"
+                        Command="{Binding BrowseFfmpegCommand}" />
+                <TextBox Text="{Binding FfmpegPath, Mode=TwoWay}"
+                         Watermark="/usr/bin/ffmpeg" />
+            </DockPanel>
+        </StackPanel>
+
+        <!-- ffprobe path -->
+        <StackPanel Spacing="4">
+            <TextBlock Text="ffprobe Path" FontWeight="SemiBold" />
+            <DockPanel>
+                <Button Content="Browse..."
+                        DockPanel.Dock="Right"
+                        Margin="8,0,0,0"
+                        Command="{Binding BrowseFfprobeCommand}" />
+                <TextBox Text="{Binding FfprobePath, Mode=TwoWay}"
+                         Watermark="/usr/bin/ffprobe" />
+            </DockPanel>
+        </StackPanel>
+
+        <!-- Status -->
+        <TextBlock Text="{Binding StatusText}"
+                   TextWrapping="Wrap"
+                   Foreground="Orange"
+                   IsVisible="{Binding StatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
+        <!-- Validate button -->
+        <Button Content="Validate and Save"
+                HorizontalAlignment="Center"
+                Classes="accent"
+                Command="{Binding ValidateAndSaveCommand}" />
+
+        <ProgressBar IsIndeterminate="True"
+                     IsVisible="{Binding IsValidating}" />
+
+    </StackPanel>
+</UserControl>

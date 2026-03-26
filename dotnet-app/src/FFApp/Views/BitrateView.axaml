@@ -1,0 +1,24 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:FFApp.ViewModels"
+             xmlns:ctrl="using:FFApp.Controls"
+             x:Class="FFApp.Views.BitrateView"
+             x:CompileBindings="True"
+             x:DataType="vm:BitrateViewModel">
+
+    <StackPanel Spacing="4">
+        <!-- Video Bitrate -->
+        <Grid ColumnDefinitions="85,*">
+            <TextBlock Text="Bitrate (kbps)" VerticalAlignment="Center" />
+            <ctrl:NoWheelNumericUpDown Grid.Column="1"
+                Value="{Binding VideoBitrateKbps}"
+                Minimum="100" Maximum="100000"
+                Increment="100" FormatString="N0" />
+        </Grid>
+
+        <!-- Two-pass -->
+        <CheckBox Content="Use 2-pass encode"
+                  IsChecked="{Binding TwoPass}"
+                  Margin="85,0,0,0" />
+    </StackPanel>
+</UserControl>

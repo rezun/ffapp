@@ -1,0 +1,47 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:FFApp.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="200"
+             x:Class="FFApp.Views.QueueItemDetailsView"
+             x:CompileBindings="True"
+             x:DataType="vm:QueueItemDetailsViewModel">
+
+    <StackPanel Spacing="4"
+                IsVisible="{Binding SummaryText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+
+        <!-- Summary: "file.mp4 -> file_out.mkv (Pending)" -->
+        <TextBlock Text="{Binding SummaryText}"
+                   FontWeight="SemiBold"
+                   TextWrapping="Wrap" />
+
+        <!-- Prepared command preview -->
+        <TextBox Text="{Binding CommandText, Mode=OneWay}"
+                 IsReadOnly="True"
+                 AcceptsReturn="True"
+                 TextWrapping="Wrap"
+                 FontFamily="Cascadia Code,Consolas,Menlo,monospace"
+                 FontSize="11"
+                 MaxHeight="80"
+                 Watermark="Prepared commands will appear here."
+                 BorderThickness="1" />
+
+        <!-- Log output (expandable) -->
+        <Expander Header="Log"
+                  IsExpanded="False"
+                  Padding="0"
+                  MinHeight="0">
+            <TextBox Text="{Binding LogText, Mode=OneWay}"
+                     IsReadOnly="True"
+                     AcceptsReturn="True"
+                     TextWrapping="Wrap"
+                     FontFamily="Cascadia Code,Consolas,Menlo,monospace"
+                     FontSize="11"
+                     MaxHeight="120"
+                     Watermark="Queue item logs will appear here."
+                     BorderThickness="1" />
+        </Expander>
+
+    </StackPanel>
+</UserControl>

@@ -1,0 +1,124 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:FFApp.ViewModels"
+             xmlns:views="using:FFApp.Views"
+             x:Class="FFApp.App"
+             RequestedThemeVariant="Dark">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="JobStatePendingBrush" Color="#C8C8C8" />
+                    <SolidColorBrush x:Key="JobStateRunningBrush" Color="#64C8FF" />
+                    <SolidColorBrush x:Key="JobStateCompletedBrush" Color="#50DC50" />
+                    <SolidColorBrush x:Key="JobStateFailedBrush" Color="#FF5A5A" />
+                    <SolidColorBrush x:Key="JobStateCanceledBrush" Color="#FFA500" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="JobStatePendingBrush" Color="#666666" />
+                    <SolidColorBrush x:Key="JobStateRunningBrush" Color="#0078D4" />
+                    <SolidColorBrush x:Key="JobStateCompletedBrush" Color="#107C10" />
+                    <SolidColorBrush x:Key="JobStateFailedBrush" Color="#D13438" />
+                    <SolidColorBrush x:Key="JobStateCanceledBrush" Color="#CA5010" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+    <Application.Styles>
+        <FluentTheme />
+
+        <!-- Compact global defaults -->
+        <Style Selector="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+        <Style Selector="Button">
+            <Setter Property="Padding" Value="8,3" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="MinHeight" Value="26" />
+        </Style>
+        <Style Selector="ComboBox">
+            <Setter Property="MinHeight" Value="26" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+        <Style Selector="CheckBox">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="6,0,0,0" />
+            <Setter Property="MinHeight" Value="22" />
+        </Style>
+        <Style Selector="RadioButton">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="6,0,0,0" />
+            <Setter Property="MinHeight" Value="22" />
+        </Style>
+        <Style Selector="Slider">
+            <Setter Property="MinHeight" Value="26" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,-6" />
+        </Style>
+        <Style Selector="NumericUpDown">
+            <Setter Property="MinHeight" Value="26" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+
+        <!-- Card-style sections: lighter surface with visible border -->
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="#2A2A2E" />
+            <Setter Property="BorderBrush" Value="#48484C" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="5" />
+            <Setter Property="Padding" Value="0" />
+        </Style>
+
+        <!-- Section header text inside cards -->
+        <Style Selector="TextBlock.card-header">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Margin" Value="8,6,8,4" />
+            <Setter Property="Foreground" Value="#E0E0E0" />
+        </Style>
+
+        <!-- Hyperlink-style button: text-only, no chrome -->
+        <Style Selector="Button.hyperlink">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource SystemAccentColor}" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.hyperlink:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="TextBlock.TextDecorations" Value="Underline" />
+        </Style>
+        <Style Selector="Button.hyperlink:disabled /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+
+        <!-- Separators: subtle but visible -->
+        <Style Selector="Separator">
+            <Setter Property="Background" Value="#48484C" />
+            <Setter Property="Margin" Value="0" />
+        </Style>
+
+        <!-- Slightly lighter window/panel background -->
+        <Style Selector="Window">
+            <Setter Property="Background" Value="#1E1E22" />
+        </Style>
+
+        <!-- TabControl styling -->
+        <Style Selector="TabItem">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="MinHeight" Value="28" />
+        </Style>
+        <Style Selector="TabControl">
+            <Setter Property="Padding" Value="2" />
+        </Style>
+    </Application.Styles>
+    <Application.DataTemplates>
+        <DataTemplate DataType="vm:DependencySetupViewModel"><views:DependencySetupView /></DataTemplate>
+        <DataTemplate DataType="vm:WorkspaceViewModel"><views:WorkspaceView /></DataTemplate>
+        <DataTemplate DataType="vm:FileSizeViewModel"><views:FileSizeView /></DataTemplate>
+        <DataTemplate DataType="vm:BitrateViewModel"><views:BitrateView /></DataTemplate>
+        <DataTemplate DataType="vm:QualityViewModel"><views:QualityView /></DataTemplate>
+    </Application.DataTemplates>
+</Application>

@@ -1,0 +1,56 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:FFApp.ViewModels"
+             x:Class="FFApp.Views.SourcePanelView"
+             x:DataType="vm:SourcePanelViewModel"
+             x:CompileBindings="True">
+
+    <DockPanel>
+
+        <!-- Source Selection Group -->
+        <Border DockPanel.Dock="Top" Classes="card"
+                Margin="2" Padding="0">
+            <StackPanel Spacing="4" Margin="8,6,8,8">
+                <TextBlock Text="Source Selection"
+                           Classes="card-header" Margin="0,0,0,0" />
+
+                <WrapPanel Orientation="Horizontal">
+                    <Button Content="Choose File"
+                            Command="{Binding ChooseFileCommand}"
+                            Margin="0,0,4,0" />
+                    <Button Content="Paste Path"
+                            Command="{Binding PastePathCommand}"
+                            Margin="0,0,4,0" />
+                </WrapPanel>
+
+                <TextBlock Text="{Binding StatusText}"
+                           TextWrapping="Wrap" FontSize="12"
+                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+
+                <ProgressBar IsIndeterminate="True"
+                             IsVisible="{Binding IsProbing}"
+                             Height="3" />
+            </StackPanel>
+        </Border>
+
+        <!-- Media Info Summary -->
+        <Border Classes="card"
+                Margin="2" Padding="0">
+            <DockPanel Margin="8,6,8,8">
+                <TextBlock DockPanel.Dock="Top"
+                           Text="Media Info Summary"
+                           Classes="card-header" Margin="0,0,0,4" />
+
+                <SelectableTextBlock Text="{Binding MediaSummaryText, Mode=OneWay}"
+                         FontFamily="Cascadia Code, Consolas, Menlo, monospace"
+                         FontSize="11"
+                         TextWrapping="Wrap"
+                         IsVisible="{Binding MediaSummaryText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                <TextBlock Text="No source file selected."
+                           FontSize="11" Opacity="0.5"
+                           IsVisible="{Binding MediaSummaryText, Converter={x:Static StringConverters.IsNullOrEmpty}}" />
+            </DockPanel>
+        </Border>
+
+    </DockPanel>
+</UserControl>

@@ -1,0 +1,80 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:FFApp.ViewModels"
+             xmlns:ctrl="using:FFApp.Controls"
+             xmlns:models="using:FFApp.Core.Models"
+             xmlns:conv="using:FFApp.Converters"
+             x:Class="FFApp.Views.AudioView"
+             x:CompileBindings="True"
+             x:DataType="vm:AudioViewModel">
+
+    <UserControl.Resources>
+        <conv:EnumToBoolConverter x:Key="EnumToBool" />
+    </UserControl.Resources>
+
+    <StackPanel Spacing="4">
+
+        <!-- Audio Mode -->
+        <Grid ColumnDefinitions="85,*">
+            <TextBlock Text="Audio Mode" VerticalAlignment="Center" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                <RadioButton Content="Copy" GroupName="AudioMode"
+                    IsChecked="{Binding SelectedAudioMode,
+                        Converter={StaticResource EnumToBool},
+                        ConverterParameter={x:Static models:AudioMode.Copy}}" />
+                <RadioButton Content="Re-encode" GroupName="AudioMode"
+                    IsChecked="{Binding SelectedAudioMode,
+                        Converter={StaticResource EnumToBool},
+                        ConverterParameter={x:Static models:AudioMode.Reencode}}" />
+                <RadioButton Content="Remove" GroupName="AudioMode"
+                    IsChecked="{Binding SelectedAudioMode,
+                        Converter={StaticResource EnumToBool},
+                        ConverterParameter={x:Static models:AudioMode.Remove}}" />
+            </StackPanel>
+        </Grid>
+
+        <!-- Re-encode controls (visible only in Reencode mode) -->
+        <StackPanel Spacing="4" IsVisible="{Binding IsReencodeMode}">
+            <!-- Audio Codec -->
+            <Grid ColumnDefinitions="85,*">
+                <TextBlock Text="Audio Codec" VerticalAlignment="Center" />
+                <ctrl:NoWheelComboBox Grid.Column="1"
+                    ItemsSource="{Binding AvailableAudioCodecs}"
+                    SelectedItem="{Binding SelectedAudioCodec}">
+                    <ctrl:NoWheelComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="models:AudioCodec">
+                            <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.AudioCodec}}" />
+                        </DataTemplate>
+                    </ctrl:NoWheelComboBox.ItemTemplate>
+                </ctrl:NoWheelComboBox>
+            </Grid>
+
+            <!-- Audio Bitrate -->
+            <Grid ColumnDefinitions="85,2*,*">
+                <TextBlock Text="Bitrate" VerticalAlignment="Center" />
+                <ctrl:NoWheelComboBox Grid.Column="1"
+                    ItemsSource="{Binding AvailableBitrateOptions}"
+                    SelectedItem="{Binding SelectedBitrateOption}"
+                    Margin="0,0,4,0">
+                    <ctrl:NoWheelComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="x:Int32">
+                            <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.AudioBitrateOption}}" />
+                        </DataTemplate>
+                    </ctrl:NoWheelComboBox.ItemTemplate>
+                </ctrl:NoWheelComboBox>
+                <ctrl:NoWheelNumericUpDown Grid.Column="2"
+                    Value="{Binding CustomBitrateKbps}"
+                    Minimum="8" Maximum="1536"
+                    Increment="16" FormatString="N0"
+                    IsVisible="{Binding IsCustomBitrate}"
+                    Watermark="kbps" />
+            </Grid>
+
+            <!-- Remix to stereo -->
+            <CheckBox Content="Remix all audio streams to stereo"
+                      IsChecked="{Binding RemixToStereo}"
+                      Margin="85,0,0,0" />
+        </StackPanel>
+
+    </StackPanel>
+</UserControl>

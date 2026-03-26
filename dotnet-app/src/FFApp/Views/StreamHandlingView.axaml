@@ -1,0 +1,16 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:FFApp.ViewModels"
+             x:Class="FFApp.Views.StreamHandlingView"
+             x:CompileBindings="True"
+             x:DataType="vm:StreamHandlingViewModel">
+
+    <StackPanel Spacing="4">
+        <CheckBox Content="Remove subtitle streams"
+                  IsChecked="{Binding RemoveSubtitles}" />
+        <CheckBox Content="Remove data streams"
+                  IsChecked="{Binding RemoveData}" />
+        <CheckBox Content="Remove audio"
+                  IsChecked="{Binding RemoveAudio}" />
+    </StackPanel>
+</UserControl>

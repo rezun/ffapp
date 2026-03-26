@@ -1,0 +1,35 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:FFApp.ViewModels"
+             x:Class="FFApp.Views.CommandPreviewView"
+             x:CompileBindings="True"
+             x:DataType="vm:CommandPreviewViewModel">
+
+    <DockPanel>
+
+        <!-- Header bar with description and action buttons -->
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="6,4,6,2">
+            <TextBlock Text="Generated ffmpeg command(s) for the current settings."
+                       VerticalAlignment="Center" FontSize="12" Opacity="0.7" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                <Button Content="Copy" Command="{Binding CopyCommandCommand}"
+                        IsEnabled="{Binding HasCommands}"
+                        ToolTip.Tip="Copy command to clipboard" />
+                <Button Content="Export..." Command="{Binding ExportCommandCommand}"
+                        IsEnabled="{Binding HasCommands}"
+                        ToolTip.Tip="Export command to a script file" />
+            </StackPanel>
+        </Grid>
+
+        <!-- Command text area -->
+        <TextBox Text="{Binding CommandText, Mode=OneWay}"
+                 IsReadOnly="True"
+                 AcceptsReturn="True"
+                 TextWrapping="Wrap"
+                 FontFamily="Cascadia Code,Consolas,Menlo,monospace"
+                 FontSize="12"
+                 Margin="6,2,6,4"
+                 Watermark="Load a source file to preview commands." />
+
+    </DockPanel>
+</UserControl>

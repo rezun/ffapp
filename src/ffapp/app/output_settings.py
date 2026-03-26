@@ -30,6 +30,7 @@ from ffapp.app.qt import (
     QSizePolicy,
     QSlider,
     QStackedWidget,
+    QTimer,
     QVBoxLayout,
     QWidget,
     Qt,
@@ -961,6 +962,10 @@ class OutputSettingsWidget(QWidget):
         return cast(T, current_data)
 
     def _sync_stack_height(self, stack: QStackedWidget) -> None:
+        self._apply_stack_height(stack)
+        QTimer.singleShot(0, lambda: self._apply_stack_height(stack))
+
+    def _apply_stack_height(self, stack: QStackedWidget) -> None:
         current_widget = stack.currentWidget()
         layout = current_widget.layout()
         if layout is not None:

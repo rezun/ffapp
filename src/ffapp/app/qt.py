@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 try:
-    from PySide6.QtCore import QSignalBlocker, QRect, Qt, QThread, Signal
+    from PySide6.QtCore import QSignalBlocker, QRect, Qt, QThread, QTimer, Signal
     from PySide6.QtGui import (
         QAction,
         QCloseEvent,

@@ -1,7 +1,9 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using FFApp.Core;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
+using FFApp.Helpers;
 using FFApp.Services;
 
 namespace FFApp.ViewModels;
@@ -23,16 +25,10 @@ public partial class CommandPreviewViewModel : ObservableObject
 
     private IReadOnlyList<GeneratedCommand>? _commands;
 
-    public CommandPreviewViewModel(ICommandBuilder commandBuilder, IValidationService validationService)
-    {
-        _commandBuilder = commandBuilder;
-        _validationService = validationService;
-    }
-
     public CommandPreviewViewModel(
         ICommandBuilder commandBuilder,
         IValidationService validationService,
-        IDialogService dialogService)
+        IDialogService? dialogService = null)
     {
         _commandBuilder = commandBuilder;
         _validationService = validationService;
@@ -126,21 +122,9 @@ public partial class CommandPreviewViewModel : ObservableObject
 
     private static JobDefinition CreateJobDefinition(OutputSettings settings, SourceMediaInfo mediaInfo)
     {
-        var outputPath = Core.DefaultCommandBuilder.SuggestOutputPath(
+        var outputPath = DefaultCommandBuilder.SuggestOutputPath(
             mediaInfo.SourcePath, settings.Container);
 
-        return new JobDefinition(
-            SourcePath: mediaInfo.SourcePath,
-            OutputPath: outputPath,
-            Container: settings.Container,
-            VideoCodec: settings.VideoCodec,
-            EncodingStrategy: settings.EncodingStrategy,
-            VideoEncoderOptions: settings.VideoEncoderOptions,
-            AudioOptions: settings.AudioOptions,
-            StreamHandling: settings.StreamHandling,
-            ResolutionPreset: settings.ResolutionPreset,
-            TargetFileSize: settings.TargetFileSize,
-            TargetBitrate: settings.TargetBitrate,
-            TargetQuality: settings.TargetQuality);
+        return FormatHelpers.BuildJobDefinition(mediaInfo.SourcePath, outputPath, settings);
     }
 }

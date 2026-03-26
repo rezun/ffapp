@@ -402,7 +402,7 @@ public sealed class ValidationService : IValidationService
         }
 
         var totalBudgetBits = (long)options.TargetSizeMb * 1024 * 1024 * 8;
-        var usableBudgetBits = (int)(totalBudgetBits * (1 - options.MuxingOverheadRatio));
+        var usableBudgetBits = (long)(totalBudgetBits * (1 - options.MuxingOverheadRatio));
         var videoBudgetBits = usableBudgetBits - estimatedAudioBits.Value;
 
         if (videoBudgetBits <= 0)

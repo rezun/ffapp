@@ -14,4 +14,5 @@ public interface IQueueService
         Action<QueueItem>? itemFinished = null,
         Action<QueueItem, string>? logCallback = null,
         CancellationToken ct = default);
+    void CancelActive();
 }

@@ -12,4 +12,4 @@ public sealed class OutputSettingsChangedMessage(OutputSettings settings)
 public sealed class DependenciesResolvedMessage(DependencyStatus status)
     : ValueChangedMessage<DependencyStatus>(status);
 
-public sealed class NavigateToDependencySetupMessage();
+public sealed class NavigateToDependencySetupMessage;

@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
+using FFApp.Helpers;
 using FFApp.Services;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -24,13 +25,13 @@ public partial class WorkspaceViewModel : ObservableObject,
     public WorkspaceViewModel(IServiceProvider services)
     {
         var dialogService = services.GetRequiredService<IDialogService>();
+        var messenger = services.GetRequiredService<IMessenger>();
 
         SourcePanel = new SourcePanelViewModel(
-            services.GetRequiredService<IMediaProbeService>(), dialogService);
+            services.GetRequiredService<IMediaProbeService>(), dialogService, messenger);
 
         OutputSettings = new OutputSettingsViewModel(
-            services.GetRequiredService<IValidationService>(),
-            services.GetRequiredService<ISettingsService>());
+            services.GetRequiredService<IValidationService>(), messenger);
 
         Preset = new PresetViewModel(
             services.GetRequiredService<IPresetService>(), dialogService,
@@ -38,7 +39,8 @@ public partial class WorkspaceViewModel : ObservableObject,
 
         CommandPreview = new CommandPreviewViewModel(
             services.GetRequiredService<ICommandBuilder>(),
-            services.GetRequiredService<IValidationService>());
+            services.GetRequiredService<IValidationService>(),
+            dialogService);
 
         Execution = new ExecutionViewModel(
             services.GetRequiredService<IJobExecutionService>(), dialogService);
@@ -50,8 +52,8 @@ public partial class WorkspaceViewModel : ObservableObject,
             services.GetRequiredService<IValidationService>(),
             dialogService);
 
-        WeakReferenceMessenger.Default.Register<SourceLoadedMessage>(this);
-        WeakReferenceMessenger.Default.Register<OutputSettingsChangedMessage>(this);
+        messenger.Register<SourceLoadedMessage>(this);
+        messenger.Register<OutputSettingsChangedMessage>(this);
     }
 
     public async Task LoadAsync()

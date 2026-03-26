@@ -12,6 +12,7 @@ public partial class SourcePanelViewModel : ObservableObject
 {
     private readonly IMediaProbeService _mediaProbeService;
     private readonly IDialogService _dialogService;
+    private readonly IMessenger _messenger;
 
     [ObservableProperty]
     private string? _sourcePath;
@@ -28,10 +29,11 @@ public partial class SourcePanelViewModel : ObservableObject
     public string MediaSummaryText =>
         MediaInfo is null ? "" : FormatHelpers.BuildMediaSummaryText(MediaInfo);
 
-    public SourcePanelViewModel(IMediaProbeService mediaProbeService, IDialogService dialogService)
+    public SourcePanelViewModel(IMediaProbeService mediaProbeService, IDialogService dialogService, IMessenger messenger)
     {
         _mediaProbeService = mediaProbeService;
         _dialogService = dialogService;
+        _messenger = messenger;
     }
 
     [RelayCommand]
@@ -43,8 +45,9 @@ public partial class SourcePanelViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task PastePathAsync(string? path)
+    private async Task PastePathAsync()
     {
+        var path = await _dialogService.GetClipboardTextAsync();
         if (!string.IsNullOrWhiteSpace(path))
             await LoadSource(path.Trim());
     }
@@ -67,7 +70,7 @@ public partial class SourcePanelViewModel : ObservableObject
             MediaInfo = info;
             StatusText = $"Loaded: {Path.GetFileName(path)}";
             OnPropertyChanged(nameof(MediaSummaryText));
-            WeakReferenceMessenger.Default.Send(new SourceLoadedMessage(info));
+            _messenger.Send(new SourceLoadedMessage(info));
         }
         catch (Exception ex)
         {

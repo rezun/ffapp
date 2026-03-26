@@ -10,6 +10,8 @@ namespace FFApp.Views;
 
 public partial class MainWindow : Window
 {
+    private bool _closingSaved;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -71,35 +73,41 @@ public partial class MainWindow : Window
             vm.HandleFileDrop(paths);
     }
 
-    protected override void OnClosing(WindowClosingEventArgs e)
+    protected override async void OnClosing(WindowClosingEventArgs e)
     {
-        if (DataContext is MainWindowViewModel vm)
+        if (_closingSaved || DataContext is not MainWindowViewModel vm)
         {
-            var isMaximized = WindowState == WindowState.Maximized;
-
-            var geo = new WindowGeometry(
-                X: Position.X,
-                Y: Position.Y,
-                Width: (int)Width,
-                Height: (int)Height,
-                IsMaximized: isMaximized);
-
-            var settings = (vm.LoadedSettings ?? new AppSettings()) with { WindowGeometry = geo };
-
-            if (vm.CurrentView is WorkspaceViewModel)
-            {
-                var workspaceView = this.GetVisualDescendants().OfType<WorkspaceView>().FirstOrDefault();
-                if (workspaceView is not null)
-                {
-                    var layout = workspaceView.GetSplitterLayout();
-                    settings = settings with { SplitterLayout = layout };
-                }
-            }
-
-            vm.LoadedSettings = settings;
-            _ = vm.SettingsService.SaveAsync(settings);
+            base.OnClosing(e);
+            return;
         }
 
-        base.OnClosing(e);
+        e.Cancel = true;
+
+        var isMaximized = WindowState == WindowState.Maximized;
+
+        var geo = new WindowGeometry(
+            X: Position.X,
+            Y: Position.Y,
+            Width: (int)Width,
+            Height: (int)Height,
+            IsMaximized: isMaximized);
+
+        var settings = (vm.LoadedSettings ?? new AppSettings()) with { WindowGeometry = geo };
+
+        if (vm.CurrentView is WorkspaceViewModel)
+        {
+            var workspaceView = this.GetVisualDescendants().OfType<WorkspaceView>().FirstOrDefault();
+            if (workspaceView is not null)
+            {
+                var layout = workspaceView.GetSplitterLayout();
+                settings = settings with { SplitterLayout = layout };
+            }
+        }
+
+        vm.LoadedSettings = settings;
+        await vm.SettingsService.SaveAsync(settings);
+
+        _closingSaved = true;
+        Close();
     }
 }

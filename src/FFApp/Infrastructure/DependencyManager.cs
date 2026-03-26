@@ -30,8 +30,8 @@ public sealed class DependencyManager : IDependencyService
         await Task.WhenAll(ffmpegTask, ffprobeTask);
 
         return new DependencyStatus(
-            Ffmpeg: ffmpegTask.Result,
-            Ffprobe: ffprobeTask.Result);
+            Ffmpeg: await ffmpegTask,
+            Ffprobe: await ffprobeTask);
     }
 
     private static string? ResolveCandidate(string name, string? configuredPath)

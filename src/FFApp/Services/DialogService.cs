@@ -181,6 +181,15 @@ public sealed class DialogService(Func<Window?> windowAccessor) : IDialogService
         return confirmed;
     }
 
+    public async Task<string?> GetClipboardTextAsync()
+    {
+        var window = GetWindow();
+        var clipboard = window.Clipboard;
+        if (clipboard is null)
+            return null;
+        return await clipboard.GetTextAsync();
+    }
+
     // --- Private helpers ---
 
     private Window GetWindow() =>

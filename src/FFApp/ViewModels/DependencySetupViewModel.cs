@@ -12,6 +12,7 @@ public partial class DependencySetupViewModel : ObservableObject
     private readonly IDependencyService _dependencyService;
     private readonly ISettingsService _settingsService;
     private readonly IDialogService _dialogService;
+    private readonly IMessenger _messenger;
 
     [ObservableProperty]
     private string _ffmpegPath = "";
@@ -28,11 +29,13 @@ public partial class DependencySetupViewModel : ObservableObject
     public DependencySetupViewModel(
         IDependencyService dependencyService,
         ISettingsService settingsService,
-        IDialogService dialogService)
+        IDialogService dialogService,
+        IMessenger messenger)
     {
         _dependencyService = dependencyService;
         _settingsService = settingsService;
         _dialogService = dialogService;
+        _messenger = messenger;
     }
 
     public void SetFromSettings(AppSettings settings)
@@ -89,7 +92,7 @@ public partial class DependencySetupViewModel : ObservableObject
             await _settingsService.SaveAsync(settings);
 
             StatusText = "Dependencies validated successfully.";
-            WeakReferenceMessenger.Default.Send(new DependenciesResolvedMessage(status));
+            _messenger.Send(new DependenciesResolvedMessage(status));
         }
         catch (Exception ex)
         {

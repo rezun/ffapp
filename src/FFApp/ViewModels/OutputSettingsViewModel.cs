@@ -9,6 +9,7 @@ namespace FFApp.ViewModels;
 public partial class OutputSettingsViewModel : ObservableObject
 {
     private readonly IValidationService _validationService;
+    private readonly IMessenger _messenger;
     private bool _isSuppressing;
     private SourceMediaInfo? _mediaInfo;
 
@@ -32,9 +33,10 @@ public partial class OutputSettingsViewModel : ObservableObject
             RebuildAndNotify();
     }
 
-    public OutputSettingsViewModel(IValidationService validationService, ISettingsService settingsService)
+    public OutputSettingsViewModel(IValidationService validationService, IMessenger messenger)
     {
         _validationService = validationService;
+        _messenger = messenger;
 
         Format.PropertyChanged += OnChildPropertyChanged;
         Audio.PropertyChanged += OnChildPropertyChanged;
@@ -169,7 +171,7 @@ public partial class OutputSettingsViewModel : ObservableObject
                 : "";
         }
 
-        WeakReferenceMessenger.Default.Send(new OutputSettingsChangedMessage(settings));
+        _messenger.Send(new OutputSettingsChangedMessage(settings));
     }
 
     private static VideoEncoderOptions BuildVideoEncoderOptions(VideoCodec codec, QualityViewModel quality) =>

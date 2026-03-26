@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Input;
 using FFApp.Core;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
+using FFApp.Helpers;
 using FFApp.Services;
 
 namespace FFApp.ViewModels;
@@ -202,19 +203,8 @@ public partial class QueuePanelViewModel : ObservableObject
             var outputPath = DefaultCommandBuilder.SuggestOutputPath(
                 item.SourcePath, settings.Container);
 
-            var job = new JobDefinition(
-                SourcePath: item.SourcePath,
-                OutputPath: outputPath,
-                Container: settings.Container,
-                VideoCodec: settings.VideoCodec,
-                EncodingStrategy: settings.EncodingStrategy,
-                VideoEncoderOptions: settings.VideoEncoderOptions,
-                AudioOptions: settings.AudioOptions,
-                StreamHandling: settings.StreamHandling,
-                ResolutionPreset: settings.ResolutionPreset,
-                TargetFileSize: settings.TargetFileSize,
-                TargetBitrate: settings.TargetBitrate,
-                TargetQuality: settings.TargetQuality);
+            var job = FormatHelpers.BuildJobDefinition(
+                item.SourcePath, outputPath, settings);
 
             var validation = _validationService.Validate(settings, item.MediaInfo);
 
@@ -241,6 +231,7 @@ public partial class QueuePanelViewModel : ObservableObject
         IsRunning = true;
         StartQueueCommand.NotifyCanExecuteChanged();
         CancelQueueCommand.NotifyCanExecuteChanged();
+        _cts?.Dispose();
         _cts = new CancellationTokenSource();
 
         try
@@ -289,7 +280,11 @@ public partial class QueuePanelViewModel : ObservableObject
         }
         catch (OperationCanceledException)
         {
-            // Expected on cancellation
+            foreach (var item in Items)
+            {
+                if (item.State == JobState.Pending)
+                    item.State = JobState.Canceled;
+            }
         }
         catch (Exception ex)
         {
@@ -309,6 +304,7 @@ public partial class QueuePanelViewModel : ObservableObject
     [RelayCommand]
     private void CancelQueue()
     {
+        _queueService.CancelActive();
         _cts?.Cancel();
     }
 

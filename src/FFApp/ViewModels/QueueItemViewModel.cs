@@ -1,3 +1,4 @@
+using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
 using FFApp.Core.Models;
 
@@ -5,6 +6,8 @@ namespace FFApp.ViewModels;
 
 public partial class QueueItemViewModel : ObservableObject
 {
+    private readonly StringBuilder _logBuilder = new();
+
     public string Id { get; }
     public string SourcePath { get; }
     public SourceMediaInfo MediaInfo { get; }
@@ -51,6 +54,7 @@ public partial class QueueItemViewModel : ObservableObject
         State = JobState.Pending;
         Percentage = 0;
         ProgressText = "";
+        _logBuilder.Clear();
         LogText = "";
         Result = null;
     }
@@ -79,7 +83,8 @@ public partial class QueueItemViewModel : ObservableObject
 
     public void AppendLog(string line)
     {
-        LogText += line + Environment.NewLine;
+        _logBuilder.AppendLine(line);
+        LogText = _logBuilder.ToString();
     }
 }
 

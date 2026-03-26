@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
 
+using FFApp.Core;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
 
@@ -11,7 +12,7 @@ namespace FFApp.Infrastructure;
 public sealed class MediaProbeException(string message, Exception? inner = null)
     : Exception(message, inner);
 
-public sealed class MediaProbeService(string ffprobePath) : IMediaProbeService
+public sealed class MediaProbeService(ExecutablePathsConfig pathsConfig) : IMediaProbeService
 {
     private static readonly TimeSpan ProbeTimeout = TimeSpan.FromSeconds(20);
 
@@ -27,7 +28,7 @@ public sealed class MediaProbeService(string ffprobePath) : IMediaProbeService
             {
                 StartInfo = new ProcessStartInfo
                 {
-                    FileName = ffprobePath,
+                    FileName = pathsConfig.FfprobePath,
                     ArgumentList =
                     {
                         "-v", "error",
@@ -48,8 +49,11 @@ public sealed class MediaProbeService(string ffprobePath) : IMediaProbeService
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             timeoutCts.CancelAfter(ProbeTimeout);
 
-            stdout = await process.StandardOutput.ReadToEndAsync(timeoutCts.Token);
-            var stderr = await process.StandardError.ReadToEndAsync(timeoutCts.Token);
+            var stdoutTask = process.StandardOutput.ReadToEndAsync(timeoutCts.Token);
+            var stderrTask = process.StandardError.ReadToEndAsync(timeoutCts.Token);
+            await Task.WhenAll(stdoutTask, stderrTask);
+            stdout = await stdoutTask;
+            var stderr = await stderrTask;
             await process.WaitForExitAsync(timeoutCts.Token);
 
             if (process.ExitCode != 0)

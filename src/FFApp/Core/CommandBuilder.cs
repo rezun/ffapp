@@ -11,7 +11,7 @@ namespace FFApp.Core;
 public sealed class CommandBuildException(string message)
     : InvalidOperationException(message);
 
-public sealed class DefaultCommandBuilder(string executablePath) : ICommandBuilder
+public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : ICommandBuilder
 {
     private static readonly string NullOutputPath =
         RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "NUL" : "/dev/null";
@@ -43,8 +43,8 @@ public sealed class DefaultCommandBuilder(string executablePath) : ICommandBuild
 
             return
             [
-                CreateGeneratedCommand(executablePath, firstPassArgs),
-                CreateGeneratedCommand(executablePath, secondPassArgs),
+                CreateGeneratedCommand(pathsConfig.FfmpegPath, firstPassArgs),
+                CreateGeneratedCommand(pathsConfig.FfmpegPath, secondPassArgs),
             ];
         }
 
@@ -54,7 +54,7 @@ public sealed class DefaultCommandBuilder(string executablePath) : ICommandBuild
         arguments.AddRange(BuildVideoCodecArguments(job, mediaInfo));
         arguments.Add(job.OutputPath);
 
-        return [CreateGeneratedCommand(executablePath, arguments)];
+        return [CreateGeneratedCommand(pathsConfig.FfmpegPath, arguments)];
     }
 
     public static string SuggestOutputPath(string sourcePath, OutputContainer container)
@@ -67,14 +67,15 @@ public sealed class DefaultCommandBuilder(string executablePath) : ICommandBuild
         if (!File.Exists(candidate))
             return candidate;
 
-        var counter = 1;
-        while (true)
+        for (var counter = 1; counter <= 10_000; counter++)
         {
             var numbered = Path.Combine(directory, $"{stem}-{counter}{extension}");
             if (!File.Exists(numbered))
                 return numbered;
-            counter++;
         }
+
+        throw new CommandBuildException(
+            "Could not find an available output filename after 10,000 attempts.");
     }
 
     // --- Private helpers ---
@@ -296,7 +297,7 @@ public sealed class DefaultCommandBuilder(string executablePath) : ICommandBuild
 
             var estimatedAudioBits = EstimateAudioBits(job, mediaInfo);
             var totalBudgetBits = (long)job.TargetFileSize.TargetSizeMb * 1024 * 1024 * 8;
-            var usableBudgetBits = (int)(totalBudgetBits * (1 - job.TargetFileSize.MuxingOverheadRatio));
+            var usableBudgetBits = (long)(totalBudgetBits * (1 - job.TargetFileSize.MuxingOverheadRatio));
             var videoBudgetBits = usableBudgetBits - estimatedAudioBits;
 
             if (videoBudgetBits <= 0)

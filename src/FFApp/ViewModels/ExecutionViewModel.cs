@@ -1,8 +1,11 @@
+using System.Text;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using FFApp.Core;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
+using FFApp.Helpers;
 using FFApp.Services;
 
 namespace FFApp.ViewModels;
@@ -12,6 +15,7 @@ public partial class ExecutionViewModel : ObservableObject
     private readonly IJobExecutionService _jobExecutionService;
     private readonly IDialogService _dialogService;
     private readonly IValidationService? _validationService;
+    private readonly StringBuilder _logBuilder = new();
     private CancellationTokenSource? _cts;
     private OutputSettings? _currentSettings;
     private SourceMediaInfo? _currentMediaInfo;
@@ -104,30 +108,21 @@ public partial class ExecutionViewModel : ObservableObject
         var outputPath = DefaultCommandBuilder.SuggestOutputPath(
             _currentMediaInfo.SourcePath, _currentSettings.Container);
 
-        var job = new JobDefinition(
-            SourcePath: _currentMediaInfo.SourcePath,
-            OutputPath: outputPath,
-            Container: _currentSettings.Container,
-            VideoCodec: _currentSettings.VideoCodec,
-            EncodingStrategy: _currentSettings.EncodingStrategy,
-            VideoEncoderOptions: _currentSettings.VideoEncoderOptions,
-            AudioOptions: _currentSettings.AudioOptions,
-            StreamHandling: _currentSettings.StreamHandling,
-            ResolutionPreset: _currentSettings.ResolutionPreset,
-            TargetFileSize: _currentSettings.TargetFileSize,
-            TargetBitrate: _currentSettings.TargetBitrate,
-            TargetQuality: _currentSettings.TargetQuality);
+        var job = FormatHelpers.BuildJobDefinition(
+            _currentMediaInfo.SourcePath, outputPath, _currentSettings);
 
         OutputPath = outputPath;
         IsRunning = true;
         StateText = "Running";
         Percentage = 0;
         ProgressText = "";
+        _logBuilder.Clear();
         LogText = "";
         UpdateCanStart();
         StartJobCommand.NotifyCanExecuteChanged();
         CancelJobCommand.NotifyCanExecuteChanged();
 
+        _cts?.Dispose();
         _cts = new CancellationTokenSource();
 
         try
@@ -137,16 +132,26 @@ public partial class ExecutionViewModel : ObservableObject
                 _currentMediaInfo,
                 progress =>
                 {
-                    Percentage = progress.Percentage ?? 0;
-                    var parts = new List<string>();
-                    if (progress.Percentage is { } pct)
-                        parts.Add($"{pct:F1}%");
-                    if (progress.Speed is { } speed)
-                        parts.Add($"{speed:F1}x");
-                    ProgressText = string.Join(" | ", parts);
-                    StateText = $"Pass {progress.PassIndex}/{progress.PassCount}";
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        Percentage = progress.Percentage ?? 0;
+                        var parts = new List<string>();
+                        if (progress.Percentage is { } pct)
+                            parts.Add($"{pct:F1}%");
+                        if (progress.Speed is { } speed)
+                            parts.Add($"{speed:F1}x");
+                        ProgressText = string.Join(" | ", parts);
+                        StateText = $"Pass {progress.PassIndex}/{progress.PassCount}";
+                    });
                 },
-                line => LogText += line + Environment.NewLine,
+                line =>
+                {
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        _logBuilder.AppendLine(line);
+                        LogText = _logBuilder.ToString();
+                    });
+                },
                 _cts.Token);
 
             StateText = result.State switch
@@ -167,7 +172,8 @@ public partial class ExecutionViewModel : ObservableObject
         catch (Exception ex)
         {
             StateText = "Failed";
-            LogText += $"Error: {ex.Message}{Environment.NewLine}";
+            _logBuilder.AppendLine($"Error: {ex.Message}");
+            LogText = _logBuilder.ToString();
         }
         finally
         {

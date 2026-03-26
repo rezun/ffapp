@@ -1,6 +1,9 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using CommunityToolkit.Mvvm.Messaging;
+using FFApp.Core;
+using FFApp.Core.Models;
 using FFApp.Core.Services;
 using FFApp.Core.Validation;
 using FFApp.Infrastructure;
@@ -27,12 +30,20 @@ public partial class App : Application
             var mainWindow = new Views.MainWindow();
 
             var services = new ServiceCollection();
+            services.AddSingleton<ExecutablePathsConfig>();
             services.AddSingleton<IDependencyService, DependencyManager>();
-            services.AddSingleton<ISettingsService, SettingsService>();
-            services.AddSingleton<IPresetService, PresetService>();
+            services.AddSingleton<ISettingsService>(_ => new SettingsService());
+            services.AddSingleton<IPresetService>(_ => new PresetService());
             services.AddSingleton<IValidationService, ValidationService>();
             services.AddSingleton<IProcessRunner, ProcessRunner>();
             services.AddSingleton<IDialogService>(new DialogService(() => mainWindow));
+            services.AddSingleton<ICommandBuilder, DefaultCommandBuilder>();
+            services.AddSingleton<IMediaProbeService, MediaProbeService>();
+            services.AddSingleton<IJobExecutionService, DefaultJobExecutionService>();
+            services.AddSingleton<Func<QueuedJob, IJobExecutionService>>(sp =>
+                _ => sp.GetRequiredService<IJobExecutionService>());
+            services.AddSingleton<IQueueService, QueueService>();
+            services.AddSingleton<IMessenger>(WeakReferenceMessenger.Default);
 
             var provider = services.BuildServiceProvider();
 

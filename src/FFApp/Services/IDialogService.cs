@@ -10,4 +10,5 @@ public interface IDialogService
     Task ShowMessageAsync(string title, string message);
     Task ShowErrorAsync(string title, string message);
     Task<bool> ConfirmAsync(string title, string message);
+    Task<string?> GetClipboardTextAsync();
 }

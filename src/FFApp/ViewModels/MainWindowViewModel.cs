@@ -1,9 +1,9 @@
+using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 using FFApp.Core;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
-using FFApp.Infrastructure;
 using FFApp.Services;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -14,6 +14,7 @@ public partial class MainWindowViewModel : ObservableObject,
     IRecipient<NavigateToDependencySetupMessage>
 {
     private readonly IServiceProvider _services;
+    private readonly IMessenger _messenger;
 
     [ObservableProperty]
     private object? _currentView;
@@ -29,14 +30,16 @@ public partial class MainWindowViewModel : ObservableObject,
     public MainWindowViewModel(IServiceProvider services)
     {
         _services = services;
+        _messenger = services.GetRequiredService<IMessenger>();
 
         CurrentView = new DependencySetupViewModel(
             _services.GetRequiredService<IDependencyService>(),
             _services.GetRequiredService<ISettingsService>(),
-            _services.GetRequiredService<IDialogService>());
+            _services.GetRequiredService<IDialogService>(),
+            _messenger);
 
-        WeakReferenceMessenger.Default.Register<DependenciesResolvedMessage>(this);
-        WeakReferenceMessenger.Default.Register<NavigateToDependencySetupMessage>(this);
+        _messenger.Register<DependenciesResolvedMessage>(this);
+        _messenger.Register<NavigateToDependencySetupMessage>(this);
 
         InitializeAsync();
     }
@@ -62,8 +65,9 @@ public partial class MainWindowViewModel : ObservableObject,
                 setup.SetFromSettings(settings);
             }
         }
-        catch
+        catch (Exception ex)
         {
+            Debug.WriteLine($"Initialization failed: {ex}");
             _settingsLoaded.TrySetResult(new AppSettings());
         }
     }
@@ -78,48 +82,36 @@ public partial class MainWindowViewModel : ObservableObject,
         var setup = new DependencySetupViewModel(
             _services.GetRequiredService<IDependencyService>(),
             _services.GetRequiredService<ISettingsService>(),
-            _services.GetRequiredService<IDialogService>());
+            _services.GetRequiredService<IDialogService>(),
+            _messenger);
         CurrentView = setup;
     }
 
     private async Task SwitchToWorkspaceAsync(DependencyStatus status)
     {
-        var paths = status.ExecutablePaths;
-        var commandBuilder = new DefaultCommandBuilder(paths.Ffmpeg ?? "ffmpeg");
-        var mediaProbeService = new MediaProbeService(paths.Ffprobe ?? "ffprobe");
-        var processRunner = _services.GetRequiredService<IProcessRunner>();
+        var config = _services.GetRequiredService<ExecutablePathsConfig>();
+        config.Configure(status.ExecutablePaths);
 
-        var workspaceProvider = new ServiceCollection()
-            .AddSingleton(_services.GetRequiredService<ISettingsService>())
-            .AddSingleton(_services.GetRequiredService<IPresetService>())
-            .AddSingleton(_services.GetRequiredService<IValidationService>())
-            .AddSingleton(_services.GetRequiredService<IDialogService>())
-            .AddSingleton(_services.GetRequiredService<IProcessRunner>())
-            .AddSingleton<ICommandBuilder>(commandBuilder)
-            .AddSingleton<IMediaProbeService>(mediaProbeService)
-            .AddSingleton<IJobExecutionService>(new DefaultJobExecutionService(commandBuilder, processRunner))
-            .AddSingleton<IQueueService>(new QueueService(_ =>
-                new DefaultJobExecutionService(commandBuilder, processRunner)))
-            .BuildServiceProvider();
-
-        var workspace = new WorkspaceViewModel(workspaceProvider);
-
+        var workspace = new WorkspaceViewModel(_services);
         await workspace.LoadAsync();
         CurrentView = workspace;
     }
 
-    public void HandleFileDrop(IReadOnlyList<string> paths)
+    public async void HandleFileDrop(IReadOnlyList<string> paths)
     {
         if (CurrentView is not WorkspaceViewModel workspace || paths.Count == 0)
             return;
 
-        if (workspace.SelectedTabIndex == 1) // Queue tab
+        try
         {
-            _ = workspace.QueuePanel.AddPathsAsync(paths);
+            if (workspace.SelectedTabIndex == 1) // Queue tab
+                await workspace.QueuePanel.AddPathsAsync(paths);
+            else // Source tab
+                await workspace.SourcePanel.LoadSource(paths[0]);
         }
-        else // Source tab
+        catch (Exception ex)
         {
-            _ = workspace.SourcePanel.LoadSource(paths[0]);
+            Debug.WriteLine($"File drop failed: {ex.Message}");
         }
     }
 }

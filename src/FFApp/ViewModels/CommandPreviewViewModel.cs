@@ -97,21 +97,6 @@ public partial class CommandPreviewViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
-    private async Task ExportCommandAsync()
-    {
-        if (_dialogService is null || string.IsNullOrEmpty(CommandText))
-            return;
-
-        var path = await _dialogService.SaveFileAsync(
-            "Export Command", "ffmpeg-command.sh", "*.sh;*.bat;*.txt");
-
-        if (path is not null)
-        {
-            await File.WriteAllTextAsync(path, CommandText);
-        }
-    }
-
     private void Refresh()
     {
         if (_currentSettings is null)

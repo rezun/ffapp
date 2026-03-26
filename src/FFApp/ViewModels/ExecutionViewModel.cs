@@ -195,5 +195,6 @@ public partial class ExecutionViewModel : ObservableObject
     private void UpdateCanStart()
     {
         CanStart = CanStartJob();
+        StartJobCommand.NotifyCanExecuteChanged();
     }
 }

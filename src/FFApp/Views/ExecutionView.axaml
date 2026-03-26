@@ -12,17 +12,15 @@
 
         <!-- Header: state text + spacer + buttons -->
         <DockPanel>
-            <StackPanel DockPanel.Dock="Right"
-                        Orientation="Horizontal"
-                        Spacing="4">
+            <Panel DockPanel.Dock="Right">
                 <Button Content="Start Job"
                         Classes="accent"
                         Command="{Binding StartJobCommand}"
-                        IsEnabled="{Binding CanStart}" />
+                        IsVisible="{Binding !IsRunning}" />
                 <Button Content="Cancel Job"
                         Command="{Binding CancelJobCommand}"
-                        IsEnabled="{Binding IsRunning}" />
-            </StackPanel>
+                        IsVisible="{Binding IsRunning}" />
+            </Panel>
 
             <TextBlock Text="{Binding StateText}"
                        FontWeight="SemiBold"

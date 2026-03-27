@@ -16,11 +16,10 @@ public partial class WorkspaceViewModel : ObservableObject,
     public OutputSettingsViewModel OutputSettings { get; }
     public PresetViewModel Preset { get; }
     public CommandPreviewViewModel CommandPreview { get; }
-    public ExecutionViewModel Execution { get; }
-    public QueuePanelViewModel QueuePanel { get; }
+    public JobsPanelViewModel JobsPanel { get; }
 
-    [ObservableProperty]
-    private int _selectedTabIndex;
+    // Convenience accessors for drag-drop in MainWindowViewModel
+    public QueuePanelViewModel QueuePanel => JobsPanel.QueuePanel;
 
     public WorkspaceViewModel(IServiceProvider services)
     {
@@ -42,15 +41,17 @@ public partial class WorkspaceViewModel : ObservableObject,
             services.GetRequiredService<IValidationService>(),
             dialogService);
 
-        Execution = new ExecutionViewModel(
+        var execution = new ExecutionViewModel(
             services.GetRequiredService<IJobExecutionService>(), dialogService);
 
-        QueuePanel = new QueuePanelViewModel(
+        var queuePanel = new QueuePanelViewModel(
             services.GetRequiredService<IQueueService>(),
             services.GetRequiredService<IMediaProbeService>(),
             services.GetRequiredService<ICommandBuilder>(),
             services.GetRequiredService<IValidationService>(),
             dialogService);
+
+        JobsPanel = new JobsPanelViewModel(execution, queuePanel);
 
         messenger.Register<SourceLoadedMessage>(this);
         messenger.Register<OutputSettingsChangedMessage>(this);
@@ -66,16 +67,14 @@ public partial class WorkspaceViewModel : ObservableObject,
         var mediaInfo = message.Value;
         OutputSettings.UpdateSourceInfo(mediaInfo);
         CommandPreview.UpdateSourceInfo(mediaInfo);
-        Execution.UpdateSourceInfo(mediaInfo);
-        QueuePanel.UpdateCurrentContext(mediaInfo);
+        JobsPanel.UpdateSourceInfo(mediaInfo);
     }
 
     public void Receive(OutputSettingsChangedMessage message)
     {
         var settings = message.Value;
         CommandPreview.UpdateOutputSettings(settings);
-        Execution.UpdateOutputSettings(settings);
         Preset.UpdateOutputSettings(settings);
-        QueuePanel.UpdateCurrentContext(settings);
+        JobsPanel.UpdateOutputSettings(settings);
     }
 }

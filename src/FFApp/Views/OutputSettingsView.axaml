@@ -23,171 +23,170 @@
         </DataTemplate>
     </UserControl.Resources>
 
-    <Grid ColumnDefinitions="3*,2*">
+    <!-- Single column layout: all cards stacked vertically -->
+    <StackPanel Spacing="0">
 
-        <!-- LEFT COLUMN -->
-        <StackPanel Grid.Column="0" Spacing="0" Margin="0,0,6,0">
-
-            <!-- Format and Video -->
-            <Border Classes="card" Margin="0,0,0,6">
-                <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="Format and Video"
-                               Classes="card-header" />
-                    <Separator DockPanel.Dock="Top" />
-                    <StackPanel Spacing="4" Margin="8,4,8,6">
-                        <!-- Container -->
-                        <Grid ColumnDefinitions="85,*">
-                            <TextBlock Text="Container" VerticalAlignment="Center" />
-                            <ctrl:NoWheelComboBox Grid.Column="1"
-                                ItemsSource="{Binding Format.AvailableContainers}"
-                                SelectedItem="{Binding Format.SelectedContainer}"
-                                ItemTemplate="{StaticResource ContainerTemplate}" />
-                        </Grid>
-                        <!-- Video Codec -->
-                        <Grid ColumnDefinitions="85,*">
-                            <TextBlock Text="Video Codec" VerticalAlignment="Center" />
-                            <ctrl:NoWheelComboBox Grid.Column="1"
-                                ItemsSource="{Binding Format.AvailableVideoCodecs}"
-                                SelectedItem="{Binding Format.SelectedVideoCodec}"
-                                ItemTemplate="{StaticResource VideoCodecTemplate}" />
-                        </Grid>
-                        <!-- Resolution -->
-                        <Grid ColumnDefinitions="85,*">
-                            <TextBlock Text="Resolution" VerticalAlignment="Center" />
-                            <ctrl:NoWheelComboBox Grid.Column="1"
-                                ItemsSource="{Binding AvailableResolutions}"
-                                SelectedItem="{Binding SelectedResolution}"
-                                ItemTemplate="{StaticResource ResolutionTemplate}" />
-                        </Grid>
-                    </StackPanel>
-                </DockPanel>
-            </Border>
-
-            <!-- Audio and Streams -->
-            <Border Classes="card" Margin="0,0,0,6">
-                <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="Audio and Streams"
-                               Classes="card-header" />
-                    <Separator DockPanel.Dock="Top" />
-                    <StackPanel Spacing="4" Margin="8,4,8,6">
-                        <!-- Audio controls -->
-                        <views:AudioView DataContext="{Binding Audio}" />
-
-                        <!-- Stream handling (separate VM, bound from parent) -->
-                        <Separator Margin="0,2" />
-                        <CheckBox Content="Remove subtitle streams"
-                                  IsChecked="{Binding StreamHandling.RemoveSubtitles}" />
-                        <CheckBox Content="Remove data streams"
-                                  IsChecked="{Binding StreamHandling.RemoveData}" />
-                        <CheckBox Content="Remove audio"
-                                  IsChecked="{Binding StreamHandling.RemoveAudio}" />
-                    </StackPanel>
-                </DockPanel>
-            </Border>
-
-            <!-- Encoding -->
-            <Border Classes="card" Margin="0,0,0,6">
-                <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="Encoding"
-                               Classes="card-header" />
-                    <Separator DockPanel.Dock="Top" />
-                    <StackPanel Spacing="4" Margin="8,4,8,6">
-                        <!-- Strategy selector -->
-                        <Grid ColumnDefinitions="85,*">
-                            <TextBlock Text="Strategy" VerticalAlignment="Center" />
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-                                <RadioButton Content="Quality" GroupName="Strategy"
-                                    IsChecked="{Binding Strategy.SelectedStrategy,
-                                        Converter={StaticResource EnumToBool},
-                                        ConverterParameter={x:Static models:EncodingStrategy.TargetQuality}}" />
-                                <RadioButton Content="File Size" GroupName="Strategy"
-                                    IsChecked="{Binding Strategy.SelectedStrategy,
-                                        Converter={StaticResource EnumToBool},
-                                        ConverterParameter={x:Static models:EncodingStrategy.TargetFileSize}}" />
-                                <RadioButton Content="Bitrate" GroupName="Strategy"
-                                    IsChecked="{Binding Strategy.SelectedStrategy,
-                                        Converter={StaticResource EnumToBool},
-                                        ConverterParameter={x:Static models:EncodingStrategy.TargetBitrate}}" />
-                            </StackPanel>
-                        </Grid>
-
-                        <!-- Strategy-specific controls (resolved via DataTemplate in App.axaml) -->
-                        <ContentControl Content="{Binding Strategy.ActiveStrategyViewModel}" />
-
-                        <!-- H.264/H.265 Encoder Tuning (always visible for H26x codecs) -->
-                        <Border Classes="card" Margin="0,4,0,0"
-                                Background="#333338"
-                                IsVisible="{Binding Strategy.Quality.IsH26xCodec}">
-                            <DockPanel>
-                                <TextBlock DockPanel.Dock="Top" Text="H.264 / H.265 Encoder Tuning"
-                                           FontWeight="SemiBold" FontSize="12"
-                                           Margin="8,6,8,4" Foreground="#C8C8CC" />
-                                <Separator DockPanel.Dock="Top" />
-                                <StackPanel Spacing="4" Margin="6,4,6,6">
-                                    <Grid ColumnDefinitions="80,*">
-                                        <TextBlock Text="Preset" VerticalAlignment="Center" />
-                                        <ctrl:NoWheelComboBox Grid.Column="1"
-                                            ItemsSource="{Binding Strategy.Quality.AvailablePresets}"
-                                            SelectedItem="{Binding Strategy.Quality.H26xPreset}" />
-                                    </Grid>
-                                    <Grid ColumnDefinitions="80,*">
-                                        <TextBlock Text="Profile" VerticalAlignment="Center" />
-                                        <ctrl:NoWheelComboBox Grid.Column="1"
-                                            ItemsSource="{Binding Strategy.Quality.AvailableProfiles}"
-                                            SelectedItem="{Binding Strategy.Quality.H26xProfile}" />
-                                    </Grid>
-                                </StackPanel>
-                            </DockPanel>
-                        </Border>
-
-                        <!-- VP8/VP9 Encoder Tuning (always visible for VPx codecs) -->
-                        <Border Classes="card" Margin="0,4,0,0"
-                                Background="#333338"
-                                IsVisible="{Binding !Strategy.Quality.IsH26xCodec}">
-                            <DockPanel>
-                                <TextBlock DockPanel.Dock="Top" Text="VP8 / VP9 Encoder Tuning"
-                                           FontWeight="SemiBold" FontSize="12"
-                                           Margin="8,6,8,4" Foreground="#C8C8CC" />
-                                <Separator DockPanel.Dock="Top" />
-                                <StackPanel Spacing="4" Margin="6,4,6,6">
-                                    <Grid ColumnDefinitions="80,*,Auto">
-                                        <TextBlock Text="CPU Used" VerticalAlignment="Center" />
-                                        <Slider Grid.Column="1"
-                                                Value="{Binding Strategy.Quality.VpxCpuUsed}"
-                                                Minimum="0" Maximum="8"
-                                                TickFrequency="1" IsSnapToTickEnabled="True"
-                                                VerticalAlignment="Center" />
-                                        <TextBlock Grid.Column="2" VerticalAlignment="Center"
-                                                   MinWidth="20" TextAlignment="Right" Margin="8,0,0,0">
-                                            <Run Text="{Binding Strategy.Quality.VpxCpuUsed}" />
-                                        </TextBlock>
-                                    </Grid>
-                                </StackPanel>
-                            </DockPanel>
-                        </Border>
-                    </StackPanel>
-                </DockPanel>
-            </Border>
-        </StackPanel>
-
-        <!-- RIGHT COLUMN: Validation and Output -->
-        <Border Grid.Column="1" Classes="card" Margin="0,0,0,6">
+        <!-- Format and Video -->
+        <Border Classes="card" Margin="0,0,0,8">
             <DockPanel>
-                <TextBlock DockPanel.Dock="Top" Text="Validation and Output"
+                <TextBlock DockPanel.Dock="Top" Text="Format and Video"
                            Classes="card-header" />
                 <Separator DockPanel.Dock="Top" />
-                <StackPanel Margin="8,4,8,6" Spacing="6">
-                    <TextBlock Text="Validation" FontWeight="SemiBold" FontSize="12" />
-                    <TextBlock Text="{Binding ValidationText}"
-                               TextWrapping="Wrap" FontSize="12"
-                               Foreground="Orange"
-                               IsVisible="{Binding ValidationText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-                    <TextBlock Text="No validation issues."
-                               TextWrapping="Wrap" FontSize="12" Opacity="0.5"
-                               IsVisible="{Binding ValidationText, Converter={x:Static StringConverters.IsNullOrEmpty}}" />
+                <StackPanel Spacing="4" Margin="8,4,8,6">
+                    <!-- Container -->
+                    <Grid ColumnDefinitions="85,*">
+                        <TextBlock Text="Container" VerticalAlignment="Center" />
+                        <ctrl:NoWheelComboBox Grid.Column="1"
+                            ItemsSource="{Binding Format.AvailableContainers}"
+                            SelectedItem="{Binding Format.SelectedContainer}"
+                            ItemTemplate="{StaticResource ContainerTemplate}" />
+                    </Grid>
+                    <!-- Video Codec -->
+                    <Grid ColumnDefinitions="85,*">
+                        <TextBlock Text="Video Codec" VerticalAlignment="Center" />
+                        <ctrl:NoWheelComboBox Grid.Column="1"
+                            ItemsSource="{Binding Format.AvailableVideoCodecs}"
+                            SelectedItem="{Binding Format.SelectedVideoCodec}"
+                            ItemTemplate="{StaticResource VideoCodecTemplate}" />
+                    </Grid>
+                    <!-- Resolution -->
+                    <Grid ColumnDefinitions="85,*">
+                        <TextBlock Text="Resolution" VerticalAlignment="Center" />
+                        <ctrl:NoWheelComboBox Grid.Column="1"
+                            ItemsSource="{Binding AvailableResolutions}"
+                            SelectedItem="{Binding SelectedResolution}"
+                            ItemTemplate="{StaticResource ResolutionTemplate}" />
+                    </Grid>
                 </StackPanel>
             </DockPanel>
         </Border>
 
-    </Grid>
+        <!-- Audio and Streams -->
+        <Border Classes="card" Margin="0,0,0,8">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Text="Audio and Streams"
+                           Classes="card-header" />
+                <Separator DockPanel.Dock="Top" />
+                <StackPanel Spacing="4" Margin="8,4,8,6">
+                    <!-- Audio controls -->
+                    <views:AudioView DataContext="{Binding Audio}" />
+
+                    <!-- Stream handling (separate VM, bound from parent) -->
+                    <Separator Margin="0,2" />
+                    <CheckBox Content="Remove subtitle streams"
+                              IsChecked="{Binding StreamHandling.RemoveSubtitles}" />
+                    <CheckBox Content="Remove data streams"
+                              IsChecked="{Binding StreamHandling.RemoveData}" />
+                    <CheckBox Content="Remove audio"
+                              IsChecked="{Binding StreamHandling.RemoveAudio}" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- Encoding -->
+        <Border Classes="card" Margin="0,0,0,8">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Text="Encoding"
+                           Classes="card-header" />
+                <Separator DockPanel.Dock="Top" />
+                <StackPanel Spacing="4" Margin="8,4,8,6">
+                    <!-- Strategy selector -->
+                    <Grid ColumnDefinitions="85,*">
+                        <TextBlock Text="Strategy" VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                            <RadioButton Content="Quality" GroupName="Strategy"
+                                IsChecked="{Binding Strategy.SelectedStrategy,
+                                    Converter={StaticResource EnumToBool},
+                                    ConverterParameter={x:Static models:EncodingStrategy.TargetQuality}}" />
+                            <RadioButton Content="File Size" GroupName="Strategy"
+                                IsChecked="{Binding Strategy.SelectedStrategy,
+                                    Converter={StaticResource EnumToBool},
+                                    ConverterParameter={x:Static models:EncodingStrategy.TargetFileSize}}" />
+                            <RadioButton Content="Bitrate" GroupName="Strategy"
+                                IsChecked="{Binding Strategy.SelectedStrategy,
+                                    Converter={StaticResource EnumToBool},
+                                    ConverterParameter={x:Static models:EncodingStrategy.TargetBitrate}}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Strategy-specific controls (resolved via DataTemplate in App.axaml) -->
+                    <ContentControl Content="{Binding Strategy.ActiveStrategyViewModel}" />
+
+                    <!-- H.264/H.265 Encoder Tuning -->
+                    <Border Classes="nested-card" Margin="0,4,0,0"
+                            IsVisible="{Binding Strategy.Quality.IsH26xCodec}">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Top" Text="H.264 / H.265 Encoder Tuning"
+                                       Classes="nested-card-header" />
+                            <Separator DockPanel.Dock="Top" />
+                            <StackPanel Spacing="4" Margin="6,4,6,6">
+                                <Grid ColumnDefinitions="80,*">
+                                    <TextBlock Text="Preset" VerticalAlignment="Center" />
+                                    <ctrl:NoWheelComboBox Grid.Column="1"
+                                        ItemsSource="{Binding Strategy.Quality.AvailablePresets}"
+                                        SelectedItem="{Binding Strategy.Quality.H26xPreset}" />
+                                </Grid>
+                                <Grid ColumnDefinitions="80,*">
+                                    <TextBlock Text="Profile" VerticalAlignment="Center" />
+                                    <ctrl:NoWheelComboBox Grid.Column="1"
+                                        ItemsSource="{Binding Strategy.Quality.AvailableProfiles}"
+                                        SelectedItem="{Binding Strategy.Quality.H26xProfile}" />
+                                </Grid>
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- VP8/VP9 Encoder Tuning -->
+                    <Border Classes="nested-card" Margin="0,4,0,0"
+                            IsVisible="{Binding !Strategy.Quality.IsH26xCodec}">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Top" Text="VP8 / VP9 Encoder Tuning"
+                                       Classes="nested-card-header" />
+                            <Separator DockPanel.Dock="Top" />
+                            <StackPanel Spacing="4" Margin="6,4,6,6">
+                                <Grid ColumnDefinitions="80,*,Auto">
+                                    <TextBlock Text="CPU Used" VerticalAlignment="Center" />
+                                    <Slider Grid.Column="1"
+                                            Value="{Binding Strategy.Quality.VpxCpuUsed}"
+                                            Minimum="0" Maximum="8"
+                                            TickFrequency="1" IsSnapToTickEnabled="True"
+                                            VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="2" VerticalAlignment="Center"
+                                               MinWidth="20" TextAlignment="Right" Margin="8,0,0,0">
+                                        <Run Text="{Binding Strategy.Quality.VpxCpuUsed}" />
+                                    </TextBlock>
+                                </Grid>
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- Validation (normal card, warning left border only when issues exist) -->
+        <Border Classes="card" Margin="0,0,0,8"
+                Classes.warning="{Binding HasValidationIssues}">
+            <Border.Styles>
+                <Style Selector="Border.warning">
+                    <Setter Property="BorderThickness" Value="3,1,1,1" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource ValidationWarningBrush}" />
+                </Style>
+            </Border.Styles>
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Text="Validation"
+                           Classes="card-header" />
+                <Separator DockPanel.Dock="Top" />
+                <StackPanel Margin="8,4,8,6" Spacing="4">
+                    <TextBlock Text="{Binding ValidationText}"
+                               TextWrapping="Wrap" FontSize="12"
+                               Foreground="{DynamicResource ValidationWarningBrush}"
+                               IsVisible="{Binding HasValidationIssues}" />
+                    <TextBlock Text="No validation issues."
+                               TextWrapping="Wrap" FontSize="12" Opacity="0.5"
+                               IsVisible="{Binding !HasValidationIssues}" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+    </StackPanel>
 </UserControl>

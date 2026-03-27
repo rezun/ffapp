@@ -6,57 +6,77 @@
              x:DataType="vm:WorkspaceViewModel"
              x:CompileBindings="True">
 
-    <Grid x:Name="MainGrid" ColumnDefinitions="250,6,*">
+    <DockPanel>
 
-        <!-- Left Panel: Source/Queue Tabs -->
-        <TabControl Grid.Column="0" Padding="2"
-                    SelectedIndex="{Binding SelectedTabIndex}">
-            <TabItem Header="Source">
-                <views:SourcePanelView DataContext="{Binding SourcePanel}" />
-            </TabItem>
-            <TabItem Header="Batch Jobs">
-                <views:QueuePanelView DataContext="{Binding QueuePanel}" />
-            </TabItem>
-        </TabControl>
-
-        <GridSplitter Grid.Column="1" Width="6" ResizeDirection="Columns" />
-
-        <!-- Right Panel: vertical split -->
-        <Grid x:Name="RightGrid" Grid.Column="2" RowDefinitions="3*,6,2*">
-
-            <!-- Top: Preset bar + output summary + scrollable settings -->
-            <DockPanel Grid.Row="0">
-                <!-- Preset bar pinned at top -->
-                <views:PresetBarView DockPanel.Dock="Top"
-                                     DataContext="{Binding Preset}"
-                                     Margin="8,8,8,10" />
-
-                <!-- Output summary pinned below preset bar -->
-                <TextBlock DockPanel.Dock="Top"
-                           Text="{Binding OutputSettings.ValidationText}"
-                           TextWrapping="Wrap"
+        <!-- STATUS BAR: Active job progress (visible when running) -->
+        <Border DockPanel.Dock="Bottom"
+                BorderBrush="{DynamicResource BorderSubtleBrush}"
+                BorderThickness="0,1,0,0"
+                Padding="8,4"
+                IsVisible="{Binding JobsPanel.IsAnyJobRunning}">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <TextBlock Grid.Column="0"
+                           Text="{Binding JobsPanel.StatusText}"
                            FontSize="12"
-                           Margin="6,0,6,2"
-                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
-                           IsVisible="{Binding OutputSettings.ValidationText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                           VerticalAlignment="Center"
+                           Margin="0,0,12,0" />
+                <ProgressBar Grid.Column="1"
+                             Value="{Binding JobsPanel.StatusPercentage}"
+                             Minimum="0"
+                             Maximum="100"
+                             Height="4"
+                             VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2"
+                           Text="{Binding JobsPanel.StatusPercentage, StringFormat={}{0:F0}%}"
+                           FontSize="12"
+                           VerticalAlignment="Center"
+                           MinWidth="36"
+                           TextAlignment="Right"
+                           Margin="8,0,0,0" />
+            </Grid>
+        </Border>
+
+        <!-- BOTTOM BAR: Command Preview (full width) -->
+        <Border DockPanel.Dock="Bottom"
+                BorderBrush="{DynamicResource BorderSubtleBrush}"
+                BorderThickness="0,1,0,0">
+            <views:CommandPreviewView DataContext="{Binding CommandPreview}" />
+        </Border>
+
+        <!-- THREE-COLUMN LAYOUT -->
+        <Grid x:Name="MainGrid" ColumnDefinitions="280,6,*,6,240">
+
+            <!-- LEFT COLUMN: Source panel (always visible) -->
+            <views:SourcePanelView Grid.Column="0"
+                                   DataContext="{Binding SourcePanel}" />
+
+            <GridSplitter Grid.Column="1" Width="6" ResizeDirection="Columns" />
+
+            <!-- CENTER COLUMN: Preset bar + Output Settings (scrollable) -->
+            <DockPanel Grid.Column="2">
+                <!-- Preset bar pinned at top -->
+                <Border DockPanel.Dock="Top"
+                        BorderBrush="{DynamicResource BorderSubtleBrush}"
+                        BorderThickness="0,0,0,1"
+                        Padding="8,6">
+                    <views:PresetBarView DataContext="{Binding Preset}" />
+                </Border>
 
                 <!-- Scrollable output settings -->
                 <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                               VerticalScrollBarVisibility="Auto">
                     <views:OutputSettingsView DataContext="{Binding OutputSettings}"
-                                             Margin="6,0,6,4" />
+                                             Margin="8,8,8,4" />
                 </ScrollViewer>
             </DockPanel>
 
-            <GridSplitter Grid.Row="1" Height="6" ResizeDirection="Rows" />
+            <GridSplitter Grid.Column="3" Width="6" ResizeDirection="Columns" />
 
-            <!-- Bottom: Command Preview (collapsible) + Execution (always visible) -->
-            <DockPanel Grid.Row="2">
-                <views:CommandPreviewView DockPanel.Dock="Top"
-                                          DataContext="{Binding CommandPreview}" />
-                <views:ExecutionView DataContext="{Binding Execution}" />
-            </DockPanel>
+            <!-- RIGHT COLUMN: Jobs panel (Single / Queue toggle) -->
+            <views:JobsPanelView Grid.Column="4"
+                                 DataContext="{Binding JobsPanel}" />
 
         </Grid>
-    </Grid>
+
+    </DockPanel>
 </UserControl>

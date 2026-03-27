@@ -3,25 +3,12 @@
              xmlns:vm="using:FFApp.ViewModels"
              xmlns:views="using:FFApp.Views"
              x:Class="FFApp.App"
-             RequestedThemeVariant="Dark">
+             RequestedThemeVariant="Default">
     <Application.Resources>
         <ResourceDictionary>
-            <ResourceDictionary.ThemeDictionaries>
-                <ResourceDictionary x:Key="Dark">
-                    <SolidColorBrush x:Key="JobStatePendingBrush" Color="#C8C8C8" />
-                    <SolidColorBrush x:Key="JobStateRunningBrush" Color="#64C8FF" />
-                    <SolidColorBrush x:Key="JobStateCompletedBrush" Color="#50DC50" />
-                    <SolidColorBrush x:Key="JobStateFailedBrush" Color="#FF5A5A" />
-                    <SolidColorBrush x:Key="JobStateCanceledBrush" Color="#FFA500" />
-                </ResourceDictionary>
-                <ResourceDictionary x:Key="Light">
-                    <SolidColorBrush x:Key="JobStatePendingBrush" Color="#666666" />
-                    <SolidColorBrush x:Key="JobStateRunningBrush" Color="#0078D4" />
-                    <SolidColorBrush x:Key="JobStateCompletedBrush" Color="#107C10" />
-                    <SolidColorBrush x:Key="JobStateFailedBrush" Color="#D13438" />
-                    <SolidColorBrush x:Key="JobStateCanceledBrush" Color="#CA5010" />
-                </ResourceDictionary>
-            </ResourceDictionary.ThemeDictionaries>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://FFApp/Themes/Tokens.axaml" />
+            </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>
     <Application.Styles>
@@ -32,9 +19,10 @@
             <Setter Property="FontSize" Value="12" />
         </Style>
         <Style Selector="Button">
-            <Setter Property="Padding" Value="8,3" />
+            <Setter Property="Padding" Value="8,0" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="MinHeight" Value="26" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
         <Style Selector="ComboBox">
             <Setter Property="MinHeight" Value="26" />
@@ -60,10 +48,19 @@
             <Setter Property="FontSize" Value="12" />
         </Style>
 
-        <!-- Card-style sections: lighter surface with visible border -->
+        <!-- Card-style sections: semantic surface with visible border -->
         <Style Selector="Border.card">
-            <Setter Property="Background" Value="#2A2A2E" />
-            <Setter Property="BorderBrush" Value="#48484C" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="5" />
+            <Setter Property="Padding" Value="0" />
+        </Style>
+
+        <!-- Nested card (encoder tuning etc.) -->
+        <Style Selector="Border.nested-card">
+            <Setter Property="Background" Value="{DynamicResource SurfaceNestedCardBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="5" />
             <Setter Property="Padding" Value="0" />
@@ -74,7 +71,15 @@
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Margin" Value="8,6,8,4" />
-            <Setter Property="Foreground" Value="#E0E0E0" />
+            <Setter Property="Foreground" Value="{DynamicResource CardHeaderBrush}" />
+        </Style>
+
+        <!-- Nested card header text -->
+        <Style Selector="TextBlock.nested-card-header">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Margin" Value="8,6,8,4" />
+            <Setter Property="Foreground" Value="{DynamicResource NestedCardHeaderBrush}" />
         </Style>
 
         <!-- Hyperlink-style button: text-only, no chrome -->
@@ -95,13 +100,13 @@
 
         <!-- Separators: subtle but visible -->
         <Style Selector="Separator">
-            <Setter Property="Background" Value="#48484C" />
+            <Setter Property="Background" Value="{DynamicResource BorderSubtleBrush}" />
             <Setter Property="Margin" Value="0" />
         </Style>
 
-        <!-- Slightly lighter window/panel background -->
+        <!-- Window background -->
         <Style Selector="Window">
-            <Setter Property="Background" Value="#1E1E22" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceBaseBrush}" />
         </Style>
 
         <!-- TabControl styling -->
@@ -112,6 +117,13 @@
         </Style>
         <Style Selector="TabControl">
             <Setter Property="Padding" Value="2" />
+        </Style>
+
+        <!-- Panel header text (column titles) -->
+        <Style Selector="TextBlock.panel-header">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="{DynamicResource CardHeaderBrush}" />
         </Style>
     </Application.Styles>
     <Application.DataTemplates>

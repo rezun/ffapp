@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Styling;
 using CommunityToolkit.Mvvm.Messaging;
 using FFApp.Core;
 using FFApp.Core.Models;
@@ -53,5 +54,15 @@ public partial class App : Application
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    public void SetThemeVariant(ThemePreference preference)
+    {
+        RequestedThemeVariant = preference switch
+        {
+            ThemePreference.Dark => ThemeVariant.Dark,
+            ThemePreference.Light => ThemeVariant.Light,
+            _ => ThemeVariant.Default,
+        };
     }
 }

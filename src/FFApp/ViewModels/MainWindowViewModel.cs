@@ -32,12 +32,6 @@ public partial class MainWindowViewModel : ObservableObject,
         _services = services;
         _messenger = services.GetRequiredService<IMessenger>();
 
-        CurrentView = new DependencySetupViewModel(
-            _services.GetRequiredService<IDependencyService>(),
-            _services.GetRequiredService<ISettingsService>(),
-            _services.GetRequiredService<IDialogService>(),
-            _messenger);
-
         _messenger.Register<DependenciesResolvedMessage>(this);
         _messenger.Register<NavigateToDependencySetupMessage>(this);
 
@@ -60,9 +54,15 @@ public partial class MainWindowViewModel : ObservableObject,
             {
                 await SwitchToWorkspaceAsync(status);
             }
-            else if (CurrentView is DependencySetupViewModel setup)
+            else
             {
+                var setup = new DependencySetupViewModel(
+                    _services.GetRequiredService<IDependencyService>(),
+                    _services.GetRequiredService<ISettingsService>(),
+                    _services.GetRequiredService<IDialogService>(),
+                    _messenger);
                 setup.SetFromSettings(settings);
+                CurrentView = setup;
             }
         }
         catch (Exception ex)
@@ -104,9 +104,9 @@ public partial class MainWindowViewModel : ObservableObject,
 
         try
         {
-            if (workspace.SelectedTabIndex == 1) // Queue tab
+            if (paths.Count > 1)
                 await workspace.QueuePanel.AddPathsAsync(paths);
-            else // Source tab
+            else
                 await workspace.SourcePanel.LoadSource(paths[0]);
         }
         catch (Exception ex)

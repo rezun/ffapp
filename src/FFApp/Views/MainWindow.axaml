@@ -11,6 +11,30 @@
         Width="1200" Height="800"
         MinWidth="800" MinHeight="600">
 
+    <NativeMenu.Menu>
+        <NativeMenu>
+            <NativeMenuItem Header="View">
+                <NativeMenu>
+                    <NativeMenuItem Header="System"
+                                    ToggleType="Radio" IsChecked="True"
+                                    Click="OnThemeSystem" />
+                    <NativeMenuItem Header="Dark"
+                                    ToggleType="Radio"
+                                    Click="OnThemeDark" />
+                    <NativeMenuItem Header="Light"
+                                    ToggleType="Radio"
+                                    Click="OnThemeLight" />
+                </NativeMenu>
+            </NativeMenuItem>
+            <NativeMenuItem Header="Info">
+                <NativeMenu>
+                    <NativeMenuItem Header="FFApp"
+                                    IsEnabled="False" />
+                </NativeMenu>
+            </NativeMenuItem>
+        </NativeMenu>
+    </NativeMenu.Menu>
+
     <ContentControl Content="{Binding CurrentView}"
                     DragDrop.AllowDrop="True" />
 

@@ -52,7 +52,7 @@
         <!-- Status -->
         <TextBlock Text="{Binding StatusText}"
                    TextWrapping="Wrap"
-                   Foreground="Orange"
+                   Foreground="{DynamicResource ValidationWarningBrush}"
                    IsVisible="{Binding StatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
 
         <!-- Validate button -->

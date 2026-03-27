@@ -27,6 +27,14 @@ public partial class OutputSettingsViewModel : ObservableObject
     [ObservableProperty]
     private string _validationText = "";
 
+    [ObservableProperty]
+    private bool _hasValidationIssues;
+
+    partial void OnValidationTextChanged(string value)
+    {
+        HasValidationIssues = !string.IsNullOrEmpty(value);
+    }
+
     partial void OnSelectedResolutionChanged(ResolutionPreset value)
     {
         if (!_isSuppressing)

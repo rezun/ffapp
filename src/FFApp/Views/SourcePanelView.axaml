@@ -5,11 +5,11 @@
              x:DataType="vm:SourcePanelViewModel"
              x:CompileBindings="True">
 
-    <DockPanel>
+    <DockPanel Margin="8,8,4,8">
 
         <!-- Source Selection Group -->
         <Border DockPanel.Dock="Top" Classes="card"
-                Margin="2" Padding="0">
+                Margin="0,0,0,8">
             <StackPanel Spacing="4" Margin="8,6,8,8">
                 <TextBlock Text="Source Selection"
                            Classes="card-header" Margin="0,0,0,0" />
@@ -25,7 +25,7 @@
 
                 <TextBlock Text="{Binding StatusText}"
                            TextWrapping="Wrap" FontSize="12"
-                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+                           Foreground="{DynamicResource TextSecondaryBrush}" />
 
                 <ProgressBar IsIndeterminate="True"
                              IsVisible="{Binding IsProbing}"
@@ -34,11 +34,10 @@
         </Border>
 
         <!-- Media Info Summary -->
-        <Border Classes="card"
-                Margin="2" Padding="0">
+        <Border Classes="card">
             <DockPanel Margin="8,6,8,8">
                 <TextBlock DockPanel.Dock="Top"
-                           Text="Media Info Summary"
+                           Text="Media Info"
                            Classes="card-header" Margin="0,0,0,4" />
 
                 <SelectableTextBlock Text="{Binding MediaSummaryText, Mode=OneWay}"

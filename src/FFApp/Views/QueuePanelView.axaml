@@ -54,6 +54,7 @@
         <ListBox x:Name="QueueList"
                  ItemsSource="{Binding Items}"
                  SelectedItem="{Binding SelectedItem}"
+                 Background="{DynamicResource SurfaceCardBrush}"
                  MinHeight="120">
             <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="vm:QueueItemViewModel">

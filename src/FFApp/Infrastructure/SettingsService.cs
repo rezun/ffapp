@@ -41,6 +41,10 @@ public sealed class SettingsService(string? path = null) : ISettingsService
 
         var splitterLayout = DeserializeSplitterLayout(root);
         var windowGeometry = DeserializeWindowGeometry(root);
+        var themeStr = ReadOptionalString(root, "theme_preference") ?? "system";
+        var themePreference = Enum.TryParse<ThemePreference>(themeStr, ignoreCase: true, out var tp)
+            ? tp
+            : ThemePreference.System;
 
         return new AppSettings
         {
@@ -49,6 +53,7 @@ public sealed class SettingsService(string? path = null) : ISettingsService
             LastUsedSettings = lastUsedSettings,
             SplitterLayout = splitterLayout,
             WindowGeometry = windowGeometry,
+            ThemePreference = themePreference,
         };
     }
 
@@ -71,7 +76,6 @@ public sealed class SettingsService(string? path = null) : ISettingsService
             ["splitter_layout"] = new JsonObject
             {
                 ["main_splitter_sizes"] = ToJsonArray(settings.SplitterLayout.MainSplitterSizes),
-                ["right_splitter_sizes"] = ToJsonArray(settings.SplitterLayout.RightSplitterSizes),
                 ["queue_splitter_sizes"] = ToJsonArray(settings.SplitterLayout.QueueSplitterSizes),
             },
             ["window_geometry"] = new JsonObject
@@ -82,6 +86,7 @@ public sealed class SettingsService(string? path = null) : ISettingsService
                 ["height"] = settings.WindowGeometry.Height,
                 ["is_maximized"] = settings.WindowGeometry.IsMaximized,
             },
+            ["theme_preference"] = settings.ThemePreference.ToString().ToLowerInvariant(),
         };
 
         var options = new JsonSerializerOptions { WriteIndented = true };
@@ -110,7 +115,6 @@ public sealed class SettingsService(string? path = null) : ISettingsService
         return new SplitterLayout
         {
             MainSplitterSizes = ReadIntArray(el, "main_splitter_sizes"),
-            RightSplitterSizes = ReadIntArray(el, "right_splitter_sizes"),
             QueueSplitterSizes = ReadIntArray(el, "queue_splitter_sizes"),
         };
     }

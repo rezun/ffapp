@@ -7,28 +7,24 @@
              x:CompileBindings="True"
              x:DataType="vm:PresetViewModel">
 
-    <Grid ColumnDefinitions="Auto,*,Auto">
-        <TextBlock Grid.Column="0" Text="Preset" VerticalAlignment="Center"
-                   FontWeight="SemiBold" Margin="0,0,6,0" />
-
-        <ctrl:NoWheelComboBox Grid.Column="1"
+    <StackPanel Orientation="Horizontal" Spacing="6">
+        <TextBlock Text="Preset" VerticalAlignment="Center"
+                   FontWeight="SemiBold" />
+        <ctrl:NoWheelComboBox
             ItemsSource="{Binding Presets}"
             SelectedItem="{Binding SelectedPreset}"
-            HorizontalAlignment="Stretch">
+            MinWidth="160">
             <ctrl:NoWheelComboBox.ItemTemplate>
                 <DataTemplate x:DataType="models:PresetDefinition">
                     <TextBlock Text="{Binding Name}" />
                 </DataTemplate>
             </ctrl:NoWheelComboBox.ItemTemplate>
         </ctrl:NoWheelComboBox>
-
-        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="3" Margin="6,0,0,0">
-            <Button Content="Save As" Command="{Binding SavePresetCommand}"
-                    ToolTip.Tip="Save current settings as a preset" />
-            <Button Content="Rename" Command="{Binding RenamePresetCommand}"
-                    IsEnabled="{Binding IsUserPresetSelected}" />
-            <Button Content="Delete" Command="{Binding DeletePresetCommand}"
-                    IsEnabled="{Binding IsUserPresetSelected}" />
-        </StackPanel>
-    </Grid>
+        <Button Content="Save As" Command="{Binding SavePresetCommand}"
+                ToolTip.Tip="Save current settings as a preset" />
+        <Button Content="Rename" Command="{Binding RenamePresetCommand}"
+                IsEnabled="{Binding IsUserPresetSelected}" />
+        <Button Content="Delete" Command="{Binding DeletePresetCommand}"
+                IsEnabled="{Binding IsUserPresetSelected}" />
+    </StackPanel>
 </UserControl>

@@ -1,0 +1,92 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:FFApp.ViewModels"
+             xmlns:views="using:FFApp.Views"
+             x:Class="FFApp.Views.JobsPanelView"
+             x:CompileBindings="True"
+             x:DataType="vm:JobsPanelViewModel">
+
+    <UserControl.Styles>
+        <!-- Segmented button base -->
+        <Style Selector="Button.seg">
+            <Setter Property="Padding" Value="12,3" />
+            <Setter Property="MinHeight" Value="24" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        </Style>
+        <Style Selector="Button.seg /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+        </Style>
+        <Style Selector="Button.seg:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SurfaceNestedCardBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+        </Style>
+        <!-- Active state -->
+        <Style Selector="Button.seg.active">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="Button.seg.active /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
+        </Style>
+        <Style Selector="Button.seg.active:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
+        </Style>
+        <!-- Left segment -->
+        <Style Selector="Button.seg-left">
+            <Setter Property="CornerRadius" Value="4,0,0,4" />
+            <Setter Property="BorderThickness" Value="1,1,0,1" />
+        </Style>
+        <Style Selector="Button.seg-left /template/ ContentPresenter">
+            <Setter Property="CornerRadius" Value="4,0,0,4" />
+            <Setter Property="BorderThickness" Value="1,1,0,1" />
+        </Style>
+        <!-- Right segment -->
+        <Style Selector="Button.seg-right">
+            <Setter Property="CornerRadius" Value="0,4,4,0" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="Button.seg-right /template/ ContentPresenter">
+            <Setter Property="CornerRadius" Value="0,4,4,0" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+    </UserControl.Styles>
+
+    <DockPanel>
+
+        <!-- Header: "Jobs" + segmented toggle -->
+        <DockPanel DockPanel.Dock="Top" Margin="8,8,8,4">
+            <TextBlock Text="Jobs"
+                       Classes="panel-header"
+                       VerticalAlignment="Center" />
+
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Right">
+                <Button Classes="seg seg-left"
+                        Classes.active="{Binding IsSingleMode}"
+                        Content="Single"
+                        Command="{Binding SetSingleModeCommand}" />
+                <Button Classes="seg seg-right"
+                        Classes.active="{Binding IsQueueMode}"
+                        Content="Queue"
+                        Command="{Binding SetQueueModeCommand}" />
+            </StackPanel>
+        </DockPanel>
+
+        <!-- Content: Single and Queue share the same cell -->
+        <Grid>
+            <Panel IsVisible="{Binding IsSingleMode}">
+                <views:ExecutionView DataContext="{Binding Execution}" />
+            </Panel>
+            <Panel IsVisible="{Binding IsQueueMode}">
+                <views:QueuePanelView DataContext="{Binding QueuePanel}" />
+            </Panel>
+        </Grid>
+
+    </DockPanel>
+</UserControl>

@@ -1,7 +1,7 @@
+using System.Reflection;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using FFApp.Core.Models;
 using FFApp.ViewModels;
@@ -17,6 +17,13 @@ public partial class MainWindow : Window
         InitializeComponent();
         AddHandler(DragDrop.DropEvent, OnDrop);
         Loaded += OnLoaded;
+
+        // Set version in Info menu
+        var version = Assembly.GetExecutingAssembly().GetName().Version;
+        var versionStr = version is not null ? $"{version.Major}.{version.Minor}.{version.Build}" : "dev";
+        var versionItem = FindMenuItem("Info", "FFApp");
+        if (versionItem is not null)
+            versionItem.Header = $"FFApp v{versionStr}";
     }
 
     private async void OnLoaded(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -26,6 +33,7 @@ public partial class MainWindow : Window
 
         var settings = await vm.SettingsLoadedTask;
         ApplyWindowGeometry(settings.WindowGeometry);
+        SetTheme(settings.ThemePreference, persist: false);
     }
 
     private void ApplyWindowGeometry(WindowGeometry geo)
@@ -51,6 +59,51 @@ public partial class MainWindow : Window
 
         if (geo.IsMaximized)
             WindowState = WindowState.Maximized;
+    }
+
+    // NativeMenu click handlers
+    public void OnThemeSystem(object? sender, EventArgs e) => SetTheme(ThemePreference.System);
+    public void OnThemeDark(object? sender, EventArgs e) => SetTheme(ThemePreference.Dark);
+    public void OnThemeLight(object? sender, EventArgs e) => SetTheme(ThemePreference.Light);
+
+    private void SetTheme(ThemePreference preference, bool persist = true)
+    {
+        if (App.Current is App app)
+            app.SetThemeVariant(preference);
+
+        // Update radio check states
+        var viewMenu = FindMenu("View");
+        if (viewMenu is not null)
+        {
+            foreach (var item in viewMenu.Items.OfType<NativeMenuItem>())
+                item.IsChecked = item.Header?.ToString() == preference.ToString();
+        }
+
+        if (persist)
+            PersistThemePreference(preference);
+    }
+
+    private async void PersistThemePreference(ThemePreference preference)
+    {
+        if (DataContext is not MainWindowViewModel vm)
+            return;
+
+        var settings = (vm.LoadedSettings ?? new AppSettings()) with { ThemePreference = preference };
+        vm.LoadedSettings = settings;
+        await vm.SettingsService.SaveAsync(settings);
+    }
+
+    private NativeMenu? FindMenu(string header)
+    {
+        var menu = NativeMenu.GetMenu(this);
+        return menu?.Items.OfType<NativeMenuItem>()
+            .FirstOrDefault(i => i.Header?.ToString() == header)?.Menu;
+    }
+
+    private NativeMenuItem? FindMenuItem(string menuHeader, string itemHeader)
+    {
+        return FindMenu(menuHeader)?.Items.OfType<NativeMenuItem>()
+            .FirstOrDefault(i => i.Header?.ToString() == itemHeader);
     }
 
     private void OnDrop(object? sender, DragEventArgs e)

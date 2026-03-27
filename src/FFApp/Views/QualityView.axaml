@@ -14,7 +14,8 @@
                     Value="{Binding Crf}"
                     Minimum="0" Maximum="51"
                     TickFrequency="1" IsSnapToTickEnabled="True"
-                    VerticalAlignment="Center" />
+                    VerticalAlignment="Center"
+                    TickPlacement="BottomRight" />
             <TextBlock Grid.Column="2" VerticalAlignment="Center"
                        MinWidth="28" TextAlignment="Right" Margin="8,0,0,0">
                 <Run Text="{Binding Crf}" />
@@ -29,7 +30,8 @@
                         Value="{Binding VpxQuality}"
                         Minimum="0" Maximum="63"
                         TickFrequency="1" IsSnapToTickEnabled="True"
-                        VerticalAlignment="Center" />
+                        VerticalAlignment="Center"
+                        TickPlacement="BottomRight" />
                 <TextBlock Grid.Column="2" VerticalAlignment="Center"
                            MinWidth="28" TextAlignment="Right" Margin="8,0,0,0">
                     <Run Text="{Binding VpxQuality}" />

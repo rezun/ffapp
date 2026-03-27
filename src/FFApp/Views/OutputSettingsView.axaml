@@ -159,7 +159,8 @@
                                             Value="{Binding Strategy.Quality.VpxCpuUsed}"
                                             Minimum="0" Maximum="8"
                                             TickFrequency="1" IsSnapToTickEnabled="True"
-                                            VerticalAlignment="Center" />
+                                            VerticalAlignment="Center"
+                                            TickPlacement="BottomRight" />
                                     <TextBlock Grid.Column="2" VerticalAlignment="Center"
                                                MinWidth="20" TextAlignment="Right" Margin="8,0,0,0">
                                         <Run Text="{Binding Strategy.Quality.VpxCpuUsed}" />
@@ -171,7 +172,8 @@
                                             Value="{Binding Strategy.Quality.VpxTileColumns}"
                                             Minimum="0" Maximum="6"
                                             TickFrequency="1" IsSnapToTickEnabled="True"
-                                            VerticalAlignment="Center" />
+                                            VerticalAlignment="Center"
+                                            TickPlacement="BottomRight" />
                                     <TextBlock Grid.Column="2" VerticalAlignment="Center"
                                                MinWidth="20" TextAlignment="Right" Margin="8,0,0,0">
                                         <Run Text="{Binding Strategy.Quality.VpxTileColumns}" />
@@ -183,7 +185,8 @@
                                             Value="{Binding Strategy.Quality.VpxTileRows}"
                                             Minimum="0" Maximum="2"
                                             TickFrequency="1" IsSnapToTickEnabled="True"
-                                            VerticalAlignment="Center" />
+                                            VerticalAlignment="Center"
+                                            TickPlacement="BottomRight" />
                                     <TextBlock Grid.Column="2" VerticalAlignment="Center"
                                                MinWidth="20" TextAlignment="Right" Margin="8,0,0,0">
                                         <Run Text="{Binding Strategy.Quality.VpxTileRows}" />

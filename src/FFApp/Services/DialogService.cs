@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Input.Platform;
 using Avalonia.Layout;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
@@ -187,7 +188,8 @@ public sealed class DialogService(Func<Window?> windowAccessor) : IDialogService
         var clipboard = window.Clipboard;
         if (clipboard is null)
             return null;
-        return await clipboard.GetTextAsync();
+
+        return await clipboard.TryGetTextAsync();
     }
 
     // --- Private helpers ---

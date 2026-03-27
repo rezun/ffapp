@@ -106,12 +106,12 @@ public partial class MainWindow : Window
             .FirstOrDefault(i => i.Header?.ToString() == itemHeader);
     }
 
-    private void OnDrop(object? sender, DragEventArgs e)
+    private async Task OnDrop(object? sender, DragEventArgs e)
     {
         if (DataContext is not MainWindowViewModel vm)
             return;
 
-        var storageItems = e.Data.GetFiles();
+        var storageItems = e.DataTransfer.TryGetFiles();
         if (storageItems is null)
             return;
 

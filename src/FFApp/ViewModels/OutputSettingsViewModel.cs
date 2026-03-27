@@ -12,6 +12,7 @@ public partial class OutputSettingsViewModel : ObservableObject
     private readonly IMessenger _messenger;
     private bool _isSuppressing;
     private SourceMediaInfo? _mediaInfo;
+    private string? _resolvedOutputPath;
 
     public FormatViewModel Format { get; } = new();
     public AudioViewModel Audio { get; } = new();
@@ -36,10 +37,8 @@ public partial class OutputSettingsViewModel : ObservableObject
     [ObservableProperty]
     private bool _hasValidationIssues;
 
-    partial void OnValidationTextChanged(string value)
-    {
-        HasValidationIssues = !string.IsNullOrEmpty(value);
-    }
+    [ObservableProperty]
+    private bool _hasValidationErrors;
 
     partial void OnSelectedResolutionChanged(ResolutionPreset value)
     {
@@ -69,6 +68,12 @@ public partial class OutputSettingsViewModel : ObservableObject
         Format.PropertyChanged += OnFormatPropertyChanged;
 
         Audio.AvailableAudioCodecs = Format.AvailableAudioCodecs;
+    }
+
+    public void UpdateResolvedOutputPath(string? resolvedOutputPath)
+    {
+        _resolvedOutputPath = resolvedOutputPath;
+        RefreshValidation();
     }
 
     public void UpdateSourceInfo(SourceMediaInfo mediaInfo)
@@ -182,16 +187,36 @@ public partial class OutputSettingsViewModel : ObservableObject
     private void RebuildAndNotify()
     {
         var settings = BuildSettings();
+        RefreshValidation(settings);
+        _messenger.Send(new OutputSettingsChangedMessage(settings));
+    }
 
-        if (_mediaInfo is not null)
+    private void RefreshValidation(OutputSettings? settings = null)
+    {
+        settings ??= BuildSettings();
+
+        if (_mediaInfo is null)
+            return;
+
+        var result = _validationService.Validate(settings, _mediaInfo);
+        var allIssues = result.Issues;
+
+        if (!string.IsNullOrEmpty(_resolvedOutputPath)
+            && string.Equals(
+                Path.GetFullPath(_resolvedOutputPath),
+                Path.GetFullPath(_mediaInfo.SourcePath),
+                StringComparison.OrdinalIgnoreCase))
         {
-            var result = _validationService.Validate(settings, _mediaInfo);
-            ValidationText = result.Issues.Length > 0
-                ? string.Join(Environment.NewLine, result.Issues.Select(i => $"{i.Severity}: {i.Message}"))
-                : "";
+            allIssues = allIssues.Insert(0, new ValidationIssue(
+                ValidationSeverity.Error, "OUTPUT_SAME_AS_SOURCE",
+                "Output file is the same as the source file."));
         }
 
-        _messenger.Send(new OutputSettingsChangedMessage(settings));
+        HasValidationErrors = allIssues.Any(i => i.Severity == ValidationSeverity.Error);
+        HasValidationIssues = allIssues.Length > 0;
+        ValidationText = allIssues.Length > 0
+            ? string.Join(Environment.NewLine, allIssues.Select(i => $"{i.Severity}: {i.Message}"))
+            : "";
     }
 
     private static VideoEncoderOptions BuildVideoEncoderOptions(VideoCodec codec, QualityViewModel quality) =>

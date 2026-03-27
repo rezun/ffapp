@@ -74,8 +74,12 @@
 
                         <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                                       VerticalScrollBarVisibility="Auto">
-                            <views:OutputSettingsView DataContext="{Binding OutputSettings}"
-                                                     Margin="8,8,8,4" />
+                            <StackPanel>
+                                <views:OutputPathView DataContext="{Binding OutputPath}"
+                                                      Margin="8,8,8,0" />
+                                <views:OutputSettingsView DataContext="{Binding OutputSettings}"
+                                                         Margin="8,8,8,4" />
+                            </StackPanel>
                         </ScrollViewer>
                     </DockPanel>
                 </Grid>

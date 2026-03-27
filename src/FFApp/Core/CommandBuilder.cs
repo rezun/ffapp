@@ -73,12 +73,18 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         return [CreateGeneratedCommand(pathsConfig.FfmpegPath, arguments)];
     }
 
-    public static string SuggestOutputPath(string sourcePath, OutputContainer container)
+    public static string SuggestOutputPath(
+        string sourcePath, OutputContainer container,
+        string? outputDirectory = null, string? outputFilename = null)
     {
         var extension = ContainerExtension(container);
-        var directory = Path.GetDirectoryName(sourcePath) ?? string.Empty;
-        var stem = Path.GetFileNameWithoutExtension(sourcePath);
+        var directory = outputDirectory ?? Path.GetDirectoryName(sourcePath) ?? string.Empty;
+        var stem = outputFilename ?? Path.GetFileNameWithoutExtension(sourcePath);
         var candidate = Path.Combine(directory, stem + extension);
+
+        // When the user explicitly chose a filename, use it as-is (ffmpeg -y handles overwrites)
+        if (outputFilename is not null)
+            return candidate;
 
         if (!File.Exists(candidate))
             return candidate;
@@ -449,7 +455,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         _ => throw new CommandBuildException($"Unsupported frame rate preset: {preset}"),
     };
 
-    private static string ContainerExtension(OutputContainer container) => container switch
+    public static string ContainerExtension(OutputContainer container) => container switch
     {
         OutputContainer.Mp4 => ".mp4",
         OutputContainer.Mkv => ".mkv",

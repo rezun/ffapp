@@ -15,6 +15,7 @@ public partial class WorkspaceViewModel : ObservableObject,
     IRecipient<OutputSettingsChangedMessage>
 {
     public SourcePanelViewModel SourcePanel { get; }
+    public OutputPathViewModel OutputPath { get; }
     public OutputSettingsViewModel OutputSettings { get; }
     public PresetViewModel Preset { get; }
     public CommandPreviewViewModel CommandPreview { get; }
@@ -31,6 +32,9 @@ public partial class WorkspaceViewModel : ObservableObject,
 
         SourcePanel = new SourcePanelViewModel(
             services.GetRequiredService<IMediaProbeService>(), dialogService, messenger);
+
+        OutputPath = new OutputPathViewModel(dialogService);
+        OutputPath.PropertyChanged += OnOutputPathPropertyChanged;
 
         OutputSettings = new OutputSettingsViewModel(
             services.GetRequiredService<IValidationService>(), messenger);
@@ -58,9 +62,28 @@ public partial class WorkspaceViewModel : ObservableObject,
 
         VideoPreview = new VideoPreviewViewModel(VlcLocator.TryCreate());
         VideoPreview.PropertyChanged += OnVideoPreviewPropertyChanged;
+        OutputSettings.PropertyChanged += OnOutputSettingsPropertyChanged;
+        Preset.PropertyChanged += OnPresetPropertyChanged;
 
         messenger.Register<SourceLoadedMessage>(this);
         messenger.Register<OutputSettingsChangedMessage>(this);
+    }
+
+    private void OnPresetPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(PresetViewModel.SelectedPreset))
+        {
+            var name = Preset.IsUserPresetSelected ? Preset.SelectedPreset?.Name : null;
+            OutputPath.UpdatePresetName(name);
+        }
+    }
+
+    private void OnOutputSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(OutputSettingsViewModel.HasValidationErrors))
+        {
+            JobsPanel.Execution.UpdateHasValidationErrors(OutputSettings.HasValidationErrors);
+        }
     }
 
     private void OnVideoPreviewPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -91,6 +114,30 @@ public partial class WorkspaceViewModel : ObservableObject,
         }
     }
 
+    private void OnOutputPathPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(OutputPathViewModel.OutputDirectory)
+                           or nameof(OutputPathViewModel.OutputFilename)
+                           or nameof(OutputPathViewModel.IsAutoName))
+        {
+            PushOutputPathOverrides();
+        }
+
+        if (e.PropertyName is nameof(OutputPathViewModel.ResolvedPath))
+        {
+            OutputSettings.UpdateResolvedOutputPath(OutputPath.ResolvedPath);
+        }
+    }
+
+    private void PushOutputPathOverrides()
+    {
+        var dir = OutputPath.GetEffectiveDirectory();
+        var name = OutputPath.GetEffectiveFilename();
+        CommandPreview.UpdateOutputPath(dir, name);
+        JobsPanel.Execution.UpdateOutputPath(dir, name);
+        JobsPanel.QueuePanel.UpdateOutputDirectory(dir);
+    }
+
     public async Task LoadAsync()
     {
         await Preset.LoadPresetsAsync();
@@ -99,6 +146,7 @@ public partial class WorkspaceViewModel : ObservableObject,
     public void Receive(SourceLoadedMessage message)
     {
         var mediaInfo = message.Value;
+        OutputPath.UpdateFromSource(mediaInfo);
         OutputSettings.UpdateSourceInfo(mediaInfo);
         CommandPreview.UpdateSourceInfo(mediaInfo);
         JobsPanel.UpdateSourceInfo(mediaInfo);
@@ -108,6 +156,7 @@ public partial class WorkspaceViewModel : ObservableObject,
     public void Receive(OutputSettingsChangedMessage message)
     {
         var settings = message.Value;
+        OutputPath.UpdateContainer(settings.Container);
         CommandPreview.UpdateOutputSettings(settings);
         Preset.UpdateOutputSettings(settings);
         JobsPanel.UpdateOutputSettings(settings);

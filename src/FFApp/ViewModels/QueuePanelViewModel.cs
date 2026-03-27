@@ -66,12 +66,16 @@ public partial class QueuePanelViewModel : ObservableObject
 
     private OutputSettings? _currentOutputSettings;
     private SourceMediaInfo? _currentMediaInfo;
+    private string? _outputDirectory;
 
     public void UpdateCurrentContext(OutputSettings settings) =>
         _currentOutputSettings = settings;
 
     public void UpdateCurrentContext(SourceMediaInfo mediaInfo) =>
         _currentMediaInfo = mediaInfo;
+
+    public void UpdateOutputDirectory(string? directory) =>
+        _outputDirectory = directory;
 
     [RelayCommand]
     private void AddCurrentSource()
@@ -201,7 +205,8 @@ public partial class QueuePanelViewModel : ObservableObject
         foreach (var item in pendingItems)
         {
             var outputPath = DefaultCommandBuilder.SuggestOutputPath(
-                item.SourcePath, settings.Container);
+                item.SourcePath, settings.Container,
+                _outputDirectory);
 
             var job = FormatHelpers.BuildJobDefinition(
                 item.SourcePath, outputPath, settings);

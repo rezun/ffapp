@@ -1,0 +1,64 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:FFApp.ViewModels"
+             x:Class="FFApp.Views.OutputPathView"
+             x:CompileBindings="True"
+             x:DataType="vm:OutputPathViewModel">
+
+    <Border Classes="card" Margin="0,0,0,8">
+        <DockPanel>
+            <TextBlock DockPanel.Dock="Top" Text="Output"
+                       Classes="card-header" />
+            <Separator DockPanel.Dock="Top" />
+            <StackPanel Spacing="4" Margin="8,4,8,6">
+
+                <!-- Output directory -->
+                <Grid ColumnDefinitions="85,*,Auto">
+                    <TextBlock Text="Folder" VerticalAlignment="Center" />
+                    <TextBox Grid.Column="1"
+                             Text="{Binding OutputDirectory}"
+                             Watermark="Source file folder"
+                             FontSize="12" />
+                    <Button Grid.Column="2"
+                            Content="Browse"
+                            Command="{Binding BrowseDirectoryCommand}"
+                            Margin="4,0,0,0"
+                            VerticalAlignment="Center" />
+                </Grid>
+
+                <!-- Auto-name checkbox -->
+                <CheckBox Content="Auto-name from source filename"
+                          IsChecked="{Binding IsAutoName}"
+                          Margin="85,0,0,0" />
+
+                <!-- Output filename + extension (only when auto-name is off) -->
+                <Grid ColumnDefinitions="85,*,Auto"
+                      IsVisible="{Binding !IsAutoName}">
+                    <TextBlock Text="Filename" VerticalAlignment="Center" />
+                    <TextBox Grid.Column="1"
+                             Text="{Binding OutputFilename}"
+                             Watermark="Enter filename"
+                             FontSize="12" />
+                    <TextBlock Grid.Column="2"
+                               Text="{Binding Extension}"
+                               VerticalAlignment="Center"
+                               Margin="6,0,0,0"
+                               FontFamily="Cascadia Code,Consolas,Menlo,monospace"
+                               FontSize="12"
+                               Opacity="0.7" />
+                </Grid>
+
+                <!-- Resolved path preview -->
+                <TextBlock Text="{Binding ResolvedPath}"
+                           TextWrapping="Wrap"
+                           FontSize="11"
+                           FontFamily="Cascadia Code,Consolas,Menlo,monospace"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           Margin="85,0,0,0"
+                           IsVisible="{Binding ResolvedPath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
+            </StackPanel>
+        </DockPanel>
+    </Border>
+
+</UserControl>

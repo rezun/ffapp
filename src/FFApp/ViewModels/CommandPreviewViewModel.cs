@@ -19,6 +19,8 @@ public partial class CommandPreviewViewModel : ObservableObject
     private double? _trimStartSeconds;
     private double? _trimEndSeconds;
     private CropRect? _crop;
+    private string? _outputDirectory;
+    private string? _outputFilename;
 
     [ObservableProperty]
     private string _commandText = "";
@@ -121,10 +123,18 @@ public partial class CommandPreviewViewModel : ObservableObject
         Refresh();
     }
 
+    public void UpdateOutputPath(string? directory, string? filename)
+    {
+        _outputDirectory = directory;
+        _outputFilename = filename;
+        Refresh();
+    }
+
     private JobDefinition CreateJobDefinition(OutputSettings settings, SourceMediaInfo mediaInfo)
     {
         var outputPath = DefaultCommandBuilder.SuggestOutputPath(
-            mediaInfo.SourcePath, settings.Container);
+            mediaInfo.SourcePath, settings.Container,
+            _outputDirectory, _outputFilename);
 
         return FormatHelpers.BuildJobDefinition(mediaInfo.SourcePath, outputPath, settings,
             _trimStartSeconds, _trimEndSeconds, _crop);

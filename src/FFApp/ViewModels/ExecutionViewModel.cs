@@ -23,6 +23,9 @@ public partial class ExecutionViewModel : ObservableObject
     private double? _trimStartSeconds;
     private double? _trimEndSeconds;
     private CropRect? _crop;
+    private string? _outputDirectory;
+    private string? _outputFilename;
+    private bool _hasValidationErrors;
 
     [ObservableProperty]
     private string _stateText = "Ready";
@@ -98,7 +101,23 @@ public partial class ExecutionViewModel : ObservableObject
         _crop = crop;
     }
 
-    private bool CanStartJob() => !IsRunning && _currentMediaInfo is not null && _currentSettings is not null;
+    public void UpdateOutputPath(string? directory, string? filename)
+    {
+        _outputDirectory = directory;
+        _outputFilename = filename;
+    }
+
+    public void UpdateHasValidationErrors(bool hasErrors)
+    {
+        _hasValidationErrors = hasErrors;
+        UpdateCanStart();
+    }
+
+    private bool CanStartJob() =>
+        !IsRunning
+        && _currentMediaInfo is not null
+        && _currentSettings is not null
+        && !_hasValidationErrors;
 
     [RelayCommand(CanExecute = nameof(CanStartJob))]
     private async Task StartJobAsync()
@@ -120,7 +139,8 @@ public partial class ExecutionViewModel : ObservableObject
         }
 
         var outputPath = DefaultCommandBuilder.SuggestOutputPath(
-            _currentMediaInfo.SourcePath, _currentSettings.Container);
+            _currentMediaInfo.SourcePath, _currentSettings.Container,
+            _outputDirectory, _outputFilename);
 
         var job = FormatHelpers.BuildJobDefinition(
             _currentMediaInfo.SourcePath, outputPath, _currentSettings,

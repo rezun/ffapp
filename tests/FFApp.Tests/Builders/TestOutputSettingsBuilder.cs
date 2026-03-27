@@ -87,6 +87,9 @@ public class TestOutputSettingsBuilder
             TargetQuality = new Vp8QualityOptions(TwoPass: twoPass),
         });
 
+    public TestOutputSettingsBuilder WithFrameRate(FrameRatePreset preset) =>
+        Apply(s => s with { FrameRatePreset = preset });
+
     private TestOutputSettingsBuilder Apply(Func<OutputSettings, OutputSettings> transform)
     {
         _settings = transform(_settings);

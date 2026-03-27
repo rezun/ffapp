@@ -21,6 +21,9 @@
         <DataTemplate x:Key="ResolutionTemplate" x:DataType="models:ResolutionPreset">
             <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.Resolution}}" />
         </DataTemplate>
+        <DataTemplate x:Key="FrameRateTemplate" x:DataType="models:FrameRatePreset">
+            <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.FrameRate}}" />
+        </DataTemplate>
     </UserControl.Resources>
 
     <!-- Single column layout: all cards stacked vertically -->
@@ -56,6 +59,14 @@
                             ItemsSource="{Binding AvailableResolutions}"
                             SelectedItem="{Binding SelectedResolution}"
                             ItemTemplate="{StaticResource ResolutionTemplate}" />
+                    </Grid>
+                    <!-- Frame Rate -->
+                    <Grid ColumnDefinitions="85,*">
+                        <TextBlock Text="Frame Rate" VerticalAlignment="Center" />
+                        <ctrl:NoWheelComboBox Grid.Column="1"
+                            ItemsSource="{Binding AvailableFrameRates}"
+                            SelectedItem="{Binding SelectedFrameRate}"
+                            ItemTemplate="{StaticResource FrameRateTemplate}" />
                     </Grid>
                 </StackPanel>
             </DockPanel>

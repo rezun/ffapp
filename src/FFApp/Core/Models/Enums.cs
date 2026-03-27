@@ -55,6 +55,17 @@ public enum ResolutionPreset
     [JsonStringEnumMemberName("4k")] P4K,
 }
 
+[JsonConverter(typeof(JsonStringEnumConverter<FrameRatePreset>))]
+public enum FrameRatePreset
+{
+    [JsonStringEnumMemberName("original")] Original,
+    [JsonStringEnumMemberName("24fps")] Fps24,
+    [JsonStringEnumMemberName("25fps")] Fps25,
+    [JsonStringEnumMemberName("30fps")] Fps30,
+    [JsonStringEnumMemberName("50fps")] Fps50,
+    [JsonStringEnumMemberName("60fps")] Fps60,
+}
+
 [JsonConverter(typeof(JsonStringEnumConverter<JobState>))]
 public enum JobState
 {

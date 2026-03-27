@@ -168,6 +168,7 @@ public static class FormatHelpers
             AudioOptions: settings.AudioOptions,
             StreamHandling: settings.StreamHandling,
             ResolutionPreset: settings.ResolutionPreset,
+            FrameRatePreset: settings.FrameRatePreset,
             TargetFileSize: settings.TargetFileSize,
             TargetBitrate: settings.TargetBitrate,
             TargetQuality: settings.TargetQuality);
@@ -241,6 +242,17 @@ public static class FormatHelpers
         ResolutionPreset.P1080 => "1080p",
         ResolutionPreset.P1440 => "1440p",
         ResolutionPreset.P4K => "4K",
+        _ => preset.ToString()
+    };
+
+    public static string FrameRatePresetLabel(FrameRatePreset preset) => preset switch
+    {
+        FrameRatePreset.Original => "Original",
+        FrameRatePreset.Fps24 => "24 fps",
+        FrameRatePreset.Fps25 => "25 fps",
+        FrameRatePreset.Fps30 => "30 fps",
+        FrameRatePreset.Fps50 => "50 fps",
+        FrameRatePreset.Fps60 => "60 fps",
         _ => preset.ToString()
     };
 

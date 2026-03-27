@@ -12,6 +12,7 @@ public sealed record JobDefinition(
     AudioOptions? AudioOptions = null,
     StreamHandlingOptions? StreamHandling = null,
     ResolutionPreset ResolutionPreset = ResolutionPreset.Original,
+    FrameRatePreset FrameRatePreset = FrameRatePreset.Original,
     TargetFileSizeOptions? TargetFileSize = null,
     TargetBitrateOptions? TargetBitrate = null,
     QualityOptions? TargetQuality = null)

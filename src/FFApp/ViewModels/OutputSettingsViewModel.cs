@@ -21,8 +21,14 @@ public partial class OutputSettingsViewModel : ObservableObject
     [ObservableProperty]
     private ResolutionPreset _selectedResolution = ResolutionPreset.Original;
 
+    [ObservableProperty]
+    private FrameRatePreset _selectedFrameRate = FrameRatePreset.Original;
+
     public IReadOnlyList<ResolutionPreset> AvailableResolutions { get; } =
         Enum.GetValues<ResolutionPreset>();
+
+    public IReadOnlyList<FrameRatePreset> AvailableFrameRates { get; } =
+        Enum.GetValues<FrameRatePreset>();
 
     [ObservableProperty]
     private string _validationText = "";
@@ -36,6 +42,12 @@ public partial class OutputSettingsViewModel : ObservableObject
     }
 
     partial void OnSelectedResolutionChanged(ResolutionPreset value)
+    {
+        if (!_isSuppressing)
+            RebuildAndNotify();
+    }
+
+    partial void OnSelectedFrameRateChanged(FrameRatePreset value)
     {
         if (!_isSuppressing)
             RebuildAndNotify();
@@ -75,6 +87,7 @@ public partial class OutputSettingsViewModel : ObservableObject
             Format.SelectedVideoCodec = settings.VideoCodec;
             Strategy.SelectedStrategy = settings.EncodingStrategy;
             SelectedResolution = settings.ResolutionPreset;
+            SelectedFrameRate = settings.FrameRatePreset;
 
             // Audio
             Audio.SelectedAudioMode = settings.AudioOptions.Mode;
@@ -119,6 +132,7 @@ public partial class OutputSettingsViewModel : ObservableObject
             VideoCodec: codec,
             EncodingStrategy: Strategy.SelectedStrategy,
             ResolutionPreset: SelectedResolution,
+            FrameRatePreset: SelectedFrameRate,
             VideoEncoderOptions: BuildVideoEncoderOptions(codec, quality),
             AudioOptions: new AudioOptions(
                 Mode: Audio.SelectedAudioMode,

@@ -18,6 +18,9 @@ public static class EnumLabelConverters
     public static readonly FuncValueConverter<ResolutionPreset, string> Resolution =
         new(v => FormatHelpers.ResolutionPresetLabel(v));
 
+    public static readonly FuncValueConverter<FrameRatePreset, string> FrameRate =
+        new(v => FormatHelpers.FrameRatePresetLabel(v));
+
     public static readonly FuncValueConverter<AudioCodec?, string> AudioCodecNullable =
         new(v => v is { } c ? FormatHelpers.AudioCodecLabel(c) : "");
 

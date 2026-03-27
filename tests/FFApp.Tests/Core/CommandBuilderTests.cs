@@ -92,7 +92,7 @@ public class CommandBuilderTests
     {
         var args = JoinArgs(_sut.Build(DefaultJob(), DefaultMedia())[0]);
 
-        args.Should().Contain("-c:v libx264 -vf")
+        args.Should().Contain("-c:v libx264 -pix_fmt yuv420p -vf")
             .And.Contain("-crf 23 -preset medium -profile:v high");
     }
 
@@ -809,5 +809,113 @@ public class CommandBuilderTests
         var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
 
         args.Should().Contain("-i /my/video.avi");
+    }
+
+    // ---------------------------------------------------------------
+    // MP4 faststart
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public void Build_Mp4Container_ContainsMovflagsFaststart()
+    {
+        var args = JoinArgs(_sut.Build(DefaultJob(), DefaultMedia())[0]);
+
+        args.Should().Contain("-movflags +faststart");
+    }
+
+    [Fact]
+    public void Build_MkvContainer_DoesNotContainMovflagsFaststart()
+    {
+        var job = JobWith(s => s.WithContainer(OutputContainer.Mkv));
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        args.Should().NotContain("-movflags");
+    }
+
+    [Fact]
+    public void Build_WebmContainer_DoesNotContainMovflagsFaststart()
+    {
+        var job = JobWith(s => s.WithVp9());
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        args.Should().NotContain("-movflags");
+    }
+
+    [Fact]
+    public void Build_Mp4TwoPass_Pass2ContainsMovflagsFaststart()
+    {
+        var job = JobWith(s => s.WithTargetBitrate(3_000_000, twoPass: true));
+        var pass2Args = JoinArgs(_sut.Build(job, DefaultMedia())[1]);
+
+        pass2Args.Should().Contain("-movflags +faststart");
+    }
+
+    // ---------------------------------------------------------------
+    // H.264 pixel format
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public void Build_H264_ContainsPixFmtYuv420p()
+    {
+        var args = JoinArgs(_sut.Build(DefaultJob(), DefaultMedia())[0]);
+
+        args.Should().Contain("-pix_fmt yuv420p");
+    }
+
+    [Fact]
+    public void Build_H265_DoesNotContainPixFmt()
+    {
+        var job = JobWith(s => s.WithH265());
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        args.Should().NotContain("-pix_fmt");
+    }
+
+    [Fact]
+    public void Build_Vp9_DoesNotContainPixFmt()
+    {
+        var job = JobWith(s => s.WithVp9());
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        args.Should().NotContain("-pix_fmt");
+    }
+
+    // ---------------------------------------------------------------
+    // Frame rate
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public void Build_OriginalFrameRate_DoesNotContainRateArg()
+    {
+        var args = JoinArgs(_sut.Build(DefaultJob(), DefaultMedia())[0]);
+
+        args.Should().NotContain("-r ");
+    }
+
+    [Fact]
+    public void Build_Fps30_ContainsRate30()
+    {
+        var job = JobWith(s => s.WithFrameRate(FrameRatePreset.Fps30));
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        args.Should().Contain("-r 30");
+    }
+
+    [Fact]
+    public void Build_Fps24_ContainsRate24()
+    {
+        var job = JobWith(s => s.WithFrameRate(FrameRatePreset.Fps24));
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        args.Should().Contain("-r 24");
+    }
+
+    [Fact]
+    public void Build_Fps60_ContainsRate60()
+    {
+        var job = JobWith(s => s.WithFrameRate(FrameRatePreset.Fps60));
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        args.Should().Contain("-r 60");
     }
 }

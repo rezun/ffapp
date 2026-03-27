@@ -28,6 +28,7 @@ public static class SettingsSerializer
             ["video_codec"] = EnumToString(settings.VideoCodec),
             ["encoding_strategy"] = EnumToString(settings.EncodingStrategy),
             ["resolution_preset"] = EnumToString(settings.ResolutionPreset),
+            ["frame_rate_preset"] = EnumToString(settings.FrameRatePreset),
             ["video_encoder_options"] = SerializeVideoEncoderOptions(settings.VideoEncoderOptions),
             ["audio_options"] = new JsonObject
             {
@@ -64,6 +65,8 @@ public static class SettingsSerializer
             element, "encoding_strategy", EncodingStrategy.TargetQuality);
         var resolutionPreset = ReadEnum<ResolutionPreset>(
             element, "resolution_preset", ResolutionPreset.Original);
+        var frameRatePreset = ReadEnum<FrameRatePreset>(
+            element, "frame_rate_preset", FrameRatePreset.Original);
 
         ValidateContainerCodecs(container, videoCodec);
 
@@ -130,6 +133,7 @@ public static class SettingsSerializer
             VideoCodec: videoCodec,
             EncodingStrategy: encodingStrategy,
             ResolutionPreset: resolutionPreset,
+            FrameRatePreset: frameRatePreset,
             VideoEncoderOptions: videoEncoderOptions,
             AudioOptions: new AudioOptions(
                 Mode: audioMode,

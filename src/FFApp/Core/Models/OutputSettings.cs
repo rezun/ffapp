@@ -26,6 +26,7 @@ public sealed record OutputSettings(
     VideoCodec VideoCodec = VideoCodec.H264,
     EncodingStrategy EncodingStrategy = EncodingStrategy.TargetQuality,
     ResolutionPreset ResolutionPreset = ResolutionPreset.Original,
+    FrameRatePreset FrameRatePreset = FrameRatePreset.Original,
     VideoEncoderOptions? VideoEncoderOptions = null,
     AudioOptions? AudioOptions = null,
     StreamHandlingOptions? StreamHandling = null,

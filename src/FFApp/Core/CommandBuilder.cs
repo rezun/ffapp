@@ -39,7 +39,10 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
             secondPassArgs.AddRange(mappingArgs);
             secondPassArgs.AddRange(streamArgs);
             secondPassArgs.AddRange(BuildVideoCodecArguments(job, mediaInfo, bitrate: bitrate, passIndex: 2));
-            secondPassArgs.AddRange(["-pass", "2", "-passlogfile", passLogPath, job.OutputPath]);
+            secondPassArgs.AddRange(["-pass", "2", "-passlogfile", passLogPath]);
+            if (job.Container == OutputContainer.Mp4)
+                secondPassArgs.AddRange(["-movflags", "+faststart"]);
+            secondPassArgs.Add(job.OutputPath);
 
             return
             [
@@ -52,6 +55,8 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         arguments.AddRange(mappingArgs);
         arguments.AddRange(streamArgs);
         arguments.AddRange(BuildVideoCodecArguments(job, mediaInfo));
+        if (job.Container == OutputContainer.Mp4)
+            arguments.AddRange(["-movflags", "+faststart"]);
         arguments.Add(job.OutputPath);
 
         return [CreateGeneratedCommand(pathsConfig.FfmpegPath, arguments)];
@@ -171,9 +176,15 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
     {
         var arguments = new List<string> { "-c:v", VideoEncoderName(job.VideoCodec) };
 
+        if (job.VideoCodec == VideoCodec.H264)
+            arguments.AddRange(["-pix_fmt", "yuv420p"]);
+
         var scaleFilter = VideoScaleFilter(job, mediaInfo);
         if (scaleFilter is not null)
             arguments.AddRange(["-vf", scaleFilter]);
+
+        if (job.FrameRatePreset != FrameRatePreset.Original)
+            arguments.AddRange(["-r", FrameRateValue(job.FrameRatePreset).ToString()]);
 
         if (job.EncodingStrategy == EncodingStrategy.TargetQuality)
         {
@@ -395,6 +406,16 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
             throw new CommandBuildException("Video bitrate must be positive.");
         return $"{(int)Math.Round(bitRate / 1_000.0)}k";
     }
+
+    private static int FrameRateValue(FrameRatePreset preset) => preset switch
+    {
+        FrameRatePreset.Fps24 => 24,
+        FrameRatePreset.Fps25 => 25,
+        FrameRatePreset.Fps30 => 30,
+        FrameRatePreset.Fps50 => 50,
+        FrameRatePreset.Fps60 => 60,
+        _ => throw new CommandBuildException($"Unsupported frame rate preset: {preset}"),
+    };
 
     private static string ContainerExtension(OutputContainer container) => container switch
     {

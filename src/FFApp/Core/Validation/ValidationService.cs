@@ -138,6 +138,10 @@ public sealed class ValidationService : IValidationService
         SourceMediaInfo mediaInfo,
         ImmutableArray<ValidationIssue>.Builder issues)
     {
+        // MKV accepts essentially any audio codec for copy-through.
+        if (settings.Container == OutputContainer.Mkv)
+            return;
+
         var allowedCodecs = AudioCodecMatrix[settings.Container];
         var containerLabel = settings.Container.ToString().ToUpperInvariant();
 

@@ -85,7 +85,6 @@ public partial class OutputSettingsViewModel : ObservableObject
             // Stream handling
             StreamHandling.RemoveSubtitles = settings.StreamHandling.RemoveSubtitles;
             StreamHandling.RemoveData = settings.StreamHandling.RemoveData;
-            StreamHandling.RemoveAudio = settings.StreamHandling.RemoveAudio;
 
             // File size
             Strategy.FileSize.TargetSizeMb = settings.TargetFileSize.TargetSizeMb;
@@ -128,8 +127,7 @@ public partial class OutputSettingsViewModel : ObservableObject
                 RemixToStereo: Audio.RemixToStereo),
             StreamHandling: new StreamHandlingOptions(
                 RemoveSubtitles: StreamHandling.RemoveSubtitles,
-                RemoveData: StreamHandling.RemoveData,
-                RemoveAudio: StreamHandling.RemoveAudio),
+                RemoveData: StreamHandling.RemoveData),
             TargetFileSize: new TargetFileSizeOptions(
                 TargetSizeMb: (int)Strategy.FileSize.TargetSizeMb,
                 TwoPass: Strategy.FileSize.TwoPass,

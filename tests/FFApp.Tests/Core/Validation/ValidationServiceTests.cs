@@ -825,16 +825,14 @@ public class ValidationServiceTests
         HasIssueWithCode(result, "video_encoder_cpu_used_invalid").Should().BeFalse();
     }
 
-    // ── Edge case: audio remove with RemoveAudio in stream handling ─────
+    // ── Edge case: AudioMode.Remove skips audio copy validation ─────
 
     [Fact]
-    public void Validate_StreamHandlingRemoveAudio_SkipsAudioCopyValidation()
+    public void Validate_AudioModeRemove_SkipsAudioCopyValidation()
     {
-        // RemoveAudio in StreamHandling overrides the audio mode to Remove,
-        // so even with Copy mode set, no audio-copy errors should appear.
+        // AudioMode.Remove means no audio-copy errors should appear.
         var settings = new TestOutputSettingsBuilder()
-            .WithAudioCopy()
-            .WithStreamHandling(new StreamHandlingOptions(RemoveAudio: true))
+            .WithAudioRemove()
             .Build();
         var media = new TestMediaInfoBuilder()
             .WithAudioStreams(new AudioStreamInfo(1, "some_unknown_codec", 128_000))

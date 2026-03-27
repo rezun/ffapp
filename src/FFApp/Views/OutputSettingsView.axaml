@@ -77,8 +77,6 @@
                               IsChecked="{Binding StreamHandling.RemoveSubtitles}" />
                     <CheckBox Content="Remove data streams"
                               IsChecked="{Binding StreamHandling.RemoveData}" />
-                    <CheckBox Content="Remove audio"
-                              IsChecked="{Binding StreamHandling.RemoveAudio}" />
                 </StackPanel>
             </DockPanel>
         </Border>

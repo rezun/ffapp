@@ -550,7 +550,7 @@ public sealed class ValidationService : IValidationService
     // ── Helpers ─────────────────────────────────────────────────────────
 
     private static AudioMode EffectiveAudioMode(OutputSettings settings) =>
-        settings.StreamHandling.RemoveAudio ? AudioMode.Remove : settings.AudioOptions.Mode;
+        settings.AudioOptions.Mode;
 
     private static Resolution? SourceResolution(SourceMediaInfo mediaInfo)
     {

@@ -423,15 +423,13 @@ public class CommandBuilderTests
     }
 
     // ---------------------------------------------------------------
-    // Stream handling: RemoveAudio overrides AudioMode
+    // Audio mode: Remove strips audio streams
     // ---------------------------------------------------------------
 
     [Fact]
-    public void Build_StreamHandlingRemoveAudio_OverridesAudioCopyToRemove()
+    public void Build_AudioModeRemove_MapsOutAudioStreams()
     {
-        var job = JobWith(s => s
-            .WithAudioCopy()
-            .WithStreamHandling(new StreamHandlingOptions(RemoveAudio: true)));
+        var job = JobWith(s => s.WithAudioRemove());
         var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
 
         args.Should().Contain("-map -0:a?");

@@ -156,14 +156,13 @@ public class SettingsSerializerTests
     {
         var original = new TestOutputSettingsBuilder()
             .WithStreamHandling(new StreamHandlingOptions(
-                RemoveSubtitles: true, RemoveData: true, RemoveAudio: true))
+                RemoveSubtitles: true, RemoveData: true))
             .Build();
 
         var result = RoundTrip(original);
 
         result.StreamHandling.RemoveSubtitles.Should().BeTrue();
         result.StreamHandling.RemoveData.Should().BeTrue();
-        result.StreamHandling.RemoveAudio.Should().BeTrue();
     }
 
     [Fact]

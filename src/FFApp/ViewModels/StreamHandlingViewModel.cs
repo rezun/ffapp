@@ -9,7 +9,4 @@ public partial class StreamHandlingViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _removeData;
-
-    [ObservableProperty]
-    private bool _removeAudio;
 }

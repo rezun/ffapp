@@ -352,12 +352,8 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         return resolution;
     }
 
-    private static AudioMode EffectiveAudioMode(JobDefinition job)
-    {
-        if (job.StreamHandling.RemoveAudio)
-            return AudioMode.Remove;
-        return job.AudioOptions.Mode;
-    }
+    private static AudioMode EffectiveAudioMode(JobDefinition job) =>
+        job.AudioOptions.Mode;
 
     private static bool UsesTwoPass(JobDefinition job) => job.EncodingStrategy switch
     {

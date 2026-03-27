@@ -19,8 +19,7 @@ public sealed record AudioOptions(
 
 public sealed record StreamHandlingOptions(
     bool RemoveSubtitles = false,
-    bool RemoveData = false,
-    bool RemoveAudio = false);
+    bool RemoveData = false);
 
 public sealed record OutputSettings(
     OutputContainer Container = OutputContainer.Mp4,

@@ -10,7 +10,5 @@
                   IsChecked="{Binding RemoveSubtitles}" />
         <CheckBox Content="Remove data streams"
                   IsChecked="{Binding RemoveData}" />
-        <CheckBox Content="Remove audio"
-                  IsChecked="{Binding RemoveAudio}" />
     </StackPanel>
 </UserControl>

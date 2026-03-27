@@ -1,0 +1,213 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:FFApp.ViewModels"
+             xmlns:vlc="using:LibVLCSharp.Avalonia"
+             x:Class="FFApp.Views.VideoPreviewView"
+             x:CompileBindings="True"
+             x:DataType="vm:VideoPreviewViewModel">
+
+    <Border Classes="card" Margin="8,8,8,0">
+        <DockPanel>
+            <!-- Header: always visible -->
+            <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto" Margin="8,6,8,4">
+                <TextBlock Text="Preview and Edit"
+                           Classes="card-header" Margin="0"
+                           VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1"
+                           Text="{Binding StatusText}"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           FontSize="12"
+                           VerticalAlignment="Center"
+                           Margin="8,0,0,0" />
+                <Button Grid.Column="2"
+                        Content="{Binding IsExpanded, Converter={x:Static vm:VideoPreviewViewModel.ExpandCollapseConverter}}"
+                        Command="{Binding ToggleExpandedCommand}"
+                        IsVisible="{Binding IsAvailable}"
+                        Padding="8,2"
+                        FontSize="11" />
+            </Grid>
+            <Separator DockPanel.Dock="Top" />
+
+            <!-- VLC not installed message -->
+            <TextBlock IsVisible="{Binding !IsAvailable}"
+                       Text="Install VLC to enable video preview."
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       FontSize="12"
+                       Margin="8,6,8,8" />
+
+            <!-- Expandable content (only when VLC is available) -->
+            <DockPanel IsVisible="{Binding IsExpanded}">
+
+                <!-- Transport controls docked at bottom -->
+                <StackPanel DockPanel.Dock="Bottom" Spacing="0" Margin="8,4,8,6">
+
+                    <!-- Timeline slider -->
+                    <Slider x:Name="TimelineSlider"
+                            Minimum="0" Maximum="1"
+                            Value="{Binding Position}"
+                            SmallChange="0.001"
+                            LargeChange="0.01"
+                            Padding="0"
+                            Margin="0,-4,0,-4" />
+
+                    <!-- Time display row -->
+                    <Grid ColumnDefinitions="*,Auto,*" Margin="0,2,0,0">
+                        <TextBlock Grid.Column="0"
+                                   Text="{Binding TimeDisplay}"
+                                   FontFamily="Cascadia Code,Consolas,Menlo,monospace"
+                                   FontSize="11"
+                                   VerticalAlignment="Center" />
+
+                        <!-- Transport buttons: centered -->
+                        <StackPanel Grid.Column="1"
+                                    Orientation="Horizontal"
+                                    Spacing="4">
+                            <Button Content="&#x25C0;&#xFE0E;"
+                                    ToolTip.Tip="Step back one frame"
+                                    Command="{Binding StepBackwardCommand}"
+                                    Padding="8,3"
+                                    FontSize="11"
+                                    IsEnabled="{Binding HasMedia}" />
+                            <Button Content="{Binding PlayPauseLabel}"
+                                    ToolTip.Tip="Play / Pause"
+                                    Command="{Binding PlayPauseCommand}"
+                                    MinWidth="36"
+                                    Padding="8,3"
+                                    FontSize="11"
+                                    HorizontalContentAlignment="Center"
+                                    IsEnabled="{Binding HasMedia}" />
+                            <Button Content="&#x25B6;&#xFE0E;"
+                                    ToolTip.Tip="Step forward one frame"
+                                    Command="{Binding StepForwardCommand}"
+                                    Padding="8,3"
+                                    FontSize="11"
+                                    IsEnabled="{Binding HasMedia}" />
+                        </StackPanel>
+
+                        <!-- Spacer to balance the grid -->
+                        <Panel Grid.Column="2" />
+                    </Grid>
+
+                    <!-- Trim and Crop side by side -->
+                    <Grid ColumnDefinitions="*,*" Margin="0,6,0,0">
+                        <!-- Trim -->
+                        <Border Grid.Column="0" Classes="nested-card" Margin="0,0,4,0">
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Top" Text="Trim"
+                                           Classes="nested-card-header" />
+                                <Separator DockPanel.Dock="Top" />
+                                <StackPanel Spacing="4" Margin="8,4,8,6">
+                                    <Grid ColumnDefinitions="30,*,Auto" RowDefinitions="Auto,Auto">
+                                        <TextBlock Text="In"
+                                                   VerticalAlignment="Center"
+                                                   FontSize="12" />
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{Binding TrimInDisplay}"
+                                                   FontFamily="Cascadia Code,Consolas,Menlo,monospace"
+                                                   FontSize="12"
+                                                   VerticalAlignment="Center" />
+                                        <Button Grid.Column="2" Content="Set"
+                                                Command="{Binding SetTrimInCommand}"
+                                                IsEnabled="{Binding HasMedia}"
+                                                Padding="8,1"
+                                                FontSize="11" />
+
+                                        <TextBlock Grid.Row="1" Text="Out"
+                                                   VerticalAlignment="Center"
+                                                   FontSize="12"
+                                                   Margin="0,2,0,0" />
+                                        <TextBlock Grid.Row="1" Grid.Column="1"
+                                                   Text="{Binding TrimOutDisplay}"
+                                                   FontFamily="Cascadia Code,Consolas,Menlo,monospace"
+                                                   FontSize="12"
+                                                   VerticalAlignment="Center"
+                                                   Margin="0,2,0,0" />
+                                        <Button Grid.Row="1" Grid.Column="2" Content="Set"
+                                                Command="{Binding SetTrimOutCommand}"
+                                                IsEnabled="{Binding HasMedia}"
+                                                Padding="8,1"
+                                                FontSize="11"
+                                                Margin="0,2,0,0" />
+                                    </Grid>
+                                    <Button Content="Clear"
+                                            Command="{Binding ClearTrimCommand}"
+                                            IsEnabled="{Binding HasMedia}"
+                                            Padding="6,1"
+                                            FontSize="11"
+                                            HorizontalAlignment="Left" />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+
+                        <!-- Crop -->
+                        <Border Grid.Column="1" Classes="nested-card" Margin="4,0,0,0">
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Top" Text="Crop"
+                                           Classes="nested-card-header" />
+                                <Separator DockPanel.Dock="Top" />
+                                <Grid ColumnDefinitions="16,*,8,16,*"
+                                      RowDefinitions="Auto,Auto"
+                                      Margin="8,4,8,6">
+                                    <TextBlock Text="X" VerticalAlignment="Center" FontSize="11" />
+                                    <TextBox Grid.Column="1"
+                                             Text="{Binding CropX}"
+                                             FontSize="11"
+                                             Padding="4,0"
+                                             MinHeight="0"
+                                             Height="24"
+                                             VerticalContentAlignment="Center" />
+                                    <TextBlock Grid.Column="3" Text="Y"
+                                               VerticalAlignment="Center" FontSize="11" />
+                                    <TextBox Grid.Column="4"
+                                             Text="{Binding CropY}"
+                                             FontSize="11"
+                                             Padding="4,0"
+                                             MinHeight="0"
+                                             Height="24"
+                                             VerticalContentAlignment="Center" />
+
+                                    <TextBlock Grid.Row="1" Text="W"
+                                               VerticalAlignment="Center" FontSize="11"
+                                               Margin="0,4,0,0" />
+                                    <TextBox Grid.Row="1" Grid.Column="1"
+                                             Text="{Binding CropW}"
+                                             FontSize="11"
+                                             Padding="4,0"
+                                             MinHeight="0"
+                                             Height="24"
+                                             VerticalContentAlignment="Center"
+                                             Margin="0,4,0,0" />
+                                    <TextBlock Grid.Row="1" Grid.Column="3" Text="H"
+                                               VerticalAlignment="Center" FontSize="11"
+                                               Margin="0,4,0,0" />
+                                    <TextBox Grid.Row="1" Grid.Column="4"
+                                             Text="{Binding CropH}"
+                                             FontSize="11"
+                                             Padding="4,0"
+                                             MinHeight="0"
+                                             Height="24"
+                                             VerticalContentAlignment="Center"
+                                             Margin="0,4,0,0" />
+                                </Grid>
+                                <Button Content="Reset"
+                                        Command="{Binding ResetCropCommand}"
+                                        IsEnabled="{Binding HasMedia}"
+                                        Padding="6,1"
+                                        FontSize="11"
+                                        HorizontalAlignment="Left"
+                                        Margin="8,2,8,4" />
+                            </DockPanel>
+                        </Border>
+                    </Grid>
+                </StackPanel>
+
+                <!-- Video surface: fills remaining space -->
+                <Border Background="Black" MinHeight="120">
+                    <vlc:VideoView x:Name="VideoView"
+                                   HorizontalAlignment="Stretch"
+                                   VerticalAlignment="Stretch" />
+                </Border>
+            </DockPanel>
+        </DockPanel>
+    </Border>
+</UserControl>

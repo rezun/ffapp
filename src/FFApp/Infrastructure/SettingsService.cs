@@ -77,6 +77,7 @@ public sealed class SettingsService(string? path = null) : ISettingsService
             {
                 ["main_splitter_sizes"] = ToJsonArray(settings.SplitterLayout.MainSplitterSizes),
                 ["queue_splitter_sizes"] = ToJsonArray(settings.SplitterLayout.QueueSplitterSizes),
+                ["preview_height"] = settings.SplitterLayout.PreviewHeight,
             },
             ["window_geometry"] = new JsonObject
             {
@@ -116,6 +117,7 @@ public sealed class SettingsService(string? path = null) : ISettingsService
         {
             MainSplitterSizes = ReadIntArray(el, "main_splitter_sizes"),
             QueueSplitterSizes = ReadIntArray(el, "queue_splitter_sizes"),
+            PreviewHeight = ReadOptionalInt(el, "preview_height") ?? 0,
         };
     }
 

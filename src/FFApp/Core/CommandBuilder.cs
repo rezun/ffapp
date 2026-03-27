@@ -18,7 +18,18 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
 
     public IReadOnlyList<GeneratedCommand> Build(JobDefinition job, SourceMediaInfo mediaInfo)
     {
-        string[] inputArgs = ["-hide_banner", "-y", "-i", job.SourcePath];
+        var inputArgs = new List<string> { "-hide_banner", "-y" };
+        var trimStart = job.TrimStartSeconds ?? 0;
+        if (trimStart > 0)
+            inputArgs.AddRange(["-ss", FormatSeconds(trimStart)]);
+        inputArgs.AddRange(["-i", job.SourcePath]);
+        if (job.TrimEndSeconds is > 0 && job.TrimEndSeconds < (mediaInfo.DurationSeconds ?? double.MaxValue))
+        {
+            // -to is relative to the output start (after -ss), so use duration, not absolute time
+            var duration = job.TrimEndSeconds.Value - trimStart;
+            if (duration > 0)
+                inputArgs.AddRange(["-t", FormatSeconds(duration)]);
+        }
         var mappingArgs = BuildMappingArguments(job, mediaInfo);
         var streamArgs = BuildStreamArguments(job, mediaInfo);
 
@@ -179,9 +190,9 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         if (job.VideoCodec == VideoCodec.H264)
             arguments.AddRange(["-pix_fmt", "yuv420p"]);
 
-        var scaleFilter = VideoScaleFilter(job, mediaInfo);
-        if (scaleFilter is not null)
-            arguments.AddRange(["-vf", scaleFilter]);
+        var filterChain = BuildVideoFilterChain(job, mediaInfo);
+        if (filterChain is not null)
+            arguments.AddRange(["-vf", filterChain]);
 
         if (job.FrameRatePreset != FrameRatePreset.Original)
             arguments.AddRange(["-r", FrameRateValue(job.FrameRatePreset).ToString()]);
@@ -338,6 +349,27 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
                 "Audio size estimation failed: missing duration, bitrate, or stream information.");
     }
 
+    private static string? BuildVideoFilterChain(JobDefinition job, SourceMediaInfo mediaInfo)
+    {
+        var filters = new List<string>();
+
+        if (job.Crop is { } crop)
+        {
+            var sourceWidth = mediaInfo.PrimaryVideoStream?.Width ?? 0;
+            var sourceHeight = mediaInfo.PrimaryVideoStream?.Height ?? 0;
+            var isFullFrame = crop.X == 0 && crop.Y == 0
+                              && crop.Width == sourceWidth && crop.Height == sourceHeight;
+            if (!isFullFrame)
+                filters.Add($"crop={crop.Width}:{crop.Height}:{crop.X}:{crop.Y}");
+        }
+
+        var scaleFilter = VideoScaleFilter(job, mediaInfo);
+        if (scaleFilter is not null)
+            filters.Add(scaleFilter);
+
+        return filters.Count > 0 ? string.Join(",", filters) : null;
+    }
+
     private static string? VideoScaleFilter(JobDefinition job, SourceMediaInfo mediaInfo)
     {
         if (job.ResolutionPreset == ResolutionPreset.Original)
@@ -425,4 +457,10 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         OutputContainer.Ogg => ".ogg",
         _ => throw new CommandBuildException($"Unsupported container: {container}"),
     };
+
+    private static string FormatSeconds(double seconds)
+    {
+        var ts = TimeSpan.FromSeconds(seconds);
+        return ts.ToString(@"hh\:mm\:ss\.fff");
+    }
 }

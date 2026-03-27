@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.VisualTree;
@@ -9,15 +9,53 @@ namespace FFApp.Views;
 
 public partial class WorkspaceView : UserControl
 {
+    private const int DefaultPreviewHeight = 350;
+    private int _savedPreviewHeight = DefaultPreviewHeight;
+
+    private WorkspaceViewModel? _previousVm;
+
     public WorkspaceView()
     {
         InitializeComponent();
         Loaded += OnLoaded;
+        DataContextChanged += OnDataContextChanged;
+    }
+
+    private void OnDataContextChanged(object? sender, EventArgs e)
+    {
+        if (_previousVm is not null)
+            _previousVm.VideoPreview.PropertyChanged -= OnVideoPreviewPropertyChanged;
+
+        _previousVm = DataContext as WorkspaceViewModel;
+
+        if (_previousVm is not null)
+            _previousVm.VideoPreview.PropertyChanged += OnVideoPreviewPropertyChanged;
+    }
+
+    private void OnVideoPreviewPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(VideoPreviewViewModel.IsExpanded))
+            return;
+
+        var isExpanded = sender is VideoPreviewViewModel vp && vp.IsExpanded;
+        if (isExpanded)
+        {
+            PreviewSettingsGrid.RowDefinitions[0].Height =
+                new GridLength(_savedPreviewHeight, GridUnitType.Pixel);
+        }
+        else
+        {
+            // Save current height before collapsing
+            var actual = (int)PreviewSettingsGrid.RowDefinitions[0].ActualHeight;
+            if (actual > 0)
+                _savedPreviewHeight = actual;
+
+            PreviewSettingsGrid.RowDefinitions[0].Height = GridLength.Auto;
+        }
     }
 
     private void OnLoaded(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        // Walk up to MainWindow to get settings
         var mainWindow = this.GetVisualAncestors().OfType<MainWindow>().FirstOrDefault();
         if (mainWindow?.DataContext is not MainWindowViewModel vm)
             return;
@@ -31,7 +69,6 @@ public partial class WorkspaceView : UserControl
 
     private void RestoreSplitterLayout(SplitterLayout layout)
     {
-        // 3-column layout: columns 0 (Source), 2 (Settings), 4 (Jobs)
         if (layout.MainSplitterSizes is { Length: 3 } mainSizes)
         {
             var total = mainSizes[0] + mainSizes[1] + mainSizes[2];
@@ -42,6 +79,9 @@ public partial class WorkspaceView : UserControl
                 MainGrid.ColumnDefinitions[4].Width = new GridLength(mainSizes[2], GridUnitType.Star);
             }
         }
+
+        if (layout.PreviewHeight > 0)
+            _savedPreviewHeight = layout.PreviewHeight;
     }
 
     public SplitterLayout GetSplitterLayout()
@@ -50,9 +90,15 @@ public partial class WorkspaceView : UserControl
         var col2 = (int)MainGrid.ColumnDefinitions[2].ActualWidth;
         var col4 = (int)MainGrid.ColumnDefinitions[4].ActualWidth;
 
+        // If currently expanded, read the live height; otherwise use the saved value
+        var previewHeight = PreviewSettingsGrid.RowDefinitions[0].Height.GridUnitType == GridUnitType.Pixel
+            ? (int)PreviewSettingsGrid.RowDefinitions[0].ActualHeight
+            : _savedPreviewHeight;
+
         return new SplitterLayout
         {
             MainSplitterSizes = [col0, col2, col4],
+            PreviewHeight = previewHeight,
         };
     }
 }

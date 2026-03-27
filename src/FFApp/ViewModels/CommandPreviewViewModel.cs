@@ -16,6 +16,9 @@ public partial class CommandPreviewViewModel : ObservableObject
     private OutputSettings? _currentSettings;
     private SourceMediaInfo? _currentMediaInfo;
     private string _ffmpegPath = "ffmpeg";
+    private double? _trimStartSeconds;
+    private double? _trimEndSeconds;
+    private CropRect? _crop;
 
     [ObservableProperty]
     private string _commandText = "";
@@ -105,11 +108,25 @@ public partial class CommandPreviewViewModel : ObservableObject
         UpdatePreview(_currentSettings, _currentMediaInfo, _commandBuilder, _ffmpegPath);
     }
 
-    private static JobDefinition CreateJobDefinition(OutputSettings settings, SourceMediaInfo mediaInfo)
+    public void UpdateTrim(double? trimStartSeconds, double? trimEndSeconds)
+    {
+        _trimStartSeconds = trimStartSeconds;
+        _trimEndSeconds = trimEndSeconds;
+        Refresh();
+    }
+
+    public void UpdateCrop(CropRect? crop)
+    {
+        _crop = crop;
+        Refresh();
+    }
+
+    private JobDefinition CreateJobDefinition(OutputSettings settings, SourceMediaInfo mediaInfo)
     {
         var outputPath = DefaultCommandBuilder.SuggestOutputPath(
             mediaInfo.SourcePath, settings.Container);
 
-        return FormatHelpers.BuildJobDefinition(mediaInfo.SourcePath, outputPath, settings);
+        return FormatHelpers.BuildJobDefinition(mediaInfo.SourcePath, outputPath, settings,
+            _trimStartSeconds, _trimEndSeconds, _crop);
     }
 }

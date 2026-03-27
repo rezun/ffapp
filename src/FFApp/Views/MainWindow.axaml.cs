@@ -160,6 +160,10 @@ public partial class MainWindow : Window
         vm.LoadedSettings = settings;
         await vm.SettingsService.SaveAsync(settings);
 
+        // Dispose video preview player
+        if (vm.CurrentView is WorkspaceViewModel workspace)
+            workspace.VideoPreview.Dispose();
+
         _closingSaved = true;
         Close();
     }

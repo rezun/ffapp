@@ -157,7 +157,10 @@ public static class FormatHelpers
         return string.Join('\n', lines);
     }
 
-    public static JobDefinition BuildJobDefinition(string sourcePath, string outputPath, OutputSettings settings) =>
+    public static JobDefinition BuildJobDefinition(
+        string sourcePath, string outputPath, OutputSettings settings,
+        double? trimStartSeconds = null, double? trimEndSeconds = null,
+        CropRect? crop = null) =>
         new(
             SourcePath: sourcePath,
             OutputPath: outputPath,
@@ -171,7 +174,10 @@ public static class FormatHelpers
             FrameRatePreset: settings.FrameRatePreset,
             TargetFileSize: settings.TargetFileSize,
             TargetBitrate: settings.TargetBitrate,
-            TargetQuality: settings.TargetQuality);
+            TargetQuality: settings.TargetQuality,
+            TrimStartSeconds: trimStartSeconds,
+            TrimEndSeconds: trimEndSeconds,
+            Crop: crop);
 
     public static string SuggestQueueOutputPath(string sourcePath, OutputContainer container, HashSet<string> reservedOutputs)
     {

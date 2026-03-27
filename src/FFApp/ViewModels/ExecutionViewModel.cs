@@ -20,6 +20,9 @@ public partial class ExecutionViewModel : ObservableObject
     private OutputSettings? _currentSettings;
     private SourceMediaInfo? _currentMediaInfo;
     private string _ffmpegPath = "ffmpeg";
+    private double? _trimStartSeconds;
+    private double? _trimEndSeconds;
+    private CropRect? _crop;
 
     [ObservableProperty]
     private string _stateText = "Ready";
@@ -84,6 +87,17 @@ public partial class ExecutionViewModel : ObservableObject
         UpdateCanStart();
     }
 
+    public void UpdateTrim(double? trimStartSeconds, double? trimEndSeconds)
+    {
+        _trimStartSeconds = trimStartSeconds;
+        _trimEndSeconds = trimEndSeconds;
+    }
+
+    public void UpdateCrop(CropRect? crop)
+    {
+        _crop = crop;
+    }
+
     private bool CanStartJob() => !IsRunning && _currentMediaInfo is not null && _currentSettings is not null;
 
     [RelayCommand(CanExecute = nameof(CanStartJob))]
@@ -109,7 +123,8 @@ public partial class ExecutionViewModel : ObservableObject
             _currentMediaInfo.SourcePath, _currentSettings.Container);
 
         var job = FormatHelpers.BuildJobDefinition(
-            _currentMediaInfo.SourcePath, outputPath, _currentSettings);
+            _currentMediaInfo.SourcePath, outputPath, _currentSettings,
+            _trimStartSeconds, _trimEndSeconds, _crop);
 
         OutputPath = outputPath;
         IsRunning = true;

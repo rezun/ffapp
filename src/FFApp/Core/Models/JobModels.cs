@@ -15,11 +15,16 @@ public sealed record JobDefinition(
     FrameRatePreset FrameRatePreset = FrameRatePreset.Original,
     TargetFileSizeOptions? TargetFileSize = null,
     TargetBitrateOptions? TargetBitrate = null,
-    QualityOptions? TargetQuality = null)
+    QualityOptions? TargetQuality = null,
+    double? TrimStartSeconds = null,
+    double? TrimEndSeconds = null,
+    CropRect? Crop = null)
 {
     public AudioOptions AudioOptions { get; init; } = AudioOptions ?? new AudioOptions();
     public StreamHandlingOptions StreamHandling { get; init; } = StreamHandling ?? new StreamHandlingOptions();
 }
+
+public sealed record CropRect(int X, int Y, int Width, int Height);
 
 public sealed record GeneratedCommand(
     string ExecutablePath,

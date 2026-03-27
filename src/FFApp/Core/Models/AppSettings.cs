@@ -31,6 +31,7 @@ public sealed record SplitterLayout
 {
     public ImmutableArray<int> MainSplitterSizes { get; init; } = [];
     public ImmutableArray<int> QueueSplitterSizes { get; init; } = [];
+    public int PreviewHeight { get; init; }
 }
 
 public sealed record WindowGeometry(

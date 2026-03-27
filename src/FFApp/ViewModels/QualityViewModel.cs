@@ -25,6 +25,12 @@ public partial class QualityViewModel : ObservableObject
     private int _vpxCpuUsed = 2;
 
     [ObservableProperty]
+    private int _vpxTileColumns;
+
+    [ObservableProperty]
+    private int _vpxTileRows;
+
+    [ObservableProperty]
     private bool _isH26xCodec = true;
 
     public IReadOnlyList<string> AvailablePresets { get; private set; } =
@@ -63,12 +69,16 @@ public partial class QualityViewModel : ObservableObject
                 IsH26xCodec = false;
                 VpxQuality = 31;
                 VpxCpuUsed = 4;
+                VpxTileColumns = 0;
+                VpxTileRows = 0;
                 break;
 
             case VideoCodec.Vp9:
                 IsH26xCodec = false;
                 VpxQuality = 32;
                 VpxCpuUsed = 2;
+                VpxTileColumns = 0;
+                VpxTileRows = 0;
                 break;
         }
     }

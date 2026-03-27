@@ -39,9 +39,9 @@
             <Setter Property="MinHeight" Value="22" />
         </Style>
         <Style Selector="Slider">
-            <Setter Property="MinHeight" Value="26" />
+            <Setter Property="MinHeight" Value="20" />
             <Setter Property="Padding" Value="0" />
-            <Setter Property="Margin" Value="0,-6" />
+            <Setter Property="Margin" Value="0,-10" />
         </Style>
         <Style Selector="NumericUpDown">
             <Setter Property="MinHeight" Value="26" />

@@ -291,6 +291,22 @@ public sealed class ValidationService : IValidationService
                         "VP8/VP9 CPU used must be between 0 and 8.",
                         "video_encoder"));
                 }
+                if (vpx.TileColumns < VpxTileColumnsMin || vpx.TileColumns > VpxTileColumnsMax)
+                {
+                    issues.Add(new ValidationIssue(
+                        ValidationSeverity.Error,
+                        "video_encoder_tile_columns_invalid",
+                        $"VP8/VP9 tile columns must be between {VpxTileColumnsMin} and {VpxTileColumnsMax}.",
+                        "video_encoder"));
+                }
+                if (vpx.TileRows < VpxTileRowsMin || vpx.TileRows > VpxTileRowsMax)
+                {
+                    issues.Add(new ValidationIssue(
+                        ValidationSeverity.Error,
+                        "video_encoder_tile_rows_invalid",
+                        $"VP8/VP9 tile rows must be between {VpxTileRowsMin} and {VpxTileRowsMax}.",
+                        "video_encoder"));
+                }
                 break;
             }
         }

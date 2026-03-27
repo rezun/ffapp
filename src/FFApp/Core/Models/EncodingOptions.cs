@@ -14,7 +14,9 @@ public sealed record H265EncoderOptions(
 
 public sealed record VpxEncoderOptions(
     VideoCodec Codec,
-    int CpuUsed = 2) : VideoEncoderOptions(Codec);
+    int CpuUsed = 2,
+    int TileColumns = 0,
+    int TileRows = 0) : VideoEncoderOptions(Codec);
 
 // --- Quality Options (discriminated union via abstract record) ---
 

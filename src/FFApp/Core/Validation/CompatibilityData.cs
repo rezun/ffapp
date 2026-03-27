@@ -17,6 +17,10 @@ public static class CompatibilityData
 
     public const int VpxSpeedMin = 0;
     public const int VpxSpeedMax = 8;
+    public const int VpxTileColumnsMin = 0;
+    public const int VpxTileColumnsMax = 6;
+    public const int VpxTileRowsMin = 0;
+    public const int VpxTileRowsMax = 2;
 
     public static readonly FrozenDictionary<OutputContainer, IReadOnlyList<VideoCodec>> VideoCodecMatrix =
         new Dictionary<OutputContainer, IReadOnlyList<VideoCodec>>

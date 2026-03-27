@@ -193,7 +193,9 @@ public partial class OutputSettingsViewModel : ObservableObject
                 Profile: quality.H26xProfile),
             VideoCodec.Vp8 or VideoCodec.Vp9 => new VpxEncoderOptions(
                 Codec: codec,
-                CpuUsed: quality.VpxCpuUsed),
+                CpuUsed: quality.VpxCpuUsed,
+                TileColumns: quality.VpxTileColumns,
+                TileRows: quality.VpxTileRows),
             _ => new H264EncoderOptions(),
         };
 
@@ -258,6 +260,8 @@ public partial class OutputSettingsViewModel : ObservableObject
                 break;
             case VpxEncoderOptions vpx:
                 Strategy.Quality.VpxCpuUsed = vpx.CpuUsed;
+                Strategy.Quality.VpxTileColumns = vpx.TileColumns;
+                Strategy.Quality.VpxTileRows = vpx.TileRows;
                 break;
         }
     }

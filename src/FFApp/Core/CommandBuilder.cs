@@ -271,6 +271,11 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
 
         var arguments = new List<string> { "-deadline", "good", "-cpu-used", cpuUsed.ToString() };
 
+        if (encoder.TileColumns > 0)
+            arguments.AddRange(["-tile-columns", encoder.TileColumns.ToString()]);
+        if (encoder.TileRows > 0)
+            arguments.AddRange(["-tile-rows", encoder.TileRows.ToString()]);
+
         if (job.VideoCodec == VideoCodec.Vp9)
             arguments.AddRange(["-row-mt", "1"]);
         if (UsesTwoPass(job) && passIndex == 2)

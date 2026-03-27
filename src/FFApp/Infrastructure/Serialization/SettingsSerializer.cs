@@ -199,6 +199,8 @@ public static class SettingsSerializer
             {
                 ["codec"] = EnumToString(vpx.Codec),
                 ["cpu_used"] = vpx.CpuUsed,
+                ["tile_columns"] = vpx.TileColumns,
+                ["tile_rows"] = vpx.TileRows,
             },
             H264EncoderOptions h264 => new JsonObject
             {
@@ -282,7 +284,13 @@ public static class SettingsSerializer
             EncoderDefaults.DefaultVpxCpuUsed(videoCodec));
         if (cpuUsed < CompatibilityData.VpxSpeedMin || cpuUsed > CompatibilityData.VpxSpeedMax)
             throw new SettingsDecodeException("Invalid VP8/VP9 CPU used setting.");
-        return new VpxEncoderOptions(videoCodec, CpuUsed: cpuUsed);
+        var tileColumns = ReadInt(element, "tile_columns", 0);
+        if (tileColumns < CompatibilityData.VpxTileColumnsMin || tileColumns > CompatibilityData.VpxTileColumnsMax)
+            throw new SettingsDecodeException("Invalid VP8/VP9 tile columns setting.");
+        var tileRows = ReadInt(element, "tile_rows", 0);
+        if (tileRows < CompatibilityData.VpxTileRowsMin || tileRows > CompatibilityData.VpxTileRowsMax)
+            throw new SettingsDecodeException("Invalid VP8/VP9 tile rows setting.");
+        return new VpxEncoderOptions(videoCodec, CpuUsed: cpuUsed, TileColumns: tileColumns, TileRows: tileRows);
     }
 
     private static QualityOptions DeserializeQualityOptions(

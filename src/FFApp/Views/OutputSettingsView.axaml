@@ -156,6 +156,30 @@
                                         <Run Text="{Binding Strategy.Quality.VpxCpuUsed}" />
                                     </TextBlock>
                                 </Grid>
+                                <Grid ColumnDefinitions="80,*,Auto">
+                                    <TextBlock Text="Tile Cols" VerticalAlignment="Center" />
+                                    <Slider Grid.Column="1"
+                                            Value="{Binding Strategy.Quality.VpxTileColumns}"
+                                            Minimum="0" Maximum="6"
+                                            TickFrequency="1" IsSnapToTickEnabled="True"
+                                            VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="2" VerticalAlignment="Center"
+                                               MinWidth="20" TextAlignment="Right" Margin="8,0,0,0">
+                                        <Run Text="{Binding Strategy.Quality.VpxTileColumns}" />
+                                    </TextBlock>
+                                </Grid>
+                                <Grid ColumnDefinitions="80,*,Auto">
+                                    <TextBlock Text="Tile Rows" VerticalAlignment="Center" />
+                                    <Slider Grid.Column="1"
+                                            Value="{Binding Strategy.Quality.VpxTileRows}"
+                                            Minimum="0" Maximum="2"
+                                            TickFrequency="1" IsSnapToTickEnabled="True"
+                                            VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="2" VerticalAlignment="Center"
+                                               MinWidth="20" TextAlignment="Right" Margin="8,0,0,0">
+                                        <Run Text="{Binding Strategy.Quality.VpxTileRows}" />
+                                    </TextBlock>
+                                </Grid>
                             </StackPanel>
                         </DockPanel>
                     </Border>

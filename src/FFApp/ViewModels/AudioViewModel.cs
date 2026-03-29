@@ -29,7 +29,16 @@ public partial class AudioViewModel : ObservableObject
 
     public bool IsCustomBitrate => SelectedBitrateOption == -1;
 
-    /// <summary>Effective bitrate in bps for the model layer.</summary>
+    public string CustomBitrateText
+    {
+        get => CustomBitrateKbps.ToString();
+        set
+        {
+            if (int.TryParse(value, out var kbps) && kbps > 0)
+                CustomBitrateKbps = kbps;
+        }
+    }
+
     public int AudioBitrate
     {
         get => IsCustomBitrate ? CustomBitrateKbps * 1000 : SelectedBitrateOption * 1000;
@@ -57,7 +66,10 @@ public partial class AudioViewModel : ObservableObject
     partial void OnCustomBitrateKbpsChanged(int value)
     {
         if (IsCustomBitrate)
+        {
             OnPropertyChanged(nameof(AudioBitrate));
+            OnPropertyChanged(nameof(CustomBitrateText));
+        }
     }
 
     public bool IsReencodeMode => SelectedAudioMode == AudioMode.Reencode;

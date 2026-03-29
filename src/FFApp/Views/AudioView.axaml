@@ -35,10 +35,10 @@
 
         <!-- Re-encode controls (visible only in Reencode mode) -->
         <StackPanel Spacing="4" IsVisible="{Binding IsReencodeMode}">
-            <!-- Audio Codec -->
-            <Grid ColumnDefinitions="85,*">
+            <Grid ColumnDefinitions="85,Auto,16,55,*">
                 <TextBlock Text="Audio Codec" VerticalAlignment="Center" />
                 <ctrl:NoWheelComboBox Grid.Column="1"
+                    Width="96"
                     ItemsSource="{Binding AvailableAudioCodecs}"
                     SelectedItem="{Binding SelectedAudioCodec}">
                     <ctrl:NoWheelComboBox.ItemTemplate>
@@ -47,27 +47,28 @@
                         </DataTemplate>
                     </ctrl:NoWheelComboBox.ItemTemplate>
                 </ctrl:NoWheelComboBox>
-            </Grid>
-
-            <!-- Audio Bitrate -->
-            <Grid ColumnDefinitions="85,2*,*">
-                <TextBlock Text="Bitrate" VerticalAlignment="Center" />
-                <ctrl:NoWheelComboBox Grid.Column="1"
-                    ItemsSource="{Binding AvailableBitrateOptions}"
-                    SelectedItem="{Binding SelectedBitrateOption}"
-                    Margin="0,0,4,0">
-                    <ctrl:NoWheelComboBox.ItemTemplate>
-                        <DataTemplate x:DataType="x:Int32">
-                            <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.AudioBitrateOption}}" />
-                        </DataTemplate>
-                    </ctrl:NoWheelComboBox.ItemTemplate>
-                </ctrl:NoWheelComboBox>
-                <ctrl:NoWheelNumericUpDown Grid.Column="2"
-                    Value="{Binding CustomBitrateKbps}"
-                    Minimum="8" Maximum="1536"
-                    Increment="16" FormatString="N0"
-                    IsVisible="{Binding IsCustomBitrate}"
-                    Watermark="kbps" />
+                <TextBlock Grid.Column="3" Text="Bitrate" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="4"
+                            Orientation="Horizontal"
+                            Spacing="6"
+                            HorizontalAlignment="Left">
+                    <ctrl:NoWheelComboBox
+                        Width="92"
+                        ItemsSource="{Binding AvailableBitrateOptions}"
+                        SelectedItem="{Binding SelectedBitrateOption}">
+                        <ctrl:NoWheelComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="x:Int32">
+                                <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.AudioBitrateOption}}" />
+                            </DataTemplate>
+                        </ctrl:NoWheelComboBox.ItemTemplate>
+                    </ctrl:NoWheelComboBox>
+                    <ctrl:NumericTextBox x:Name="CustomBitrateBox"
+                                         Classes="numeric-input"
+                                         Text="{Binding CustomBitrateText}"
+                                         Watermark="kbps"
+                                         Width="50"
+                                         IsVisible="{Binding IsCustomBitrate}" />
+                </StackPanel>
             </Grid>
 
             <!-- Remix to stereo -->

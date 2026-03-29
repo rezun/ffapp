@@ -1,5 +1,6 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="using:FFApp.Controls"
              xmlns:vm="using:FFApp.ViewModels"
              xmlns:views="using:FFApp.Views"
              x:Class="FFApp.App"
@@ -27,6 +28,16 @@
         <Style Selector="ComboBox">
             <Setter Property="MinHeight" Value="26" />
             <Setter Property="FontSize" Value="12" />
+        </Style>
+        <Style Selector="TextBox">
+            <Setter Property="MinHeight" Value="26" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+        <Style Selector="TextBox.numeric-input">
+            <Setter Property="Height" Value="26" />
+            <Setter Property="MinHeight" Value="26" />
+            <Setter Property="Padding" Value="6,0" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
         <Style Selector="CheckBox">
             <Setter Property="FontSize" Value="12" />

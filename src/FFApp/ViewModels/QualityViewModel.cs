@@ -39,6 +39,10 @@ public partial class QualityViewModel : ObservableObject
     public IReadOnlyList<string> AvailableProfiles { get; private set; } =
         CompatibilityData.H264ProfileOptions;
 
+    public IReadOnlyList<int> AvailableTileColumns { get; } = [0, 1, 2, 3, 4, 5, 6];
+
+    public IReadOnlyList<int> AvailableTileRows { get; } = [0, 1, 2];
+
     public void UpdateForCodec(VideoCodec codec)
     {
         switch (codec)

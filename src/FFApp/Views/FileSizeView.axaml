@@ -6,19 +6,16 @@
              x:CompileBindings="True"
              x:DataType="vm:FileSizeViewModel">
 
-    <StackPanel Spacing="4">
-        <!-- Target Size -->
-        <Grid ColumnDefinitions="85,*">
-            <TextBlock Text="Target (MB)" VerticalAlignment="Center" />
-            <ctrl:NoWheelNumericUpDown Grid.Column="1"
-                Value="{Binding TargetSizeMb}"
-                Minimum="1" Maximum="10000"
-                Increment="1" FormatString="N0" />
-        </Grid>
-
-        <!-- Two-pass -->
-        <CheckBox Content="Use 2-pass encode"
+    <Grid ColumnDefinitions="85,Auto,*">
+        <TextBlock Text="Target (MB)" VerticalAlignment="Center" />
+        <ctrl:NumericTextBox Grid.Column="1"
+            Classes="numeric-input"
+            Text="{Binding TargetSizeMbText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+            Width="120"
+            Margin="0,0,12,0" />
+        <CheckBox Grid.Column="2"
+                  Content="Use 2-pass encode"
                   IsChecked="{Binding TwoPass}"
-                  Margin="85,0,0,0" />
-    </StackPanel>
+                  VerticalAlignment="Center" />
+    </Grid>
 </UserControl>

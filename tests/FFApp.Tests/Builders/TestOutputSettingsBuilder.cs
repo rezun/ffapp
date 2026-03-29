@@ -26,11 +26,15 @@ public class TestOutputSettingsBuilder
     public TestOutputSettingsBuilder WithQuality(QualityOptions quality) =>
         Apply(s => s with { EncodingStrategy = EncodingStrategy.TargetQuality, TargetQuality = quality });
 
-    public TestOutputSettingsBuilder WithTargetFileSize(int sizeMb, bool twoPass = false, double overhead = 0.015) =>
+    public TestOutputSettingsBuilder WithTargetFileSize(
+        int sizeMb,
+        bool twoPass = false,
+        double overhead = FileSizeDefaults.MuxingOverheadRatio,
+        int absoluteOverheadBytes = FileSizeDefaults.AbsoluteOverheadBytes) =>
         Apply(s => s with
         {
             EncodingStrategy = EncodingStrategy.TargetFileSize,
-            TargetFileSize = new TargetFileSizeOptions(sizeMb, twoPass, overhead),
+            TargetFileSize = new TargetFileSizeOptions(sizeMb, twoPass, overhead, absoluteOverheadBytes),
         });
 
     public TestOutputSettingsBuilder WithTargetBitrate(int bitrate, bool twoPass = false) =>

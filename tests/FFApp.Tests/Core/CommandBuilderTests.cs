@@ -315,17 +315,36 @@ public class CommandBuilderTests
     public void Build_TargetFileSize_CalculatesBitrateFromSizeAndDuration()
     {
         // 50 MB target, 60s duration, 128kbps audio copy (128000 bps),
-        // overhead 0.015
+        // overhead 3% (percentage wins over 512KiB absolute at this size)
         // totalBits = 50 * 1024 * 1024 * 8 = 419430400
-        // usable = 419430400 * 0.985 = 413139044
+        // overheadBits = max(524288*8, 419430400*0.03) = max(4194304, 12582912) = 12582912
+        // usable = 419430400 - 12582912 = 406847488
         // audioBits = 128000 * 60 = 7680000
-        // videoBudget = 413139044 - 7680000 = 405459044
-        // bitrate = 405459044 / 60 = 6757650
-        // formatted: 6758k
+        // videoBudget = 406847488 - 7680000 = 399167488
+        // bitrate = 399167488 / 60 = 6652791
+        // formatted: 6653k
         var job = JobWith(s => s.WithTargetFileSize(50));
         var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
 
-        args.Should().Contain("-b:v 6758k");
+        args.Should().Contain("-b:v 6653k");
+    }
+
+    [Fact]
+    public void Build_TargetFileSize_SmallTarget_UsesAbsoluteOverheadFloor()
+    {
+        // 10 MB target, 60s duration, 128kbps audio copy (128000 bps),
+        // 512KiB absolute floor wins over 3% (3% of 10MB = 2516582 < 4194304)
+        // totalBits = 10 * 1024 * 1024 * 8 = 83886080
+        // overheadBits = max(524288*8, 83886080*0.03) = max(4194304, 2516582) = 4194304
+        // usable = 83886080 - 4194304 = 79691776
+        // audioBits = 128000 * 60 = 7680000
+        // videoBudget = 79691776 - 7680000 = 72011776
+        // bitrate = 72011776 / 60 = 1200196
+        // formatted: 1200k
+        var job = JobWith(s => s.WithTargetFileSize(10));
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        args.Should().Contain("-b:v 1200k");
     }
 
     [Fact]

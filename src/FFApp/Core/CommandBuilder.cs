@@ -330,7 +330,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
 
             var estimatedAudioBits = EstimateAudioBits(job, mediaInfo);
             var totalBudgetBits = (long)job.TargetFileSize.TargetSizeMb * 1024 * 1024 * 8;
-            var usableBudgetBits = (long)(totalBudgetBits * (1 - job.TargetFileSize.MuxingOverheadRatio));
+            var usableBudgetBits = totalBudgetBits - job.TargetFileSize.EffectiveOverheadBits(totalBudgetBits);
             var videoBudgetBits = usableBudgetBits - estimatedAudioBits;
 
             if (videoBudgetBits <= 0)

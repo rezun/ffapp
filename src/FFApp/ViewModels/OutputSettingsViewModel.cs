@@ -108,6 +108,7 @@ public partial class OutputSettingsViewModel : ObservableObject
             Strategy.FileSize.TargetSizeMb = settings.TargetFileSize.TargetSizeMb;
             Strategy.FileSize.TwoPass = settings.TargetFileSize.TwoPass;
             Strategy.FileSize.MuxingOverheadRatio = settings.TargetFileSize.MuxingOverheadRatio;
+            Strategy.FileSize.AbsoluteOverheadBytes = settings.TargetFileSize.AbsoluteOverheadBytes;
 
             // Bitrate
             Strategy.Bitrate.VideoBitrateKbps = settings.TargetBitrate.VideoBitrate / 1000;
@@ -150,7 +151,8 @@ public partial class OutputSettingsViewModel : ObservableObject
             TargetFileSize: new TargetFileSizeOptions(
                 TargetSizeMb: (int)Strategy.FileSize.TargetSizeMb,
                 TwoPass: Strategy.FileSize.TwoPass,
-                MuxingOverheadRatio: Strategy.FileSize.MuxingOverheadRatio),
+                MuxingOverheadRatio: Strategy.FileSize.MuxingOverheadRatio,
+                AbsoluteOverheadBytes: Strategy.FileSize.AbsoluteOverheadBytes),
             TargetBitrate: new TargetBitrateOptions(
                 VideoBitrate: (int)Strategy.Bitrate.VideoBitrateKbps * 1000,
                 TwoPass: Strategy.Bitrate.TwoPass),

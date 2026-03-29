@@ -7,7 +7,7 @@
              x:DataType="vm:FileSizeViewModel">
 
     <Grid ColumnDefinitions="85,Auto,*">
-        <TextBlock Text="Target (MB)" VerticalAlignment="Center" />
+        <TextBlock Text="Target (MiB)" VerticalAlignment="Center" />
         <ctrl:NumericTextBox Grid.Column="1"
             Classes="numeric-input"
             Text="{Binding TargetSizeMbText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"

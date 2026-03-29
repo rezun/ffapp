@@ -47,6 +47,7 @@ public static class SettingsSerializer
                 ["target_size_mb"] = settings.TargetFileSize.TargetSizeMb,
                 ["two_pass"] = settings.TargetFileSize.TwoPass,
                 ["muxing_overhead_ratio"] = settings.TargetFileSize.MuxingOverheadRatio,
+                ["absolute_overhead_bytes"] = settings.TargetFileSize.AbsoluteOverheadBytes,
             },
             ["target_bitrate"] = new JsonObject
             {
@@ -96,9 +97,10 @@ public static class SettingsSerializer
         // Target file size
         var fileSizeEl = GetObjectOrEmpty(element, "target_file_size");
         var targetFileSize = new TargetFileSizeOptions(
-            TargetSizeMb: ReadInt(fileSizeEl, "target_size_mb", 50),
+            TargetSizeMb: ReadInt(fileSizeEl, "target_size_mb", FileSizeDefaults.TargetSizeMb),
             TwoPass: ReadBool(fileSizeEl, "two_pass"),
-            MuxingOverheadRatio: ReadDouble(fileSizeEl, "muxing_overhead_ratio", 0.015));
+            MuxingOverheadRatio: ReadDouble(fileSizeEl, "muxing_overhead_ratio", FileSizeDefaults.MuxingOverheadRatio),
+            AbsoluteOverheadBytes: ReadInt(fileSizeEl, "absolute_overhead_bytes", FileSizeDefaults.AbsoluteOverheadBytes));
 
         // Target bitrate
         var bitrateEl = GetObjectOrEmpty(element, "target_bitrate");

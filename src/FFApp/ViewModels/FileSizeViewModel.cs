@@ -1,18 +1,22 @@
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
+using FFApp.Core.Models;
 
 namespace FFApp.ViewModels;
 
 public partial class FileSizeViewModel : ObservableObject
 {
     [ObservableProperty]
-    private decimal _targetSizeMb = 50;
+    private decimal _targetSizeMb = FileSizeDefaults.TargetSizeMb;
 
     [ObservableProperty]
     private bool _twoPass;
 
     [ObservableProperty]
-    private double _muxingOverheadRatio = 0.015;
+    private double _muxingOverheadRatio = FileSizeDefaults.MuxingOverheadRatio;
+
+    [ObservableProperty]
+    private int _absoluteOverheadBytes = FileSizeDefaults.AbsoluteOverheadBytes;
 
     public string TargetSizeMbText
     {

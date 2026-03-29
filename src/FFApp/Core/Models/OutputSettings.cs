@@ -2,10 +2,22 @@ namespace FFApp.Core.Models;
 
 public sealed record Resolution(int Width, int Height);
 
+public static class FileSizeDefaults
+{
+    public const double MuxingOverheadRatio = 0.03;
+    public const int AbsoluteOverheadBytes = 524_288;
+    public const int TargetSizeMb = 50;
+}
+
 public sealed record TargetFileSizeOptions(
-    int TargetSizeMb,
+    int TargetSizeMb = FileSizeDefaults.TargetSizeMb,
     bool TwoPass = false,
-    double MuxingOverheadRatio = 0.015);
+    double MuxingOverheadRatio = FileSizeDefaults.MuxingOverheadRatio,
+    int AbsoluteOverheadBytes = FileSizeDefaults.AbsoluteOverheadBytes)
+{
+    public long EffectiveOverheadBits(long totalBudgetBits) =>
+        Math.Max((long)AbsoluteOverheadBytes * 8, (long)(totalBudgetBits * MuxingOverheadRatio));
+}
 
 public sealed record TargetBitrateOptions(
     int VideoBitrate,
@@ -36,7 +48,7 @@ public sealed record OutputSettings(
 {
     public AudioOptions AudioOptions { get; init; } = AudioOptions ?? new AudioOptions();
     public StreamHandlingOptions StreamHandling { get; init; } = StreamHandling ?? new StreamHandlingOptions();
-    public TargetFileSizeOptions TargetFileSize { get; init; } = TargetFileSize ?? new TargetFileSizeOptions(50);
+    public TargetFileSizeOptions TargetFileSize { get; init; } = TargetFileSize ?? new TargetFileSizeOptions();
     public TargetBitrateOptions TargetBitrate { get; init; } = TargetBitrate ?? new TargetBitrateOptions(3_000_000);
     public QualityOptions TargetQuality { get; init; } = TargetQuality ?? new H264QualityOptions();
 }

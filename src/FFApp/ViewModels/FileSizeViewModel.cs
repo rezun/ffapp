@@ -18,6 +18,16 @@ public partial class FileSizeViewModel : ObservableObject
     [ObservableProperty]
     private int _absoluteOverheadBytes = FileSizeDefaults.AbsoluteOverheadBytes;
 
+    [ObservableProperty]
+    private string? _videoBitrateText;
+
+    public bool HasVideoBitrate => !string.IsNullOrEmpty(VideoBitrateText);
+
+    partial void OnVideoBitrateTextChanged(string? value)
+    {
+        OnPropertyChanged(nameof(HasVideoBitrate));
+    }
+
     public string TargetSizeMbText
     {
         get => ((int)TargetSizeMb).ToString(CultureInfo.InvariantCulture);

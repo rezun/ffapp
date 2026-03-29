@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
+using FFApp.Core.Validation;
 
 namespace FFApp.ViewModels;
 
@@ -190,6 +191,7 @@ public partial class OutputSettingsViewModel : ObservableObject
     {
         var settings = BuildSettings();
         RefreshValidation(settings);
+        UpdateFileSizeBitrateDisplay(settings);
         _messenger.Send(new OutputSettingsChangedMessage(settings));
     }
 
@@ -218,7 +220,51 @@ public partial class OutputSettingsViewModel : ObservableObject
         HasValidationIssues = allIssues.Length > 0;
         ValidationText = allIssues.Length > 0
             ? string.Join(Environment.NewLine, allIssues.Select(i => $"{i.Severity}: {i.Message}"))
-            : "";
+             : "";
+    }
+
+    private void UpdateFileSizeBitrateDisplay(OutputSettings settings)
+    {
+        if (Strategy.SelectedStrategy != EncodingStrategy.TargetFileSize || _mediaInfo is null)
+        {
+            Strategy.FileSize.VideoBitrateText = null;
+            return;
+        }
+
+        if (_mediaInfo.DurationSeconds is null or <= 0)
+        {
+            Strategy.FileSize.VideoBitrateText = null;
+            return;
+        }
+
+        var options = settings.TargetFileSize;
+        var totalBudgetBits = (long)options.TargetSizeMb * 1024 * 1024 * 8;
+        var overheadBits = options.EffectiveOverheadBits(totalBudgetBits);
+        var usableBudgetBits = totalBudgetBits - overheadBits;
+
+        var audioBits = CompatibilityData.EstimateAudioBits(
+            settings.AudioOptions.Mode,
+            settings.AudioOptions.Bitrate,
+            _mediaInfo.AudioStreams,
+            _mediaInfo.DurationSeconds);
+
+        if (audioBits is null)
+        {
+            Strategy.FileSize.VideoBitrateText = null;
+            return;
+        }
+
+        var videoBudgetBits = usableBudgetBits - audioBits.Value;
+
+        if (videoBudgetBits <= 0)
+        {
+            Strategy.FileSize.VideoBitrateText = null;
+            return;
+        }
+
+        var videoBitrate = (int)(videoBudgetBits / _mediaInfo.DurationSeconds.Value);
+        var mbps = videoBitrate / 1_000_000.0;
+        Strategy.FileSize.VideoBitrateText = $"~{mbps:F2} Mbps video bitrate";
     }
 
     private static VideoEncoderOptions BuildVideoEncoderOptions(VideoCodec codec, QualityViewModel quality) =>

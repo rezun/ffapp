@@ -2,6 +2,7 @@ using System.Reflection;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using FFApp.Core.Models;
 using FFApp.ViewModels;
@@ -18,7 +19,6 @@ public partial class MainWindow : Window
         AddHandler(DragDrop.DropEvent, OnDrop);
         Loaded += OnLoaded;
 
-        // Set version in Info menu
         var version = Assembly.GetExecutingAssembly().GetName().Version;
         var versionStr = version is not null ? $"{version.Major}.{version.Minor}.{version.Build}" : "dev";
         var versionItem = FindMenuItem("Info", "FFApp");
@@ -34,6 +34,8 @@ public partial class MainWindow : Window
         var settings = await vm.SettingsLoadedTask;
         ApplyWindowGeometry(settings.WindowGeometry);
         SetTheme(settings.ThemePreference, persist: false);
+
+        Dispatcher.UIThread.Post(Activate);
     }
 
     private void ApplyWindowGeometry(WindowGeometry geo)
@@ -61,7 +63,6 @@ public partial class MainWindow : Window
             WindowState = WindowState.Maximized;
     }
 
-    // NativeMenu click handlers
     public void OnThemeSystem(object? sender, EventArgs e) => SetTheme(ThemePreference.System);
     public void OnThemeDark(object? sender, EventArgs e) => SetTheme(ThemePreference.Dark);
     public void OnThemeLight(object? sender, EventArgs e) => SetTheme(ThemePreference.Light);
@@ -71,7 +72,6 @@ public partial class MainWindow : Window
         if (App.Current is App app)
             app.SetThemeVariant(preference);
 
-        // Update radio check states
         var viewMenu = FindMenu("View");
         if (viewMenu is not null)
         {
@@ -160,7 +160,6 @@ public partial class MainWindow : Window
         vm.LoadedSettings = settings;
         await vm.SettingsService.SaveAsync(settings);
 
-        // Dispose video preview player
         if (vm.CurrentView is WorkspaceViewModel workspace)
             workspace.VideoPreview.Dispose();
 

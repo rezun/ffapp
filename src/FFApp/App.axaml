@@ -3,8 +3,8 @@
              xmlns:ctrl="using:FFApp.Controls"
              xmlns:vm="using:FFApp.ViewModels"
              xmlns:views="using:FFApp.Views"
-             x:Class="FFApp.App"
-             RequestedThemeVariant="Default">
+              x:Class="FFApp.App"
+              RequestedThemeVariant="Default">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>

@@ -35,16 +35,18 @@
                 <TextBlock DockPanel.Dock="Top" Text="Format and Video"
                            Classes="card-header" />
                 <Separator DockPanel.Dock="Top" />
-                <Grid ColumnDefinitions="85,*,16,85,*"
+                <Grid ColumnDefinitions="85,Auto,16,85,Auto,*"
                       RowDefinitions="Auto,Auto"
                       Margin="8,4,8,6">
                     <TextBlock Text="Container" VerticalAlignment="Center" />
                     <ctrl:NoWheelComboBox Grid.Column="1"
+                        MinWidth="108"
                         ItemsSource="{Binding Format.AvailableContainers}"
                         SelectedItem="{Binding Format.SelectedContainer}"
                         ItemTemplate="{StaticResource ContainerTemplate}" />
                     <TextBlock Grid.Column="3" Text="Resolution" VerticalAlignment="Center" />
                     <ctrl:NoWheelComboBox Grid.Column="4"
+                        MinWidth="108"
                         ItemsSource="{Binding AvailableResolutions}"
                         SelectedItem="{Binding SelectedResolution}"
                         ItemTemplate="{StaticResource ResolutionTemplate}" />
@@ -52,6 +54,7 @@
                     <TextBlock Grid.Row="1" Text="Video Codec"
                                VerticalAlignment="Center" Margin="0,4,0,0" />
                     <ctrl:NoWheelComboBox Grid.Row="1" Grid.Column="1"
+                        MinWidth="108"
                         Margin="0,4,0,0"
                         ItemsSource="{Binding Format.AvailableVideoCodecs}"
                         SelectedItem="{Binding Format.SelectedVideoCodec}"
@@ -59,6 +62,7 @@
                     <TextBlock Grid.Row="1" Grid.Column="3" Text="Frame Rate"
                                VerticalAlignment="Center" Margin="0,4,0,0" />
                     <ctrl:NoWheelComboBox Grid.Row="1" Grid.Column="4"
+                        MinWidth="108"
                         Margin="0,4,0,0"
                         ItemsSource="{Binding AvailableFrameRates}"
                         SelectedItem="{Binding SelectedFrameRate}"
@@ -123,14 +127,16 @@
                             <TextBlock DockPanel.Dock="Top" Text="H.264 / H.265 Encoder Tuning"
                                        Classes="nested-card-header" />
                             <Separator DockPanel.Dock="Top" />
-                            <Grid ColumnDefinitions="55,*,16,55,*"
+                            <Grid ColumnDefinitions="55,Auto,16,55,Auto,*"
                                   Margin="6,4,6,6">
                                 <TextBlock Text="Preset" VerticalAlignment="Center" />
                                 <ctrl:NoWheelComboBox Grid.Column="1"
+                                    MinWidth="92"
                                     ItemsSource="{Binding Strategy.Quality.AvailablePresets}"
                                     SelectedItem="{Binding Strategy.Quality.H26xPreset}" />
                                 <TextBlock Grid.Column="3" Text="Profile" VerticalAlignment="Center" />
                                 <ctrl:NoWheelComboBox Grid.Column="4"
+                                    MinWidth="92"
                                     ItemsSource="{Binding Strategy.Quality.AvailableProfiles}"
                                     SelectedItem="{Binding Strategy.Quality.H26xProfile}" />
                             </Grid>
@@ -158,13 +164,15 @@
                                         <Run Text="{Binding Strategy.Quality.VpxCpuUsed}" />
                                     </TextBlock>
                                 </Grid>
-                                <Grid ColumnDefinitions="80,*,16,80,*">
+                                <Grid ColumnDefinitions="80,Auto,16,80,Auto,*">
                                     <TextBlock Text="Tile Cols" VerticalAlignment="Center" />
                                     <ctrl:NoWheelComboBox Grid.Column="1"
+                                        MinWidth="64"
                                         ItemsSource="{Binding Strategy.Quality.AvailableTileColumns}"
                                         SelectedItem="{Binding Strategy.Quality.VpxTileColumns}" />
                                     <TextBlock Grid.Column="3" Text="Tile Rows" VerticalAlignment="Center" />
                                     <ctrl:NoWheelComboBox Grid.Column="4"
+                                        MinWidth="64"
                                         ItemsSource="{Binding Strategy.Quality.AvailableTileRows}"
                                         SelectedItem="{Binding Strategy.Quality.VpxTileRows}" />
                                 </Grid>

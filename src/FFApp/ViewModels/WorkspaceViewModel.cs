@@ -133,8 +133,9 @@ public partial class WorkspaceViewModel : ObservableObject,
     {
         var dir = OutputPath.GetEffectiveDirectory();
         var name = OutputPath.GetEffectiveFilename();
-        CommandPreview.UpdateOutputPath(dir, name);
-        JobsPanel.Execution.UpdateOutputPath(dir, name);
+        var isAutoName = OutputPath.IsAutoName;
+        CommandPreview.UpdateOutputPath(dir, name, isAutoName);
+        JobsPanel.Execution.UpdateOutputPath(dir, name, isAutoName);
         JobsPanel.QueuePanel.UpdateOutputDirectory(dir);
     }
 

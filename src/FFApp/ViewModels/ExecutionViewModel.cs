@@ -25,6 +25,7 @@ public partial class ExecutionViewModel : ObservableObject
     private CropRect? _crop;
     private string? _outputDirectory;
     private string? _outputFilename;
+    private bool _isAutoName;
     private bool _hasValidationErrors;
 
     [ObservableProperty]
@@ -101,10 +102,11 @@ public partial class ExecutionViewModel : ObservableObject
         _crop = crop;
     }
 
-    public void UpdateOutputPath(string? directory, string? filename)
+    public void UpdateOutputPath(string? directory, string? filename, bool isAutoName = false)
     {
         _outputDirectory = directory;
         _outputFilename = filename;
+        _isAutoName = isAutoName;
     }
 
     public void UpdateHasValidationErrors(bool hasErrors)
@@ -140,7 +142,7 @@ public partial class ExecutionViewModel : ObservableObject
 
         var outputPath = DefaultCommandBuilder.SuggestOutputPath(
             _currentMediaInfo.SourcePath, _currentSettings.Container,
-            _outputDirectory, _outputFilename);
+            _outputDirectory, _outputFilename, _isAutoName);
 
         var job = FormatHelpers.BuildJobDefinition(
             _currentMediaInfo.SourcePath, outputPath, _currentSettings,

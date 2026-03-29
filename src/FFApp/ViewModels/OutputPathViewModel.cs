@@ -122,7 +122,8 @@ public partial class OutputPathViewModel : ObservableObject
         {
             ResolvedPath = DefaultCommandBuilder.SuggestOutputPath(
                 _sourcePath, _container,
-                GetEffectiveDirectory(), GetEffectiveFilename());
+                GetEffectiveDirectory(), GetEffectiveFilename(),
+                IsAutoName);
         }
         catch
         {

@@ -75,7 +75,8 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
 
     public static string SuggestOutputPath(
         string sourcePath, OutputContainer container,
-        string? outputDirectory = null, string? outputFilename = null)
+        string? outputDirectory = null, string? outputFilename = null,
+        bool isAutoName = false)
     {
         var extension = ContainerExtension(container);
         var directory = outputDirectory ?? Path.GetDirectoryName(sourcePath) ?? string.Empty;
@@ -83,7 +84,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         var candidate = Path.Combine(directory, stem + extension);
 
         // When the user explicitly chose a filename, use it as-is (ffmpeg -y handles overwrites)
-        if (outputFilename is not null)
+        if (!isAutoName)
             return candidate;
 
         if (!File.Exists(candidate))

@@ -17,7 +17,7 @@
                     <TextBlock Text="Folder" VerticalAlignment="Center" />
                     <TextBox Grid.Column="1"
                              Text="{Binding OutputDirectory}"
-                             Watermark="Source file folder"
+                             Watermark="Output folder"
                              FontSize="12" />
                     <Button Grid.Column="2"
                             Content="Browse"

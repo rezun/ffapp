@@ -668,6 +668,21 @@ public class ValidationServiceTests
     }
 
     [Fact]
+    public void ResolveOutputResolution_RotatedPortrait1080p_SwapsDimensions()
+    {
+        var settings = new TestOutputSettingsBuilder()
+            .WithResolution(ResolutionPreset.P1080)
+            .Build();
+        var media = new TestMediaInfoBuilder().WithRotatedPortrait().Build();
+
+        var result = _sut.ResolveOutputResolution(settings, media);
+
+        result.Should().NotBeNull();
+        result!.Width.Should().Be(1080);
+        result.Height.Should().Be(1920);
+    }
+
+    [Fact]
     public void ResolveOutputResolution_NoVideo_ReturnsNull()
     {
         var settings = new TestOutputSettingsBuilder()

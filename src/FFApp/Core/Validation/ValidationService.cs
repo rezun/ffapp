@@ -667,9 +667,9 @@ public sealed class ValidationService : IValidationService
     private static Resolution? SourceResolution(SourceMediaInfo mediaInfo)
     {
         var primary = mediaInfo.PrimaryVideoStream;
-        if (primary is null || primary.Width is null || primary.Height is null)
+        if (primary is null || primary.DisplayWidth is null || primary.DisplayHeight is null)
             return null;
-        return new Resolution(primary.Width.Value, primary.Height.Value);
+        return new Resolution(primary.DisplayWidth.Value, primary.DisplayHeight.Value);
     }
 
     private static int? EstimateAudioBitsForSettings(OutputSettings settings, SourceMediaInfo mediaInfo) =>

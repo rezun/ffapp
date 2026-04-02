@@ -52,6 +52,9 @@ public class TestMediaInfoBuilder
     public TestMediaInfoBuilder WithPortrait() =>
         WithVideoStreams(new VideoStreamInfo(0, "h264", 4_500_000, 1080, 1920, 23.976, 1439));
 
+    public TestMediaInfoBuilder WithRotatedPortrait(int rotation = -90) =>
+        WithVideoStreams(new VideoStreamInfo(0, "h264", 4_500_000, 3840, 2160, 23.976, 1439, rotation));
+
     public TestMediaInfoBuilder WithFrameRate(double? fps)
     {
         var v = _videoStreams.Length > 0 ? _videoStreams[0] : new VideoStreamInfo(0);

@@ -206,4 +206,79 @@ public class MediaProbeServiceParsingTests
     {
         MediaProbeService.ParseFrameRate("").Should().BeNull();
     }
+
+    // --- Rotation parsing ---
+
+    [Fact]
+    public void ParseMediaInfo_RotationInTags_ParsedCorrectly()
+    {
+        var json = """
+        {
+            "streams": [
+                { "index": 0, "codec_type": "video", "codec_name": "h264", "width": 3840, "height": 2160, "avg_frame_rate": "30/1", "tags": { "rotate": "90" } }
+            ]
+        }
+        """;
+
+        var result = MediaProbeService.ParseMediaInfo("/test/video.mp4", json);
+        result.PrimaryVideoStream!.Rotation.Should().Be(90);
+        result.PrimaryVideoStream.DisplayWidth.Should().Be(2160);
+        result.PrimaryVideoStream.DisplayHeight.Should().Be(3840);
+    }
+
+    [Fact]
+    public void ParseMediaInfo_RotationInSideData_ParsedCorrectly()
+    {
+        var json = """
+        {
+            "streams": [
+                {
+                    "index": 0, "codec_type": "video", "codec_name": "h264", "width": 3840, "height": 2160, "avg_frame_rate": "30/1",
+                    "side_data_list": [
+                        { "side_data_type": "Display Matrix", "rotation": -90 }
+                    ]
+                }
+            ]
+        }
+        """;
+
+        var result = MediaProbeService.ParseMediaInfo("/test/video.mp4", json);
+        result.PrimaryVideoStream!.Rotation.Should().Be(-90);
+        result.PrimaryVideoStream.DisplayWidth.Should().Be(2160);
+        result.PrimaryVideoStream.DisplayHeight.Should().Be(3840);
+    }
+
+    [Fact]
+    public void ParseMediaInfo_NoRotation_DisplayDimensionsMatchCoded()
+    {
+        var json = """
+        {
+            "streams": [
+                { "index": 0, "codec_type": "video", "codec_name": "h264", "width": 1920, "height": 1080, "avg_frame_rate": "30/1" }
+            ]
+        }
+        """;
+
+        var result = MediaProbeService.ParseMediaInfo("/test/video.mp4", json);
+        result.PrimaryVideoStream!.Rotation.Should().BeNull();
+        result.PrimaryVideoStream.DisplayWidth.Should().Be(1920);
+        result.PrimaryVideoStream.DisplayHeight.Should().Be(1080);
+    }
+
+    [Fact]
+    public void ParseMediaInfo_Rotation180_DisplayDimensionsUnchanged()
+    {
+        var json = """
+        {
+            "streams": [
+                { "index": 0, "codec_type": "video", "codec_name": "h264", "width": 1920, "height": 1080, "avg_frame_rate": "30/1", "tags": { "rotate": "180" } }
+            ]
+        }
+        """;
+
+        var result = MediaProbeService.ParseMediaInfo("/test/video.mp4", json);
+        result.PrimaryVideoStream!.Rotation.Should().Be(180);
+        result.PrimaryVideoStream.DisplayWidth.Should().Be(1920);
+        result.PrimaryVideoStream.DisplayHeight.Should().Be(1080);
+    }
 }

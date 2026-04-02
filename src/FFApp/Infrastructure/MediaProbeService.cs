@@ -158,7 +158,34 @@ public sealed class MediaProbeService(ExecutablePathsConfig pathsConfig) : IMedi
             Width: GetInt(stream, "width"),
             Height: GetInt(stream, "height"),
             FrameRate: ParseFrameRate(GetString(stream, "avg_frame_rate")),
-            FrameCount: GetInt(stream, "nb_frames"));
+            FrameCount: GetInt(stream, "nb_frames"),
+            Rotation: ParseRotation(stream));
+    }
+
+    private static int? ParseRotation(JsonElement stream)
+    {
+        // Check tags.rotate (older ffprobe format)
+        if (stream.TryGetProperty("tags", out var tags))
+        {
+            var rotate = GetString(tags, "rotate");
+            if (rotate is not null && int.TryParse(rotate, out var tagRotation))
+                return tagRotation;
+        }
+
+        // Check side_data_list for display matrix rotation (newer format)
+        if (stream.TryGetProperty("side_data_list", out var sideDataList))
+        {
+            foreach (var sideData in sideDataList.EnumerateArray())
+            {
+                if (GetString(sideData, "side_data_type") == "Display Matrix"
+                    && GetInt(sideData, "rotation") is { } rotation)
+                {
+                    return rotation;
+                }
+            }
+        }
+
+        return null;
     }
 
     private static AudioStreamInfo ParseAudioStream(JsonElement stream)

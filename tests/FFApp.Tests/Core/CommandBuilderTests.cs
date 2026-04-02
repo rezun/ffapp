@@ -604,6 +604,26 @@ public class CommandBuilderTests
         args.Should().Contain("-vf scale=trunc(iw/2)*2:trunc(ih/2)*2");
     }
 
+    [Fact]
+    public void Build_RotatedPortraitSource_1080p_SwapsDimensionsInScale()
+    {
+        var media = new TestMediaInfoBuilder().WithRotatedPortrait().Build();
+        var job = JobWith(s => s.WithResolution(ResolutionPreset.P1080));
+        var args = JoinArgs(_sut.Build(job, media)[0]);
+
+        args.Should().Contain("-vf scale=1080:1920:");
+    }
+
+    [Fact]
+    public void Build_RotatedPortraitSource_720p_SwapsDimensionsInScale()
+    {
+        var media = new TestMediaInfoBuilder().WithRotatedPortrait().Build();
+        var job = JobWith(s => s.WithResolution(ResolutionPreset.P720));
+        var args = JoinArgs(_sut.Build(job, media)[0]);
+
+        args.Should().Contain("-vf scale=720:1280:");
+    }
+
     // ---------------------------------------------------------------
     // VP9 bitrate two-pass
     // ---------------------------------------------------------------

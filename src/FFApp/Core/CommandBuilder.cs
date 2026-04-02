@@ -441,8 +441,8 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
             throw new CommandBuildException("Unsupported resolution preset.");
 
         var primaryVideo = mediaInfo.PrimaryVideoStream;
-        if (primaryVideo is { Width: not null, Height: not null }
-            && primaryVideo.Height > primaryVideo.Width)
+        if (primaryVideo is { DisplayWidth: not null, DisplayHeight: not null }
+            && primaryVideo.DisplayHeight > primaryVideo.DisplayWidth)
         {
             return new Resolution(Width: resolution.Height, Height: resolution.Width);
         }

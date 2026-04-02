@@ -125,7 +125,7 @@ public class SettingsSerializerTests
     public void RoundTrip_AudioReencode_PreservesCodecAndBitrate()
     {
         var original = new TestOutputSettingsBuilder()
-            .WithAudioReencode(AudioCodec.Aac, 192_000, remix: true)
+            .WithAudioReencode(AudioCodec.Aac, 192_000, channels: 2)
             .Build();
 
         var result = RoundTrip(original);
@@ -133,7 +133,7 @@ public class SettingsSerializerTests
         result.AudioOptions.Mode.Should().Be(AudioMode.Reencode);
         result.AudioOptions.Codec.Should().Be(AudioCodec.Aac);
         result.AudioOptions.Bitrate.Should().Be(192_000);
-        result.AudioOptions.RemixToStereo.Should().BeTrue();
+        result.AudioOptions.AudioChannels.Should().Be(2);
     }
 
     [Fact]
@@ -148,7 +148,7 @@ public class SettingsSerializerTests
         result.AudioOptions.Mode.Should().Be(AudioMode.Copy);
         result.AudioOptions.Codec.Should().BeNull();
         result.AudioOptions.Bitrate.Should().BeNull();
-        result.AudioOptions.RemixToStereo.Should().BeFalse();
+        result.AudioOptions.AudioChannels.Should().BeNull();
     }
 
     [Fact]

@@ -409,12 +409,12 @@ public sealed class ValidationService : IValidationService
     {
         var mode = EffectiveAudioMode(settings);
 
-        if (settings.AudioOptions.RemixToStereo && mode is not AudioMode.Reencode)
+        if (settings.AudioOptions.AudioChannels is not null && mode is not AudioMode.Reencode)
         {
             issues.Add(new ValidationIssue(
                 ValidationSeverity.Error,
-                "audio_remix_requires_reencode",
-                "Stereo remix requires audio re-encoding.",
+                "audio_channels_requires_reencode",
+                "Changing audio channels requires audio re-encoding.",
                 "audio_mode"));
         }
 

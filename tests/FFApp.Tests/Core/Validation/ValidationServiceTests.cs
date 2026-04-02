@@ -164,29 +164,29 @@ public class ValidationServiceTests
     }
 
     [Fact]
-    public void Validate_RemixToStereoWithCopyMode_ReturnsAudioRemixRequiresReencode()
+    public void Validate_AudioChannelsWithCopyMode_ReturnsAudioChannelsRequiresReencode()
     {
         var settings = new TestOutputSettingsBuilder()
-            .WithAudio(new AudioOptions(AudioMode.Copy, RemixToStereo: true))
+            .WithAudio(new AudioOptions(AudioMode.Copy, AudioChannels: 2))
             .Build();
         var media = new TestMediaInfoBuilder().Build();
 
         var result = _sut.Validate(settings, media);
 
-        HasIssueWithCode(result, "audio_remix_requires_reencode").Should().BeTrue();
+        HasIssueWithCode(result, "audio_channels_requires_reencode").Should().BeTrue();
     }
 
     [Fact]
-    public void Validate_RemixToStereoWithReencode_NoRemixError()
+    public void Validate_AudioChannelsWithReencode_NoChannelsError()
     {
         var settings = new TestOutputSettingsBuilder()
-            .WithAudioReencode(AudioCodec.Aac, 128_000, remix: true)
+            .WithAudioReencode(AudioCodec.Aac, 128_000, channels: 2)
             .Build();
         var media = new TestMediaInfoBuilder().Build();
 
         var result = _sut.Validate(settings, media);
 
-        HasIssueWithCode(result, "audio_remix_requires_reencode").Should().BeFalse();
+        HasIssueWithCode(result, "audio_channels_requires_reencode").Should().BeFalse();
     }
 
     // ── Subtitle / data validation ──────────────────────────────────────

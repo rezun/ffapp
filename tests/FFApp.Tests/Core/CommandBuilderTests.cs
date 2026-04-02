@@ -406,18 +406,27 @@ public class CommandBuilderTests
     }
 
     [Fact]
-    public void Build_AudioReencode_WithRemix_AddsAcFlag()
+    public void Build_AudioReencode_WithChannels_AddsAcFlag()
     {
-        var job = JobWith(s => s.WithAudioReencode(AudioCodec.Aac, 128_000, remix: true));
+        var job = JobWith(s => s.WithAudioReencode(AudioCodec.Aac, 128_000, channels: 2));
         var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
 
         args.Should().Contain("-ac 2");
     }
 
     [Fact]
-    public void Build_AudioReencode_WithoutRemix_DoesNotAddAcFlag()
+    public void Build_AudioReencode_WithMono_AddsAcOne()
     {
-        var job = JobWith(s => s.WithAudioReencode(AudioCodec.Aac, 128_000, remix: false));
+        var job = JobWith(s => s.WithAudioReencode(AudioCodec.Aac, 128_000, channels: 1));
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        args.Should().Contain("-ac 1");
+    }
+
+    [Fact]
+    public void Build_AudioReencode_WithoutChannels_DoesNotAddAcFlag()
+    {
+        var job = JobWith(s => s.WithAudioReencode(AudioCodec.Aac, 128_000));
         var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
 
         args.Should().NotContain("-ac");

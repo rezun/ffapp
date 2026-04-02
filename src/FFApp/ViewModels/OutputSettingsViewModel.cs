@@ -82,6 +82,10 @@ public partial class OutputSettingsViewModel : ObservableObject
         _mediaInfo = mediaInfo;
         Format.SourceHasVideo = mediaInfo.VideoStreams.Length > 0;
         Audio.AvailableAudioCodecs = Format.AvailableAudioCodecs;
+        Audio.MaxSourceChannels = mediaInfo.AudioStreams
+            .Select(s => s.Channels ?? 0)
+            .DefaultIfEmpty(0)
+            .Max();
         RebuildAndNotify();
     }
 
@@ -101,7 +105,7 @@ public partial class OutputSettingsViewModel : ObservableObject
             Audio.SelectedAudioMode = settings.AudioOptions.Mode;
             Audio.SelectedAudioCodec = settings.AudioOptions.Codec;
             Audio.AudioBitrate = settings.AudioOptions.Bitrate ?? 128000;
-            Audio.RemixToStereo = settings.AudioOptions.RemixToStereo;
+            Audio.SelectedAudioChannels = settings.AudioOptions.AudioChannels ?? 0;
 
             // Stream handling
             StreamHandling.RemoveSubtitles = settings.StreamHandling.RemoveSubtitles;
@@ -153,7 +157,7 @@ public partial class OutputSettingsViewModel : ObservableObject
                 Mode: Audio.SelectedAudioMode,
                 Codec: Audio.SelectedAudioCodec,
                 Bitrate: Audio.AudioBitrate,
-                RemixToStereo: Audio.RemixToStereo),
+                AudioChannels: Audio.SelectedAudioChannels == 0 ? null : Audio.SelectedAudioChannels),
             StreamHandling: new StreamHandlingOptions(
                 RemoveSubtitles: StreamHandling.RemoveSubtitles,
                 RemoveData: StreamHandling.RemoveData),

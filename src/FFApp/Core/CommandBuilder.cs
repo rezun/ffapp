@@ -214,8 +214,8 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
             "-b:a", bitrate.Value.ToString(),
         };
 
-        if (job.AudioOptions.RemixToStereo)
-            arguments.AddRange(["-ac", "2"]);
+        if (job.AudioOptions.AudioChannels is { } channels)
+            arguments.AddRange(["-ac", channels.ToString()]);
 
         return arguments;
     }

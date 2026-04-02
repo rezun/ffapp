@@ -39,7 +39,7 @@
             <Grid ColumnDefinitions="85,Auto,16,55,*">
                 <TextBlock Text="Audio Codec" VerticalAlignment="Center" />
                 <ctrl:NoWheelComboBox Grid.Column="1"
-                    Width="96"
+                    Width="104"
                     ItemsSource="{Binding AvailableAudioCodecs}"
                     SelectedItem="{Binding SelectedAudioCodec}">
                     <ctrl:NoWheelComboBox.ItemTemplate>
@@ -72,10 +72,20 @@
                 </StackPanel>
             </Grid>
 
-            <!-- Remix to stereo -->
-            <CheckBox Content="Remix all audio streams to stereo"
-                      IsChecked="{Binding RemixToStereo}"
-                      Margin="85,0,0,0" />
+            <!-- Audio channels -->
+            <Grid ColumnDefinitions="85,Auto">
+                <TextBlock Text="Channels" VerticalAlignment="Center" />
+                <ctrl:NoWheelComboBox Grid.Column="1"
+                    Width="104"
+                    ItemsSource="{Binding AvailableAudioChannelOptions}"
+                    SelectedItem="{Binding SelectedAudioChannels}">
+                    <ctrl:NoWheelComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="x:Int32">
+                            <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.AudioChannelOption}}" />
+                        </DataTemplate>
+                    </ctrl:NoWheelComboBox.ItemTemplate>
+                </ctrl:NoWheelComboBox>
+            </Grid>
         </StackPanel>
 
     </StackPanel>

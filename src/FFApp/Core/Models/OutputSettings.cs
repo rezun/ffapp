@@ -27,7 +27,7 @@ public sealed record AudioOptions(
     AudioMode Mode = AudioMode.Copy,
     AudioCodec? Codec = null,
     int? Bitrate = null,
-    bool RemixToStereo = false);
+    int? AudioChannels = null);
 
 public sealed record StreamHandlingOptions(
     bool RemoveSubtitles = false,

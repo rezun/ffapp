@@ -18,7 +18,12 @@ public partial class AudioViewModel : ObservableObject
     private int _customBitrateKbps = 128;
 
     [ObservableProperty]
-    private bool _remixToStereo;
+    private int _selectedAudioChannels;
+
+    [ObservableProperty]
+    private IReadOnlyList<int> _availableAudioChannelOptions = [0, 1, 2];
+
+    private static readonly int[] AllChannelOptions = [0, 1, 2, 6];
 
     [ObservableProperty]
     private IReadOnlyList<AudioCodec> _availableAudioCodecs = [];
@@ -69,6 +74,27 @@ public partial class AudioViewModel : ObservableObject
         {
             OnPropertyChanged(nameof(AudioBitrate));
             OnPropertyChanged(nameof(CustomBitrateText));
+        }
+    }
+
+    private int _maxSourceChannels;
+
+    public int MaxSourceChannels
+    {
+        get => _maxSourceChannels;
+        set
+        {
+            if (!SetProperty(ref _maxSourceChannels, value))
+                return;
+
+            // Show options that are valid downmixes (less than source channels),
+            // plus stereo is always available (mono→stereo is a valid expansion).
+            AvailableAudioChannelOptions = AllChannelOptions
+                .Where(ch => ch == 0 || ch <= 2 || ch < value)
+                .ToArray();
+
+            if (!AvailableAudioChannelOptions.Contains(SelectedAudioChannels))
+                SelectedAudioChannels = 0;
         }
     }
 

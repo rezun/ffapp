@@ -53,7 +53,7 @@ public class OutputSettingsViewModelTests
             .WithVideoCodec(VideoCodec.H265)
             .WithStrategy(EncodingStrategy.TargetBitrate)
             .WithResolution(ResolutionPreset.P1080)
-            .WithAudioReencode(AudioCodec.Mp3, 192_000, remix: true)
+            .WithAudioReencode(AudioCodec.Mp3, 192_000, channels: 2)
             .Build();
 
         _sut.ApplySettings(target);
@@ -65,7 +65,7 @@ public class OutputSettingsViewModelTests
         _sut.Audio.SelectedAudioMode.Should().Be(AudioMode.Reencode);
         _sut.Audio.SelectedAudioCodec.Should().Be(AudioCodec.Mp3);
         _sut.Audio.AudioBitrate.Should().Be(192_000);
-        _sut.Audio.RemixToStereo.Should().BeTrue();
+        _sut.Audio.SelectedAudioChannels.Should().Be(2);
     }
 
     [Fact]

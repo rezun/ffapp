@@ -29,4 +29,14 @@ public static class EnumLabelConverters
 
     public static readonly FuncValueConverter<int, string> AudioBitrateOption =
         new(v => v == -1 ? "Custom" : $"{v} kbps");
+
+    public static readonly FuncValueConverter<int, string> AudioChannelOption =
+        new(v => v switch
+        {
+            0 => "Source",
+            1 => "Mono",
+            2 => "Stereo",
+            6 => "5.1 Surround",
+            _ => $"{v} ch",
+        });
 }

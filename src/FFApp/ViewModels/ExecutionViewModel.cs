@@ -177,6 +177,11 @@ public partial class ExecutionViewModel : ObservableObject
                             parts.Add($"{pct:F1}%");
                         if (progress.Speed is { } speed)
                             parts.Add($"{speed:F1}x");
+                        parts.Add(FormatHelpers.FormatCompactDuration(progress.ElapsedSeconds));
+                        var remaining = FormatHelpers.EstimateRemainingSeconds(
+                            progress.ElapsedSeconds, progress.Percentage);
+                        if (remaining is not null)
+                            parts.Add($"~{FormatHelpers.FormatCompactDuration(remaining.Value)} left");
                         ProgressText = string.Join(" | ", parts);
                         StateText = $"Pass {progress.PassIndex}/{progress.PassCount}";
                     });

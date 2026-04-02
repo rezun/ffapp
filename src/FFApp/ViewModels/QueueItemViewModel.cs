@@ -1,6 +1,7 @@
 using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
 using FFApp.Core.Models;
+using FFApp.Helpers;
 
 namespace FFApp.ViewModels;
 
@@ -68,6 +69,11 @@ public partial class QueueItemViewModel : ObservableObject
             parts.Add($"{pct:F1}%");
         if (progress.Speed is { } speed)
             parts.Add($"{speed:F1}x");
+        parts.Add(FormatHelpers.FormatCompactDuration(progress.ElapsedSeconds));
+        var remaining = FormatHelpers.EstimateRemainingSeconds(
+            progress.ElapsedSeconds, progress.Percentage);
+        if (remaining is not null)
+            parts.Add($"~{FormatHelpers.FormatCompactDuration(remaining.Value)} left");
         parts.Add($"Pass {progress.PassIndex}/{progress.PassCount}");
         ProgressText = string.Join(" | ", parts);
     }

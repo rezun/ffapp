@@ -318,6 +318,28 @@ public static class FormatHelpers
         _ => transfer ?? "Unknown",
     };
 
+    /// <summary>
+    /// Formats seconds as compact duration: "2:30" (under 1h) or "1:23:45" (1h+).
+    /// </summary>
+    public static string FormatCompactDuration(double totalSeconds)
+    {
+        var ts = TimeSpan.FromSeconds(Math.Max(0, totalSeconds));
+        return ts.TotalHours >= 1
+            ? $"{(int)ts.TotalHours}:{ts.Minutes:D2}:{ts.Seconds:D2}"
+            : $"{(int)ts.TotalMinutes}:{ts.Seconds:D2}";
+    }
+
+    /// <summary>
+    /// Estimates remaining seconds from elapsed time and percentage complete.
+    /// Returns null when there isn't enough data for a meaningful estimate.
+    /// </summary>
+    public static double? EstimateRemainingSeconds(double elapsedSeconds, double? percentage)
+    {
+        if (percentage is not > 1 || percentage >= 100 || elapsedSeconds < 3)
+            return null;
+        return elapsedSeconds * (100.0 - percentage.Value) / percentage.Value;
+    }
+
     // --- Private helpers ---
 
     private static string FormatSingleDependency(ExecutableValidation validation)

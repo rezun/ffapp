@@ -217,6 +217,9 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         if (job.AudioOptions.AudioChannels is { } channels)
             arguments.AddRange(["-ac", channels.ToString()]);
 
+        if (job.AudioOptions.SampleRate is { } sampleRate)
+            arguments.AddRange(["-ar", sampleRate.ToString()]);
+
         return arguments;
     }
 

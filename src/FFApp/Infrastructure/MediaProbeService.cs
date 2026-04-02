@@ -168,6 +168,7 @@ public sealed class MediaProbeService(ExecutablePathsConfig pathsConfig) : IMedi
             CodecName: GetString(stream, "codec_name"),
             BitRate: GetInt(stream, "bit_rate"),
             Channels: GetInt(stream, "channels"),
+            SampleRate: GetInt(stream, "sample_rate"),
             Language: GetTag(stream, "language"));
     }
 

@@ -14,6 +14,7 @@ public sealed record AudioStreamInfo(
     string? CodecName = null,
     int? BitRate = null,
     int? Channels = null,
+    int? SampleRate = null,
     string? Language = null);
 
 public sealed record SubtitleStreamInfo(

@@ -418,6 +418,15 @@ public sealed class ValidationService : IValidationService
                 "audio_mode"));
         }
 
+        if (settings.AudioOptions.SampleRate is not null && mode is not AudioMode.Reencode)
+        {
+            issues.Add(new ValidationIssue(
+                ValidationSeverity.Error,
+                "audio_sample_rate_requires_reencode",
+                "Changing sample rate requires audio re-encoding.",
+                "audio_mode"));
+        }
+
         if (mode is AudioMode.Reencode)
         {
             if (settings.AudioOptions.Codec is null)

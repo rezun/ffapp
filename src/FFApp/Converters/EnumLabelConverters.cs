@@ -30,6 +30,13 @@ public static class EnumLabelConverters
     public static readonly FuncValueConverter<int, string> AudioBitrateOption =
         new(v => v == -1 ? "Custom" : $"{v} kbps");
 
+    public static readonly FuncValueConverter<int, string> AudioSampleRateOption =
+        new(v => v switch
+        {
+            0 => "Source",
+            _ => $"{v / 1000.0:G} kHz",
+        });
+
     public static readonly FuncValueConverter<int, string> AudioChannelOption =
         new(v => v switch
         {

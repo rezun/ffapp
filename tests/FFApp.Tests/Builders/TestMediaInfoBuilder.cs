@@ -10,7 +10,7 @@ public class TestMediaInfoBuilder
     private double? _durationSeconds = 60.0;
     private int? _bitRate = 5_000_000;
     private ImmutableArray<VideoStreamInfo> _videoStreams = [new(0, "h264", 4_500_000, 1920, 1080, 23.976, 1439)];
-    private ImmutableArray<AudioStreamInfo> _audioStreams = [new(1, "aac", 128_000, 2, "eng")];
+    private ImmutableArray<AudioStreamInfo> _audioStreams = [new(1, "aac", 128_000, 2, 48000, "eng")];
     private ImmutableArray<SubtitleStreamInfo> _subtitleStreams = [];
     private ImmutableArray<DataStreamInfo> _dataStreams = [];
 

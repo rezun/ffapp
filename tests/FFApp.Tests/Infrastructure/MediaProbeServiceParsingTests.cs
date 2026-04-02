@@ -19,7 +19,7 @@ public class MediaProbeServiceParsingTests
             },
             "streams": [
                 { "index": 0, "codec_type": "video", "codec_name": "h264", "bit_rate": "4500000", "width": 1920, "height": 1080, "avg_frame_rate": "24000/1001", "nb_frames": "2880" },
-                { "index": 1, "codec_type": "audio", "codec_name": "aac", "bit_rate": "128000", "channels": 2, "tags": { "language": "eng" } },
+                { "index": 1, "codec_type": "audio", "codec_name": "aac", "bit_rate": "128000", "channels": 2, "sample_rate": "48000", "tags": { "language": "eng" } },
                 { "index": 2, "codec_type": "subtitle", "codec_name": "subrip", "tags": { "language": "eng" } },
                 { "index": 3, "codec_type": "data", "codec_name": "bin_data" }
             ]
@@ -67,7 +67,7 @@ public class MediaProbeServiceParsingTests
         var json = """
         {
             "streams": [
-                { "index": 1, "codec_type": "audio", "codec_name": "aac", "bit_rate": "128000", "channels": 2, "tags": { "language": "jpn" } }
+                { "index": 1, "codec_type": "audio", "codec_name": "aac", "bit_rate": "128000", "channels": 2, "sample_rate": "44100", "tags": { "language": "jpn" } }
             ]
         }
         """;

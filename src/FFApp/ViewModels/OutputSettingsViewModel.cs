@@ -86,6 +86,10 @@ public partial class OutputSettingsViewModel : ObservableObject
             .Select(s => s.Channels ?? 0)
             .DefaultIfEmpty(0)
             .Max();
+        Audio.MaxSourceSampleRate = mediaInfo.AudioStreams
+            .Select(s => s.SampleRate ?? 0)
+            .DefaultIfEmpty(0)
+            .Max();
         RebuildAndNotify();
     }
 
@@ -106,6 +110,7 @@ public partial class OutputSettingsViewModel : ObservableObject
             Audio.SelectedAudioCodec = settings.AudioOptions.Codec;
             Audio.AudioBitrate = settings.AudioOptions.Bitrate ?? 128000;
             Audio.SelectedAudioChannels = settings.AudioOptions.AudioChannels ?? 0;
+            Audio.SelectedSampleRate = settings.AudioOptions.SampleRate ?? 0;
 
             // Stream handling
             StreamHandling.RemoveSubtitles = settings.StreamHandling.RemoveSubtitles;
@@ -157,7 +162,8 @@ public partial class OutputSettingsViewModel : ObservableObject
                 Mode: Audio.SelectedAudioMode,
                 Codec: Audio.SelectedAudioCodec,
                 Bitrate: Audio.AudioBitrate,
-                AudioChannels: Audio.SelectedAudioChannels == 0 ? null : Audio.SelectedAudioChannels),
+                AudioChannels: Audio.SelectedAudioChannels == 0 ? null : Audio.SelectedAudioChannels,
+                SampleRate: Audio.SelectedSampleRate == 0 ? null : Audio.SelectedSampleRate),
             StreamHandling: new StreamHandlingOptions(
                 RemoveSubtitles: StreamHandling.RemoveSubtitles,
                 RemoveData: StreamHandling.RemoveData),

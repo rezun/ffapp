@@ -72,8 +72,8 @@
                 </StackPanel>
             </Grid>
 
-            <!-- Audio channels -->
-            <Grid ColumnDefinitions="85,Auto">
+            <!-- Audio channels and sample rate -->
+            <Grid ColumnDefinitions="85,Auto,16,75,*">
                 <TextBlock Text="Channels" VerticalAlignment="Center" />
                 <ctrl:NoWheelComboBox Grid.Column="1"
                     Width="104"
@@ -82,6 +82,18 @@
                     <ctrl:NoWheelComboBox.ItemTemplate>
                         <DataTemplate x:DataType="x:Int32">
                             <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.AudioChannelOption}}" />
+                        </DataTemplate>
+                    </ctrl:NoWheelComboBox.ItemTemplate>
+                </ctrl:NoWheelComboBox>
+                <TextBlock Grid.Column="3" Text="Sample Rate" VerticalAlignment="Center" />
+                <ctrl:NoWheelComboBox Grid.Column="4"
+                    Width="104"
+                    HorizontalAlignment="Left"
+                    ItemsSource="{Binding AvailableSampleRateOptions}"
+                    SelectedItem="{Binding SelectedSampleRate}">
+                    <ctrl:NoWheelComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="x:Int32">
+                            <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.AudioSampleRateOption}}" />
                         </DataTemplate>
                     </ctrl:NoWheelComboBox.ItemTemplate>
                 </ctrl:NoWheelComboBox>

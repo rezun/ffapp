@@ -26,6 +26,14 @@ public partial class AudioViewModel : ObservableObject
     private static readonly int[] AllChannelOptions = [0, 1, 2, 6];
 
     [ObservableProperty]
+    private int _selectedSampleRate;
+
+    [ObservableProperty]
+    private IReadOnlyList<int> _availableSampleRateOptions = [0, 8000, 22050, 44100, 48000];
+
+    private static readonly int[] AllSampleRateOptions = [0, 8000, 22050, 44100, 48000, 96000];
+
+    [ObservableProperty]
     private IReadOnlyList<AudioCodec> _availableAudioCodecs = [];
 
     /// <summary>Predefined bitrate options in kbps, plus -1 as the "Custom" sentinel.</summary>
@@ -95,6 +103,25 @@ public partial class AudioViewModel : ObservableObject
 
             if (!AvailableAudioChannelOptions.Contains(SelectedAudioChannels))
                 SelectedAudioChannels = 0;
+        }
+    }
+
+    private int _maxSourceSampleRate;
+
+    public int MaxSourceSampleRate
+    {
+        get => _maxSourceSampleRate;
+        set
+        {
+            if (!SetProperty(ref _maxSourceSampleRate, value))
+                return;
+
+            AvailableSampleRateOptions = AllSampleRateOptions
+                .Where(r => r == 0 || r <= value)
+                .ToArray();
+
+            if (!AvailableSampleRateOptions.Contains(SelectedSampleRate))
+                SelectedSampleRate = 0;
         }
     }
 

@@ -36,6 +36,7 @@ public static class SettingsSerializer
                 ["codec"] = settings.AudioOptions.Codec is { } ac ? EnumToString(ac) : null,
                 ["bitrate"] = settings.AudioOptions.Bitrate,
                 ["audio_channels"] = settings.AudioOptions.AudioChannels,
+                ["sample_rate"] = settings.AudioOptions.SampleRate,
             },
             ["stream_handling"] = new JsonObject
             {
@@ -81,12 +82,14 @@ public static class SettingsSerializer
         var audioBitrate = ReadOptionalInt(audioEl, "bitrate");
         var audioChannels = ReadOptionalInt(audioEl, "audio_channels")
             ?? (ReadBool(audioEl, "remix_to_stereo") ? 2 : null);
+        var sampleRate = ReadOptionalInt(audioEl, "sample_rate");
 
         if (audioMode != AudioMode.Reencode)
         {
             audioCodec = null;
             audioBitrate = null;
             audioChannels = null;
+            sampleRate = null;
         }
 
         // Stream handling
@@ -142,7 +145,8 @@ public static class SettingsSerializer
                 Mode: audioMode,
                 Codec: audioCodec,
                 Bitrate: audioBitrate,
-                AudioChannels: audioChannels),
+                AudioChannels: audioChannels,
+                SampleRate: sampleRate),
             StreamHandling: streamHandling,
             TargetFileSize: targetFileSize,
             TargetBitrate: targetBitrate,

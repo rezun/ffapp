@@ -50,8 +50,9 @@ public class TestOutputSettingsBuilder
     public TestOutputSettingsBuilder WithAudioCopy() =>
         WithAudio(new AudioOptions(AudioMode.Copy));
 
-    public TestOutputSettingsBuilder WithAudioReencode(AudioCodec codec, int bitrate, int? channels = null) =>
-        WithAudio(new AudioOptions(AudioMode.Reencode, codec, bitrate, channels));
+    public TestOutputSettingsBuilder WithAudioReencode(
+        AudioCodec codec, int bitrate, int? channels = null, int? sampleRate = null) =>
+        WithAudio(new AudioOptions(AudioMode.Reencode, codec, bitrate, channels, sampleRate));
 
     public TestOutputSettingsBuilder WithAudioRemove() =>
         WithAudio(new AudioOptions(AudioMode.Remove));

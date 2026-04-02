@@ -35,6 +35,7 @@ public sealed record StreamHandlingOptions(
 
 public sealed record OutputSettings(
     OutputContainer Container = OutputContainer.Mp4,
+    VideoMode VideoMode = VideoMode.Reencode,
     VideoCodec VideoCodec = VideoCodec.H264,
     EncodingStrategy EncodingStrategy = EncodingStrategy.TargetQuality,
     ResolutionPreset ResolutionPreset = ResolutionPreset.Original,

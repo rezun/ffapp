@@ -1,4 +1,5 @@
 using System.Text;
+using FFApp.Core;
 using FFApp.Core.Models;
 
 namespace FFApp.Helpers;
@@ -165,6 +166,7 @@ public static class FormatHelpers
             SourcePath: sourcePath,
             OutputPath: outputPath,
             Container: settings.Container,
+            VideoMode: settings.VideoMode,
             VideoCodec: settings.VideoCodec,
             EncodingStrategy: settings.EncodingStrategy,
             VideoEncoderOptions: settings.VideoEncoderOptions,
@@ -181,14 +183,7 @@ public static class FormatHelpers
 
     public static string SuggestQueueOutputPath(string sourcePath, OutputContainer container, HashSet<string> reservedOutputs)
     {
-        var ext = container switch
-        {
-            OutputContainer.Mp4 => ".mp4",
-            OutputContainer.Mkv => ".mkv",
-            OutputContainer.Webm => ".webm",
-            OutputContainer.Ogg => ".ogg",
-            _ => ".mp4"
-        };
+        var ext = DefaultCommandBuilder.ContainerExtension(container);
         var candidate = Path.ChangeExtension(sourcePath, ext);
         if (!File.Exists(candidate) && !reservedOutputs.Contains(Path.GetFullPath(candidate)))
             return candidate;
@@ -238,7 +233,18 @@ public static class FormatHelpers
         OutputContainer.Mkv => "MKV",
         OutputContainer.Webm => "WEBM",
         OutputContainer.Ogg => "OGG",
+        OutputContainer.M4a => "M4A",
+        OutputContainer.Mka => "MKA",
+        OutputContainer.OpusFile => "Opus",
         _ => container.ToString()
+    };
+
+    public static string VideoModeLabel(VideoMode mode) => mode switch
+    {
+        VideoMode.Copy => "Copy",
+        VideoMode.Reencode => "Re-encode",
+        VideoMode.Remove => "Remove",
+        _ => mode.ToString()
     };
 
     public static string ResolutionPresetLabel(ResolutionPreset preset) => preset switch

@@ -27,6 +27,7 @@
                         Converter={StaticResource EnumToBool},
                         ConverterParameter={x:Static models:AudioMode.Reencode}}" />
                 <RadioButton Content="Remove" GroupName="AudioMode"
+                    IsEnabled="{Binding IsRemoveAllowed}"
                     IsChecked="{Binding SelectedAudioMode,
                         Converter={StaticResource EnumToBool},
                         ConverterParameter={x:Static models:AudioMode.Remove}}" />
@@ -53,7 +54,7 @@
                             Spacing="6"
                             HorizontalAlignment="Left">
                     <ctrl:NoWheelComboBox
-                        Width="92"
+                        Width="104"
                         ItemsSource="{Binding AvailableBitrateOptions}"
                         SelectedItem="{Binding SelectedBitrateOption}">
                         <ctrl:NoWheelComboBox.ItemTemplate>

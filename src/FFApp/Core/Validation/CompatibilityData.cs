@@ -38,7 +38,19 @@ public static class CompatibilityData
             [OutputContainer.Mkv] = [AudioCodec.Aac, AudioCodec.Mp3, AudioCodec.Opus, AudioCodec.Vorbis],
             [OutputContainer.Webm] = [AudioCodec.Opus, AudioCodec.Vorbis],
             [OutputContainer.Ogg] = [AudioCodec.Opus, AudioCodec.Vorbis],
+            [OutputContainer.M4a] = [AudioCodec.Aac],
+            [OutputContainer.Mka] = [AudioCodec.Aac, AudioCodec.Mp3, AudioCodec.Opus, AudioCodec.Vorbis],
+            [OutputContainer.OpusFile] = [AudioCodec.Opus],
         }.ToFrozenDictionary();
+
+    public static readonly FrozenSet<OutputContainer> AudioOnlyContainers =
+        FrozenSet.ToFrozenSet([OutputContainer.M4a, OutputContainer.Mka, OutputContainer.OpusFile]);
+
+    public static readonly IReadOnlyList<OutputContainer> VideoContainers =
+        [OutputContainer.Mp4, OutputContainer.Mkv, OutputContainer.Webm, OutputContainer.Ogg];
+
+    public static readonly IReadOnlyList<OutputContainer> AudioOnlyContainerList =
+        [OutputContainer.M4a, OutputContainer.Mka, OutputContainer.OpusFile, OutputContainer.Ogg];
 
     public static readonly FrozenDictionary<ResolutionPreset, Resolution> PresetResolutions =
         new Dictionary<ResolutionPreset, Resolution>
@@ -65,8 +77,14 @@ public static class CompatibilityData
     internal static readonly FrozenSet<string> Mp4SubtitleCodecs =
         FrozenSet.ToFrozenSet(["mov_text", "tx3g"]);
 
+    public static bool IsAudioOnlyContainer(OutputContainer container) =>
+        AudioOnlyContainers.Contains(container);
+
+    public static IReadOnlyList<OutputContainer> ContainersForVideoMode(VideoMode videoMode) =>
+        videoMode == VideoMode.Remove ? AudioOnlyContainerList : VideoContainers;
+
     public static IReadOnlyList<VideoCodec> AllowedVideoCodecs(OutputContainer container) =>
-        VideoCodecMatrix[container];
+        VideoCodecMatrix.TryGetValue(container, out var codecs) ? codecs : [];
 
     public static IReadOnlyList<AudioCodec> AllowedAudioCodecs(OutputContainer container) =>
         AudioCodecMatrix[container];

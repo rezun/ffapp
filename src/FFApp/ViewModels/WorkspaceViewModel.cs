@@ -63,6 +63,7 @@ public partial class WorkspaceViewModel : ObservableObject,
         VideoPreview = new VideoPreviewViewModel(VlcLocator.TryCreate());
         VideoPreview.PropertyChanged += OnVideoPreviewPropertyChanged;
         OutputSettings.PropertyChanged += OnOutputSettingsPropertyChanged;
+        OutputPath.PropertyChanged += OnOutputPathContainerChanged;
         Preset.PropertyChanged += OnPresetPropertyChanged;
 
         messenger.Register<SourceLoadedMessage>(this);
@@ -114,6 +115,17 @@ public partial class WorkspaceViewModel : ObservableObject,
         }
     }
 
+    private void OnOutputPathContainerChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(OutputPathViewModel.SelectedContainer))
+        {
+            // User changed container in the Output card — sync to FormatViewModel
+            var container = OutputPath.SelectedContainer;
+            if (OutputSettings.Format.SelectedContainer != container)
+                OutputSettings.Format.SelectedContainer = container;
+        }
+    }
+
     private void OnOutputPathPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(OutputPathViewModel.OutputDirectory)
@@ -157,6 +169,7 @@ public partial class WorkspaceViewModel : ObservableObject,
     public void Receive(OutputSettingsChangedMessage message)
     {
         var settings = message.Value;
+        OutputPath.UpdateAvailableContainers(OutputSettings.Format.AvailableContainers);
         OutputPath.UpdateContainer(settings.Container);
         CommandPreview.UpdateOutputSettings(settings);
         Preset.UpdateOutputSettings(settings);

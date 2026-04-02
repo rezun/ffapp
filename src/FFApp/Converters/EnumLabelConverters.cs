@@ -24,6 +24,9 @@ public static class EnumLabelConverters
     public static readonly FuncValueConverter<AudioCodec?, string> AudioCodecNullable =
         new(v => v is { } c ? FormatHelpers.AudioCodecLabel(c) : "");
 
+    public static readonly FuncValueConverter<VideoMode, string> VideoMode =
+        new(v => FormatHelpers.VideoModeLabel(v));
+
     public static readonly FuncValueConverter<int, string> AudioBitrateOption =
         new(v => v == -1 ? "Custom" : $"{v} kbps");
 }

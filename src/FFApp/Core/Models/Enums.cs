@@ -9,6 +9,17 @@ public enum OutputContainer
     [JsonStringEnumMemberName("mkv")] Mkv,
     [JsonStringEnumMemberName("webm")] Webm,
     [JsonStringEnumMemberName("ogg")] Ogg,
+    [JsonStringEnumMemberName("m4a")] M4a,
+    [JsonStringEnumMemberName("mka")] Mka,
+    [JsonStringEnumMemberName("opus")] OpusFile,
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter<VideoMode>))]
+public enum VideoMode
+{
+    [JsonStringEnumMemberName("reencode")] Reencode,
+    [JsonStringEnumMemberName("copy")] Copy,
+    [JsonStringEnumMemberName("remove")] Remove,
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<VideoCodec>))]

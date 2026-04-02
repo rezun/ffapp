@@ -33,6 +33,33 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         var mappingArgs = BuildMappingArguments(job, mediaInfo);
         var streamArgs = BuildStreamArguments(job, mediaInfo);
 
+        // Audio-only: no video encoding, no two-pass
+        if (job.VideoMode == VideoMode.Remove)
+        {
+            var arguments = new List<string>(inputArgs);
+            arguments.AddRange(mappingArgs);
+            arguments.AddRange(streamArgs);
+            arguments.AddRange(["-vn"]);
+            if (job.Container is OutputContainer.Mp4 or OutputContainer.M4a)
+                arguments.AddRange(["-movflags", "+faststart"]);
+            arguments.Add(job.OutputPath);
+            return [CreateGeneratedCommand(pathsConfig.FfmpegPath, arguments)];
+        }
+
+        // Video copy: stream-copy video, no filters/encoding
+        if (job.VideoMode == VideoMode.Copy)
+        {
+            var arguments = new List<string>(inputArgs);
+            arguments.AddRange(mappingArgs);
+            arguments.AddRange(streamArgs);
+            arguments.AddRange(["-c:v", "copy"]);
+            if (job.Container is OutputContainer.Mp4 or OutputContainer.M4a)
+                arguments.AddRange(["-movflags", "+faststart"]);
+            arguments.Add(job.OutputPath);
+            return [CreateGeneratedCommand(pathsConfig.FfmpegPath, arguments)];
+        }
+
+        // Video re-encode (original path)
         if (UsesTwoPass(job))
         {
             int? bitrate = null;
@@ -62,15 +89,15 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
             ];
         }
 
-        var arguments = new List<string>(inputArgs);
-        arguments.AddRange(mappingArgs);
-        arguments.AddRange(streamArgs);
-        arguments.AddRange(BuildVideoCodecArguments(job, mediaInfo));
+        var reencodeArgs = new List<string>(inputArgs);
+        reencodeArgs.AddRange(mappingArgs);
+        reencodeArgs.AddRange(streamArgs);
+        reencodeArgs.AddRange(BuildVideoCodecArguments(job, mediaInfo));
         if (job.Container == OutputContainer.Mp4)
-            arguments.AddRange(["-movflags", "+faststart"]);
-        arguments.Add(job.OutputPath);
+            reencodeArgs.AddRange(["-movflags", "+faststart"]);
+        reencodeArgs.Add(job.OutputPath);
 
-        return [CreateGeneratedCommand(pathsConfig.FfmpegPath, arguments)];
+        return [CreateGeneratedCommand(pathsConfig.FfmpegPath, reencodeArgs)];
     }
 
     public static string SuggestOutputPath(
@@ -131,8 +158,15 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
     {
         var arguments = new List<string> { "-map", "0" };
 
-        foreach (var stream in mediaInfo.VideoStreams.Skip(1))
-            arguments.AddRange(["-map", $"-0:{stream.Index}"]);
+        if (job.VideoMode == VideoMode.Remove)
+        {
+            arguments.AddRange(["-map", "-0:v?"]);
+        }
+        else
+        {
+            foreach (var stream in mediaInfo.VideoStreams.Skip(1))
+                arguments.AddRange(["-map", $"-0:{stream.Index}"]);
+        }
 
         if (EffectiveAudioMode(job) == AudioMode.Remove)
             arguments.AddRange(["-map", "-0:a?"]);
@@ -462,6 +496,9 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         OutputContainer.Mkv => ".mkv",
         OutputContainer.Webm => ".webm",
         OutputContainer.Ogg => ".ogg",
+        OutputContainer.M4a => ".m4a",
+        OutputContainer.Mka => ".mka",
+        OutputContainer.OpusFile => ".opus",
         _ => throw new CommandBuildException($"Unsupported container: {container}"),
     };
 

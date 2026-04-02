@@ -34,6 +34,13 @@ public partial class OutputPathViewModel : ObservableObject
     [ObservableProperty]
     private bool _hasSource;
 
+    [ObservableProperty]
+    private OutputContainer _selectedContainer = OutputContainer.Mp4;
+
+    [ObservableProperty]
+    private IReadOnlyList<OutputContainer> _availableContainers =
+        Core.Validation.CompatibilityData.VideoContainers;
+
     public OutputPathViewModel(IDialogService dialogService)
     {
         _dialogService = dialogService;
@@ -61,7 +68,25 @@ public partial class OutputPathViewModel : ObservableObject
     public void UpdateContainer(OutputContainer container)
     {
         _container = container;
+        SelectedContainer = container;
         Extension = DefaultCommandBuilder.ContainerExtension(container);
+        UpdateResolvedPath();
+    }
+
+    public void UpdateAvailableContainers(IReadOnlyList<OutputContainer> containers)
+    {
+        AvailableContainers = containers;
+    }
+
+    partial void OnSelectedContainerChanged(OutputContainer value)
+    {
+        // Sync internal state and extension when user changes container in the Output card
+        _container = value;
+        Extension = DefaultCommandBuilder.ContainerExtension(value);
+
+        if (IsAutoName)
+            OutputFilename = BuildAutoFilename();
+
         UpdateResolvedPath();
     }
 

@@ -72,10 +72,19 @@ public partial class AudioViewModel : ObservableObject
         }
     }
 
+    [ObservableProperty]
+    private bool _isRemoveAllowed = true;
+
     public bool IsReencodeMode => SelectedAudioMode == AudioMode.Reencode;
 
     partial void OnSelectedAudioModeChanged(AudioMode value)
     {
         OnPropertyChanged(nameof(IsReencodeMode));
+    }
+
+    partial void OnIsRemoveAllowedChanged(bool value)
+    {
+        if (!value && SelectedAudioMode == AudioMode.Remove)
+            SelectedAudioMode = AudioMode.Copy;
     }
 }

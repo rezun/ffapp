@@ -32,10 +32,54 @@ public sealed class ValidationService : IValidationService
     {
         var issues = ImmutableArray.CreateBuilder<ValidationIssue>();
 
-        // Container / codec compatibility.
-        ValidateContainerCompatibility(settings, mediaInfo, issues);
+        // Cannot remove both video and audio.
+        if (settings.VideoMode == VideoMode.Remove && settings.AudioOptions.Mode == AudioMode.Remove)
+        {
+            issues.Add(new ValidationIssue(
+                ValidationSeverity.Error,
+                "no_streams_remaining",
+                "Cannot remove both video and audio — no streams would remain.",
+                "video_mode"));
+            return new ValidationResult { Issues = issues.ToImmutable() };
+        }
 
-        // Video stream presence.
+        // Audio-only container requires video removal.
+        if (CompatibilityData.IsAudioOnlyContainer(settings.Container)
+            && settings.VideoMode != VideoMode.Remove)
+        {
+            issues.Add(new ValidationIssue(
+                ValidationSeverity.Error,
+                "audio_container_requires_video_remove",
+                "Audio-only containers require Video Mode to be set to Remove.",
+                "video_mode"));
+        }
+
+        // Container / codec compatibility (only for video containers with video).
+        if (settings.VideoMode != VideoMode.Remove)
+            ValidateContainerCompatibility(settings, mediaInfo, issues);
+
+        // Audio settings (always validated).
+        ValidateAudioSettings(settings, issues);
+
+        // Audio codec compatibility with container.
+        ValidateAudioContainerCompatibility(settings, issues);
+
+        if (settings.VideoMode == VideoMode.Remove)
+        {
+            // Audio-only: no video validation needed, just audio and streams.
+            if (mediaInfo.AudioStreams.Length == 0)
+            {
+                issues.Add(new ValidationIssue(
+                    ValidationSeverity.Error,
+                    "audio_stream_missing",
+                    "The source file has no audio streams to extract.",
+                    "source"));
+            }
+
+            return new ValidationResult { Issues = issues.ToImmutable() };
+        }
+
+        // Video stream presence (required for copy and reencode).
         if (mediaInfo.VideoStreams.Length == 0)
         {
             issues.Add(new ValidationIssue(
@@ -51,15 +95,21 @@ public sealed class ValidationService : IValidationService
             issues.Add(new ValidationIssue(
                 ValidationSeverity.Warning,
                 "multiple_video_streams",
-                "Multiple video streams detected. MVP uses the first stream only.",
+                "Multiple video streams detected. Only the first stream will be used.",
                 "source"));
         }
 
-        // Video encoder settings.
-        ValidateVideoEncoderSettings(settings, issues);
+        // Video copy mode: no encoder/quality/resolution validation needed.
+        if (settings.VideoMode == VideoMode.Copy)
+        {
+            // Subtitle and data stream compatibility still applies.
+            ValidateSubtitleCopyCompatibility(settings, mediaInfo, issues);
+            ValidateDataCopyCompatibility(settings, mediaInfo, issues);
+            return new ValidationResult { Issues = issues.ToImmutable() };
+        }
 
-        // Audio settings.
-        ValidateAudioSettings(settings, issues);
+        // Video re-encode: full validation.
+        ValidateVideoEncoderSettings(settings, issues);
 
         // Resolution.
         if (settings.ResolutionPreset is not ResolutionPreset.Original
@@ -96,8 +146,9 @@ public sealed class ValidationService : IValidationService
         SourceMediaInfo mediaInfo,
         ImmutableArray<ValidationIssue>.Builder issues)
     {
-        // Video codec.
-        if (!VideoCodecMatrix[settings.Container].Contains(settings.VideoCodec))
+        // Video codec (only for video containers).
+        var videoCodecs = CompatibilityData.AllowedVideoCodecs(settings.Container);
+        if (videoCodecs.Count > 0 && !videoCodecs.Contains(settings.VideoCodec))
         {
             issues.Add(new ValidationIssue(
                 ValidationSeverity.Error,
@@ -107,21 +158,12 @@ public sealed class ValidationService : IValidationService
                 "video_codec"));
         }
 
-        // Audio codec.
+        // Audio codec compatibility.
+        ValidateAudioContainerCompatibility(settings, issues);
+
+        // Audio copy compatibility.
         var effectiveMode = EffectiveAudioMode(settings);
-        if (effectiveMode is AudioMode.Reencode)
-        {
-            if (settings.AudioOptions.Codec is { } codec
-                && !AudioCodecMatrix[settings.Container].Contains(codec))
-            {
-                issues.Add(new ValidationIssue(
-                    ValidationSeverity.Error,
-                    "audio_codec_incompatible",
-                    "The selected audio codec is not supported in the chosen container.",
-                    "audio_codec"));
-            }
-        }
-        else if (effectiveMode is AudioMode.Copy)
+        if (effectiveMode is AudioMode.Copy)
         {
             ValidateAudioCopyCompatibility(settings, mediaInfo, issues);
         }
@@ -131,6 +173,23 @@ public sealed class ValidationService : IValidationService
 
         // Data streams.
         ValidateDataCopyCompatibility(settings, mediaInfo, issues);
+    }
+
+    private static void ValidateAudioContainerCompatibility(
+        OutputSettings settings,
+        ImmutableArray<ValidationIssue>.Builder issues)
+    {
+        var effectiveMode = EffectiveAudioMode(settings);
+        if (effectiveMode is AudioMode.Reencode
+            && settings.AudioOptions.Codec is { } codec
+            && !AudioCodecMatrix[settings.Container].Contains(codec))
+        {
+            issues.Add(new ValidationIssue(
+                ValidationSeverity.Error,
+                "audio_codec_incompatible",
+                "The selected audio codec is not supported in the chosen container.",
+                "audio_codec"));
+        }
     }
 
     private static void ValidateAudioCopyCompatibility(

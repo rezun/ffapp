@@ -80,6 +80,7 @@ public partial class OutputSettingsViewModel : ObservableObject
     public void UpdateSourceInfo(SourceMediaInfo mediaInfo)
     {
         _mediaInfo = mediaInfo;
+        Format.SourceHasVideo = mediaInfo.VideoStreams.Length > 0;
         Audio.AvailableAudioCodecs = Format.AvailableAudioCodecs;
         RebuildAndNotify();
     }
@@ -89,6 +90,7 @@ public partial class OutputSettingsViewModel : ObservableObject
         _isSuppressing = true;
         try
         {
+            Format.SelectedVideoMode = settings.VideoMode;
             Format.SelectedContainer = settings.Container;
             Format.SelectedVideoCodec = settings.VideoCodec;
             Strategy.SelectedStrategy = settings.EncodingStrategy;
@@ -120,6 +122,9 @@ public partial class OutputSettingsViewModel : ObservableObject
 
             // Encoder options
             ApplyEncoderOptions(settings.VideoEncoderOptions);
+
+            // Update dependent state after all values are set
+            Audio.IsRemoveAllowed = settings.VideoMode != VideoMode.Remove;
         }
         finally
         {
@@ -131,16 +136,19 @@ public partial class OutputSettingsViewModel : ObservableObject
 
     public OutputSettings BuildSettings()
     {
+        var videoMode = Format.SelectedVideoMode;
         var codec = Format.SelectedVideoCodec;
         var quality = Strategy.Quality;
 
         return new OutputSettings(
             Container: Format.SelectedContainer,
+            VideoMode: videoMode,
             VideoCodec: codec,
             EncodingStrategy: Strategy.SelectedStrategy,
             ResolutionPreset: SelectedResolution,
             FrameRatePreset: SelectedFrameRate,
-            VideoEncoderOptions: BuildVideoEncoderOptions(codec, quality),
+            VideoEncoderOptions: videoMode == VideoMode.Reencode
+                ? BuildVideoEncoderOptions(codec, quality) : null,
             AudioOptions: new AudioOptions(
                 Mode: Audio.SelectedAudioMode,
                 Codec: Audio.SelectedAudioCodec,
@@ -157,7 +165,8 @@ public partial class OutputSettingsViewModel : ObservableObject
             TargetBitrate: new TargetBitrateOptions(
                 VideoBitrate: (int)Strategy.Bitrate.VideoBitrateKbps * 1000,
                 TwoPass: Strategy.Bitrate.TwoPass),
-            TargetQuality: BuildQualityOptions(codec, quality));
+            TargetQuality: videoMode == VideoMode.Reencode
+                ? BuildQualityOptions(codec, quality) : new H264QualityOptions());
     }
 
     private void OnChildPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -172,6 +181,11 @@ public partial class OutputSettingsViewModel : ObservableObject
     {
         if (_isSuppressing)
             return;
+
+        if (e.PropertyName == nameof(FormatViewModel.SelectedVideoMode))
+        {
+            Audio.IsRemoveAllowed = Format.SelectedVideoMode != VideoMode.Remove;
+        }
 
         if (e.PropertyName == nameof(FormatViewModel.SelectedVideoCodec))
         {
@@ -225,7 +239,9 @@ public partial class OutputSettingsViewModel : ObservableObject
 
     private void UpdateFileSizeBitrateDisplay(OutputSettings settings)
     {
-        if (Strategy.SelectedStrategy != EncodingStrategy.TargetFileSize || _mediaInfo is null)
+        if (settings.VideoMode != VideoMode.Reencode
+            || Strategy.SelectedStrategy != EncodingStrategy.TargetFileSize
+            || _mediaInfo is null)
         {
             Strategy.FileSize.VideoBitrateText = null;
             return;

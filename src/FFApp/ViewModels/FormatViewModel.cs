@@ -9,6 +9,9 @@ public partial class FormatViewModel : ObservableObject
     private bool _isSuppressing;
 
     [ObservableProperty]
+    private VideoMode _selectedVideoMode = VideoMode.Reencode;
+
+    [ObservableProperty]
     private OutputContainer _selectedContainer = OutputContainer.Mp4;
 
     [ObservableProperty]
@@ -16,7 +19,7 @@ public partial class FormatViewModel : ObservableObject
 
     [ObservableProperty]
     private IReadOnlyList<OutputContainer> _availableContainers =
-        Enum.GetValues<OutputContainer>();
+        CompatibilityData.VideoContainers;
 
     [ObservableProperty]
     private IReadOnlyList<VideoCodec> _availableVideoCodecs =
@@ -26,6 +29,43 @@ public partial class FormatViewModel : ObservableObject
     private IReadOnlyList<AudioCodec> _availableAudioCodecs =
         CompatibilityData.AllowedAudioCodecs(OutputContainer.Mp4);
 
+    [ObservableProperty]
+    private bool _sourceHasVideo = true;
+
+    public bool IsVideoReencode => SelectedVideoMode == VideoMode.Reencode;
+    public bool IsVideoVisible => SelectedVideoMode != VideoMode.Remove;
+
+    partial void OnSourceHasVideoChanged(bool value)
+    {
+        if (!value && SelectedVideoMode != VideoMode.Remove)
+            SelectedVideoMode = VideoMode.Remove;
+    }
+
+    partial void OnSelectedVideoModeChanged(VideoMode value)
+    {
+        OnPropertyChanged(nameof(IsVideoReencode));
+        OnPropertyChanged(nameof(IsVideoVisible));
+
+        if (_isSuppressing)
+            return;
+
+        _isSuppressing = true;
+        try
+        {
+            var newContainers = CompatibilityData.ContainersForVideoMode(value);
+            AvailableContainers = newContainers;
+
+            if (!newContainers.Contains(SelectedContainer))
+                SelectedContainer = newContainers[0];
+            else
+                RefreshCodecsForContainer(SelectedContainer);
+        }
+        finally
+        {
+            _isSuppressing = false;
+        }
+    }
+
     partial void OnSelectedContainerChanged(OutputContainer value)
     {
         if (_isSuppressing)
@@ -34,15 +74,21 @@ public partial class FormatViewModel : ObservableObject
         _isSuppressing = true;
         try
         {
-            AvailableVideoCodecs = CompatibilityData.AllowedVideoCodecs(value);
-            if (!AvailableVideoCodecs.Contains(SelectedVideoCodec))
-                SelectedVideoCodec = AvailableVideoCodecs[0];
-
-            AvailableAudioCodecs = CompatibilityData.AllowedAudioCodecs(value);
+            RefreshCodecsForContainer(value);
         }
         finally
         {
             _isSuppressing = false;
         }
+    }
+
+    private void RefreshCodecsForContainer(OutputContainer container)
+    {
+        var videoCodecs = CompatibilityData.AllowedVideoCodecs(container);
+        AvailableVideoCodecs = videoCodecs;
+        if (videoCodecs.Count > 0 && !videoCodecs.Contains(SelectedVideoCodec))
+            SelectedVideoCodec = videoCodecs[0];
+
+        AvailableAudioCodecs = CompatibilityData.AllowedAudioCodecs(container);
     }
 }

@@ -240,6 +240,11 @@ public static class SettingsSerializer
                 ["preset"] = h265.Preset,
                 ["profile"] = h265.Profile,
             },
+            Av1EncoderOptions av1 => new JsonObject
+            {
+                ["codec"] = EnumToString(av1.Codec),
+                ["preset"] = av1.Preset,
+            },
             _ => throw new InvalidOperationException(
                 $"Unknown VideoEncoderOptions type: {options.GetType().Name}"),
         };
@@ -275,6 +280,12 @@ public static class SettingsSerializer
                 ["quality"] = vp9.Quality,
                 ["two_pass"] = vp9.TwoPass,
             },
+            Av1QualityOptions av1 => new JsonObject
+            {
+                ["codec"] = EnumToString(av1.Codec),
+                ["crf"] = av1.Crf,
+                ["preset"] = av1.Preset,
+            },
             _ => throw new InvalidOperationException(
                 $"Unknown QualityOptions type: {options.GetType().Name}"),
         };
@@ -303,6 +314,12 @@ public static class SettingsSerializer
             if (!CompatibilityData.QualityProfileOptions(videoCodec).Contains(profile))
                 throw new SettingsDecodeException("Invalid H.265 encoder profile.");
             return new H265EncoderOptions(Preset: preset, Profile: profile);
+        }
+
+        if (videoCodec == VideoCodec.Av1)
+        {
+            var preset = ReadInt(element, "preset", 6);
+            return new Av1EncoderOptions(Preset: preset);
         }
 
         // VP8 or VP9
@@ -355,6 +372,13 @@ public static class SettingsSerializer
             return new Vp8QualityOptions(
                 Quality: ReadInt(element, "quality", 31),
                 TwoPass: ReadBool(element, "two_pass"));
+        }
+
+        if (videoCodec == VideoCodec.Av1)
+        {
+            return new Av1QualityOptions(
+                Crf: ReadInt(element, "crf", 30),
+                Preset: ReadInt(element, "preset", 6));
         }
 
         return new Vp9QualityOptions(

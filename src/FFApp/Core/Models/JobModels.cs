@@ -19,10 +19,13 @@ public sealed record JobDefinition(
     QualityOptions? TargetQuality = null,
     double? TrimStartSeconds = null,
     double? TrimEndSeconds = null,
-    CropRect? Crop = null)
+    CropRect? Crop = null,
+    HdrMode HdrMode = HdrMode.Preserve,
+    ToneMapSettings? ToneMapSettings = null)
 {
     public AudioOptions AudioOptions { get; init; } = AudioOptions ?? new AudioOptions();
     public StreamHandlingOptions StreamHandling { get; init; } = StreamHandling ?? new StreamHandlingOptions();
+    public ToneMapSettings ToneMapSettings { get; init; } = ToneMapSettings ?? new ToneMapSettings();
 }
 
 public sealed record CropRect(int X, int Y, int Width, int Height);

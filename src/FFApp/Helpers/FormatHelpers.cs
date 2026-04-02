@@ -28,6 +28,14 @@ public static class FormatHelpers
             sb.AppendLine($"Resolution: {FormatDimensions(primaryVideo.Width, primaryVideo.Height)}");
             sb.AppendLine($"Frame rate: {FormatFrameRate(primaryVideo.FrameRate)}");
             sb.AppendLine($"Bitrate: {FormatBitrate(primaryVideo.BitRate)}");
+            if (primaryVideo.IsHdr)
+            {
+                var hdrLabel = HdrFormatLabel(primaryVideo.HdrFormat);
+                var bitDepth = primaryVideo.BitsPerRawSample is not null
+                    ? $"{primaryVideo.BitsPerRawSample}-bit" : "10-bit";
+                var colorInfo = $"{primaryVideo.ColorPrimaries ?? "bt2020"} / {TransferFunctionLabel(primaryVideo.ColorTransfer)}";
+                sb.AppendLine($"HDR: {hdrLabel} ({bitDepth}, {colorInfo})");
+            }
         }
 
         if (mediaInfo.AudioStreams.Length > 0)
@@ -179,7 +187,9 @@ public static class FormatHelpers
             TargetQuality: settings.TargetQuality,
             TrimStartSeconds: trimStartSeconds,
             TrimEndSeconds: trimEndSeconds,
-            Crop: crop);
+            Crop: crop,
+            HdrMode: settings.HdrMode,
+            ToneMapSettings: settings.ToneMapSettings);
 
     public static string SuggestQueueOutputPath(string sourcePath, OutputContainer container, HashSet<string> reservedOutputs)
     {
@@ -267,6 +277,39 @@ public static class FormatHelpers
         FrameRatePreset.Fps50 => "50 fps",
         FrameRatePreset.Fps60 => "60 fps",
         _ => preset.ToString()
+    };
+
+    public static string HdrModeLabel(HdrMode mode) => mode switch
+    {
+        HdrMode.Preserve => "Preserve HDR",
+        HdrMode.TonemapToSdr => "Convert to SDR",
+        _ => mode.ToString(),
+    };
+
+    public static string ToneMapAlgorithmLabel(ToneMapAlgorithm algorithm) => algorithm switch
+    {
+        ToneMapAlgorithm.Hable => "Hable (filmic)",
+        ToneMapAlgorithm.Reinhard => "Reinhard",
+        ToneMapAlgorithm.Mobius => "Mobius",
+        ToneMapAlgorithm.Bt2390 => "BT.2390 (broadcast)",
+        ToneMapAlgorithm.Clip => "Clip (hard)",
+        _ => algorithm.ToString(),
+    };
+
+    public static string HdrFormatLabel(HdrFormat format) => format switch
+    {
+        HdrFormat.Hdr10 => "HDR10",
+        HdrFormat.Hlg => "HLG",
+        HdrFormat.Sdr => "SDR",
+        _ => format.ToString(),
+    };
+
+    public static string TransferFunctionLabel(string? transfer) => transfer switch
+    {
+        "smpte2084" => "PQ",
+        "arib-std-b67" => "HLG",
+        "bt709" => "BT.709",
+        _ => transfer ?? "Unknown",
     };
 
     // --- Private helpers ---

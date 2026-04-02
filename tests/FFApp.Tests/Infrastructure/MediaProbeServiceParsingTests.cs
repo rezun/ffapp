@@ -1,3 +1,4 @@
+using FFApp.Core.Models;
 using FFApp.Infrastructure;
 using FluentAssertions;
 
@@ -280,5 +281,208 @@ public class MediaProbeServiceParsingTests
         result.PrimaryVideoStream!.Rotation.Should().Be(180);
         result.PrimaryVideoStream.DisplayWidth.Should().Be(1920);
         result.PrimaryVideoStream.DisplayHeight.Should().Be(1080);
+    }
+
+    // --- HDR metadata parsing ---
+
+    [Fact]
+    public void ParseMediaInfo_Hdr10Stream_ExtractsColorProperties()
+    {
+        var json = """
+        {
+            "streams": [{
+                "index": 0, "codec_type": "video", "codec_name": "hevc",
+                "width": 3840, "height": 2160, "avg_frame_rate": "24000/1001",
+                "pix_fmt": "yuv420p10le",
+                "color_primaries": "bt2020",
+                "color_transfer": "smpte2084",
+                "color_space": "bt2020nc",
+                "color_range": "tv",
+                "bits_per_raw_sample": "10"
+            }]
+        }
+        """;
+
+        var result = MediaProbeService.ParseMediaInfo("/test/hdr.mkv", json);
+        var video = result.PrimaryVideoStream!;
+        video.PixelFormat.Should().Be("yuv420p10le");
+        video.ColorPrimaries.Should().Be("bt2020");
+        video.ColorTransfer.Should().Be("smpte2084");
+        video.ColorSpace.Should().Be("bt2020nc");
+        video.ColorRange.Should().Be("tv");
+        video.BitsPerRawSample.Should().Be(10);
+        video.HdrFormat.Should().Be(HdrFormat.Hdr10);
+        video.IsHdr.Should().BeTrue();
+    }
+
+    [Fact]
+    public void ParseMediaInfo_HlgStream_ClassifiesAsHlg()
+    {
+        var json = """
+        {
+            "streams": [{
+                "index": 0, "codec_type": "video", "codec_name": "hevc",
+                "width": 3840, "height": 2160, "avg_frame_rate": "50/1",
+                "pix_fmt": "yuv420p10le",
+                "color_primaries": "bt2020",
+                "color_transfer": "arib-std-b67",
+                "color_space": "bt2020nc",
+                "bits_per_raw_sample": "10"
+            }]
+        }
+        """;
+
+        var result = MediaProbeService.ParseMediaInfo("/test/hlg.mkv", json);
+        var video = result.PrimaryVideoStream!;
+        video.HdrFormat.Should().Be(HdrFormat.Hlg);
+        video.IsHdr.Should().BeTrue();
+    }
+
+    [Fact]
+    public void ParseMediaInfo_SdrStream_ClassifiesAsSdr()
+    {
+        var json = """
+        {
+            "streams": [{
+                "index": 0, "codec_type": "video", "codec_name": "h264",
+                "width": 1920, "height": 1080, "avg_frame_rate": "30/1",
+                "pix_fmt": "yuv420p",
+                "color_primaries": "bt709",
+                "color_transfer": "bt709",
+                "color_space": "bt709"
+            }]
+        }
+        """;
+
+        var result = MediaProbeService.ParseMediaInfo("/test/sdr.mp4", json);
+        var video = result.PrimaryVideoStream!;
+        video.HdrFormat.Should().Be(HdrFormat.Sdr);
+        video.IsHdr.Should().BeFalse();
+        video.HdrMetadata.Should().BeNull();
+    }
+
+    [Fact]
+    public void ParseMediaInfo_NoColorProperties_ClassifiesAsSdr()
+    {
+        var json = """
+        {
+            "streams": [{
+                "index": 0, "codec_type": "video", "codec_name": "h264",
+                "width": 1920, "height": 1080, "avg_frame_rate": "30/1"
+            }]
+        }
+        """;
+
+        var result = MediaProbeService.ParseMediaInfo("/test/video.mp4", json);
+        var video = result.PrimaryVideoStream!;
+        video.ColorPrimaries.Should().BeNull();
+        video.ColorTransfer.Should().BeNull();
+        video.HdrFormat.Should().Be(HdrFormat.Sdr);
+        video.IsHdr.Should().BeFalse();
+    }
+
+    [Fact]
+    public void ParseMediaInfo_Hdr10WithContentLightLevel_ExtractsMaxCllMaxFall()
+    {
+        var json = """
+        {
+            "streams": [{
+                "index": 0, "codec_type": "video", "codec_name": "hevc",
+                "width": 3840, "height": 2160, "avg_frame_rate": "24/1",
+                "pix_fmt": "yuv420p10le",
+                "color_primaries": "bt2020",
+                "color_transfer": "smpte2084",
+                "color_space": "bt2020nc",
+                "side_data_list": [
+                    {
+                        "side_data_type": "Content light level metadata",
+                        "max_content": 1000,
+                        "max_average": 400
+                    }
+                ]
+            }]
+        }
+        """;
+
+        var result = MediaProbeService.ParseMediaInfo("/test/hdr.mkv", json);
+        var metadata = result.PrimaryVideoStream!.HdrMetadata;
+        metadata.Should().NotBeNull();
+        metadata!.MaxContentLightLevel.Should().Be(1000);
+        metadata.MaxAverageLightLevel.Should().Be(400);
+        metadata.MasteringDisplay.Should().BeNull();
+    }
+
+    [Fact]
+    public void ParseMediaInfo_Hdr10WithMasteringDisplay_ExtractsAllFields()
+    {
+        var json = """
+        {
+            "streams": [{
+                "index": 0, "codec_type": "video", "codec_name": "hevc",
+                "width": 3840, "height": 2160, "avg_frame_rate": "24/1",
+                "pix_fmt": "yuv420p10le",
+                "color_primaries": "bt2020",
+                "color_transfer": "smpte2084",
+                "color_space": "bt2020nc",
+                "side_data_list": [
+                    {
+                        "side_data_type": "Mastering display metadata",
+                        "red_x": "13250",
+                        "red_y": "34500",
+                        "green_x": "7500",
+                        "green_y": "3000",
+                        "blue_x": "34000",
+                        "blue_y": "16000",
+                        "white_point_x": "15635",
+                        "white_point_y": "16450",
+                        "min_luminance": "50",
+                        "max_luminance": "10000000"
+                    },
+                    {
+                        "side_data_type": "Content light level metadata",
+                        "max_content": 1000,
+                        "max_average": 400
+                    }
+                ]
+            }]
+        }
+        """;
+
+        var result = MediaProbeService.ParseMediaInfo("/test/hdr.mkv", json);
+        var metadata = result.PrimaryVideoStream!.HdrMetadata!;
+        metadata.MaxContentLightLevel.Should().Be(1000);
+        metadata.MaxAverageLightLevel.Should().Be(400);
+
+        var md = metadata.MasteringDisplay!;
+        md.RedX.Should().Be("13250");
+        md.RedY.Should().Be("34500");
+        md.GreenX.Should().Be("7500");
+        md.GreenY.Should().Be("3000");
+        md.BlueX.Should().Be("34000");
+        md.BlueY.Should().Be("16000");
+        md.WhitePointX.Should().Be("15635");
+        md.WhitePointY.Should().Be("16450");
+        md.MinLuminance.Should().Be("50");
+        md.MaxLuminance.Should().Be("10000000");
+    }
+
+    [Fact]
+    public void ParseMediaInfo_SideDataWithoutHdrEntries_ReturnsNullMetadata()
+    {
+        var json = """
+        {
+            "streams": [{
+                "index": 0, "codec_type": "video", "codec_name": "h264",
+                "width": 1920, "height": 1080, "avg_frame_rate": "30/1",
+                "side_data_list": [
+                    { "side_data_type": "Display Matrix", "rotation": -90 }
+                ]
+            }]
+        }
+        """;
+
+        var result = MediaProbeService.ParseMediaInfo("/test/video.mp4", json);
+        result.PrimaryVideoStream!.HdrMetadata.Should().BeNull();
+        result.PrimaryVideoStream.Rotation.Should().Be(-90);
     }
 }

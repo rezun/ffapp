@@ -163,4 +163,10 @@ public static class CompatibilityData
             VideoCodec.Av1 => "AV1",
             _ => codec.ToString(),
         };
+
+    public static readonly FrozenSet<VideoCodec> HdrCapableCodecs =
+        FrozenSet.ToFrozenSet([VideoCodec.H265, VideoCodec.Av1]);
+
+    public static bool SupportsHdrOutput(VideoCodec codec) =>
+        HdrCapableCodecs.Contains(codec);
 }

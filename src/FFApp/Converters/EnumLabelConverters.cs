@@ -46,4 +46,10 @@ public static class EnumLabelConverters
             6 => "5.1 Surround",
             _ => $"{v} ch",
         });
+
+    public static readonly FuncValueConverter<HdrMode, string> HdrMode =
+        new(v => FormatHelpers.HdrModeLabel(v));
+
+    public static readonly FuncValueConverter<ToneMapAlgorithm, string> ToneMapAlgorithm =
+        new(v => FormatHelpers.ToneMapAlgorithmLabel(v));
 }

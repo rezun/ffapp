@@ -966,4 +966,198 @@ public class CommandBuilderTests
 
         args.Should().Contain("-r 60");
     }
+
+    // --- HDR: SDR backward compatibility ---
+
+    [Fact]
+    public void Build_H264Quality_SdrSource_NoHdrArguments()
+    {
+        var job = DefaultJob();
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        args.Should().Contain("-pix_fmt yuv420p");
+        args.Should().NotContain("color_primaries");
+        args.Should().NotContain("x265-params");
+        args.Should().NotContain("zscale");
+    }
+
+    [Fact]
+    public void Build_Av1Quality_SdrSource_UsesYuv420p10le()
+    {
+        var job = JobWith(s => s.WithAv1());
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        args.Should().Contain("-pix_fmt yuv420p10le");
+        args.Should().NotContain("color_primaries");
+        args.Should().NotContain("svtav1-params");
+    }
+
+    // --- HDR-to-HDR preserve ---
+
+    [Fact]
+    public void Build_H265Quality_Hdr10Preserve_SetsMain10AndColorMetadata()
+    {
+        var job = JobWith(s => s.WithH265().WithHdrPreserve());
+        var media = new TestMediaInfoBuilder().WithHdr10().Build();
+        var args = JoinArgs(_sut.Build(job, media)[0]);
+
+        args.Should().Contain("-pix_fmt yuv420p10le");
+        args.Should().Contain("-color_primaries bt2020");
+        args.Should().Contain("-color_trc smpte2084");
+        args.Should().Contain("-colorspace bt2020nc");
+        args.Should().Contain("-profile:v main10");
+    }
+
+    [Fact]
+    public void Build_H265Quality_Hdr10Preserve_IncludesX265Params()
+    {
+        var job = JobWith(s => s.WithH265().WithHdrPreserve());
+        var media = new TestMediaInfoBuilder().WithHdr10().Build();
+        var args = JoinArgs(_sut.Build(job, media)[0]);
+
+        args.Should().Contain("-x265-params");
+        args.Should().Contain("hdr-opt=1");
+        args.Should().Contain("repeat-headers=1");
+        args.Should().Contain("colorprim=bt2020");
+        args.Should().Contain("transfer=smpte2084");
+        args.Should().Contain("colormatrix=bt2020nc");
+    }
+
+    [Fact]
+    public void Build_H265Quality_Hdr10WithMaxCll_IncludesMaxCll()
+    {
+        var job = JobWith(s => s.WithH265().WithHdrPreserve());
+        var media = new TestMediaInfoBuilder().WithHdr10(maxCll: 1000, maxFall: 400).Build();
+        var args = JoinArgs(_sut.Build(job, media)[0]);
+
+        args.Should().Contain("max-cll=1000,400");
+    }
+
+    [Fact]
+    public void Build_H265Quality_Hdr10WithMasteringDisplay_IncludesMasterDisplay()
+    {
+        var job = JobWith(s => s.WithH265().WithHdrPreserve());
+        var media = new TestMediaInfoBuilder().WithHdr10AndMasteringDisplay().Build();
+        var args = JoinArgs(_sut.Build(job, media)[0]);
+
+        args.Should().Contain("master-display=G(7500,3000)B(34000,16000)R(13250,34500)WP(15635,16450)L(10000000,50)");
+    }
+
+    [Fact]
+    public void Build_H265Quality_HlgPreserve_UsesHlgTransfer()
+    {
+        var job = JobWith(s => s.WithH265().WithHdrPreserve());
+        var media = new TestMediaInfoBuilder().WithHlg().Build();
+        var args = JoinArgs(_sut.Build(job, media)[0]);
+
+        args.Should().Contain("-color_trc arib-std-b67");
+        args.Should().Contain("transfer=arib-std-b67");
+    }
+
+    [Fact]
+    public void Build_Av1Quality_Hdr10Preserve_IncludesSvtav1Params()
+    {
+        var job = JobWith(s => s.WithAv1().WithHdrPreserve());
+        var media = new TestMediaInfoBuilder().WithHdr10().Build();
+        var args = JoinArgs(_sut.Build(job, media)[0]);
+
+        args.Should().Contain("-pix_fmt yuv420p10le");
+        args.Should().Contain("-color_primaries bt2020");
+        args.Should().Contain("-svtav1-params enable-hdr=1");
+        args.Should().NotContain("x265-params");
+    }
+
+    // --- HDR-to-SDR tone mapping ---
+
+    [Fact]
+    public void Build_H264Quality_Hdr10Tonemap_IncludesZscaleFilterChain()
+    {
+        var job = JobWith(s => s.WithToneMapToSdr());
+        var media = new TestMediaInfoBuilder().WithHdr10().Build();
+        var args = JoinArgs(_sut.Build(job, media)[0]);
+
+        args.Should().Contain("zscale=t=linear");
+        args.Should().Contain("format=gbrpf32le");
+        args.Should().Contain("zscale=p=bt709");
+        args.Should().Contain("tonemap=hable");
+        args.Should().Contain("zscale=t=bt709:m=bt709:r=tv");
+        args.Should().Contain("format=yuv420p");
+        args.Should().NotContain("color_primaries");
+        args.Should().NotContain("x265-params");
+    }
+
+    [Fact]
+    public void Build_H264Quality_Hdr10Tonemap_CustomAlgorithm()
+    {
+        var job = JobWith(s => s.WithToneMapToSdr(ToneMapAlgorithm.Mobius));
+        var media = new TestMediaInfoBuilder().WithHdr10().Build();
+        var args = JoinArgs(_sut.Build(job, media)[0]);
+
+        args.Should().Contain("tonemap=mobius");
+    }
+
+    [Fact]
+    public void Build_H264Quality_Hdr10Tonemap_CustomDesatAndPeak()
+    {
+        var job = JobWith(s => s.WithToneMapToSdr(desaturation: 0.0, peakNits: 1000));
+        var media = new TestMediaInfoBuilder().WithHdr10().Build();
+        var args = JoinArgs(_sut.Build(job, media)[0]);
+
+        args.Should().Contain("tonemap=hable:desat=0.0:peak=1000");
+    }
+
+    [Fact]
+    public void Build_Av1Quality_Hdr10Tonemap_ToneMapOutputFormatIs10bit()
+    {
+        var job = JobWith(s => s.WithAv1().WithToneMapToSdr());
+        var media = new TestMediaInfoBuilder().WithHdr10().Build();
+        var args = JoinArgs(_sut.Build(job, media)[0]);
+
+        // Tonemap chain output should be 10-bit for AV1
+        args.Should().Contain("format=yuv420p10le");
+        args.Should().Contain("zscale=t=linear");
+    }
+
+    [Fact]
+    public void Build_H264Quality_Hdr10Tonemap_WithCrop_TonemapComesFirst()
+    {
+        var settings = new TestOutputSettingsBuilder().WithToneMapToSdr().Build();
+        var job = new TestJobDefinitionBuilder()
+            .WithOutputSettings(settings)
+            .Build() with { Crop = new CropRect(100, 100, 1600, 900) };
+        var media = new TestMediaInfoBuilder().WithHdr10().Build();
+        var args = JoinArgs(_sut.Build(job, media)[0]);
+
+        var vfIndex = args.IndexOf("-vf");
+        vfIndex.Should().BeGreaterThan(-1);
+
+        // Extract the filter chain value
+        var filterStart = vfIndex + 4; // "-vf " length
+        var filterChain = args[filterStart..];
+        var zscalePos = filterChain.IndexOf("zscale");
+        var cropPos = filterChain.IndexOf("crop=");
+        zscalePos.Should().BeLessThan(cropPos, "tonemap filters should come before crop");
+    }
+
+    [Fact]
+    public void Build_H265Quality_Hdr10Tonemap_NoHdrPreserveArgs()
+    {
+        var job = JobWith(s => s.WithH265().WithToneMapToSdr());
+        var media = new TestMediaInfoBuilder().WithHdr10().Build();
+        var args = JoinArgs(_sut.Build(job, media)[0]);
+
+        args.Should().Contain("zscale=t=linear");
+        args.Should().NotContain("x265-params");
+        args.Should().NotContain("-color_primaries");
+    }
+
+    [Fact]
+    public void Build_H264Quality_SdrSource_ToneMapIgnored()
+    {
+        var job = JobWith(s => s.WithToneMapToSdr());
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        args.Should().NotContain("zscale");
+        args.Should().NotContain("tonemap");
+    }
 }

@@ -14,7 +14,7 @@ public sealed class PresetDecodeException(string message)
 
 public static class SettingsSerializer
 {
-    public const int SettingsSchemaVersion = 4;
+    public const int SettingsSchemaVersion = 5;
     public const int PresetSchemaVersion = 1;
     public const int PresetLibrarySchemaVersion = 1;
 
@@ -56,6 +56,13 @@ public static class SettingsSerializer
                 ["two_pass"] = settings.TargetBitrate.TwoPass,
             },
             ["target_quality"] = SerializeQualityOptions(settings.TargetQuality),
+            ["hdr_mode"] = EnumToString(settings.HdrMode),
+            ["tone_map_settings"] = new JsonObject
+            {
+                ["algorithm"] = EnumToString(settings.ToneMapSettings.Algorithm),
+                ["desaturation"] = settings.ToneMapSettings.Desaturation,
+                ["peak_nits"] = settings.ToneMapSettings.PeakNits,
+            },
         };
     }
 
@@ -134,6 +141,14 @@ public static class SettingsSerializer
             videoEncoderOptions = new VpxEncoderOptions(videoCodec, CpuUsed: cpuUsed);
         }
 
+        // HDR settings
+        var hdrMode = ReadEnum<HdrMode>(element, "hdr_mode", HdrMode.Preserve);
+        var toneMapEl = GetObjectOrEmpty(element, "tone_map_settings");
+        var toneMapSettings = new ToneMapSettings(
+            Algorithm: ReadEnum<ToneMapAlgorithm>(toneMapEl, "algorithm", ToneMapAlgorithm.Hable),
+            Desaturation: ReadDouble(toneMapEl, "desaturation", 2.0),
+            PeakNits: ReadOptionalInt(toneMapEl, "peak_nits"));
+
         return new OutputSettings(
             Container: container,
             VideoCodec: videoCodec,
@@ -150,7 +165,9 @@ public static class SettingsSerializer
             StreamHandling: streamHandling,
             TargetFileSize: targetFileSize,
             TargetBitrate: targetBitrate,
-            TargetQuality: targetQuality);
+            TargetQuality: targetQuality,
+            HdrMode: hdrMode,
+            ToneMapSettings: toneMapSettings);
     }
 
     // --- Preset serialization ---

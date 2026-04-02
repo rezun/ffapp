@@ -94,3 +94,28 @@ public enum ValidationSeverity
     [JsonStringEnumMemberName("error")] Error,
     [JsonStringEnumMemberName("warning")] Warning,
 }
+
+[JsonConverter(typeof(JsonStringEnumConverter<HdrMode>))]
+public enum HdrMode
+{
+    [JsonStringEnumMemberName("preserve")] Preserve,
+    [JsonStringEnumMemberName("tonemap_to_sdr")] TonemapToSdr,
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter<ToneMapAlgorithm>))]
+public enum ToneMapAlgorithm
+{
+    [JsonStringEnumMemberName("hable")] Hable,
+    [JsonStringEnumMemberName("reinhard")] Reinhard,
+    [JsonStringEnumMemberName("mobius")] Mobius,
+    [JsonStringEnumMemberName("bt2390")] Bt2390,
+    [JsonStringEnumMemberName("clip")] Clip,
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter<HdrFormat>))]
+public enum HdrFormat
+{
+    [JsonStringEnumMemberName("sdr")] Sdr,
+    [JsonStringEnumMemberName("hdr10")] Hdr10,
+    [JsonStringEnumMemberName("hlg")] Hlg,
+}

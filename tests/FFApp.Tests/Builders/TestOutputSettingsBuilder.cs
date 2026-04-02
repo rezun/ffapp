@@ -95,6 +95,28 @@ public class TestOutputSettingsBuilder
     public TestOutputSettingsBuilder WithFrameRate(FrameRatePreset preset) =>
         Apply(s => s with { FrameRatePreset = preset });
 
+    public TestOutputSettingsBuilder WithAv1() =>
+        Apply(s => s with
+        {
+            VideoCodec = VideoCodec.Av1,
+            Container = OutputContainer.Mkv,
+            VideoEncoderOptions = new Av1EncoderOptions(),
+            TargetQuality = new Av1QualityOptions(),
+        });
+
+    public TestOutputSettingsBuilder WithHdrPreserve() =>
+        Apply(s => s with { HdrMode = HdrMode.Preserve });
+
+    public TestOutputSettingsBuilder WithToneMapToSdr(
+        ToneMapAlgorithm algorithm = ToneMapAlgorithm.Hable,
+        double desaturation = 2.0,
+        int? peakNits = null) =>
+        Apply(s => s with
+        {
+            HdrMode = HdrMode.TonemapToSdr,
+            ToneMapSettings = new ToneMapSettings(algorithm, desaturation, peakNits),
+        });
+
     private TestOutputSettingsBuilder Apply(Func<OutputSettings, OutputSettings> transform)
     {
         _settings = transform(_settings);

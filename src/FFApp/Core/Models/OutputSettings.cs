@@ -23,6 +23,11 @@ public sealed record TargetBitrateOptions(
     int VideoBitrate,
     bool TwoPass = false);
 
+public sealed record ToneMapSettings(
+    ToneMapAlgorithm Algorithm = ToneMapAlgorithm.Hable,
+    double Desaturation = 2.0,
+    int? PeakNits = null);
+
 public sealed record AudioOptions(
     AudioMode Mode = AudioMode.Copy,
     AudioCodec? Codec = null,
@@ -46,11 +51,14 @@ public sealed record OutputSettings(
     StreamHandlingOptions? StreamHandling = null,
     TargetFileSizeOptions? TargetFileSize = null,
     TargetBitrateOptions? TargetBitrate = null,
-    QualityOptions? TargetQuality = null)
+    QualityOptions? TargetQuality = null,
+    HdrMode HdrMode = HdrMode.Preserve,
+    ToneMapSettings? ToneMapSettings = null)
 {
     public AudioOptions AudioOptions { get; init; } = AudioOptions ?? new AudioOptions();
     public StreamHandlingOptions StreamHandling { get; init; } = StreamHandling ?? new StreamHandlingOptions();
     public TargetFileSizeOptions TargetFileSize { get; init; } = TargetFileSize ?? new TargetFileSizeOptions();
     public TargetBitrateOptions TargetBitrate { get; init; } = TargetBitrate ?? new TargetBitrateOptions(3_000_000);
     public QualityOptions TargetQuality { get; init; } = TargetQuality ?? new H264QualityOptions();
+    public ToneMapSettings ToneMapSettings { get; init; } = ToneMapSettings ?? new ToneMapSettings();
 }

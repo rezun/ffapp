@@ -159,7 +159,14 @@ public sealed class MediaProbeService(ExecutablePathsConfig pathsConfig) : IMedi
             Height: GetInt(stream, "height"),
             FrameRate: ParseFrameRate(GetString(stream, "avg_frame_rate")),
             FrameCount: GetInt(stream, "nb_frames"),
-            Rotation: ParseRotation(stream));
+            Rotation: ParseRotation(stream),
+            PixelFormat: GetString(stream, "pix_fmt"),
+            ColorPrimaries: GetString(stream, "color_primaries"),
+            ColorTransfer: GetString(stream, "color_transfer"),
+            ColorSpace: GetString(stream, "color_space"),
+            ColorRange: GetString(stream, "color_range"),
+            BitsPerRawSample: GetInt(stream, "bits_per_raw_sample"),
+            HdrMetadata: ParseHdrMetadata(stream));
     }
 
     private static int? ParseRotation(JsonElement stream)
@@ -186,6 +193,46 @@ public sealed class MediaProbeService(ExecutablePathsConfig pathsConfig) : IMedi
         }
 
         return null;
+    }
+
+    private static HdrMetadata? ParseHdrMetadata(JsonElement stream)
+    {
+        if (!stream.TryGetProperty("side_data_list", out var sideDataList))
+            return null;
+
+        int? maxCll = null;
+        int? maxFall = null;
+        MasteringDisplayMetadata? mastering = null;
+
+        foreach (var sideData in sideDataList.EnumerateArray())
+        {
+            var type = GetString(sideData, "side_data_type");
+
+            if (type == "Content light level metadata")
+            {
+                maxCll = GetInt(sideData, "max_content");
+                maxFall = GetInt(sideData, "max_average");
+            }
+            else if (type == "Mastering display metadata")
+            {
+                mastering = new MasteringDisplayMetadata(
+                    RedX: GetString(sideData, "red_x") ?? "",
+                    RedY: GetString(sideData, "red_y") ?? "",
+                    GreenX: GetString(sideData, "green_x") ?? "",
+                    GreenY: GetString(sideData, "green_y") ?? "",
+                    BlueX: GetString(sideData, "blue_x") ?? "",
+                    BlueY: GetString(sideData, "blue_y") ?? "",
+                    WhitePointX: GetString(sideData, "white_point_x") ?? "",
+                    WhitePointY: GetString(sideData, "white_point_y") ?? "",
+                    MinLuminance: GetString(sideData, "min_luminance") ?? "",
+                    MaxLuminance: GetString(sideData, "max_luminance") ?? "");
+            }
+        }
+
+        if (maxCll is null && maxFall is null && mastering is null)
+            return null;
+
+        return new HdrMetadata(maxCll, maxFall, mastering);
     }
 
     private static AudioStreamInfo ParseAudioStream(JsonElement stream)

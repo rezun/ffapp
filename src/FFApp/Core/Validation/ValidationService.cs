@@ -110,6 +110,7 @@ public sealed class ValidationService : IValidationService
 
         // Video re-encode: full validation.
         ValidateVideoEncoderSettings(settings, issues);
+        ValidateHdrSettings(settings, mediaInfo, issues);
 
         // Resolution.
         if (settings.ResolutionPreset is not ResolutionPreset.Original
@@ -656,6 +657,53 @@ public sealed class ValidationService : IValidationService
                 "quality_profile_invalid",
                 "The selected encoder profile is not valid for this codec.",
                 fieldName));
+        }
+    }
+
+    // ── HDR settings ──────────────────────────────────────────────────
+
+    private static void ValidateHdrSettings(
+        OutputSettings settings,
+        SourceMediaInfo mediaInfo,
+        ImmutableArray<ValidationIssue>.Builder issues)
+    {
+        var isHdrSource = mediaInfo.PrimaryVideoStream?.IsHdr == true;
+
+        if (isHdrSource
+            && settings.HdrMode == HdrMode.Preserve
+            && !CompatibilityData.SupportsHdrOutput(settings.VideoCodec))
+        {
+            issues.Add(new ValidationIssue(
+                ValidationSeverity.Error,
+                "hdr_codec_incompatible",
+                $"{VideoCodecLabel(settings.VideoCodec)} does not support HDR. "
+                    + "Use H.265 or AV1, or convert to SDR.",
+                "hdr_mode"));
+        }
+
+        if (isHdrSource
+            && settings.HdrMode == HdrMode.Preserve
+            && settings.VideoCodec == VideoCodec.H265)
+        {
+            var profile = (settings.VideoEncoderOptions as H265EncoderOptions)?.Profile
+                       ?? (settings.TargetQuality as H265QualityOptions)?.Profile;
+            if (profile is not null && profile != "main10")
+            {
+                issues.Add(new ValidationIssue(
+                    ValidationSeverity.Warning,
+                    "hdr_profile_override",
+                    "HDR output requires the main10 profile. It will be set automatically.",
+                    "hdr_mode"));
+            }
+        }
+
+        if (!isHdrSource && settings.HdrMode == HdrMode.TonemapToSdr)
+        {
+            issues.Add(new ValidationIssue(
+                ValidationSeverity.Warning,
+                "tonemap_sdr_source",
+                "Source is not HDR. Tone mapping settings will be ignored.",
+                "hdr_mode"));
         }
     }
 

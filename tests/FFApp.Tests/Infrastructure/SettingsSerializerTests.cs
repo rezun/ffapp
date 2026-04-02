@@ -305,4 +305,51 @@ public class SettingsSerializerTests
         var act = () => SettingsSerializer.DeserializePreset(element);
         act.Should().Throw<PresetDecodeException>();
     }
+
+    // --- HDR settings ---
+
+    [Fact]
+    public void RoundTrip_HdrPreserveWithDefaults_PreservesValues()
+    {
+        var settings = new TestOutputSettingsBuilder()
+            .WithH265()
+            .WithHdrPreserve()
+            .Build();
+
+        var result = RoundTrip(settings);
+
+        result.HdrMode.Should().Be(HdrMode.Preserve);
+        result.ToneMapSettings.Algorithm.Should().Be(ToneMapAlgorithm.Hable);
+        result.ToneMapSettings.Desaturation.Should().Be(2.0);
+        result.ToneMapSettings.PeakNits.Should().BeNull();
+    }
+
+    [Fact]
+    public void RoundTrip_ToneMapToSdrWithCustomSettings_PreservesValues()
+    {
+        var settings = new TestOutputSettingsBuilder()
+            .WithToneMapToSdr(ToneMapAlgorithm.Mobius, desaturation: 0.5, peakNits: 1000)
+            .Build();
+
+        var result = RoundTrip(settings);
+
+        result.HdrMode.Should().Be(HdrMode.TonemapToSdr);
+        result.ToneMapSettings.Algorithm.Should().Be(ToneMapAlgorithm.Mobius);
+        result.ToneMapSettings.Desaturation.Should().Be(0.5);
+        result.ToneMapSettings.PeakNits.Should().Be(1000);
+    }
+
+    [Fact]
+    public void Deserialize_MissingHdrFields_ReturnsDefaults()
+    {
+        var json = """{ "video_codec": "h265" }""";
+        var element = JsonDocument.Parse(json).RootElement;
+
+        var result = SettingsSerializer.DeserializeOutputSettings(element);
+
+        result.HdrMode.Should().Be(HdrMode.Preserve);
+        result.ToneMapSettings.Algorithm.Should().Be(ToneMapAlgorithm.Hable);
+        result.ToneMapSettings.Desaturation.Should().Be(2.0);
+        result.ToneMapSettings.PeakNits.Should().BeNull();
+    }
 }

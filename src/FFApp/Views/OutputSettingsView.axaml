@@ -21,6 +21,9 @@
         <DataTemplate x:Key="FrameRateTemplate" x:DataType="models:FrameRatePreset">
             <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.FrameRate}}" />
         </DataTemplate>
+        <DataTemplate x:Key="ToneMapAlgorithmTemplate" x:DataType="models:ToneMapAlgorithm">
+            <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.ToneMapAlgorithm}}" />
+        </DataTemplate>
     </UserControl.Resources>
 
     <!-- Single column layout: all cards stacked vertically -->
@@ -93,6 +96,59 @@
                                 SelectedItem="{Binding SelectedFrameRate}"
                                 ItemTemplate="{StaticResource FrameRateTemplate}" />
                         </Grid>
+
+                        <!-- HDR Settings (visible when source is HDR and re-encoding) -->
+                        <Border Classes="nested-card" Margin="0,4,0,0"
+                                IsVisible="{Binding Hdr.IsHdrModeVisible}">
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Top" Text="HDR"
+                                           Classes="nested-card-header" />
+                                <Separator DockPanel.Dock="Top" />
+                                <StackPanel Spacing="4" Margin="6,4,6,6">
+                                    <Grid ColumnDefinitions="85,*">
+                                        <TextBlock Text="HDR Mode" VerticalAlignment="Center" />
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                                            <RadioButton Content="Preserve HDR" GroupName="HdrMode"
+                                                IsEnabled="{Binding Hdr.IsPreserveAllowed}"
+                                                IsChecked="{Binding Hdr.SelectedHdrMode,
+                                                    Converter={StaticResource EnumToBool},
+                                                    ConverterParameter={x:Static models:HdrMode.Preserve}}" />
+                                            <RadioButton Content="Convert to SDR" GroupName="HdrMode"
+                                                IsChecked="{Binding Hdr.SelectedHdrMode,
+                                                    Converter={StaticResource EnumToBool},
+                                                    ConverterParameter={x:Static models:HdrMode.TonemapToSdr}}" />
+                                        </StackPanel>
+                                    </Grid>
+                                    <TextBlock Text="{Binding Hdr.HdrModeNote}"
+                                               FontSize="12" Opacity="0.6" Margin="85,0,0,0"
+                                               IsVisible="{Binding Hdr.HdrModeNote,
+                                                   Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                    <StackPanel Spacing="4" IsVisible="{Binding Hdr.IsToneMapSettingsVisible}">
+                                        <Grid ColumnDefinitions="85,Auto">
+                                            <TextBlock Text="Algorithm" VerticalAlignment="Center" />
+                                            <ctrl:NoWheelComboBox Grid.Column="1"
+                                                MinWidth="160"
+                                                ItemsSource="{Binding Hdr.AvailableAlgorithms}"
+                                                SelectedItem="{Binding Hdr.SelectedAlgorithm}"
+                                                ItemTemplate="{StaticResource ToneMapAlgorithmTemplate}" />
+                                        </Grid>
+                                        <Grid ColumnDefinitions="85,*,Auto">
+                                            <TextBlock Text="Desat" VerticalAlignment="Center" />
+                                            <Slider Grid.Column="1"
+                                                    Value="{Binding Hdr.Desaturation}"
+                                                    Minimum="0" Maximum="10"
+                                                    TickFrequency="0.5" IsSnapToTickEnabled="True"
+                                                    VerticalAlignment="Center"
+                                                    TickPlacement="BottomRight" />
+                                            <TextBlock Grid.Column="2" VerticalAlignment="Center"
+                                                       MinWidth="30" TextAlignment="Right" Margin="8,0,0,0">
+                                                <Run Text="{Binding Hdr.Desaturation, StringFormat={}{0:F1}}" />
+                                            </TextBlock>
+                                        </Grid>
+                                    </StackPanel>
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
 
                         <!-- Encoding Strategy -->
                         <Grid ColumnDefinitions="85,*" Margin="0,4,0,0">

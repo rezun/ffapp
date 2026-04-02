@@ -921,4 +921,112 @@ public class ValidationServiceTests
 
         HasIssueWithCode(result, "video_encoder_options_required").Should().BeTrue();
     }
+
+    // ── HDR validation ─────────────────────────────────────────────────
+
+    [Fact]
+    public void Validate_HdrSourceH264Preserve_ReturnsHdrCodecIncompatible()
+    {
+        var settings = new TestOutputSettingsBuilder().WithHdrPreserve().Build();
+        var media = new TestMediaInfoBuilder().WithHdr10().Build();
+
+        var result = _sut.Validate(settings, media);
+
+        HasIssueWithCode(result, "hdr_codec_incompatible").Should().BeTrue();
+    }
+
+    [Fact]
+    public void Validate_HdrSourceVp9Preserve_ReturnsHdrCodecIncompatible()
+    {
+        var settings = new TestOutputSettingsBuilder().WithVp9().WithHdrPreserve().Build();
+        var media = new TestMediaInfoBuilder().WithHdr10().Build();
+
+        var result = _sut.Validate(settings, media);
+
+        HasIssueWithCode(result, "hdr_codec_incompatible").Should().BeTrue();
+    }
+
+    [Fact]
+    public void Validate_HdrSourceH265Preserve_NoHdrCodecError()
+    {
+        var settings = new TestOutputSettingsBuilder().WithH265().WithHdrPreserve().Build();
+        var media = new TestMediaInfoBuilder().WithHdr10().Build();
+
+        var result = _sut.Validate(settings, media);
+
+        HasIssueWithCode(result, "hdr_codec_incompatible").Should().BeFalse();
+    }
+
+    [Fact]
+    public void Validate_HdrSourceAv1Preserve_NoHdrCodecError()
+    {
+        var settings = new TestOutputSettingsBuilder().WithAv1().WithHdrPreserve().Build();
+        var media = new TestMediaInfoBuilder().WithHdr10().Build();
+
+        var result = _sut.Validate(settings, media);
+
+        HasIssueWithCode(result, "hdr_codec_incompatible").Should().BeFalse();
+    }
+
+    [Fact]
+    public void Validate_HdrSourceH265PreserveMainProfile_ReturnsProfileOverrideWarning()
+    {
+        var settings = new TestOutputSettingsBuilder().WithH265().WithHdrPreserve().Build();
+        var media = new TestMediaInfoBuilder().WithHdr10().Build();
+
+        var result = _sut.Validate(settings, media);
+
+        HasIssueWithCode(result, "hdr_profile_override").Should().BeTrue();
+    }
+
+    [Fact]
+    public void Validate_HdrSourceH265PreserveMain10Profile_NoProfileWarning()
+    {
+        var settings = new TestOutputSettingsBuilder()
+            .WithH265()
+            .WithHdrPreserve()
+            .WithEncoderOptions(new H265EncoderOptions(Profile: "main10"))
+            .WithQuality(new H265QualityOptions(Profile: "main10"))
+            .Build();
+        var media = new TestMediaInfoBuilder().WithHdr10().Build();
+
+        var result = _sut.Validate(settings, media);
+
+        HasIssueWithCode(result, "hdr_profile_override").Should().BeFalse();
+    }
+
+    [Fact]
+    public void Validate_SdrSourceTonemap_ReturnsSdrTonemapWarning()
+    {
+        var settings = new TestOutputSettingsBuilder().WithToneMapToSdr().Build();
+        var media = new TestMediaInfoBuilder().Build();
+
+        var result = _sut.Validate(settings, media);
+
+        HasIssueWithCode(result, "tonemap_sdr_source").Should().BeTrue();
+    }
+
+    [Fact]
+    public void Validate_SdrSourcePreserve_NoHdrIssues()
+    {
+        var settings = new TestOutputSettingsBuilder().WithHdrPreserve().Build();
+        var media = new TestMediaInfoBuilder().Build();
+
+        var result = _sut.Validate(settings, media);
+
+        HasIssueWithCode(result, "hdr_codec_incompatible").Should().BeFalse();
+        HasIssueWithCode(result, "hdr_profile_override").Should().BeFalse();
+        HasIssueWithCode(result, "tonemap_sdr_source").Should().BeFalse();
+    }
+
+    [Fact]
+    public void Validate_HdrSourceH264ToneMap_NoHdrCodecError()
+    {
+        var settings = new TestOutputSettingsBuilder().WithToneMapToSdr().Build();
+        var media = new TestMediaInfoBuilder().WithHdr10().Build();
+
+        var result = _sut.Validate(settings, media);
+
+        HasIssueWithCode(result, "hdr_codec_incompatible").Should().BeFalse();
+    }
 }

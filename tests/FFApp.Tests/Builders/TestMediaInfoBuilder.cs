@@ -102,4 +102,39 @@ public class TestMediaInfoBuilder
         _dataStreams = [new(3, codecName)];
         return this;
     }
+
+    public TestMediaInfoBuilder WithHdr10(int? maxCll = 1000, int? maxFall = 400) =>
+        WithVideoStreams(new VideoStreamInfo(0, "hevc", 20_000_000, 3840, 2160, 23.976, 1439,
+            PixelFormat: "yuv420p10le",
+            ColorPrimaries: "bt2020",
+            ColorTransfer: "smpte2084",
+            ColorSpace: "bt2020nc",
+            ColorRange: "tv",
+            BitsPerRawSample: 10,
+            HdrMetadata: new HdrMetadata(maxCll, maxFall, null)));
+
+    public TestMediaInfoBuilder WithHdr10AndMasteringDisplay() =>
+        WithVideoStreams(new VideoStreamInfo(0, "hevc", 20_000_000, 3840, 2160, 23.976, 1439,
+            PixelFormat: "yuv420p10le",
+            ColorPrimaries: "bt2020",
+            ColorTransfer: "smpte2084",
+            ColorSpace: "bt2020nc",
+            ColorRange: "tv",
+            BitsPerRawSample: 10,
+            HdrMetadata: new HdrMetadata(1000, 400,
+                new MasteringDisplayMetadata(
+                    RedX: "13250", RedY: "34500",
+                    GreenX: "7500", GreenY: "3000",
+                    BlueX: "34000", BlueY: "16000",
+                    WhitePointX: "15635", WhitePointY: "16450",
+                    MinLuminance: "50", MaxLuminance: "10000000"))));
+
+    public TestMediaInfoBuilder WithHlg() =>
+        WithVideoStreams(new VideoStreamInfo(0, "hevc", 20_000_000, 3840, 2160, 50.0, 3000,
+            PixelFormat: "yuv420p10le",
+            ColorPrimaries: "bt2020",
+            ColorTransfer: "arib-std-b67",
+            ColorSpace: "bt2020nc",
+            ColorRange: "tv",
+            BitsPerRawSample: 10));
 }

@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Runtime.InteropServices;
 
 using FFApp.Core.Models;
@@ -231,8 +232,8 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
     {
         var arguments = new List<string> { "-c:v", VideoEncoderName(job.VideoCodec) };
 
-        if (job.VideoCodec == VideoCodec.H264)
-            arguments.AddRange(["-pix_fmt", "yuv420p"]);
+        arguments.AddRange(PixelFormatArguments(job, mediaInfo));
+        arguments.AddRange(HdrPreserveArguments(job, mediaInfo));
 
         var filterChain = BuildVideoFilterChain(job, mediaInfo);
         if (filterChain is not null)
@@ -243,18 +244,18 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
 
         if (job.EncodingStrategy == EncodingStrategy.TargetQuality)
         {
-            arguments.AddRange(QualityArguments(job, passIndex));
+            arguments.AddRange(QualityArguments(job, mediaInfo, passIndex));
             return arguments;
         }
 
-        arguments.AddRange(VideoEncoderTuningArguments(job, passIndex));
+        arguments.AddRange(VideoEncoderTuningArguments(job, mediaInfo, passIndex));
         var resolvedBitrate = bitrate ?? ResolveVideoBitrate(job, mediaInfo);
         arguments.AddRange(["-b:v", FormatVideoBitrateArgument(resolvedBitrate)]);
 
         return arguments;
     }
 
-    private static List<string> QualityArguments(JobDefinition job, int? passIndex)
+    private static List<string> QualityArguments(JobDefinition job, SourceMediaInfo mediaInfo, int? passIndex)
     {
         var quality = job.TargetQuality
             ?? throw new CommandBuildException("Quality encoding requires codec-specific quality settings.");
@@ -265,7 +266,8 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
                 ["-crf", h264.Crf.ToString(), "-preset", h264.Preset, "-profile:v", h264.Profile],
 
             H265QualityOptions h265 =>
-                ["-crf", h265.Crf.ToString(), "-preset", h265.Preset, "-profile:v", h265.Profile],
+                ["-crf", h265.Crf.ToString(), "-preset", h265.Preset,
+                 "-profile:v", ResolveH265Profile(job, mediaInfo, h265.Profile)],
 
             Vp8QualityOptions vp8 =>
             [
@@ -288,7 +290,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         };
     }
 
-    private static List<string> VideoEncoderTuningArguments(JobDefinition job, int? passIndex)
+    private static List<string> VideoEncoderTuningArguments(JobDefinition job, SourceMediaInfo mediaInfo, int? passIndex)
     {
         if (job.VideoCodec == VideoCodec.H264)
         {
@@ -303,7 +305,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
             var encoder = job.VideoEncoderOptions as H265EncoderOptions ?? new H265EncoderOptions();
             if (job.VideoEncoderOptions is not null and not H265EncoderOptions)
                 throw new CommandBuildException("H.265 bitrate-based encoding requires preset and profile.");
-            return ["-preset", encoder.Preset, "-profile:v", encoder.Profile];
+            return ["-preset", encoder.Preset, "-profile:v", ResolveH265Profile(job, mediaInfo, encoder.Profile)];
         }
 
         if (job.VideoCodec == VideoCodec.Av1)
@@ -407,6 +409,8 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
     private static string? BuildVideoFilterChain(JobDefinition job, SourceMediaInfo mediaInfo)
     {
         var filters = new List<string>();
+
+        filters.AddRange(ToneMapFilters(job, mediaInfo));
 
         if (job.Crop is { } crop)
         {
@@ -515,6 +519,124 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         OutputContainer.Mka => ".mka",
         OutputContainer.OpusFile => ".opus",
         _ => throw new CommandBuildException($"Unsupported container: {container}"),
+    };
+
+    // --- HDR helpers ---
+
+    private static List<string> PixelFormatArguments(JobDefinition job, SourceMediaInfo mediaInfo)
+    {
+        var isHdrPreserve = mediaInfo.PrimaryVideoStream?.IsHdr == true
+                            && job.HdrMode == HdrMode.Preserve;
+
+        return job.VideoCodec switch
+        {
+            VideoCodec.H264 => ["-pix_fmt", "yuv420p"],
+            VideoCodec.H265 when isHdrPreserve => ["-pix_fmt", "yuv420p10le"],
+            VideoCodec.Av1 => ["-pix_fmt", "yuv420p10le"],
+            _ => [],
+        };
+    }
+
+    private static List<string> HdrPreserveArguments(JobDefinition job, SourceMediaInfo mediaInfo)
+    {
+        var video = mediaInfo.PrimaryVideoStream;
+        if (video is null || !video.IsHdr || job.HdrMode != HdrMode.Preserve)
+            return [];
+
+        if (job.VideoCodec is not (VideoCodec.H265 or VideoCodec.Av1))
+            return [];
+
+        var transfer = video.ColorTransfer ?? "smpte2084";
+        var args = new List<string>
+        {
+            "-color_primaries", "bt2020",
+            "-color_trc", transfer,
+            "-colorspace", "bt2020nc",
+        };
+
+        if (job.VideoCodec == VideoCodec.H265)
+            args.AddRange(BuildX265HdrParams(video));
+        else if (job.VideoCodec == VideoCodec.Av1)
+            args.AddRange(["-svtav1-params", "enable-hdr=1"]);
+
+        return args;
+    }
+
+    private static List<string> BuildX265HdrParams(VideoStreamInfo video)
+    {
+        var transfer = video.ColorTransfer ?? "smpte2084";
+        var parts = new List<string>
+        {
+            "hdr-opt=1",
+            "repeat-headers=1",
+            $"colorprim=bt2020",
+            $"transfer={transfer}",
+            "colormatrix=bt2020nc",
+        };
+
+        if (video.HdrMetadata is { } metadata)
+        {
+            if (metadata.MaxContentLightLevel is not null
+                && metadata.MaxAverageLightLevel is not null)
+            {
+                parts.Add($"max-cll={metadata.MaxContentLightLevel},{metadata.MaxAverageLightLevel}");
+            }
+
+            if (metadata.MasteringDisplay is { } md)
+                parts.Add($"master-display={FormatMasteringDisplay(md)}");
+        }
+
+        return ["-x265-params", string.Join(":", parts)];
+    }
+
+    internal static string FormatMasteringDisplay(MasteringDisplayMetadata md) =>
+        $"G({md.GreenX},{md.GreenY})B({md.BlueX},{md.BlueY})R({md.RedX},{md.RedY})" +
+        $"WP({md.WhitePointX},{md.WhitePointY})L({md.MaxLuminance},{md.MinLuminance})";
+
+    private static string ResolveH265Profile(
+        JobDefinition job, SourceMediaInfo mediaInfo, string requestedProfile)
+    {
+        var isHdrPreserve = mediaInfo.PrimaryVideoStream?.IsHdr == true
+                            && job.HdrMode == HdrMode.Preserve;
+        return isHdrPreserve ? "main10" : requestedProfile;
+    }
+
+    private static List<string> ToneMapFilters(JobDefinition job, SourceMediaInfo mediaInfo)
+    {
+        var video = mediaInfo.PrimaryVideoStream;
+        if (video is null || !video.IsHdr || job.HdrMode != HdrMode.TonemapToSdr)
+            return [];
+
+        var toneMap = job.ToneMapSettings;
+        var tonemapParts = new List<string> { ToneMapAlgorithmName(toneMap.Algorithm) };
+
+        if (toneMap.Desaturation != 2.0)
+            tonemapParts.Add(string.Create(CultureInfo.InvariantCulture, $"desat={toneMap.Desaturation:F1}"));
+        if (toneMap.PeakNits is { } peak)
+            tonemapParts.Add($"peak={peak}");
+
+        var tonemapFilter = $"tonemap={string.Join(":", tonemapParts)}";
+        var outputFormat = job.VideoCodec == VideoCodec.Av1 ? "yuv420p10le" : "yuv420p";
+
+        return
+        [
+            "zscale=t=linear",
+            "format=gbrpf32le",
+            "zscale=p=bt709",
+            tonemapFilter,
+            "zscale=t=bt709:m=bt709:r=tv",
+            $"format={outputFormat}",
+        ];
+    }
+
+    private static string ToneMapAlgorithmName(ToneMapAlgorithm algorithm) => algorithm switch
+    {
+        ToneMapAlgorithm.Hable => "hable",
+        ToneMapAlgorithm.Reinhard => "reinhard",
+        ToneMapAlgorithm.Mobius => "mobius",
+        ToneMapAlgorithm.Bt2390 => "bt2390",
+        ToneMapAlgorithm.Clip => "clip",
+        _ => "hable",
     };
 
     private static string FormatSeconds(double seconds)

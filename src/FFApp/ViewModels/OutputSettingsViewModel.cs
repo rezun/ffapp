@@ -19,6 +19,7 @@ public partial class OutputSettingsViewModel : ObservableObject
     public AudioViewModel Audio { get; } = new();
     public EncodingStrategyViewModel Strategy { get; } = new();
     public StreamHandlingViewModel StreamHandling { get; } = new();
+    public HdrViewModel Hdr { get; } = new();
 
     [ObservableProperty]
     private ResolutionPreset _selectedResolution = ResolutionPreset.Original;
@@ -65,6 +66,7 @@ public partial class OutputSettingsViewModel : ObservableObject
         Strategy.Bitrate.PropertyChanged += OnChildPropertyChanged;
         Strategy.Quality.PropertyChanged += OnChildPropertyChanged;
         StreamHandling.PropertyChanged += OnChildPropertyChanged;
+        Hdr.PropertyChanged += OnChildPropertyChanged;
 
         Format.PropertyChanged += OnFormatPropertyChanged;
 
@@ -90,6 +92,12 @@ public partial class OutputSettingsViewModel : ObservableObject
             .Select(s => s.SampleRate ?? 0)
             .DefaultIfEmpty(0)
             .Max();
+
+        var hdrFormat = mediaInfo.PrimaryVideoStream?.HdrFormat ?? HdrFormat.Sdr;
+        Hdr.UpdateForSource(hdrFormat);
+        Hdr.UpdateForCodec(Format.SelectedVideoCodec);
+        Hdr.IsHdrModeVisible = Format.IsVideoReencode && Hdr.IsSourceHdr;
+
         RebuildAndNotify();
     }
 
@@ -131,6 +139,12 @@ public partial class OutputSettingsViewModel : ObservableObject
 
             // Encoder options
             ApplyEncoderOptions(settings.VideoEncoderOptions);
+
+            // HDR
+            Hdr.SelectedHdrMode = settings.HdrMode;
+            Hdr.SelectedAlgorithm = settings.ToneMapSettings.Algorithm;
+            Hdr.Desaturation = settings.ToneMapSettings.Desaturation;
+            Hdr.PeakNits = settings.ToneMapSettings.PeakNits;
 
             // Update dependent state after all values are set
             Audio.IsRemoveAllowed = settings.VideoMode != VideoMode.Remove;
@@ -176,7 +190,12 @@ public partial class OutputSettingsViewModel : ObservableObject
                 VideoBitrate: (int)Strategy.Bitrate.VideoBitrateKbps * 1000,
                 TwoPass: Strategy.Bitrate.TwoPass),
             TargetQuality: videoMode == VideoMode.Reencode
-                ? BuildQualityOptions(codec, quality) : new H264QualityOptions());
+                ? BuildQualityOptions(codec, quality) : new H264QualityOptions(),
+            HdrMode: Hdr.SelectedHdrMode,
+            ToneMapSettings: new ToneMapSettings(
+                Algorithm: Hdr.SelectedAlgorithm,
+                Desaturation: Hdr.Desaturation,
+                PeakNits: Hdr.PeakNits));
     }
 
     private void OnChildPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -195,11 +214,13 @@ public partial class OutputSettingsViewModel : ObservableObject
         if (e.PropertyName == nameof(FormatViewModel.SelectedVideoMode))
         {
             Audio.IsRemoveAllowed = Format.SelectedVideoMode != VideoMode.Remove;
+            Hdr.IsHdrModeVisible = Format.IsVideoReencode && Hdr.IsSourceHdr;
         }
 
         if (e.PropertyName == nameof(FormatViewModel.SelectedVideoCodec))
         {
             Strategy.Quality.UpdateForCodec(Format.SelectedVideoCodec);
+            Hdr.UpdateForCodec(Format.SelectedVideoCodec);
         }
 
         if (e.PropertyName is nameof(FormatViewModel.AvailableAudioCodecs)

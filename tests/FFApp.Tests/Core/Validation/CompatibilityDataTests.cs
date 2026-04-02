@@ -11,22 +11,22 @@ public class CompatibilityDataTests
     public void VideoCodecMatrix_Mp4_ContainsOnlyH264AndH265()
     {
         CompatibilityData.VideoCodecMatrix[OutputContainer.Mp4]
-            .Should().BeEquivalentTo([VideoCodec.H264, VideoCodec.H265]);
+            .Should().BeEquivalentTo([VideoCodec.H264, VideoCodec.H265, VideoCodec.Av1]);
     }
 
     [Fact]
     public void VideoCodecMatrix_Mkv_ContainsAllFourCodecs()
     {
         CompatibilityData.VideoCodecMatrix[OutputContainer.Mkv]
-            .Should().HaveCount(4)
-            .And.Contain([VideoCodec.H264, VideoCodec.H265, VideoCodec.Vp8, VideoCodec.Vp9]);
+            .Should().HaveCount(5)
+            .And.Contain([VideoCodec.H264, VideoCodec.H265, VideoCodec.Vp8, VideoCodec.Vp9, VideoCodec.Av1]);
     }
 
     [Fact]
     public void VideoCodecMatrix_Webm_ContainsOnlyVpxCodecs()
     {
         CompatibilityData.VideoCodecMatrix[OutputContainer.Webm]
-            .Should().BeEquivalentTo([VideoCodec.Vp8, VideoCodec.Vp9]);
+            .Should().BeEquivalentTo([VideoCodec.Vp8, VideoCodec.Vp9, VideoCodec.Av1]);
     }
 
     [Fact]

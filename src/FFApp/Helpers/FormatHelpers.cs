@@ -205,6 +205,7 @@ public static class FormatHelpers
         VideoCodec.H265 => "H.265",
         VideoCodec.Vp8 => "VP8",
         VideoCodec.Vp9 => "VP9",
+        VideoCodec.Av1 => "AV1",
         _ => codec.ToString()
     };
 

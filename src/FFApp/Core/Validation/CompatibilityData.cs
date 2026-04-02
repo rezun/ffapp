@@ -22,12 +22,17 @@ public static class CompatibilityData
     public const int VpxTileRowsMin = 0;
     public const int VpxTileRowsMax = 2;
 
+    public const int Av1PresetMin = 0;
+    public const int Av1PresetMax = 13;
+    public const int Av1CrfMin = 0;
+    public const int Av1CrfMax = 63;
+
     public static readonly FrozenDictionary<OutputContainer, IReadOnlyList<VideoCodec>> VideoCodecMatrix =
         new Dictionary<OutputContainer, IReadOnlyList<VideoCodec>>
         {
-            [OutputContainer.Mp4] = [VideoCodec.H264, VideoCodec.H265],
-            [OutputContainer.Mkv] = [VideoCodec.H264, VideoCodec.H265, VideoCodec.Vp8, VideoCodec.Vp9],
-            [OutputContainer.Webm] = [VideoCodec.Vp8, VideoCodec.Vp9],
+            [OutputContainer.Mp4] = [VideoCodec.H264, VideoCodec.H265, VideoCodec.Av1],
+            [OutputContainer.Mkv] = [VideoCodec.H264, VideoCodec.H265, VideoCodec.Vp8, VideoCodec.Vp9, VideoCodec.Av1],
+            [OutputContainer.Webm] = [VideoCodec.Vp8, VideoCodec.Vp9, VideoCodec.Av1],
             [OutputContainer.Ogg] = [VideoCodec.Vp8, VideoCodec.Vp9],
         }.ToFrozenDictionary();
 
@@ -155,6 +160,7 @@ public static class CompatibilityData
             VideoCodec.H265 => "H.265",
             VideoCodec.Vp8 => "VP8",
             VideoCodec.Vp9 => "VP9",
+            VideoCodec.Av1 => "AV1",
             _ => codec.ToString(),
         };
 }

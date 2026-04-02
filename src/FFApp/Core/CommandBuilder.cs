@@ -281,6 +281,9 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
                     ResolveVpxEncoderOptions(job.VideoCodec, job.VideoEncoderOptions), passIndex),
             ],
 
+            Av1QualityOptions av1 =>
+                ["-crf", av1.Crf.ToString(), "-preset", av1.Preset.ToString()],
+
             _ => throw new CommandBuildException("Unsupported quality settings were provided."),
         };
     }
@@ -301,6 +304,14 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
             if (job.VideoEncoderOptions is not null and not H265EncoderOptions)
                 throw new CommandBuildException("H.265 bitrate-based encoding requires preset and profile.");
             return ["-preset", encoder.Preset, "-profile:v", encoder.Profile];
+        }
+
+        if (job.VideoCodec == VideoCodec.Av1)
+        {
+            var encoder = job.VideoEncoderOptions as Av1EncoderOptions ?? new Av1EncoderOptions();
+            if (job.VideoEncoderOptions is not null and not Av1EncoderOptions)
+                throw new CommandBuildException("AV1 bitrate-based encoding requires a valid preset.");
+            return ["-preset", encoder.Preset.ToString()];
         }
 
         return VpxEncoderTuningArguments(job,
@@ -464,6 +475,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         VideoCodec.H265 => "libx265",
         VideoCodec.Vp8 => "libvpx",
         VideoCodec.Vp9 => "libvpx-vp9",
+        VideoCodec.Av1 => "libsvtav1",
         _ => throw new CommandBuildException($"Unsupported video codec: {codec}"),
     };
 

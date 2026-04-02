@@ -22,8 +22,23 @@
             </TextBlock>
         </Grid>
 
+        <!-- AV1: CRF slider -->
+        <Grid ColumnDefinitions="85,*,Auto" IsVisible="{Binding IsAv1Codec}">
+            <TextBlock Text="CRF" VerticalAlignment="Center" />
+            <Slider Grid.Column="1"
+                    Value="{Binding Av1Crf}"
+                    Minimum="0" Maximum="63"
+                    TickFrequency="1" IsSnapToTickEnabled="True"
+                    VerticalAlignment="Center"
+                    TickPlacement="BottomRight" />
+            <TextBlock Grid.Column="2" VerticalAlignment="Center"
+                       MinWidth="28" TextAlignment="Right" Margin="8,0,0,0">
+                <Run Text="{Binding Av1Crf}" />
+            </TextBlock>
+        </Grid>
+
         <!-- VP8/VP9: Quality slider + two-pass -->
-        <StackPanel Spacing="4" IsVisible="{Binding !IsH26xCodec}">
+        <StackPanel Spacing="4" IsVisible="{Binding IsVpxCodec}">
             <Grid ColumnDefinitions="85,*,Auto">
                 <TextBlock Text="Quality" VerticalAlignment="Center" />
                 <Slider Grid.Column="1"

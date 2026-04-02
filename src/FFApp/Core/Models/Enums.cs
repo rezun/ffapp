@@ -29,6 +29,7 @@ public enum VideoCodec
     [JsonStringEnumMemberName("h265")] H265,
     [JsonStringEnumMemberName("vp8")] Vp8,
     [JsonStringEnumMemberName("vp9")] Vp9,
+    [JsonStringEnumMemberName("av1")] Av1,
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<AudioCodec>))]

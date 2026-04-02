@@ -31,7 +31,19 @@ public partial class QualityViewModel : ObservableObject
     private int _vpxTileRows;
 
     [ObservableProperty]
+    private int _av1Crf = 30;
+
+    [ObservableProperty]
+    private int _av1Preset = 6;
+
+    [ObservableProperty]
     private bool _isH26xCodec = true;
+
+    [ObservableProperty]
+    private bool _isVpxCodec;
+
+    [ObservableProperty]
+    private bool _isAv1Codec;
 
     public IReadOnlyList<string> AvailablePresets { get; private set; } =
         CompatibilityData.H26xPresetOptions;
@@ -45,10 +57,13 @@ public partial class QualityViewModel : ObservableObject
 
     public void UpdateForCodec(VideoCodec codec)
     {
+        IsH26xCodec = codec is VideoCodec.H264 or VideoCodec.H265;
+        IsVpxCodec = codec is VideoCodec.Vp8 or VideoCodec.Vp9;
+        IsAv1Codec = codec is VideoCodec.Av1;
+
         switch (codec)
         {
             case VideoCodec.H264:
-                IsH26xCodec = true;
                 AvailablePresets = CompatibilityData.QualityPresetOptions(codec);
                 AvailableProfiles = CompatibilityData.QualityProfileOptions(codec);
                 OnPropertyChanged(nameof(AvailablePresets));
@@ -59,7 +74,6 @@ public partial class QualityViewModel : ObservableObject
                 break;
 
             case VideoCodec.H265:
-                IsH26xCodec = true;
                 AvailablePresets = CompatibilityData.QualityPresetOptions(codec);
                 AvailableProfiles = CompatibilityData.QualityProfileOptions(codec);
                 OnPropertyChanged(nameof(AvailablePresets));
@@ -70,7 +84,6 @@ public partial class QualityViewModel : ObservableObject
                 break;
 
             case VideoCodec.Vp8:
-                IsH26xCodec = false;
                 VpxQuality = 31;
                 VpxCpuUsed = 4;
                 VpxTileColumns = 0;
@@ -78,11 +91,15 @@ public partial class QualityViewModel : ObservableObject
                 break;
 
             case VideoCodec.Vp9:
-                IsH26xCodec = false;
                 VpxQuality = 32;
                 VpxCpuUsed = 2;
                 VpxTileColumns = 0;
                 VpxTileRows = 0;
+                break;
+
+            case VideoCodec.Av1:
+                Av1Crf = 30;
+                Av1Preset = 6;
                 break;
         }
     }

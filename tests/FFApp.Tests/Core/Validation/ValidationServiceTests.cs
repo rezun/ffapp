@@ -687,7 +687,7 @@ public class ValidationServiceTests
     {
         var result = _sut.AllowedVideoCodecs(OutputContainer.Mp4);
 
-        result.Should().BeEquivalentTo([VideoCodec.H264, VideoCodec.H265]);
+        result.Should().BeEquivalentTo([VideoCodec.H264, VideoCodec.H265, VideoCodec.Av1]);
     }
 
     [Fact]
@@ -695,7 +695,7 @@ public class ValidationServiceTests
     {
         var result = _sut.AllowedVideoCodecs(OutputContainer.Webm);
 
-        result.Should().BeEquivalentTo([VideoCodec.Vp8, VideoCodec.Vp9]);
+        result.Should().BeEquivalentTo([VideoCodec.Vp8, VideoCodec.Vp9, VideoCodec.Av1]);
     }
 
     [Fact]

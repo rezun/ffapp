@@ -333,6 +333,28 @@ public sealed class ValidationService : IValidationService
                     "video_encoder", issues);
                 break;
             }
+            case VideoCodec.Av1:
+            {
+                var encoder = settings.VideoEncoderOptions ?? new Av1EncoderOptions();
+                if (encoder is not Av1EncoderOptions av1)
+                {
+                    issues.Add(new ValidationIssue(
+                        ValidationSeverity.Error,
+                        "video_encoder_options_required",
+                        "Choose a valid AV1 preset.",
+                        "video_encoder"));
+                    return;
+                }
+                if (av1.Preset < CompatibilityData.Av1PresetMin || av1.Preset > CompatibilityData.Av1PresetMax)
+                {
+                    issues.Add(new ValidationIssue(
+                        ValidationSeverity.Error,
+                        "video_encoder_preset_invalid",
+                        $"AV1 preset must be between {CompatibilityData.Av1PresetMin} and {CompatibilityData.Av1PresetMax}.",
+                        "video_encoder"));
+                }
+                break;
+            }
             default: // VP8 / VP9
             {
                 var encoder = settings.VideoEncoderOptions
@@ -578,6 +600,24 @@ public sealed class ValidationService : IValidationService
                         ValidationSeverity.Error,
                         "quality_value_invalid",
                         "VP8/VP9 quality must be between 0 and 63.",
+                        "target_quality"));
+                }
+                break;
+            case Av1QualityOptions av1:
+                if (av1.Crf < Av1CrfMin || av1.Crf > Av1CrfMax)
+                {
+                    issues.Add(new ValidationIssue(
+                        ValidationSeverity.Error,
+                        "quality_crf_invalid",
+                        $"AV1 CRF must be between {Av1CrfMin} and {Av1CrfMax}.",
+                        "target_quality"));
+                }
+                if (av1.Preset < Av1PresetMin || av1.Preset > Av1PresetMax)
+                {
+                    issues.Add(new ValidationIssue(
+                        ValidationSeverity.Error,
+                        "quality_preset_invalid",
+                        $"AV1 preset must be between {Av1PresetMin} and {Av1PresetMax}.",
                         "target_quality"));
                 }
                 break;

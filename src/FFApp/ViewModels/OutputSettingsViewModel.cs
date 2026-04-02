@@ -307,6 +307,8 @@ public partial class OutputSettingsViewModel : ObservableObject
                 CpuUsed: quality.VpxCpuUsed,
                 TileColumns: quality.VpxTileColumns,
                 TileRows: quality.VpxTileRows),
+            VideoCodec.Av1 => new Av1EncoderOptions(
+                Preset: quality.Av1Preset),
             _ => new H264EncoderOptions(),
         };
 
@@ -327,6 +329,9 @@ public partial class OutputSettingsViewModel : ObservableObject
             VideoCodec.Vp9 => new Vp9QualityOptions(
                 Quality: quality.VpxQuality,
                 TwoPass: quality.VpxTwoPass),
+            VideoCodec.Av1 => new Av1QualityOptions(
+                Crf: quality.Av1Crf,
+                Preset: quality.Av1Preset),
             _ => new H264QualityOptions(),
         };
 
@@ -354,6 +359,10 @@ public partial class OutputSettingsViewModel : ObservableObject
                 Strategy.Quality.VpxQuality = vp9.Quality;
                 Strategy.Quality.VpxTwoPass = vp9.TwoPass;
                 break;
+            case Av1QualityOptions av1:
+                Strategy.Quality.Av1Crf = av1.Crf;
+                Strategy.Quality.Av1Preset = av1.Preset;
+                break;
         }
     }
 
@@ -373,6 +382,9 @@ public partial class OutputSettingsViewModel : ObservableObject
                 Strategy.Quality.VpxCpuUsed = vpx.CpuUsed;
                 Strategy.Quality.VpxTileColumns = vpx.TileColumns;
                 Strategy.Quality.VpxTileRows = vpx.TileRows;
+                break;
+            case Av1EncoderOptions av1:
+                Strategy.Quality.Av1Preset = av1.Preset;
                 break;
         }
     }

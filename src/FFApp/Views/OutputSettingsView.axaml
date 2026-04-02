@@ -139,9 +139,33 @@
                             </DockPanel>
                         </Border>
 
+                        <!-- AV1 Encoder Tuning -->
+                        <Border Classes="nested-card" Margin="0,4,0,0"
+                                IsVisible="{Binding Strategy.Quality.IsAv1Codec}">
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Top" Text="AV1 Encoder Tuning"
+                                           Classes="nested-card-header" />
+                                <Separator DockPanel.Dock="Top" />
+                                <Grid ColumnDefinitions="80,*,Auto"
+                                      Margin="6,4,6,6">
+                                    <TextBlock Text="Preset" VerticalAlignment="Center" />
+                                    <Slider Grid.Column="1"
+                                            Value="{Binding Strategy.Quality.Av1Preset}"
+                                            Minimum="0" Maximum="13"
+                                            TickFrequency="1" IsSnapToTickEnabled="True"
+                                            VerticalAlignment="Center"
+                                            TickPlacement="BottomRight" />
+                                    <TextBlock Grid.Column="2" VerticalAlignment="Center"
+                                               MinWidth="20" TextAlignment="Right" Margin="8,0,0,0">
+                                        <Run Text="{Binding Strategy.Quality.Av1Preset}" />
+                                    </TextBlock>
+                                </Grid>
+                            </DockPanel>
+                        </Border>
+
                         <!-- VP8/VP9 Encoder Tuning -->
                         <Border Classes="nested-card" Margin="0,4,0,0"
-                                IsVisible="{Binding !Strategy.Quality.IsH26xCodec}">
+                                IsVisible="{Binding Strategy.Quality.IsVpxCodec}">
                             <DockPanel>
                                 <TextBlock DockPanel.Dock="Top" Text="VP8 / VP9 Encoder Tuning"
                                            Classes="nested-card-header" />

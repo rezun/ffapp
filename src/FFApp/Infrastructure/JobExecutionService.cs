@@ -19,8 +19,8 @@ public sealed class DefaultJobExecutionService(
     {
         var commands = commandBuilder.Build(job, mediaInfo);
         var passCount = commands.Count;
-        var expectedDuration = mediaInfo.DurationSeconds;
-        var expectedFrameCount = EstimateTotalFrameCount(mediaInfo);
+        var expectedDuration = EffectiveOutputDuration(job, mediaInfo);
+        var expectedFrameCount = EstimateOutputFrameCount(job, mediaInfo);
         var processResults = new List<ProcessExecutionResult>(passCount);
         var stopwatch = Stopwatch.StartNew();
 
@@ -101,17 +101,32 @@ public sealed class DefaultJobExecutionService(
 
     // --- Static helpers ---
 
-    internal static int? EstimateTotalFrameCount(SourceMediaInfo mediaInfo)
+    internal static double? EffectiveOutputDuration(JobDefinition job, SourceMediaInfo mediaInfo)
+    {
+        var totalDuration = mediaInfo.DurationSeconds;
+        if (totalDuration is null)
+            return null;
+
+        var start = job.TrimStartSeconds ?? 0;
+        var end = job.TrimEndSeconds ?? totalDuration.Value;
+        var duration = end - start;
+        return duration > 0 ? duration : null;
+    }
+
+    internal static int? EstimateOutputFrameCount(JobDefinition job, SourceMediaInfo mediaInfo)
     {
         var video = mediaInfo.PrimaryVideoStream;
         if (video is null)
             return null;
 
-        if (video.FrameCount is > 0)
+        var duration = EffectiveOutputDuration(job, mediaInfo);
+
+        // Only use source frame count if we're not trimming
+        if (job.TrimStartSeconds is null && job.TrimEndSeconds is null && video.FrameCount is > 0)
             return video.FrameCount;
 
-        if (video.FrameRate is > 0 && mediaInfo.DurationSeconds is > 0)
-            return (int)(video.FrameRate.Value * mediaInfo.DurationSeconds.Value);
+        if (video.FrameRate is > 0 && duration is > 0)
+            return (int)(video.FrameRate.Value * duration.Value);
 
         return null;
     }

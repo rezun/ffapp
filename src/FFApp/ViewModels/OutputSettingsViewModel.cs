@@ -144,7 +144,7 @@ public partial class OutputSettingsViewModel : ObservableObject
             Hdr.SelectedHdrMode = settings.HdrMode;
             Hdr.SelectedAlgorithm = settings.ToneMapSettings.Algorithm;
             Hdr.Desaturation = settings.ToneMapSettings.Desaturation;
-            Hdr.PeakNits = settings.ToneMapSettings.PeakNits;
+            Hdr.PeakNitsText = settings.ToneMapSettings.PeakNits?.ToString() ?? "";
 
             // Update dependent state after all values are set
             Audio.IsRemoveAllowed = settings.VideoMode != VideoMode.Remove;

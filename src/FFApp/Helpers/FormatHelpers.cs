@@ -35,6 +35,12 @@ public static class FormatHelpers
                     ? $"{primaryVideo.BitsPerRawSample}-bit" : "10-bit";
                 var colorInfo = $"{primaryVideo.ColorPrimaries ?? "bt2020"} / {TransferFunctionLabel(primaryVideo.ColorTransfer)}";
                 sb.AppendLine($"HDR: {hdrLabel} ({bitDepth}, {colorInfo})");
+
+                if (primaryVideo.HdrMetadata is { } hdrMeta)
+                {
+                    if (hdrMeta.MaxContentLightLevel is not null || hdrMeta.MaxAverageLightLevel is not null)
+                        sb.AppendLine($"Peak brightness: {hdrMeta.MaxContentLightLevel ?? 0} nits MaxCLL, {hdrMeta.MaxAverageLightLevel ?? 0} nits MaxFALL");
+                }
             }
         }
 

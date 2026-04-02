@@ -145,6 +145,13 @@
                                                 <Run Text="{Binding Hdr.Desaturation, StringFormat={}{0:F1}}" />
                                             </TextBlock>
                                         </Grid>
+                                        <Grid ColumnDefinitions="85,Auto,*">
+                                            <TextBlock Text="Peak (nits)" VerticalAlignment="Center" />
+                                            <TextBox Grid.Column="1"
+                                                     MinWidth="80"
+                                                     Watermark="Auto"
+                                                     Text="{Binding Hdr.PeakNitsText}" />
+                                        </Grid>
                                     </StackPanel>
                                 </StackPanel>
                             </DockPanel>

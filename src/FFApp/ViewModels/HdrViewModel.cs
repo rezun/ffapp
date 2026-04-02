@@ -19,6 +19,14 @@ public partial class HdrViewModel : ObservableObject
     private int? _peakNits;
 
     [ObservableProperty]
+    private string _peakNitsText = "";
+
+    partial void OnPeakNitsTextChanged(string value)
+    {
+        PeakNits = int.TryParse(value, out var parsed) && parsed > 0 ? parsed : null;
+    }
+
+    [ObservableProperty]
     private bool _isSourceHdr;
 
     [ObservableProperty]

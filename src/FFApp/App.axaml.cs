@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Styling;
@@ -29,6 +30,17 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             var mainWindow = new Views.MainWindow();
+
+            var geo = SettingsService.LoadWindowGeometrySync();
+            if (geo.Width is { } w && geo.Height is { } h && w > 0 && h > 0)
+            {
+                mainWindow.Width = w;
+                mainWindow.Height = h;
+            }
+            if (geo.X is { } x && geo.Y is { } y)
+                mainWindow.Position = new PixelPoint(x, y);
+            if (geo.IsMaximized)
+                mainWindow.WindowState = WindowState.Maximized;
 
             var services = new ServiceCollection();
             services.AddSingleton<ExecutablePathsConfig>();

@@ -57,6 +57,24 @@ public sealed class SettingsService(string? path = null) : ISettingsService
         };
     }
 
+    public static WindowGeometry LoadWindowGeometrySync(string? path = null)
+    {
+        var filePath = path ?? AppPaths.SettingsFilePath();
+        if (!File.Exists(filePath))
+            return new WindowGeometry();
+
+        try
+        {
+            using var stream = File.OpenRead(filePath);
+            using var doc = JsonDocument.Parse(stream);
+            return DeserializeWindowGeometry(doc.RootElement);
+        }
+        catch
+        {
+            return new WindowGeometry();
+        }
+    }
+
     public async Task SaveAsync(AppSettings settings, CancellationToken ct = default)
     {
         var directory = Path.GetDirectoryName(_path);

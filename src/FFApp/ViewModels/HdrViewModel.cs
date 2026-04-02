@@ -56,6 +56,14 @@ public partial class HdrViewModel : ObservableObject
     {
         SourceHdrFormat = sourceFormat;
         IsSourceHdr = sourceFormat != HdrFormat.Sdr;
+
+        if (!IsSourceHdr)
+        {
+            SelectedHdrMode = HdrMode.Preserve;
+            IsPreserveAllowed = true;
+            HdrModeNote = null;
+        }
+
         UpdateVisibility();
     }
 

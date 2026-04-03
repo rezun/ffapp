@@ -41,17 +41,13 @@ public sealed class DefaultJobExecutionService(
                 Action<ProcessProgress>? wrappedProgress = progressCallback is not null
                     ? progress =>
                     {
-                        double? overallPercentage = progress.Percentage is not null
-                            ? (i + progress.Percentage.Value / 100.0) / passCount * 100.0
-                            : null;
-
                         progressCallback(new JobProgress(
                             State: JobState.Running,
                             PassIndex: passIndex,
                             PassCount: passCount,
                             ElapsedSeconds: stopwatch.Elapsed.TotalSeconds,
                             ProcessedSeconds: progress.ProcessedSeconds,
-                            Percentage: overallPercentage,
+                            Percentage: progress.Percentage,
                             Speed: progress.Speed));
                     }
                     : null;

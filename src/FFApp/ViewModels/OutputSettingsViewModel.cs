@@ -143,7 +143,13 @@ public partial class OutputSettingsViewModel : ObservableObject
             Strategy.Bitrate.VideoBitrateKbps = settings.TargetBitrate.VideoBitrate / 1000;
             Strategy.Bitrate.TwoPass = settings.TargetBitrate.TwoPass;
 
-            // Quality - apply codec-specific settings
+            // Update dependent state before applying values that depend on it
+            Strategy.Quality.UpdateForCodec(settings.VideoCodec);
+            Hdr.UpdateForCodec(settings.VideoCodec);
+            Hdr.IsHdrModeVisible = Format.IsVideoReencode && Hdr.IsSourceHdr;
+            Audio.IsRemoveAllowed = settings.VideoMode != VideoMode.Remove;
+
+            // Quality - apply codec-specific settings (after UpdateForCodec sets defaults)
             ApplyQualitySettings(settings.TargetQuality, settings.VideoCodec);
 
             // Encoder options
@@ -154,12 +160,6 @@ public partial class OutputSettingsViewModel : ObservableObject
             Hdr.SelectedAlgorithm = settings.ToneMapSettings.Algorithm;
             Hdr.Desaturation = settings.ToneMapSettings.Desaturation;
             Hdr.PeakNitsText = settings.ToneMapSettings.PeakNits?.ToString() ?? "";
-
-            // Update dependent state after all values are set
-            Audio.IsRemoveAllowed = settings.VideoMode != VideoMode.Remove;
-            Strategy.Quality.UpdateForCodec(settings.VideoCodec);
-            Hdr.UpdateForCodec(settings.VideoCodec);
-            Hdr.IsHdrModeVisible = Format.IsVideoReencode && Hdr.IsSourceHdr;
         }
         finally
         {

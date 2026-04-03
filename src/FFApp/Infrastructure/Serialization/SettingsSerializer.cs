@@ -413,7 +413,7 @@ public static class SettingsSerializer
 
     // --- JSON reading helpers ---
 
-    private static JsonElement GetObjectOrEmpty(JsonElement parent, string propertyName)
+    internal static JsonElement GetObjectOrEmpty(JsonElement parent, string propertyName)
     {
         if (parent.ValueKind == JsonValueKind.Object
             && parent.TryGetProperty(propertyName, out var prop)
@@ -451,7 +451,7 @@ public static class SettingsSerializer
         return defaultValue;
     }
 
-    private static int? ReadOptionalInt(JsonElement element, string property)
+    internal static int? ReadOptionalInt(JsonElement element, string property)
     {
         if (element.ValueKind != JsonValueKind.Object)
             return null;
@@ -476,7 +476,7 @@ public static class SettingsSerializer
         return defaultValue;
     }
 
-    private static bool ReadBool(
+    internal static bool ReadBool(
         JsonElement element, string property, bool defaultValue = false)
     {
         if (element.ValueKind != JsonValueKind.Object)

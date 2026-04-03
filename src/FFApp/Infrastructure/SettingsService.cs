@@ -31,7 +31,7 @@ public sealed class SettingsService(string? path = null) : ISettingsService
         OutputSettings lastUsedSettings;
         try
         {
-            var settingsEl = GetObjectOrEmpty(root, "last_used_settings");
+            var settingsEl = SettingsSerializer.GetObjectOrEmpty(root, "last_used_settings");
             lastUsedSettings = SettingsSerializer.DeserializeOutputSettings(settingsEl);
         }
         catch (SettingsDecodeException)
@@ -130,36 +130,24 @@ public sealed class SettingsService(string? path = null) : ISettingsService
 
     private static SplitterLayout DeserializeSplitterLayout(JsonElement root)
     {
-        var el = GetObjectOrEmpty(root, "splitter_layout");
+        var el = SettingsSerializer.GetObjectOrEmpty(root, "splitter_layout");
         return new SplitterLayout
         {
             MainSplitterSizes = ReadIntArray(el, "main_splitter_sizes"),
             QueueSplitterSizes = ReadIntArray(el, "queue_splitter_sizes"),
-            PreviewHeight = ReadOptionalInt(el, "preview_height") ?? 0,
+            PreviewHeight = SettingsSerializer.ReadOptionalInt(el, "preview_height") ?? 0,
         };
     }
 
     private static WindowGeometry DeserializeWindowGeometry(JsonElement root)
     {
-        var el = GetObjectOrEmpty(root, "window_geometry");
+        var el = SettingsSerializer.GetObjectOrEmpty(root, "window_geometry");
         return new WindowGeometry(
-            X: ReadOptionalInt(el, "x"),
-            Y: ReadOptionalInt(el, "y"),
+            X: SettingsSerializer.ReadOptionalInt(el, "x"),
+            Y: SettingsSerializer.ReadOptionalInt(el, "y"),
             Width: ReadOptionalPositiveInt(el, "width"),
             Height: ReadOptionalPositiveInt(el, "height"),
-            IsMaximized: ReadBool(el, "is_maximized"));
-    }
-
-    private static JsonElement GetObjectOrEmpty(JsonElement parent, string propertyName)
-    {
-        if (parent.TryGetProperty(propertyName, out var prop)
-            && prop.ValueKind == JsonValueKind.Object)
-        {
-            return prop;
-        }
-
-        using var doc = JsonDocument.Parse("{}");
-        return doc.RootElement.Clone();
+            IsMaximized: SettingsSerializer.ReadBool(el, "is_maximized"));
     }
 
     private static string? ReadOptionalString(JsonElement element, string property)
@@ -170,35 +158,10 @@ public sealed class SettingsService(string? path = null) : ISettingsService
         return string.IsNullOrEmpty(str) ? null : str;
     }
 
-    private static int? ReadOptionalInt(JsonElement element, string property)
-    {
-        if (element.ValueKind != JsonValueKind.Object)
-            return null;
-        if (!element.TryGetProperty(property, out var prop))
-            return null;
-        if (prop.ValueKind == JsonValueKind.Number && prop.TryGetInt32(out var value))
-            return value;
-        return null;
-    }
-
     private static int? ReadOptionalPositiveInt(JsonElement element, string property)
     {
-        var value = ReadOptionalInt(element, property);
+        var value = SettingsSerializer.ReadOptionalInt(element, property);
         return value is > 0 ? value : null;
-    }
-
-    private static bool ReadBool(
-        JsonElement element, string property, bool defaultValue = false)
-    {
-        if (element.ValueKind != JsonValueKind.Object)
-            return defaultValue;
-        if (!element.TryGetProperty(property, out var prop))
-            return defaultValue;
-        if (prop.ValueKind is JsonValueKind.True)
-            return true;
-        if (prop.ValueKind is JsonValueKind.False)
-            return false;
-        return defaultValue;
     }
 
     private static ImmutableArray<int> ReadIntArray(JsonElement element, string property)

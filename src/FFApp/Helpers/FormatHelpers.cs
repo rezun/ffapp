@@ -1,6 +1,7 @@
 using System.Text;
 using FFApp.Core;
 using FFApp.Core.Models;
+using FFApp.Core.Validation;
 
 namespace FFApp.Helpers;
 
@@ -234,15 +235,8 @@ public static class FormatHelpers
             $"Could not find an available output filename after 10,000 attempts for '{stem}{suffix}'.");
     }
 
-    public static string VideoCodecLabel(VideoCodec codec) => codec switch
-    {
-        VideoCodec.H264 => "H.264",
-        VideoCodec.H265 => "H.265",
-        VideoCodec.Vp8 => "VP8",
-        VideoCodec.Vp9 => "VP9",
-        VideoCodec.Av1 => "AV1",
-        _ => codec.ToString()
-    };
+    public static string VideoCodecLabel(VideoCodec codec) =>
+        CompatibilityData.VideoCodecLabel(codec);
 
     public static string AudioCodecLabel(AudioCodec codec) => codec switch
     {

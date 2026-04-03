@@ -117,21 +117,25 @@
 
 ## Code Duplication
 
-- [ ] **14. `VideoCodecLabel` duplicated**
+- [x] **14. `VideoCodecLabel` duplicated**
 
   **Files:**
   - `src/FFApp/Helpers/FormatHelpers.cs:234-242`
   - `src/FFApp/Core/Validation/CompatibilityData.cs:156-165`
 
-  Identical method in two places. Consolidate to one location.
+  ~~Identical method in two places. Consolidate to one location.~~
 
-- [ ] **15. `GetObjectOrEmpty` duplicated**
+  **Resolution:** `FormatHelpers.VideoCodecLabel` now delegates to `CompatibilityData.VideoCodecLabel`. Single source of truth in the Core layer.
+
+- [x] **15. `GetObjectOrEmpty` duplicated**
 
   **Files:**
   - `src/FFApp/Infrastructure/SettingsService.cs:153-163`
   - `src/FFApp/Infrastructure/Serialization/SettingsSerializer.cs:415-426`
 
-  Same helper in two files. `ReadBool` and `ReadOptionalInt` also appear duplicated between these files.
+  ~~Same helper in two files. `ReadBool` and `ReadOptionalInt` also appear duplicated between these files.~~
+
+  **Resolution:** Made `GetObjectOrEmpty`, `ReadOptionalInt`, and `ReadBool` `internal` on `SettingsSerializer`. Removed duplicate copies from `SettingsService`, which now calls through to `SettingsSerializer`.
 
 ---
 

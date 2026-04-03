@@ -293,10 +293,13 @@ public static class FormatHelpers
     public static string FrameRatePresetLabel(FrameRatePreset preset) => preset switch
     {
         FrameRatePreset.Original => "Original",
+        FrameRatePreset.Fps23_976 => "23.976 fps",
         FrameRatePreset.Fps24 => "24 fps",
         FrameRatePreset.Fps25 => "25 fps",
+        FrameRatePreset.Fps29_97 => "29.97 fps",
         FrameRatePreset.Fps30 => "30 fps",
         FrameRatePreset.Fps50 => "50 fps",
+        FrameRatePreset.Fps59_94 => "59.94 fps",
         FrameRatePreset.Fps60 => "60 fps",
         _ => preset.ToString()
     };

@@ -240,7 +240,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
             arguments.AddRange(["-vf", filterChain]);
 
         if (job.FrameRatePreset != FrameRatePreset.Original)
-            arguments.AddRange(["-r", FrameRateValue(job.FrameRatePreset).ToString()]);
+            arguments.AddRange(["-r", FrameRateValue(job.FrameRatePreset)]);
 
         if (job.EncodingStrategy == EncodingStrategy.TargetQuality)
         {
@@ -509,13 +509,16 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         return $"{(int)Math.Round(bitRate / 1_000.0)}k";
     }
 
-    private static int FrameRateValue(FrameRatePreset preset) => preset switch
+    private static string FrameRateValue(FrameRatePreset preset) => preset switch
     {
-        FrameRatePreset.Fps24 => 24,
-        FrameRatePreset.Fps25 => 25,
-        FrameRatePreset.Fps30 => 30,
-        FrameRatePreset.Fps50 => 50,
-        FrameRatePreset.Fps60 => 60,
+        FrameRatePreset.Fps23_976 => "24000/1001",
+        FrameRatePreset.Fps24 => "24",
+        FrameRatePreset.Fps25 => "25",
+        FrameRatePreset.Fps29_97 => "30000/1001",
+        FrameRatePreset.Fps30 => "30",
+        FrameRatePreset.Fps50 => "50",
+        FrameRatePreset.Fps59_94 => "60000/1001",
+        FrameRatePreset.Fps60 => "60",
         _ => throw new CommandBuildException($"Unsupported frame rate preset: {preset}"),
     };
 

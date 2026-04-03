@@ -71,10 +71,13 @@ public enum ResolutionPreset
 public enum FrameRatePreset
 {
     [JsonStringEnumMemberName("original")] Original,
+    [JsonStringEnumMemberName("23.976fps")] Fps23_976,
     [JsonStringEnumMemberName("24fps")] Fps24,
     [JsonStringEnumMemberName("25fps")] Fps25,
+    [JsonStringEnumMemberName("29.97fps")] Fps29_97,
     [JsonStringEnumMemberName("30fps")] Fps30,
     [JsonStringEnumMemberName("50fps")] Fps50,
+    [JsonStringEnumMemberName("59.94fps")] Fps59_94,
     [JsonStringEnumMemberName("60fps")] Fps60,
 }
 

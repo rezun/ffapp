@@ -19,55 +19,51 @@ public class ExecutionViewModelTests
         _sut = new ExecutionViewModel(_jobService, _dialogService);
     }
 
-    [Fact]
-    public void CanStart_NoMediaInfo_ReturnsFalse()
-    {
-        _sut.UpdateOutputSettings(new OutputSettings());
+    private static JobContext MakeContext() =>
+        new(new TestMediaInfoBuilder().Build(), new OutputSettings());
 
+    [Fact]
+    public void CanStart_NullContext_ReturnsFalse()
+    {
         _sut.CanStart.Should().BeFalse();
     }
 
     [Fact]
-    public void CanStart_NoSettings_ReturnsFalse()
+    public void CanStart_WithValidContext_ReturnsTrue()
     {
-        var mediaInfo = new TestMediaInfoBuilder().Build();
-        _sut.UpdateSourceInfo(mediaInfo);
-
-        _sut.CanStart.Should().BeFalse();
-    }
-
-    [Fact]
-    public void CanStart_BothPresent_ReturnsTrue()
-    {
-        var mediaInfo = new TestMediaInfoBuilder().Build();
-        _sut.UpdateSourceInfo(mediaInfo);
-        _sut.UpdateOutputSettings(new OutputSettings());
+        _sut.UpdateJobContext(MakeContext());
 
         _sut.CanStart.Should().BeTrue();
     }
 
     [Fact]
-    public void UpdateSourceInfo_WhenSettingsAlreadySet_SetsCanStart()
+    public void CanStart_WithValidationErrors_ReturnsFalse()
     {
-        _sut.UpdateOutputSettings(new OutputSettings());
+        _sut.UpdateJobContext(MakeContext());
+        _sut.UpdateHasValidationErrors(true);
+
+        _sut.CanStart.Should().BeFalse();
+    }
+
+    [Fact]
+    public void UpdateJobContext_TransitionsCanStart()
+    {
         _sut.CanStart.Should().BeFalse();
 
-        var mediaInfo = new TestMediaInfoBuilder().Build();
-        _sut.UpdateSourceInfo(mediaInfo);
+        _sut.UpdateJobContext(MakeContext());
 
         _sut.CanStart.Should().BeTrue();
     }
 
     [Fact]
-    public void UpdateOutputSettings_WhenMediaInfoAlreadySet_SetsCanStart()
+    public void UpdateJobContext_Null_ClearsCanStart()
     {
-        var mediaInfo = new TestMediaInfoBuilder().Build();
-        _sut.UpdateSourceInfo(mediaInfo);
-        _sut.CanStart.Should().BeFalse();
-
-        _sut.UpdateOutputSettings(new OutputSettings());
-
+        _sut.UpdateJobContext(MakeContext());
         _sut.CanStart.Should().BeTrue();
+
+        _sut.UpdateJobContext(null);
+
+        _sut.CanStart.Should().BeFalse();
     }
 
     [Fact]

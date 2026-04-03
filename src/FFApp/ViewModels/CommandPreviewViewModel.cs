@@ -1,6 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using FFApp.Core;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
 using FFApp.Helpers;
@@ -11,17 +10,8 @@ namespace FFApp.ViewModels;
 public partial class CommandPreviewViewModel : ObservableObject
 {
     private readonly ICommandBuilder _commandBuilder;
-    private readonly IValidationService _validationService;
     private readonly IDialogService? _dialogService;
-    private OutputSettings? _currentSettings;
-    private SourceMediaInfo? _currentMediaInfo;
-    private string _ffmpegPath = "ffmpeg";
-    private double? _trimStartSeconds;
-    private double? _trimEndSeconds;
-    private CropRect? _crop;
-    private string? _outputDirectory;
-    private string? _outputFilename;
-    private bool _isAutoName;
+    private JobContext? _context;
 
     [ObservableProperty]
     private string _commandText = "";
@@ -37,61 +27,13 @@ public partial class CommandPreviewViewModel : ObservableObject
         IDialogService? dialogService = null)
     {
         _commandBuilder = commandBuilder;
-        _validationService = validationService;
         _dialogService = dialogService;
     }
 
-    public void SetFfmpegPath(string path)
+    public void UpdateJobContext(JobContext? context)
     {
-        _ffmpegPath = path;
+        _context = context;
         Refresh();
-    }
-
-    public void UpdateSourceInfo(SourceMediaInfo mediaInfo)
-    {
-        _currentMediaInfo = mediaInfo;
-        Refresh();
-    }
-
-    public void UpdateOutputSettings(OutputSettings settings)
-    {
-        _currentSettings = settings;
-        Refresh();
-    }
-
-    public void UpdatePreview(
-        OutputSettings settings,
-        SourceMediaInfo? mediaInfo,
-        ICommandBuilder builder,
-        string ffmpegPath)
-    {
-        _currentSettings = settings;
-        _currentMediaInfo = mediaInfo;
-        _ffmpegPath = ffmpegPath;
-
-        if (mediaInfo is null)
-        {
-            CommandText = "Load a source file to preview commands.";
-            _commands = null;
-            HasCommands = false;
-            return;
-        }
-
-        try
-        {
-            var job = CreateJobDefinition(settings, mediaInfo);
-            _commands = builder.Build(job, mediaInfo);
-            CommandText = string.Join(
-                Environment.NewLine + Environment.NewLine,
-                _commands.Select(c => c.DisplayString));
-            HasCommands = _commands.Count > 0;
-        }
-        catch (Exception ex)
-        {
-            CommandText = $"Error: {ex.Message}";
-            _commands = null;
-            HasCommands = false;
-        }
     }
 
     [RelayCommand]
@@ -105,40 +47,28 @@ public partial class CommandPreviewViewModel : ObservableObject
 
     private void Refresh()
     {
-        if (_currentSettings is null)
+        if (_context is null)
+        {
+            CommandText = "Load a source file to preview commands.";
+            _commands = null;
+            HasCommands = false;
             return;
+        }
 
-        UpdatePreview(_currentSettings, _currentMediaInfo, _commandBuilder, _ffmpegPath);
-    }
-
-    public void UpdateTrim(double? trimStartSeconds, double? trimEndSeconds)
-    {
-        _trimStartSeconds = trimStartSeconds;
-        _trimEndSeconds = trimEndSeconds;
-        Refresh();
-    }
-
-    public void UpdateCrop(CropRect? crop)
-    {
-        _crop = crop;
-        Refresh();
-    }
-
-    public void UpdateOutputPath(string? directory, string? filename, bool isAutoName = false)
-    {
-        _outputDirectory = directory;
-        _outputFilename = filename;
-        _isAutoName = isAutoName;
-        Refresh();
-    }
-
-    private JobDefinition CreateJobDefinition(OutputSettings settings, SourceMediaInfo mediaInfo)
-    {
-        var outputPath = DefaultCommandBuilder.SuggestOutputPath(
-            mediaInfo.SourcePath, settings.Container,
-            _outputDirectory, _outputFilename, _isAutoName);
-
-        return FormatHelpers.BuildJobDefinition(mediaInfo.SourcePath, outputPath, settings,
-            _trimStartSeconds, _trimEndSeconds, _crop);
+        try
+        {
+            var job = FormatHelpers.BuildJobDefinition(_context);
+            _commands = _commandBuilder.Build(job, _context.MediaInfo);
+            CommandText = string.Join(
+                Environment.NewLine + Environment.NewLine,
+                _commands.Select(c => c.DisplayString));
+            HasCommands = _commands.Count > 0;
+        }
+        catch (Exception ex)
+        {
+            CommandText = $"Error: {ex.Message}";
+            _commands = null;
+            HasCommands = false;
+        }
     }
 }

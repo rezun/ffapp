@@ -45,16 +45,9 @@ public partial class JobsPanelViewModel : ObservableObject
     [RelayCommand]
     private void SetQueueMode() => IsQueueMode = true;
 
-    public void UpdateSourceInfo(SourceMediaInfo mediaInfo)
+    public void UpdateJobContext(JobContext? context)
     {
-        Execution.UpdateSourceInfo(mediaInfo);
-        QueuePanel.UpdateCurrentContext(mediaInfo);
-    }
-
-    public void UpdateOutputSettings(OutputSettings settings)
-    {
-        Execution.UpdateOutputSettings(settings);
-        QueuePanel.UpdateCurrentContext(settings);
+        Execution.UpdateJobContext(context);
     }
 
     private QueueItemViewModel? _trackedRunningItem;

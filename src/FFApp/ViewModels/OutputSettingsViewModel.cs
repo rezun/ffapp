@@ -80,19 +80,9 @@ public partial class OutputSettingsViewModel : ObservableObject
         RefreshValidation();
     }
 
-    public void UpdateTrim(double? trimStartSeconds, double? trimEndSeconds)
+    public void UpdateEffectiveDuration(double? effectiveDurationSeconds)
     {
-        if (trimStartSeconds is not null || trimEndSeconds is not null)
-        {
-            var start = trimStartSeconds ?? 0;
-            var end = trimEndSeconds ?? (_mediaInfo?.DurationSeconds ?? 0);
-            var duration = end - start;
-            _trimmedDurationSeconds = duration > 0 ? duration : null;
-        }
-        else
-        {
-            _trimmedDurationSeconds = null;
-        }
+        _trimmedDurationSeconds = effectiveDurationSeconds;
         RefreshValidation();
         UpdateFileSizeBitrateDisplay(BuildSettings());
     }

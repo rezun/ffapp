@@ -172,6 +172,22 @@ public static class FormatHelpers
         return string.Join('\n', lines);
     }
 
+    public static JobDefinition BuildJobDefinition(JobContext context)
+    {
+        var outputPath = DefaultCommandBuilder.SuggestOutputPath(
+            context.MediaInfo.SourcePath, context.Settings.Container,
+            context.OutputDirectory, context.OutputFilename, context.IsAutoName);
+
+        return BuildJobDefinition(
+            context.MediaInfo.SourcePath, outputPath, context.Settings,
+            context.TrimStartSeconds, context.TrimEndSeconds, context.Crop);
+    }
+
+    public static string ResolveOutputPath(JobContext context) =>
+        DefaultCommandBuilder.SuggestOutputPath(
+            context.MediaInfo.SourcePath, context.Settings.Container,
+            context.OutputDirectory, context.OutputFilename, context.IsAutoName);
+
     public static JobDefinition BuildJobDefinition(
         string sourcePath, string outputPath, OutputSettings settings,
         double? trimStartSeconds = null, double? trimEndSeconds = null,

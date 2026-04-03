@@ -3,7 +3,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
-using FFApp.Helpers;
 using FFApp.Infrastructure;
 using FFApp.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -24,6 +23,9 @@ public partial class WorkspaceViewModel : ObservableObject,
 
     // Convenience accessors for drag-drop in MainWindowViewModel
     public QueuePanelViewModel QueuePanel => JobsPanel.QueuePanel;
+
+    private SourceMediaInfo? _currentMediaInfo;
+    private OutputSettings? _currentSettings;
 
     public WorkspaceViewModel(IServiceProvider services)
     {
@@ -70,6 +72,38 @@ public partial class WorkspaceViewModel : ObservableObject,
         messenger.Register<OutputSettingsChangedMessage>(this);
     }
 
+    private void RebuildAndPushJobContext()
+    {
+        if (_currentMediaInfo is null || _currentSettings is null)
+        {
+            CommandPreview.UpdateJobContext(null);
+            JobsPanel.UpdateJobContext(null);
+            OutputSettings.UpdateEffectiveDuration(null);
+            return;
+        }
+
+        var trimStart = VideoPreview.TrimInSeconds > 0
+            ? VideoPreview.TrimInSeconds : (double?)null;
+        var trimEnd = VideoPreview.TrimOutSeconds > 0
+                      && VideoPreview.TrimOutSeconds < VideoPreview.DurationMs / 1000.0
+            ? VideoPreview.TrimOutSeconds : (double?)null;
+
+        var crop = new CropRect(
+            VideoPreview.CropX, VideoPreview.CropY,
+            VideoPreview.CropW, VideoPreview.CropH);
+
+        var context = new JobContext(
+            _currentMediaInfo, _currentSettings,
+            trimStart, trimEnd, crop,
+            OutputPath.GetEffectiveDirectory(),
+            OutputPath.GetEffectiveFilename(),
+            OutputPath.IsAutoName);
+
+        CommandPreview.UpdateJobContext(context);
+        JobsPanel.UpdateJobContext(context);
+        OutputSettings.UpdateEffectiveDuration(context.EffectiveDurationSeconds);
+    }
+
     private void OnPresetPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(PresetViewModel.SelectedPreset))
@@ -90,29 +124,13 @@ public partial class WorkspaceViewModel : ObservableObject,
     private void OnVideoPreviewPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(VideoPreviewViewModel.TrimInSeconds)
-                           or nameof(VideoPreviewViewModel.TrimOutSeconds))
-        {
-            var trimStart = VideoPreview.TrimInSeconds > 0 ? VideoPreview.TrimInSeconds : (double?)null;
-            var trimEnd = VideoPreview.TrimOutSeconds > 0
-                          && VideoPreview.TrimOutSeconds < VideoPreview.DurationMs / 1000.0
-                ? VideoPreview.TrimOutSeconds : (double?)null;
-
-            CommandPreview.UpdateTrim(trimStart, trimEnd);
-            JobsPanel.Execution.UpdateTrim(trimStart, trimEnd);
-            OutputSettings.UpdateTrim(trimStart, trimEnd);
-        }
-
-        if (e.PropertyName is nameof(VideoPreviewViewModel.CropX)
+                           or nameof(VideoPreviewViewModel.TrimOutSeconds)
+                           or nameof(VideoPreviewViewModel.CropX)
                            or nameof(VideoPreviewViewModel.CropY)
                            or nameof(VideoPreviewViewModel.CropW)
                            or nameof(VideoPreviewViewModel.CropH))
         {
-            var crop = new CropRect(
-                VideoPreview.CropX, VideoPreview.CropY,
-                VideoPreview.CropW, VideoPreview.CropH);
-
-            CommandPreview.UpdateCrop(crop);
-            JobsPanel.Execution.UpdateCrop(crop);
+            RebuildAndPushJobContext();
         }
     }
 
@@ -133,23 +151,14 @@ public partial class WorkspaceViewModel : ObservableObject,
                            or nameof(OutputPathViewModel.OutputFilename)
                            or nameof(OutputPathViewModel.IsAutoName))
         {
-            PushOutputPathOverrides();
+            RebuildAndPushJobContext();
+            JobsPanel.QueuePanel.UpdateOutputDirectory(OutputPath.GetEffectiveDirectory());
         }
 
         if (e.PropertyName is nameof(OutputPathViewModel.ResolvedPath))
         {
             OutputSettings.UpdateResolvedOutputPath(OutputPath.ResolvedPath);
         }
-    }
-
-    private void PushOutputPathOverrides()
-    {
-        var dir = OutputPath.GetEffectiveDirectory();
-        var name = OutputPath.GetEffectiveFilename();
-        var isAutoName = OutputPath.IsAutoName;
-        CommandPreview.UpdateOutputPath(dir, name, isAutoName);
-        JobsPanel.Execution.UpdateOutputPath(dir, name, isAutoName);
-        JobsPanel.QueuePanel.UpdateOutputDirectory(dir);
     }
 
     public async Task LoadAsync()
@@ -159,21 +168,21 @@ public partial class WorkspaceViewModel : ObservableObject,
 
     public void Receive(SourceLoadedMessage message)
     {
-        var mediaInfo = message.Value;
-        OutputPath.UpdateFromSource(mediaInfo);
-        OutputSettings.UpdateSourceInfo(mediaInfo);
-        CommandPreview.UpdateSourceInfo(mediaInfo);
-        JobsPanel.UpdateSourceInfo(mediaInfo);
-        VideoPreview.LoadMedia(mediaInfo);
+        _currentMediaInfo = message.Value;
+        OutputPath.UpdateFromSource(_currentMediaInfo);
+        OutputSettings.UpdateSourceInfo(_currentMediaInfo);
+        VideoPreview.LoadMedia(_currentMediaInfo);
+        RebuildAndPushJobContext();
+        JobsPanel.QueuePanel.UpdateCurrentContext(_currentMediaInfo);
     }
 
     public void Receive(OutputSettingsChangedMessage message)
     {
-        var settings = message.Value;
+        _currentSettings = message.Value;
         OutputPath.UpdateAvailableContainers(OutputSettings.Format.AvailableContainers);
-        OutputPath.UpdateContainer(settings.Container);
-        CommandPreview.UpdateOutputSettings(settings);
-        Preset.UpdateOutputSettings(settings);
-        JobsPanel.UpdateOutputSettings(settings);
+        OutputPath.UpdateContainer(_currentSettings.Container);
+        Preset.UpdateOutputSettings(_currentSettings);
+        RebuildAndPushJobContext();
+        JobsPanel.QueuePanel.UpdateCurrentContext(_currentSettings);
     }
 }

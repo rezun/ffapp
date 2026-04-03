@@ -2,7 +2,6 @@ using System.Text;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using FFApp.Core;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
 using FFApp.Helpers;
@@ -17,15 +16,7 @@ public partial class ExecutionViewModel : ObservableObject
     private readonly IValidationService? _validationService;
     private readonly StringBuilder _logBuilder = new();
     private CancellationTokenSource? _cts;
-    private OutputSettings? _currentSettings;
-    private SourceMediaInfo? _currentMediaInfo;
-    private string _ffmpegPath = "ffmpeg";
-    private double? _trimStartSeconds;
-    private double? _trimEndSeconds;
-    private CropRect? _crop;
-    private string? _outputDirectory;
-    private string? _outputFilename;
-    private bool _isAutoName;
+    private JobContext? _context;
     private bool _hasValidationErrors;
 
     [ObservableProperty]
@@ -67,46 +58,10 @@ public partial class ExecutionViewModel : ObservableObject
         _validationService = validationService;
     }
 
-    public void SetFfmpegPath(string path)
+    public void UpdateJobContext(JobContext? context)
     {
-        _ffmpegPath = path;
-    }
-
-    public void UpdateSourceInfo(SourceMediaInfo mediaInfo)
-    {
-        _currentMediaInfo = mediaInfo;
+        _context = context;
         UpdateCanStart();
-    }
-
-    public void UpdateOutputSettings(OutputSettings settings)
-    {
-        _currentSettings = settings;
-        UpdateCanStart();
-    }
-
-    public void UpdateContext(OutputSettings settings, SourceMediaInfo? mediaInfo)
-    {
-        _currentSettings = settings;
-        _currentMediaInfo = mediaInfo;
-        UpdateCanStart();
-    }
-
-    public void UpdateTrim(double? trimStartSeconds, double? trimEndSeconds)
-    {
-        _trimStartSeconds = trimStartSeconds;
-        _trimEndSeconds = trimEndSeconds;
-    }
-
-    public void UpdateCrop(CropRect? crop)
-    {
-        _crop = crop;
-    }
-
-    public void UpdateOutputPath(string? directory, string? filename, bool isAutoName = false)
-    {
-        _outputDirectory = directory;
-        _outputFilename = filename;
-        _isAutoName = isAutoName;
     }
 
     public void UpdateHasValidationErrors(bool hasErrors)
@@ -117,20 +72,20 @@ public partial class ExecutionViewModel : ObservableObject
 
     private bool CanStartJob() =>
         !IsRunning
-        && _currentMediaInfo is not null
-        && _currentSettings is not null
+        && _context is not null
         && !_hasValidationErrors;
 
     [RelayCommand(CanExecute = nameof(CanStartJob))]
     private async Task StartJobAsync()
     {
-        if (_currentSettings is null || _currentMediaInfo is null)
+        if (_context is null)
             return;
 
-        // Validate before starting
+        // Validate before starting (now with effective duration for correct bitrate)
         if (_validationService is not null)
         {
-            var validation = _validationService.Validate(_currentSettings, _currentMediaInfo);
+            var validation = _validationService.Validate(
+                _context.Settings, _context.MediaInfo, _context.EffectiveDurationSeconds);
             if (validation.HasErrors)
             {
                 await _dialogService.ShowErrorAsync(
@@ -140,13 +95,8 @@ public partial class ExecutionViewModel : ObservableObject
             }
         }
 
-        var outputPath = DefaultCommandBuilder.SuggestOutputPath(
-            _currentMediaInfo.SourcePath, _currentSettings.Container,
-            _outputDirectory, _outputFilename, _isAutoName);
-
-        var job = FormatHelpers.BuildJobDefinition(
-            _currentMediaInfo.SourcePath, outputPath, _currentSettings,
-            _trimStartSeconds, _trimEndSeconds, _crop);
+        var job = FormatHelpers.BuildJobDefinition(_context);
+        var outputPath = FormatHelpers.ResolveOutputPath(_context);
 
         OutputPath = outputPath;
         IsRunning = true;
@@ -166,7 +116,7 @@ public partial class ExecutionViewModel : ObservableObject
         {
             var result = await _jobExecutionService.ExecuteAsync(
                 job,
-                _currentMediaInfo,
+                _context.MediaInfo,
                 progress =>
                 {
                     Dispatcher.UIThread.Post(() =>

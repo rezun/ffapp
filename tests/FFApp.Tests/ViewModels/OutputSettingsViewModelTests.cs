@@ -42,7 +42,7 @@ public class OutputSettingsViewModelTests
         var settings = _sut.BuildSettings();
 
         settings.Container.Should().Be(OutputContainer.Webm);
-        settings.VideoCodec.Should().Be(VideoCodec.Vp8);
+        settings.VideoCodec.Should().Be(VideoCodec.Av1);
     }
 
     [Fact]

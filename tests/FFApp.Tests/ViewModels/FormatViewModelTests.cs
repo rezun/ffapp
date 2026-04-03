@@ -21,16 +21,16 @@ public class FormatViewModelTests
         _sut.SelectedContainer = OutputContainer.Webm;
 
         _sut.AvailableVideoCodecs.Should().BeEquivalentTo(
-            [VideoCodec.Vp8, VideoCodec.Vp9, VideoCodec.Av1],
+            [VideoCodec.Av1, VideoCodec.Vp9, VideoCodec.Vp8],
             o => o.WithStrictOrdering());
     }
 
     [Fact]
-    public void ChangeContainer_ToWebm_ResetsCodecToVp8()
+    public void ChangeContainer_ToWebm_ResetsCodecToAv1()
     {
         _sut.SelectedContainer = OutputContainer.Webm;
 
-        _sut.SelectedVideoCodec.Should().Be(VideoCodec.Vp8);
+        _sut.SelectedVideoCodec.Should().Be(VideoCodec.Av1);
     }
 
     [Fact]
@@ -39,7 +39,7 @@ public class FormatViewModelTests
         _sut.SelectedContainer = OutputContainer.Mkv;
 
         _sut.AvailableVideoCodecs.Should().BeEquivalentTo(
-            [VideoCodec.H264, VideoCodec.H265, VideoCodec.Vp8, VideoCodec.Vp9, VideoCodec.Av1],
+            [VideoCodec.Av1, VideoCodec.H265, VideoCodec.H264, VideoCodec.Vp9, VideoCodec.Vp8],
             o => o.WithStrictOrdering());
     }
 

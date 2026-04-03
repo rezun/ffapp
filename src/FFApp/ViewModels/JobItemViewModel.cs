@@ -67,7 +67,8 @@ public partial class JobItemViewModel : ObservableObject
             progress.ElapsedSeconds, progress.Percentage);
         if (remaining is not null)
             parts.Add($"~{FormatHelpers.FormatCompactDuration(remaining.Value)} left");
-        parts.Add($"Pass {progress.PassIndex}/{progress.PassCount}");
+        if (progress.PassCount > 1)
+            parts.Add($"Pass {progress.PassIndex}/{progress.PassCount}");
         ProgressText = string.Join(" | ", parts);
     }
 

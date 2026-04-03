@@ -109,14 +109,20 @@ public static class FormatHelpers
         return string.Join("\n\n", sections);
     }
 
-    public static string FormatJobProgress(JobProgress progress) =>
-        string.Join(" | ",
+    public static string FormatJobProgress(JobProgress progress)
+    {
+        var parts = new List<string>
+        {
             $"State: {JobStateLabel(progress.State)}",
-            $"Pass: {progress.PassIndex} of {progress.PassCount}",
-            $"Elapsed: {FormatPreciseDuration(progress.ElapsedSeconds)}",
-            $"Processed: {FormatPreciseDuration(progress.ProcessedSeconds)}",
-            $"Progress: {FormatPercentage(progress.Percentage)}",
-            $"Speed: {FormatSpeed(progress.Speed)}");
+        };
+        if (progress.PassCount > 1)
+            parts.Add($"Pass: {progress.PassIndex} of {progress.PassCount}");
+        parts.Add($"Elapsed: {FormatPreciseDuration(progress.ElapsedSeconds)}");
+        parts.Add($"Processed: {FormatPreciseDuration(progress.ProcessedSeconds)}");
+        parts.Add($"Progress: {FormatPercentage(progress.Percentage)}");
+        parts.Add($"Speed: {FormatSpeed(progress.Speed)}");
+        return string.Join(" | ", parts);
+    }
 
     public static string FormatJobResultSummary(JobResult result) =>
         $"State: {JobStateLabel(result.State)} | " +

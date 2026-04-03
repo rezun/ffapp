@@ -28,7 +28,7 @@ public sealed class ValidationService : IValidationService
         return isPortrait ? new Resolution(target.Height, target.Width) : target;
     }
 
-    public ValidationResult Validate(OutputSettings settings, SourceMediaInfo mediaInfo)
+    public ValidationResult Validate(OutputSettings settings, SourceMediaInfo mediaInfo, double? trimmedDurationSeconds = null)
     {
         var issues = ImmutableArray.CreateBuilder<ValidationIssue>();
 
@@ -127,7 +127,7 @@ public sealed class ValidationService : IValidationService
         switch (settings.EncodingStrategy)
         {
             case EncodingStrategy.TargetFileSize:
-                ValidateFileSizeStrategy(settings, mediaInfo, issues);
+                ValidateFileSizeStrategy(settings, mediaInfo, trimmedDurationSeconds, issues);
                 break;
             case EncodingStrategy.TargetBitrate:
                 ValidateTargetBitrateStrategy(settings, mediaInfo, issues);
@@ -476,6 +476,7 @@ public sealed class ValidationService : IValidationService
     private void ValidateFileSizeStrategy(
         OutputSettings settings,
         SourceMediaInfo mediaInfo,
+        double? trimmedDurationSeconds,
         ImmutableArray<ValidationIssue>.Builder issues)
     {
         var options = settings.TargetFileSize;
@@ -500,7 +501,8 @@ public sealed class ValidationService : IValidationService
             return;
         }
 
-        var estimatedAudioBits = EstimateAudioBitsForSettings(settings, mediaInfo);
+        var effectiveDuration = trimmedDurationSeconds ?? mediaInfo.DurationSeconds.Value;
+        var estimatedAudioBits = EstimateAudioBitsForSettings(settings, mediaInfo, effectiveDuration);
         if (estimatedAudioBits is null)
         {
             issues.Add(new ValidationIssue(
@@ -526,7 +528,7 @@ public sealed class ValidationService : IValidationService
             return;
         }
 
-        var videoBitrate = (int)(videoBudgetBits / mediaInfo.DurationSeconds.Value);
+        var videoBitrate = (int)(videoBudgetBits / effectiveDuration);
         AddBitrateWarningIssues(videoBitrate, settings, mediaInfo, "target_file_size", issues);
     }
 
@@ -720,12 +722,12 @@ public sealed class ValidationService : IValidationService
         return new Resolution(primary.DisplayWidth.Value, primary.DisplayHeight.Value);
     }
 
-    private static int? EstimateAudioBitsForSettings(OutputSettings settings, SourceMediaInfo mediaInfo) =>
+    private static int? EstimateAudioBitsForSettings(OutputSettings settings, SourceMediaInfo mediaInfo, double? effectiveDuration = null) =>
         CompatibilityData.EstimateAudioBits(
             EffectiveAudioMode(settings),
             settings.AudioOptions.Bitrate,
             mediaInfo.AudioStreams,
-            mediaInfo.DurationSeconds);
+            effectiveDuration ?? mediaInfo.DurationSeconds);
 
     private void AddBitrateWarningIssues(
         int bitrate,

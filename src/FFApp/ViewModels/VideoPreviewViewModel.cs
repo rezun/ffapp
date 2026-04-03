@@ -215,6 +215,16 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
         IsExpanded = !IsExpanded;
     }
 
+    partial void OnPositionChanged(double value)
+    {
+        if (IsSeeking && DurationMs > 0)
+        {
+            var targetMs = (long)(value * DurationMs);
+            TimeMs = targetMs;
+            TimeDisplay = $"{FormatTimePrecise(targetMs / 1000.0)} / {FormatTimePrecise(DurationMs / 1000.0)}";
+        }
+    }
+
     public void BeginSeek()
     {
         IsSeeking = true;
@@ -322,6 +332,62 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
         return ts.Hours > 0
             ? $"{(int)ts.TotalHours:D2}:{ts.Minutes:D2}:{ts.Seconds:D2}"
             : $"00:{ts.Minutes:D2}:{ts.Seconds:D2}";
+    }
+
+    private static bool TryParseTimecode(string text, out double seconds)
+    {
+        seconds = 0;
+        if (string.IsNullOrWhiteSpace(text)) return false;
+
+        // Try HH:MM:SS.mmm or HH:MM:SS
+        var parts = text.Split(':');
+        if (parts.Length == 3)
+        {
+            if (int.TryParse(parts[0], out var h) &&
+                int.TryParse(parts[1], out var m))
+            {
+                if (double.TryParse(parts[2], System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out var s))
+                {
+                    seconds = h * 3600 + m * 60 + s;
+                    return seconds >= 0;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    public void ApplyTrimInText(string text)
+    {
+        if (TryParseTimecode(text, out var seconds))
+        {
+            var maxSeconds = DurationMs / 1000.0;
+            seconds = Math.Clamp(seconds, 0, maxSeconds);
+            TrimInSeconds = seconds;
+            TrimInDisplay = FormatTimePrecise(seconds);
+        }
+        else
+        {
+            // Revert to current value
+            TrimInDisplay = FormatTimePrecise(TrimInSeconds);
+        }
+    }
+
+    public void ApplyTrimOutText(string text)
+    {
+        if (TryParseTimecode(text, out var seconds))
+        {
+            var maxSeconds = DurationMs / 1000.0;
+            seconds = Math.Clamp(seconds, 0, maxSeconds);
+            TrimOutSeconds = seconds;
+            TrimOutDisplay = FormatTimePrecise(seconds);
+        }
+        else
+        {
+            // Revert to current value
+            TrimOutDisplay = FormatTimePrecise(TrimOutSeconds);
+        }
     }
 
     private static string FormatTimePrecise(double seconds)

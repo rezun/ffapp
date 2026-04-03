@@ -99,6 +99,7 @@ public partial class WorkspaceViewModel : ObservableObject,
 
             CommandPreview.UpdateTrim(trimStart, trimEnd);
             JobsPanel.Execution.UpdateTrim(trimStart, trimEnd);
+            OutputSettings.UpdateTrim(trimStart, trimEnd);
         }
 
         if (e.PropertyName is nameof(VideoPreviewViewModel.CropX)

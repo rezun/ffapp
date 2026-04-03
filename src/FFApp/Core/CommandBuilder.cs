@@ -363,6 +363,17 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         return arguments;
     }
 
+    private static double GetEffectiveDuration(JobDefinition job, SourceMediaInfo mediaInfo)
+    {
+        if (mediaInfo.DurationSeconds is null || mediaInfo.DurationSeconds <= 0)
+            throw new CommandBuildException("Target file size mode requires a positive source duration.");
+
+        var start = job.TrimStartSeconds ?? 0;
+        var end = job.TrimEndSeconds ?? mediaInfo.DurationSeconds.Value;
+        var trimmed = end - start;
+        return trimmed > 0 ? trimmed : mediaInfo.DurationSeconds.Value;
+    }
+
     private static int ResolveVideoBitrate(JobDefinition job, SourceMediaInfo mediaInfo)
     {
         if (job.EncodingStrategy == EncodingStrategy.TargetBitrate)
@@ -376,10 +387,9 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         {
             if (job.TargetFileSize is null)
                 throw new CommandBuildException("Target file size mode requires file size options.");
-            if (mediaInfo.DurationSeconds is null || mediaInfo.DurationSeconds <= 0)
-                throw new CommandBuildException("Target file size mode requires a positive source duration.");
 
-            var estimatedAudioBits = EstimateAudioBits(job, mediaInfo);
+            var duration = GetEffectiveDuration(job, mediaInfo);
+            var estimatedAudioBits = EstimateAudioBits(job, mediaInfo, duration);
             var totalBudgetBits = (long)job.TargetFileSize.TargetSizeMb * 1024 * 1024 * 8;
             var usableBudgetBits = totalBudgetBits - job.TargetFileSize.EffectiveOverheadBits(totalBudgetBits);
             var videoBudgetBits = usableBudgetBits - estimatedAudioBits;
@@ -387,19 +397,19 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
             if (videoBudgetBits <= 0)
                 throw new CommandBuildException("The target file size leaves no bitrate budget for video.");
 
-            return (int)(videoBudgetBits / mediaInfo.DurationSeconds.Value);
+            return (int)(videoBudgetBits / duration);
         }
 
         throw new CommandBuildException("Bitrate resolution was requested for a quality-based encode.");
     }
 
-    private static int EstimateAudioBits(JobDefinition job, SourceMediaInfo mediaInfo)
+    private static int EstimateAudioBits(JobDefinition job, SourceMediaInfo mediaInfo, double duration)
     {
         var result = CompatibilityData.EstimateAudioBits(
             EffectiveAudioMode(job),
             job.AudioOptions.Bitrate,
             mediaInfo.AudioStreams,
-            mediaInfo.DurationSeconds);
+            duration);
 
         return result
             ?? throw new CommandBuildException(

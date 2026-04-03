@@ -101,11 +101,15 @@
                                         <TextBlock Text="In"
                                                    VerticalAlignment="Center"
                                                    FontSize="12" />
-                                        <TextBlock Grid.Column="1"
-                                                   Text="{Binding TrimInDisplay}"
-                                                   FontFamily="Cascadia Code,Consolas,Menlo,monospace"
-                                                   FontSize="12"
-                                                   VerticalAlignment="Center" />
+                                        <TextBox x:Name="TrimInTextBox"
+                                                 Grid.Column="1"
+                                                 Text="{Binding TrimInDisplay}"
+                                                 FontFamily="Cascadia Code,Consolas,Menlo,monospace"
+                                                 FontSize="12"
+                                                 Padding="4,0"
+                                                 MinHeight="0"
+                                                 Height="24"
+                                                 VerticalContentAlignment="Center" />
                                         <Button Grid.Column="2" Content="Set"
                                                 Command="{Binding SetTrimInCommand}"
                                                 IsEnabled="{Binding HasMedia}"
@@ -116,12 +120,16 @@
                                                    VerticalAlignment="Center"
                                                    FontSize="12"
                                                    Margin="0,2,0,0" />
-                                        <TextBlock Grid.Row="1" Grid.Column="1"
-                                                   Text="{Binding TrimOutDisplay}"
-                                                   FontFamily="Cascadia Code,Consolas,Menlo,monospace"
-                                                   FontSize="12"
-                                                   VerticalAlignment="Center"
-                                                   Margin="0,2,0,0" />
+                                        <TextBox x:Name="TrimOutTextBox"
+                                                 Grid.Row="1" Grid.Column="1"
+                                                 Text="{Binding TrimOutDisplay}"
+                                                 FontFamily="Cascadia Code,Consolas,Menlo,monospace"
+                                                 FontSize="12"
+                                                 Padding="4,0"
+                                                 MinHeight="0"
+                                                 Height="24"
+                                                 VerticalContentAlignment="Center"
+                                                 Margin="0,2,0,0" />
                                         <Button Grid.Row="1" Grid.Column="2" Content="Set"
                                                 Command="{Binding SetTrimOutCommand}"
                                                 IsEnabled="{Binding HasMedia}"

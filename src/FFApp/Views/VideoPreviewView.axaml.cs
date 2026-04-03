@@ -18,6 +18,11 @@ public partial class VideoPreviewView : UserControl
             PointerPressedEvent, OnSliderPointerPressed, RoutingStrategies.Tunnel);
         TimelineSlider.AddHandler(
             PointerReleasedEvent, OnSliderPointerReleased, RoutingStrategies.Tunnel);
+
+        TrimInTextBox.LostFocus += OnTrimInLostFocus;
+        TrimInTextBox.KeyDown += OnTrimTextBoxKeyDown;
+        TrimOutTextBox.LostFocus += OnTrimOutLostFocus;
+        TrimOutTextBox.KeyDown += OnTrimTextBoxKeyDown;
     }
 
     private void OnDataContextChanged(object? sender, EventArgs e)
@@ -44,5 +49,30 @@ public partial class VideoPreviewView : UserControl
     private void OnSliderPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         _vm?.EndSeek();
+    }
+
+    private void OnTrimInLostFocus(object? sender, RoutedEventArgs e)
+    {
+        _vm?.ApplyTrimInText(TrimInTextBox.Text ?? "");
+    }
+
+    private void OnTrimOutLostFocus(object? sender, RoutedEventArgs e)
+    {
+        _vm?.ApplyTrimOutText(TrimOutTextBox.Text ?? "");
+    }
+
+    private void OnTrimTextBoxKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter && sender is TextBox tb)
+        {
+            if (tb == TrimInTextBox)
+                _vm?.ApplyTrimInText(tb.Text ?? "");
+            else if (tb == TrimOutTextBox)
+                _vm?.ApplyTrimOutText(tb.Text ?? "");
+
+            // Move focus away to indicate acceptance
+            TimelineSlider.Focus();
+            e.Handled = true;
+        }
     }
 }

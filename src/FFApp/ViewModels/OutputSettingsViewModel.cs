@@ -14,6 +14,7 @@ public partial class OutputSettingsViewModel : ObservableObject
     private bool _isSuppressing;
     private SourceMediaInfo? _mediaInfo;
     private string? _resolvedOutputPath;
+    private double? _trimmedDurationSeconds;
 
     public FormatViewModel Format { get; } = new();
     public AudioViewModel Audio { get; } = new();
@@ -77,6 +78,23 @@ public partial class OutputSettingsViewModel : ObservableObject
     {
         _resolvedOutputPath = resolvedOutputPath;
         RefreshValidation();
+    }
+
+    public void UpdateTrim(double? trimStartSeconds, double? trimEndSeconds)
+    {
+        if (trimStartSeconds is not null || trimEndSeconds is not null)
+        {
+            var start = trimStartSeconds ?? 0;
+            var end = trimEndSeconds ?? (_mediaInfo?.DurationSeconds ?? 0);
+            var duration = end - start;
+            _trimmedDurationSeconds = duration > 0 ? duration : null;
+        }
+        else
+        {
+            _trimmedDurationSeconds = null;
+        }
+        RefreshValidation();
+        UpdateFileSizeBitrateDisplay(BuildSettings());
     }
 
     public void UpdateSourceInfo(SourceMediaInfo mediaInfo)
@@ -247,7 +265,7 @@ public partial class OutputSettingsViewModel : ObservableObject
         if (_mediaInfo is null)
             return;
 
-        var result = _validationService.Validate(settings, _mediaInfo);
+        var result = _validationService.Validate(settings, _mediaInfo, _trimmedDurationSeconds);
         var allIssues = result.Issues;
 
         if (!string.IsNullOrEmpty(_resolvedOutputPath)
@@ -289,11 +307,12 @@ public partial class OutputSettingsViewModel : ObservableObject
         var overheadBits = options.EffectiveOverheadBits(totalBudgetBits);
         var usableBudgetBits = totalBudgetBits - overheadBits;
 
+        var effectiveDuration = _trimmedDurationSeconds ?? _mediaInfo.DurationSeconds.Value;
         var audioBits = CompatibilityData.EstimateAudioBits(
             settings.AudioOptions.Mode,
             settings.AudioOptions.Bitrate,
             _mediaInfo.AudioStreams,
-            _mediaInfo.DurationSeconds);
+            effectiveDuration);
 
         if (audioBits is null)
         {
@@ -309,7 +328,7 @@ public partial class OutputSettingsViewModel : ObservableObject
             return;
         }
 
-        var videoBitrate = (int)(videoBudgetBits / _mediaInfo.DurationSeconds.Value);
+        var videoBitrate = (int)(videoBudgetBits / effectiveDuration);
         var mbps = videoBitrate / 1_000_000.0;
         Strategy.FileSize.VideoBitrateText = $"~{mbps:F2} Mbps video bitrate";
     }

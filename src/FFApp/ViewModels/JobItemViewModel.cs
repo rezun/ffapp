@@ -5,18 +5,14 @@ using FFApp.Helpers;
 
 namespace FFApp.ViewModels;
 
-public partial class QueueItemViewModel : ObservableObject
+public partial class JobItemViewModel : ObservableObject
 {
     private readonly StringBuilder _logBuilder = new();
 
     public string Id { get; }
     public string SourcePath { get; }
     public SourceMediaInfo MediaInfo { get; }
-
-    /// <summary>
-    /// Set when the queue starts — built from current settings at that time.
-    /// </summary>
-    public QueuedJob? QueuedJob { get; private set; }
+    public QueuedJob QueuedJob { get; }
 
     [ObservableProperty]
     private string _displayLabel;
@@ -36,22 +32,17 @@ public partial class QueueItemViewModel : ObservableObject
     [ObservableProperty]
     private JobResult? _result;
 
-    public QueueItemViewModel(string id, SourceMediaInfo mediaInfo, string displayLabel)
+    public JobItemViewModel(string id, SourceMediaInfo mediaInfo, QueuedJob queuedJob, string displayLabel)
     {
         Id = id;
         SourcePath = mediaInfo.SourcePath;
         MediaInfo = mediaInfo;
-        _displayLabel = displayLabel;
-    }
-
-    public void ResolveWithSettings(QueuedJob queuedJob)
-    {
         QueuedJob = queuedJob;
+        _displayLabel = displayLabel;
     }
 
     public void ResetToPending()
     {
-        QueuedJob = null;
         State = JobState.Pending;
         Percentage = 0;
         ProgressText = "";
@@ -94,9 +85,9 @@ public partial class QueueItemViewModel : ObservableObject
     }
 }
 
-public partial class QueueItemDetailsViewModel : ObservableObject
+public partial class JobItemDetailsViewModel : ObservableObject
 {
-    private QueueItemViewModel? _trackedItem;
+    private JobItemViewModel? _trackedItem;
 
     [ObservableProperty]
     private string _summaryText = "";
@@ -107,7 +98,7 @@ public partial class QueueItemDetailsViewModel : ObservableObject
     [ObservableProperty]
     private string _logText = "";
 
-    public void UpdateFromItem(QueueItemViewModel? item)
+    public void UpdateFromItem(JobItemViewModel? item)
     {
         if (_trackedItem is not null)
             _trackedItem.PropertyChanged -= OnTrackedItemPropertyChanged;
@@ -122,9 +113,9 @@ public partial class QueueItemDetailsViewModel : ObservableObject
 
     private void OnTrackedItemPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(QueueItemViewModel.LogText)
-            or nameof(QueueItemViewModel.State)
-            or nameof(QueueItemViewModel.ProgressText))
+        if (e.PropertyName is nameof(JobItemViewModel.LogText)
+            or nameof(JobItemViewModel.State)
+            or nameof(JobItemViewModel.ProgressText))
         {
             Refresh();
         }
@@ -141,19 +132,11 @@ public partial class QueueItemDetailsViewModel : ObservableObject
             return;
         }
 
-        if (item.QueuedJob is { } queuedJob)
-        {
-            var job = queuedJob.Job;
-            SummaryText = $"{Path.GetFileName(job.SourcePath)} -> {Path.GetFileName(job.OutputPath)} ({item.State})";
-            CommandText = string.Join(
-                Environment.NewLine + Environment.NewLine,
-                queuedJob.Commands.Select(c => c.DisplayString));
-        }
-        else
-        {
-            SummaryText = $"{Path.GetFileName(item.SourcePath)} ({item.State})";
-            CommandText = "Commands will be generated from current settings when the queue starts.";
-        }
+        var job = item.QueuedJob.Job;
+        SummaryText = $"{Path.GetFileName(job.SourcePath)} -> {Path.GetFileName(job.OutputPath)} ({item.State})";
+        CommandText = string.Join(
+            Environment.NewLine + Environment.NewLine,
+            item.QueuedJob.Commands.Select(c => c.DisplayString));
 
         LogText = item.LogText;
     }

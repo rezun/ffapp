@@ -91,7 +91,8 @@
                     <!-- Trim and Crop side by side -->
                     <Grid ColumnDefinitions="*,*" Margin="0,6,0,0">
                         <!-- Trim -->
-                        <Border Grid.Column="0" Classes="nested-card" Margin="0,0,4,0">
+                        <Border Grid.Column="0" Classes="nested-card" Margin="0,0,4,0"
+                                Classes.trim-dirty="{Binding IsTrimDirty}">
                             <DockPanel>
                                 <TextBlock DockPanel.Dock="Top" Text="Trim"
                                            Classes="nested-card-header" />
@@ -137,73 +138,96 @@
                                                 FontSize="11"
                                                 Margin="0,2,0,0" />
                                     </Grid>
-                                    <Button Content="Clear"
-                                            Command="{Binding ClearTrimCommand}"
-                                            IsEnabled="{Binding HasMedia}"
-                                            Padding="6,1"
-                                            FontSize="11"
-                                            HorizontalAlignment="Left" />
+                                    <DockPanel>
+                                        <Button DockPanel.Dock="Left"
+                                                Content="Clear"
+                                                Command="{Binding ClearTrimCommand}"
+                                                IsEnabled="{Binding HasMedia}"
+                                                Padding="6,1"
+                                                FontSize="11" />
+                                        <CheckBox DockPanel.Dock="Right"
+                                                  Content="Apply to all"
+                                                  ToolTip.Tip="Apply this trim to all source files"
+                                                  IsChecked="{Binding ApplyTrimToAll}"
+                                                  FontSize="11"
+                                                  Padding="4,0"
+                                                  MinHeight="0"
+                                                  VerticalAlignment="Center"
+                                                  HorizontalAlignment="Right" />
+                                    </DockPanel>
                                 </StackPanel>
                             </DockPanel>
                         </Border>
 
                         <!-- Crop -->
-                        <Border Grid.Column="1" Classes="nested-card" Margin="4,0,0,0">
+                        <Border Grid.Column="1" Classes="nested-card" Margin="4,0,0,0"
+                                Classes.crop-dirty="{Binding IsCropDirty}">
                             <DockPanel>
                                 <TextBlock DockPanel.Dock="Top" Text="Crop"
                                            Classes="nested-card-header" />
                                 <Separator DockPanel.Dock="Top" />
-                                <Grid ColumnDefinitions="16,*,8,16,*"
-                                      RowDefinitions="Auto,Auto"
-                                      Margin="8,4,8,6">
-                                    <TextBlock Text="X" VerticalAlignment="Center" FontSize="11" />
-                                    <TextBox Grid.Column="1"
-                                             Text="{Binding CropX}"
-                                             FontSize="11"
-                                             Padding="4,0"
-                                             MinHeight="0"
-                                             Height="24"
-                                             VerticalContentAlignment="Center" />
-                                    <TextBlock Grid.Column="3" Text="Y"
-                                               VerticalAlignment="Center" FontSize="11" />
-                                    <TextBox Grid.Column="4"
-                                             Text="{Binding CropY}"
-                                             FontSize="11"
-                                             Padding="4,0"
-                                             MinHeight="0"
-                                             Height="24"
-                                             VerticalContentAlignment="Center" />
+                                <StackPanel Spacing="4" Margin="8,4,8,6">
+                                    <Grid ColumnDefinitions="16,*,8,16,*"
+                                          RowDefinitions="Auto,Auto">
+                                        <TextBlock Text="X" VerticalAlignment="Center" FontSize="11" />
+                                        <TextBox Grid.Column="1"
+                                                 Text="{Binding CropX}"
+                                                 FontSize="11"
+                                                 Padding="4,0"
+                                                 MinHeight="0"
+                                                 Height="24"
+                                                 VerticalContentAlignment="Center" />
+                                        <TextBlock Grid.Column="3" Text="Y"
+                                                   VerticalAlignment="Center" FontSize="11" />
+                                        <TextBox Grid.Column="4"
+                                                 Text="{Binding CropY}"
+                                                 FontSize="11"
+                                                 Padding="4,0"
+                                                 MinHeight="0"
+                                                 Height="24"
+                                                 VerticalContentAlignment="Center" />
 
-                                    <TextBlock Grid.Row="1" Text="W"
-                                               VerticalAlignment="Center" FontSize="11"
-                                               Margin="0,4,0,0" />
-                                    <TextBox Grid.Row="1" Grid.Column="1"
-                                             Text="{Binding CropW}"
-                                             FontSize="11"
-                                             Padding="4,0"
-                                             MinHeight="0"
-                                             Height="24"
-                                             VerticalContentAlignment="Center"
-                                             Margin="0,4,0,0" />
-                                    <TextBlock Grid.Row="1" Grid.Column="3" Text="H"
-                                               VerticalAlignment="Center" FontSize="11"
-                                               Margin="0,4,0,0" />
-                                    <TextBox Grid.Row="1" Grid.Column="4"
-                                             Text="{Binding CropH}"
-                                             FontSize="11"
-                                             Padding="4,0"
-                                             MinHeight="0"
-                                             Height="24"
-                                             VerticalContentAlignment="Center"
-                                             Margin="0,4,0,0" />
-                                </Grid>
-                                <Button Content="Reset"
-                                        Command="{Binding ResetCropCommand}"
-                                        IsEnabled="{Binding HasMedia}"
-                                        Padding="6,1"
-                                        FontSize="11"
-                                        HorizontalAlignment="Left"
-                                        Margin="8,2,8,4" />
+                                        <TextBlock Grid.Row="1" Text="W"
+                                                   VerticalAlignment="Center" FontSize="11"
+                                                   Margin="0,4,0,0" />
+                                        <TextBox Grid.Row="1" Grid.Column="1"
+                                                 Text="{Binding CropW}"
+                                                 FontSize="11"
+                                                 Padding="4,0"
+                                                 MinHeight="0"
+                                                 Height="24"
+                                                 VerticalContentAlignment="Center"
+                                                 Margin="0,4,0,0" />
+                                        <TextBlock Grid.Row="1" Grid.Column="3" Text="H"
+                                                   VerticalAlignment="Center" FontSize="11"
+                                                   Margin="0,4,0,0" />
+                                        <TextBox Grid.Row="1" Grid.Column="4"
+                                                 Text="{Binding CropH}"
+                                                 FontSize="11"
+                                                 Padding="4,0"
+                                                 MinHeight="0"
+                                                 Height="24"
+                                                 VerticalContentAlignment="Center"
+                                                 Margin="0,4,0,0" />
+                                    </Grid>
+                                    <DockPanel>
+                                        <Button DockPanel.Dock="Left"
+                                                Content="Reset"
+                                                Command="{Binding ResetCropCommand}"
+                                                IsEnabled="{Binding HasMedia}"
+                                                Padding="6,1"
+                                                FontSize="11" />
+                                        <CheckBox DockPanel.Dock="Right"
+                                                  Content="Apply to all"
+                                                  ToolTip.Tip="Apply this crop to all source files"
+                                                  IsChecked="{Binding ApplyCropToAll}"
+                                                  FontSize="11"
+                                                  Padding="4,0"
+                                                  MinHeight="0"
+                                                  VerticalAlignment="Center"
+                                                  HorizontalAlignment="Right" />
+                                    </DockPanel>
+                                </StackPanel>
                             </DockPanel>
                         </Border>
                     </Grid>

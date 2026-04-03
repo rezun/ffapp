@@ -13,26 +13,24 @@ public partial class WorkspaceViewModel : ObservableObject,
     IRecipient<SourceLoadedMessage>,
     IRecipient<OutputSettingsChangedMessage>
 {
-    public SourcePanelViewModel SourcePanel { get; }
+    public SourceListPanelViewModel SourceList { get; }
     public OutputPathViewModel OutputPath { get; }
     public OutputSettingsViewModel OutputSettings { get; }
     public PresetViewModel Preset { get; }
     public CommandPreviewViewModel CommandPreview { get; }
-    public JobsPanelViewModel JobsPanel { get; }
+    public JobListPanelViewModel JobList { get; }
     public VideoPreviewViewModel VideoPreview { get; }
-
-    // Convenience accessors for drag-drop in MainWindowViewModel
-    public QueuePanelViewModel QueuePanel => JobsPanel.QueuePanel;
 
     private SourceMediaInfo? _currentMediaInfo;
     private OutputSettings? _currentSettings;
+    private SourceFileViewModel? _previousSource;
 
     public WorkspaceViewModel(IServiceProvider services)
     {
         var dialogService = services.GetRequiredService<IDialogService>();
         var messenger = services.GetRequiredService<IMessenger>();
 
-        SourcePanel = new SourcePanelViewModel(
+        SourceList = new SourceListPanelViewModel(
             services.GetRequiredService<IMediaProbeService>(), dialogService, messenger);
 
         OutputPath = new OutputPathViewModel(dialogService);
@@ -50,23 +48,20 @@ public partial class WorkspaceViewModel : ObservableObject,
             services.GetRequiredService<IValidationService>(),
             dialogService);
 
-        var execution = new ExecutionViewModel(
-            services.GetRequiredService<IJobExecutionService>(), dialogService);
-
-        var queuePanel = new QueuePanelViewModel(
+        JobList = new JobListPanelViewModel(
             services.GetRequiredService<IQueueService>(),
-            services.GetRequiredService<IMediaProbeService>(),
             services.GetRequiredService<ICommandBuilder>(),
             services.GetRequiredService<IValidationService>(),
             dialogService);
-
-        JobsPanel = new JobsPanelViewModel(execution, queuePanel);
 
         VideoPreview = new VideoPreviewViewModel(VlcLocator.TryCreate());
         VideoPreview.PropertyChanged += OnVideoPreviewPropertyChanged;
         OutputSettings.PropertyChanged += OnOutputSettingsPropertyChanged;
         OutputPath.PropertyChanged += OnOutputPathContainerChanged;
         Preset.PropertyChanged += OnPresetPropertyChanged;
+
+        // Give JobList references it needs for "create all" operations
+        JobList.Initialize(SourceList, VideoPreview, OutputPath);
 
         messenger.Register<SourceLoadedMessage>(this);
         messenger.Register<OutputSettingsChangedMessage>(this);
@@ -77,7 +72,7 @@ public partial class WorkspaceViewModel : ObservableObject,
         if (_currentMediaInfo is null || _currentSettings is null)
         {
             CommandPreview.UpdateJobContext(null);
-            JobsPanel.UpdateJobContext(null);
+            JobList.UpdateJobContext(null);
             OutputSettings.UpdateEffectiveDuration(null);
             return;
         }
@@ -100,7 +95,7 @@ public partial class WorkspaceViewModel : ObservableObject,
             OutputPath.IsAutoName);
 
         CommandPreview.UpdateJobContext(context);
-        JobsPanel.UpdateJobContext(context);
+        JobList.UpdateJobContext(context);
         OutputSettings.UpdateEffectiveDuration(context.EffectiveDurationSeconds);
     }
 
@@ -117,7 +112,7 @@ public partial class WorkspaceViewModel : ObservableObject,
     {
         if (e.PropertyName is nameof(OutputSettingsViewModel.HasValidationErrors))
         {
-            JobsPanel.Execution.UpdateHasValidationErrors(OutputSettings.HasValidationErrors);
+            JobList.UpdateHasValidationErrors(OutputSettings.HasValidationErrors);
         }
     }
 
@@ -152,7 +147,6 @@ public partial class WorkspaceViewModel : ObservableObject,
                            or nameof(OutputPathViewModel.IsAutoName))
         {
             RebuildAndPushJobContext();
-            JobsPanel.QueuePanel.UpdateOutputDirectory(OutputPath.GetEffectiveDirectory());
         }
 
         if (e.PropertyName is nameof(OutputPathViewModel.ResolvedPath))
@@ -168,12 +162,45 @@ public partial class WorkspaceViewModel : ObservableObject,
 
     public void Receive(SourceLoadedMessage message)
     {
+        // 1. Save current trim/crop to the previous source before switching
+        if (_previousSource is not null)
+            VideoPreview.SaveTrimCropToSource(_previousSource);
+
+        // 2. Snapshot "apply to all" values before LoadMedia resets everything
+        var globalTrimIn = VideoPreview.TrimInSeconds;
+        var globalTrimOut = VideoPreview.TrimOutSeconds;
+        var globalCropX = VideoPreview.CropX;
+        var globalCropY = VideoPreview.CropY;
+        var globalCropW = VideoPreview.CropW;
+        var globalCropH = VideoPreview.CropH;
+
+        // 3. Load new media (resets trim/crop to source defaults)
         _currentMediaInfo = message.Value;
         OutputPath.UpdateFromSource(_currentMediaInfo);
         OutputSettings.UpdateSourceInfo(_currentMediaInfo);
         VideoPreview.LoadMedia(_currentMediaInfo);
+
+        // 4. Restore per-file or global trim/crop values
+        _previousSource = SourceList.SelectedSource;
+        if (_previousSource is not null)
+        {
+            // Per-file restore (respects "apply to all" flags internally)
+            VideoPreview.RestoreTrimCropFromSource(_previousSource);
+        }
+
+        // 5. If "apply to all" is on, override with the saved global values
+        if (VideoPreview.ApplyTrimToAll)
+            VideoPreview.SetTrimValues(globalTrimIn, globalTrimOut);
+
+        if (VideoPreview.ApplyCropToAll)
+        {
+            VideoPreview.CropX = globalCropX;
+            VideoPreview.CropY = globalCropY;
+            VideoPreview.CropW = globalCropW;
+            VideoPreview.CropH = globalCropH;
+        }
+
         RebuildAndPushJobContext();
-        JobsPanel.QueuePanel.UpdateCurrentContext(_currentMediaInfo);
     }
 
     public void Receive(OutputSettingsChangedMessage message)
@@ -183,6 +210,5 @@ public partial class WorkspaceViewModel : ObservableObject,
         OutputPath.UpdateContainer(_currentSettings.Container);
         Preset.UpdateOutputSettings(_currentSettings);
         RebuildAndPushJobContext();
-        JobsPanel.QueuePanel.UpdateCurrentContext(_currentSettings);
     }
 }

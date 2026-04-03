@@ -7,6 +7,7 @@ public interface IQueueService
     IReadOnlyList<QueueItem> Enqueue(IEnumerable<(string Id, QueuedJob Job)> jobs);
     IReadOnlyList<QueueItem> Items { get; }
     bool HasPending { get; }
+    bool IsPaused { get; }
     IReadOnlyList<QueueItem> Remove(IEnumerable<string> itemIds);
     Task<IReadOnlyList<QueueItem>> ExecuteAllAsync(
         Action<QueueItem>? itemStarted = null,
@@ -15,4 +16,6 @@ public interface IQueueService
         Action<QueueItem, string>? logCallback = null,
         CancellationToken ct = default);
     void CancelActive();
+    void Pause();
+    void Resume();
 }

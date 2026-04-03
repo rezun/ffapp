@@ -73,6 +73,22 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private int _sourceHeight;
 
+    /// <summary>Explicitly set when the user modifies trim values.</summary>
+    [ObservableProperty]
+    private bool _isTrimDirty;
+
+    /// <summary>Explicitly set when the user modifies crop values.</summary>
+    [ObservableProperty]
+    private bool _isCropDirty;
+
+    /// <summary>Guard to suppress dirty-marking during programmatic updates.</summary>
+    private bool _suppressDirtyTracking;
+
+    partial void OnCropXChanged(int value) { if (!_suppressDirtyTracking) IsCropDirty = true; }
+    partial void OnCropYChanged(int value) { if (!_suppressDirtyTracking) IsCropDirty = true; }
+    partial void OnCropWChanged(int value) { if (!_suppressDirtyTracking) IsCropDirty = true; }
+    partial void OnCropHChanged(int value) { if (!_suppressDirtyTracking) IsCropDirty = true; }
+
     [ObservableProperty]
     private string _statusText = "No media loaded";
 
@@ -81,6 +97,14 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private bool _isAvailable;
+
+    /// <summary>When true, the current trim values apply to all source files.</summary>
+    [ObservableProperty]
+    private bool _applyTrimToAll;
+
+    /// <summary>When true, the current crop values apply to all source files.</summary>
+    [ObservableProperty]
+    private bool _applyCropToAll;
 
     /// <summary>
     /// Raised when the MediaPlayer instance changes so the view can wire it to the VideoView.
@@ -101,6 +125,7 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
 
         DisposePlayer();
 
+        _suppressDirtyTracking = true;
         var primary = mediaInfo.PrimaryVideoStream;
         _frameRate = primary?.FrameRate ?? 30.0;
         SourceWidth = primary?.Width ?? 0;
@@ -109,6 +134,7 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
         CropY = 0;
         CropW = SourceWidth;
         CropH = SourceHeight;
+        _suppressDirtyTracking = false;
 
         _currentMedia = new Media(_libVlc, mediaInfo.SourcePath, FromType.FromPath);
         _mediaPlayer = new MediaPlayer(_currentMedia);
@@ -130,6 +156,8 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
         TrimOutSeconds = mediaInfo.DurationSeconds ?? 0;
         TrimInDisplay = FormatTimePrecise(0);
         TrimOutDisplay = FormatTimePrecise(TrimOutSeconds);
+        IsTrimDirty = false;
+        IsCropDirty = false;
         TimeDisplay = $"00:00:00.000 / {FormatTimePrecise(mediaInfo.DurationSeconds ?? 0)}";
         StatusText = System.IO.Path.GetFileName(mediaInfo.SourcePath);
         PlayPauseLabel = "\u25B6\uFE0E";
@@ -140,6 +168,96 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
         // This enables seeking before the user clicks play and shows the first frame.
         _pauseOnFirstPlay = true;
         _mediaPlayer.Play();
+    }
+
+    /// <summary>
+    /// Saves the current trim/crop values to the given source file ViewModel.
+    /// Called before switching away from a source file.
+    /// </summary>
+    public void SaveTrimCropToSource(SourceFileViewModel source)
+    {
+        source.TrimInSeconds = TrimInSeconds;
+        source.TrimOutSeconds = TrimOutSeconds;
+        source.IsTrimDirty = IsTrimDirty;
+        source.CropX = CropX;
+        source.CropY = CropY;
+        source.CropW = CropW;
+        source.CropH = CropH;
+        source.IsCropDirty = IsCropDirty;
+    }
+
+    /// <summary>
+    /// Restores trim/crop values from the given source file ViewModel.
+    /// Called after switching to a new source file, respecting "Apply to All" flags.
+    /// </summary>
+    public void RestoreTrimCropFromSource(SourceFileViewModel source)
+    {
+        _suppressDirtyTracking = true;
+
+        if (!ApplyTrimToAll)
+        {
+            TrimInSeconds = source.TrimInSeconds;
+            TrimOutSeconds = source.TrimOutSeconds;
+            TrimInDisplay = FormatTimePrecise(TrimInSeconds);
+            TrimOutDisplay = FormatTimePrecise(TrimOutSeconds);
+            IsTrimDirty = source.IsTrimDirty;
+        }
+
+        if (!ApplyCropToAll)
+        {
+            CropX = source.CropX;
+            CropY = source.CropY;
+            CropW = source.CropW;
+            CropH = source.CropH;
+            IsCropDirty = source.IsCropDirty;
+        }
+
+        _suppressDirtyTracking = false;
+    }
+
+    /// <summary>
+    /// Gets the effective trim/crop for a source file, considering "Apply to All" flags.
+    /// Used when creating jobs for all source files.
+    /// </summary>
+    public (double? TrimIn, double? TrimOut, CropRect? Crop) GetEffectiveTrimCrop(SourceFileViewModel source)
+    {
+        double trimIn, trimOut;
+        int cropX, cropY, cropW, cropH;
+
+        if (ApplyTrimToAll)
+        {
+            trimIn = TrimInSeconds;
+            trimOut = TrimOutSeconds;
+        }
+        else
+        {
+            trimIn = source.TrimInSeconds;
+            trimOut = source.TrimOutSeconds;
+        }
+
+        if (ApplyCropToAll)
+        {
+            cropX = CropX;
+            cropY = CropY;
+            cropW = CropW;
+            cropH = CropH;
+        }
+        else
+        {
+            cropX = source.CropX;
+            cropY = source.CropY;
+            cropW = source.CropW;
+            cropH = source.CropH;
+        }
+
+        double? effectiveTrimIn = trimIn > 0 ? trimIn : null;
+        double? effectiveTrimOut = null;
+        var duration = source.MediaInfo?.DurationSeconds ?? 0;
+        if (trimOut > 0 && trimOut < duration)
+            effectiveTrimOut = trimOut;
+
+        var crop = new CropRect(cropX, cropY, cropW, cropH);
+        return (effectiveTrimIn, effectiveTrimOut, crop);
     }
 
     [RelayCommand]
@@ -182,6 +300,7 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
     {
         TrimInSeconds = TimeMs / 1000.0;
         TrimInDisplay = FormatTimePrecise(TrimInSeconds);
+        IsTrimDirty = true;
     }
 
     [RelayCommand]
@@ -189,6 +308,7 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
     {
         TrimOutSeconds = TimeMs / 1000.0;
         TrimOutDisplay = FormatTimePrecise(TrimOutSeconds);
+        IsTrimDirty = true;
     }
 
     [RelayCommand]
@@ -198,15 +318,19 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
         TrimOutSeconds = DurationMs / 1000.0;
         TrimInDisplay = FormatTimePrecise(0);
         TrimOutDisplay = FormatTimePrecise(TrimOutSeconds);
+        IsTrimDirty = false;
     }
 
     [RelayCommand]
     private void ResetCrop()
     {
+        _suppressDirtyTracking = true;
         CropX = 0;
         CropY = 0;
         CropW = SourceWidth;
         CropH = SourceHeight;
+        _suppressDirtyTracking = false;
+        IsCropDirty = false;
     }
 
     [RelayCommand]
@@ -366,6 +490,7 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
             seconds = Math.Clamp(seconds, 0, maxSeconds);
             TrimInSeconds = seconds;
             TrimInDisplay = FormatTimePrecise(seconds);
+            IsTrimDirty = true;
         }
         else
         {
@@ -382,12 +507,24 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
             seconds = Math.Clamp(seconds, 0, maxSeconds);
             TrimOutSeconds = seconds;
             TrimOutDisplay = FormatTimePrecise(seconds);
+            IsTrimDirty = true;
         }
         else
         {
             // Revert to current value
             TrimOutDisplay = FormatTimePrecise(TrimOutSeconds);
         }
+    }
+
+    /// <summary>
+    /// Sets trim values and updates their display strings.
+    /// </summary>
+    public void SetTrimValues(double trimIn, double trimOut)
+    {
+        TrimInSeconds = trimIn;
+        TrimOutSeconds = trimOut;
+        TrimInDisplay = FormatTimePrecise(trimIn);
+        TrimOutDisplay = FormatTimePrecise(trimOut);
     }
 
     private static string FormatTimePrecise(double seconds)

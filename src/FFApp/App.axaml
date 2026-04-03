@@ -76,6 +76,13 @@
             <Setter Property="CornerRadius" Value="5" />
             <Setter Property="Padding" Value="0" />
         </Style>
+        <!-- Dirty indicators for trim/crop nested cards -->
+        <Style Selector="Border.nested-card.trim-dirty">
+            <Setter Property="BorderBrush" Value="{DynamicResource SystemAccentColor}" />
+        </Style>
+        <Style Selector="Border.nested-card.crop-dirty">
+            <Setter Property="BorderBrush" Value="{DynamicResource SystemAccentColor}" />
+        </Style>
 
         <!-- Section header text inside cards -->
         <Style Selector="TextBlock.card-header">

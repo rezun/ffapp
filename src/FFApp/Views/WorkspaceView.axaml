@@ -13,21 +13,21 @@
                 BorderBrush="{DynamicResource BorderSubtleBrush}"
                 BorderThickness="0,1,0,0"
                 Padding="8,4"
-                IsVisible="{Binding JobsPanel.IsAnyJobRunning}">
+                IsVisible="{Binding JobList.IsAnyJobRunning}">
             <Grid ColumnDefinitions="Auto,*,Auto">
                 <TextBlock Grid.Column="0"
-                           Text="{Binding JobsPanel.StatusText}"
+                           Text="{Binding JobList.StatusText}"
                            FontSize="12"
                            VerticalAlignment="Center"
                            Margin="0,0,12,0" />
                 <ProgressBar Grid.Column="1"
-                             Value="{Binding JobsPanel.StatusPercentage}"
+                             Value="{Binding JobList.StatusPercentage}"
                              Minimum="0"
                              Maximum="100"
                              Height="4"
                              VerticalAlignment="Center" />
                 <TextBlock Grid.Column="2"
-                           Text="{Binding JobsPanel.StatusPercentage, StringFormat={}{0:F0}%}"
+                           Text="{Binding JobList.StatusPercentage, StringFormat={}{0:F0}%}"
                            FontSize="12"
                            VerticalAlignment="Center"
                            MinWidth="36"
@@ -46,9 +46,9 @@
         <!-- THREE-COLUMN LAYOUT -->
         <Grid x:Name="MainGrid" ColumnDefinitions="280,6,*,6,240">
 
-            <!-- LEFT COLUMN: Source panel (always visible) -->
-            <views:SourcePanelView Grid.Column="0"
-                                   DataContext="{Binding SourcePanel}" />
+            <!-- LEFT COLUMN: Source list panel -->
+            <views:SourceListPanelView Grid.Column="0"
+                                       DataContext="{Binding SourceList}" />
 
             <GridSplitter Grid.Column="1" Width="6" ResizeDirection="Columns" />
 
@@ -87,9 +87,9 @@
 
             <GridSplitter Grid.Column="3" Width="6" ResizeDirection="Columns" />
 
-            <!-- RIGHT COLUMN: Jobs panel (Single / Queue toggle) -->
-            <views:JobsPanelView Grid.Column="4"
-                                 DataContext="{Binding JobsPanel}" />
+            <!-- RIGHT COLUMN: Job list panel -->
+            <views:JobListPanelView Grid.Column="4"
+                                    DataContext="{Binding JobList}" />
 
         </Grid>
 

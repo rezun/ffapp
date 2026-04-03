@@ -10,6 +10,37 @@ public sealed class QueueService(
     private readonly List<QueueItem> _items = [];
     private CancellationTokenSource? _activeCts;
     private bool _running;
+    private volatile bool _paused;
+    private readonly SemaphoreSlim _pauseGate = new(1, 1);
+
+    public bool IsPaused
+    {
+        get
+        {
+            lock (_lock)
+                return _paused;
+        }
+    }
+
+    public void Pause()
+    {
+        lock (_lock)
+        {
+            if (_paused) return;
+            _paused = true;
+            _pauseGate.Wait(); // Acquire so the loop blocks
+        }
+    }
+
+    public void Resume()
+    {
+        lock (_lock)
+        {
+            if (!_paused) return;
+            _paused = false;
+            _pauseGate.Release();
+        }
+    }
 
     public IReadOnlyList<QueueItem> Enqueue(IEnumerable<(string Id, QueuedJob Job)> jobs)
     {
@@ -76,6 +107,10 @@ public sealed class QueueService(
         {
             while (true)
             {
+                // If paused, wait until resumed before picking up the next job
+                await _pauseGate.WaitAsync(ct).ConfigureAwait(false);
+                _pauseGate.Release();
+
                 var item = StartNextItem();
                 if (item is null)
                     break;
@@ -148,8 +183,14 @@ public sealed class QueueService(
         }
         finally
         {
+            // Ensure pause gate is released so it's clean for the next run
             lock (_lock)
             {
+                if (_paused)
+                {
+                    _paused = false;
+                    _pauseGate.Release();
+                }
                 _activeCts?.Dispose();
                 _activeCts = null;
                 _running = false;

@@ -2,9 +2,9 @@ using Avalonia.Controls;
 
 namespace FFApp.Views;
 
-public partial class QueueItemDetailsView : UserControl
+public partial class JobItemDetailsView : UserControl
 {
-    public QueueItemDetailsView()
+    public JobItemDetailsView()
     {
         InitializeComponent();
     }

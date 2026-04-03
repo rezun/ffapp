@@ -1,0 +1,49 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:FFApp.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="200"
+             x:Class="FFApp.Views.JobItemDetailsView"
+             x:CompileBindings="True"
+             x:DataType="vm:JobItemDetailsViewModel">
+
+    <DockPanel IsVisible="{Binding SummaryText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+
+        <!-- Summary: "file.mp4 -> file_out.mkv (Pending)" -->
+        <TextBlock DockPanel.Dock="Top"
+                   Text="{Binding SummaryText}"
+                   FontWeight="SemiBold"
+                   TextWrapping="Wrap"
+                   Margin="0,0,0,4" />
+
+        <!-- Log output (expandable, docked to bottom) -->
+        <Expander DockPanel.Dock="Bottom"
+                  Header="Log"
+                  IsExpanded="False"
+                  Padding="0"
+                  MinHeight="0">
+            <TextBox Text="{Binding LogText, Mode=OneWay}"
+                     IsReadOnly="True"
+                     AcceptsReturn="True"
+                     TextWrapping="Wrap"
+                     FontFamily="Cascadia Code,Consolas,Menlo,monospace"
+                     FontSize="11"
+                     MaxHeight="120"
+                     Watermark="Job logs will appear here."
+                     BorderThickness="1" />
+        </Expander>
+
+        <!-- Command preview (fills remaining space, grows with splitter) -->
+        <TextBox Text="{Binding CommandText, Mode=OneWay}"
+                 IsReadOnly="True"
+                 AcceptsReturn="True"
+                 TextWrapping="Wrap"
+                 FontFamily="Cascadia Code,Consolas,Menlo,monospace"
+                 FontSize="11"
+                 MinHeight="40"
+                 Watermark="Commands will appear here."
+                 BorderThickness="1" />
+
+    </DockPanel>
+</UserControl>

@@ -1,0 +1,134 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:FFApp.ViewModels"
+             x:Class="FFApp.Views.SourceListPanelView"
+             x:DataType="vm:SourceListPanelViewModel"
+             x:CompileBindings="True">
+
+    <DockPanel Margin="8,8,4,8">
+
+        <!-- Header + Add buttons -->
+        <Border DockPanel.Dock="Top" Classes="card"
+                Margin="0,0,0,8">
+            <StackPanel Spacing="4" Margin="8,6,8,8">
+                <TextBlock Text="Source Files"
+                           Classes="card-header" Margin="0" />
+
+                <WrapPanel Orientation="Horizontal">
+                    <Button Content="+ File"
+                            Command="{Binding AddFileCommand}"
+                            ToolTip.Tip="Add a single file"
+                            Margin="0,0,4,0" />
+                    <Button Content="+ Files"
+                            Command="{Binding AddFilesCommand}"
+                            ToolTip.Tip="Add multiple files"
+                            Margin="0,0,4,0" />
+                    <Button Content="+ Folder"
+                            Command="{Binding AddFolderCommand}"
+                            ToolTip.Tip="Add all media files from a folder"
+                            Margin="0,0,4,0" />
+                </WrapPanel>
+
+                <TextBlock Text="{Binding StatusText}"
+                           TextWrapping="Wrap" FontSize="12"
+                           Foreground="{DynamicResource TextSecondaryBrush}" />
+            </StackPanel>
+        </Border>
+
+        <!-- Source file list -->
+        <Border DockPanel.Dock="Top" Classes="card"
+                Margin="0,0,0,8">
+            <DockPanel>
+                <DockPanel DockPanel.Dock="Bottom" Margin="8,4,8,6">
+                    <Button Content="Remove"
+                            Command="{Binding RemoveSelectedCommand}"
+                            Padding="6,2"
+                            FontSize="11"
+                            Margin="0,0,4,0" />
+                    <Button Content="Clear All"
+                            Command="{Binding ClearAllCommand}"
+                            Padding="6,2"
+                            FontSize="11" />
+                </DockPanel>
+
+                <ListBox x:Name="SourceList"
+                         ItemsSource="{Binding Sources}"
+                         SelectedItem="{Binding SelectedSource}"
+                         SelectionMode="Multiple"
+                         Background="{DynamicResource SurfaceCardBrush}"
+                         MinHeight="80"
+                         MaxHeight="300"
+                         Margin="4,4,4,0">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:SourceFileViewModel">
+                            <DockPanel>
+                                <ProgressBar DockPanel.Dock="Right"
+                                             IsIndeterminate="True"
+                                             IsVisible="{Binding IsProbing}"
+                                             Width="30"
+                                             Height="3"
+                                             Margin="4,0,0,0"
+                                             VerticalAlignment="Center" />
+                                <TextBlock DockPanel.Dock="Right"
+                                           Text="Error"
+                                           Foreground="IndianRed"
+                                           FontSize="11"
+                                           IsVisible="{Binding HasError}"
+                                           VerticalAlignment="Center"
+                                           Margin="4,0,0,0" />
+                                <TextBlock Text="{Binding DisplayLabel}"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTip.Tip="{Binding SourcePath}"
+                                           VerticalAlignment="Center" />
+                            </DockPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+        </Border>
+
+        <!-- Create Jobs -->
+        <Border DockPanel.Dock="Top" Classes="card"
+                Margin="0,0,0,8"
+                x:DataType="vm:WorkspaceViewModel"
+                DataContext="{Binding $parent[UserControl;1].DataContext}">
+            <StackPanel Spacing="4" Margin="8,6,8,8">
+                <TextBlock Text="Create Jobs"
+                           Classes="card-header" Margin="0" />
+                <Grid ColumnDefinitions="*,4,*">
+                    <Button Grid.Column="0"
+                            Content="From Selection"
+                            Command="{Binding JobList.CreateJobFromSelectionCommand}"
+                            ToolTip.Tip="Create a job from the currently selected source file"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center" />
+                    <Button Grid.Column="2"
+                            Content="For All Sources"
+                            Command="{Binding JobList.CreateJobsForAllCommand}"
+                            ToolTip.Tip="Create jobs for all source files using current settings"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- Media Info Summary -->
+        <Border Classes="card">
+            <DockPanel Margin="8,6,8,8">
+                <TextBlock DockPanel.Dock="Top"
+                           Text="Media Info"
+                           Classes="card-header" Margin="0,0,0,4" />
+
+                <SelectableTextBlock Text="{Binding MediaSummaryText, Mode=OneWay}"
+                         FontFamily="Cascadia Code, Consolas, Menlo, monospace"
+                         FontSize="11"
+                         TextWrapping="Wrap"
+                         IsVisible="{Binding MediaSummaryText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                <TextBlock Text="No source file selected."
+                           FontSize="11" Opacity="0.5"
+                           IsVisible="{Binding MediaSummaryText, Converter={x:Static StringConverters.IsNullOrEmpty}}" />
+            </DockPanel>
+        </Border>
+
+    </DockPanel>
+</UserControl>

@@ -104,10 +104,7 @@ public partial class MainWindowViewModel : ObservableObject,
 
         try
         {
-            if (paths.Count > 1)
-                await workspace.QueuePanel.AddPathsAsync(paths);
-            else
-                await workspace.SourcePanel.LoadSource(paths[0]);
+            await workspace.SourceList.AddPathsAsync(paths);
         }
         catch (Exception ex)
         {

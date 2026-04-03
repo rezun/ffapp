@@ -19,7 +19,8 @@ public class PresetViewModelTests
         _presetService.LoadAllAsync(Arg.Any<CancellationToken>())
             .Returns([]);
 
-        _sut = new PresetViewModel(_presetService, _dialogService, s => _appliedSettings = s);
+        _sut = new PresetViewModel(_presetService, _dialogService);
+        _sut.PresetApplied += s => _appliedSettings = s;
     }
 
     [Fact]

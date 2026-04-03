@@ -4,8 +4,6 @@ using CommunityToolkit.Mvvm.Messaging;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
 using FFApp.Services;
-using LibVLCSharp.Shared;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace FFApp.ViewModels;
 
@@ -25,42 +23,32 @@ public partial class WorkspaceViewModel : ObservableObject,
     public OutputSettings? CurrentSettings { get; private set; }
     private SourceFileViewModel? _previousSource;
 
-    public WorkspaceViewModel(IServiceProvider services)
+    public WorkspaceViewModel(
+        SourceListPanelViewModel sourceList,
+        OutputPathViewModel outputPath,
+        OutputSettingsViewModel outputSettings,
+        PresetViewModel preset,
+        CommandPreviewViewModel commandPreview,
+        JobListPanelViewModel jobList,
+        VideoPreviewViewModel videoPreview,
+        IMessenger messenger)
     {
-        var dialogService = services.GetRequiredService<IDialogService>();
-        var messenger = services.GetRequiredService<IMessenger>();
+        SourceList = sourceList;
+        OutputPath = outputPath;
+        OutputSettings = outputSettings;
+        Preset = preset;
+        CommandPreview = commandPreview;
+        JobList = jobList;
+        VideoPreview = videoPreview;
 
-        SourceList = new SourceListPanelViewModel(
-            services.GetRequiredService<IMediaProbeService>(), dialogService, messenger);
+        // Wire PresetViewModel's apply callback to OutputSettingsViewModel
+        Preset.PresetApplied += settings => OutputSettings.ApplySettings(settings);
 
-        OutputPath = new OutputPathViewModel(dialogService);
         OutputPath.PropertyChanged += OnOutputPathPropertyChanged;
-
-        OutputSettings = new OutputSettingsViewModel(
-            services.GetRequiredService<IValidationService>(), messenger);
-
-        Preset = new PresetViewModel(
-            services.GetRequiredService<IPresetService>(), dialogService,
-            settings => OutputSettings.ApplySettings(settings));
-
-        CommandPreview = new CommandPreviewViewModel(
-            services.GetRequiredService<ICommandBuilder>(),
-            dialogService);
-
-        JobList = new JobListPanelViewModel(
-            services.GetRequiredService<IQueueService>(),
-            services.GetRequiredService<ICommandBuilder>(),
-            services.GetRequiredService<IValidationService>(),
-            dialogService);
-
-        VideoPreview = new VideoPreviewViewModel(services.GetService<LibVLC>());
         VideoPreview.PropertyChanged += OnVideoPreviewPropertyChanged;
         OutputSettings.PropertyChanged += OnOutputSettingsPropertyChanged;
         OutputPath.PropertyChanged += OnOutputPathContainerChanged;
         Preset.PropertyChanged += OnPresetPropertyChanged;
-
-        // Give JobList references it needs for "create all" operations
-        JobList.Initialize(SourceList, VideoPreview, OutputPath);
 
         messenger.Register<SourceLoadedMessage>(this);
         messenger.Register<OutputSettingsChangedMessage>(this);

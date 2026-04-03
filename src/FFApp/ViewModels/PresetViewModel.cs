@@ -14,7 +14,6 @@ public partial class PresetViewModel : ObservableObject
 
     private readonly IPresetService _presetService;
     private readonly IDialogService _dialogService;
-    private readonly Action<OutputSettings> _applyPresetCallback;
     private OutputSettings? _currentSettings;
 
     [ObservableProperty]
@@ -26,14 +25,17 @@ public partial class PresetViewModel : ObservableObject
     [ObservableProperty]
     private bool _isPresetDirty;
 
+    /// <summary>
+    /// Raised when the user selects a preset so the workspace can apply the settings.
+    /// </summary>
+    public event Action<OutputSettings>? PresetApplied;
+
     public PresetViewModel(
         IPresetService presetService,
-        IDialogService dialogService,
-        Action<OutputSettings> applyPresetCallback)
+        IDialogService dialogService)
     {
         _presetService = presetService;
         _dialogService = dialogService;
-        _applyPresetCallback = applyPresetCallback;
     }
 
     public async Task LoadPresetsAsync()
@@ -88,7 +90,7 @@ public partial class PresetViewModel : ObservableObject
     private void OnPresetSelected(PresetDefinition preset)
     {
         IsPresetDirty = false;
-        _applyPresetCallback.Invoke(preset.Settings);
+        PresetApplied?.Invoke(preset.Settings);
     }
 
     [RelayCommand]

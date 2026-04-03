@@ -46,12 +46,14 @@
 
   **Resolution:** Removed `ct` from `ReadLineAsync` calls. Streams now close naturally when the process is killed via the cancellation registration, avoiding the race.
 
-- [ ] **6. `new`-ing up dependencies directly**
+- [x] **6. `new`-ing up dependencies directly**
 
   **Files:**
-  - `src/FFApp/App.axaml.cs:48-49` — `new SettingsService()` and `new PresetService()` in lambda factories instead of `services.AddSingleton<ISettingsService, SettingsService>()`.
-  - `src/FFApp/ViewModels/WorkspaceViewModel.cs:33-57` — All child ViewModels are `new`'d up directly.
-  - `src/FFApp/ViewModels/MainWindowViewModel.cs:59-63, 82-86, 95` — `DependencySetupViewModel` and `WorkspaceViewModel` are `new`'d up.
+  - `src/FFApp/App.axaml.cs:48-49` — ~~`new SettingsService()` and `new PresetService()` in lambda factories instead of `services.AddSingleton<ISettingsService, SettingsService>()`.~~
+  - `src/FFApp/ViewModels/WorkspaceViewModel.cs:33-57` — ~~All child ViewModels are `new`'d up directly.~~
+  - `src/FFApp/ViewModels/MainWindowViewModel.cs:59-63, 82-86, 95` — ~~`DependencySetupViewModel` and `WorkspaceViewModel` are `new`'d up.~~
+
+  **Resolution:** Registered all ViewModels in the DI container (`App.axaml.cs`). `SettingsService` and `PresetService` use standard `AddSingleton<TInterface, TImpl>()` registration. `MainWindowViewModel` now receives explicit dependencies + `Func<T>` factory delegates for on-demand VM creation (replacing `IServiceProvider` service locator). `WorkspaceViewModel` receives all 7 child VMs via constructor injection. `PresetViewModel`'s `Action<OutputSettings>` callback replaced with a `PresetApplied` event, wired by `WorkspaceViewModel`.
 
 ---
 
@@ -216,4 +218,4 @@
 
 - **Add a logging framework** — Only `Debug.WriteLine` exists, invisible in Release builds. `Microsoft.Extensions.Logging` fits naturally with the existing DI setup.
 - **`WorkspaceViewModel` fragility** — It manually coordinates many child VMs via `PropertyChanged` subscriptions. As the app grows, consider using messenger messages more consistently instead of direct wiring.
-- **ViewModel DI registration** — Consider registering ViewModel factories or using `ActivatorUtilities.CreateInstance` to make ViewModels resolvable from the container and easier to test.
+- ~~**ViewModel DI registration** — Consider registering ViewModel factories or using `ActivatorUtilities.CreateInstance` to make ViewModels resolvable from the container and easier to test.~~ **Done** — All ViewModels registered in DI. Workspace-scoped VMs use `AddScoped` so sibling VMs share instances within a workspace. `JobListPanelViewModel.Initialize()` temporal coupling eliminated.

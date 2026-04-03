@@ -23,14 +23,9 @@ public partial class JobListPanelViewModel : ObservableObject
     /// <summary>Current job context from workspace (for the selected source).</summary>
     private JobContext? _currentContext;
 
-    /// <summary>Reference to the source list for "create all" operations.</summary>
-    private SourceListPanelViewModel? _sourceList;
-
-    /// <summary>Reference to the video preview for trim/crop access.</summary>
-    private VideoPreviewViewModel? _videoPreview;
-
-    /// <summary>Reference to the output path for output directory.</summary>
-    private OutputPathViewModel? _outputPath;
+    private readonly SourceListPanelViewModel _sourceList;
+    private readonly VideoPreviewViewModel _videoPreview;
+    private readonly OutputPathViewModel _outputPath;
 
     public ObservableCollection<JobItemViewModel> Jobs { get; } = [];
 
@@ -67,22 +62,15 @@ public partial class JobListPanelViewModel : ObservableObject
         IQueueService queueService,
         ICommandBuilder commandBuilder,
         IValidationService validationService,
-        IDialogService dialogService)
+        IDialogService dialogService,
+        SourceListPanelViewModel sourceList,
+        VideoPreviewViewModel videoPreview,
+        OutputPathViewModel outputPath)
     {
         _queueService = queueService;
         _commandBuilder = commandBuilder;
         _validationService = validationService;
         _dialogService = dialogService;
-    }
-
-    /// <summary>
-    /// Wire up references to sibling ViewModels. Called once from WorkspaceViewModel.
-    /// </summary>
-    public void Initialize(
-        SourceListPanelViewModel sourceList,
-        VideoPreviewViewModel videoPreview,
-        OutputPathViewModel outputPath)
-    {
         _sourceList = sourceList;
         _videoPreview = videoPreview;
         _outputPath = outputPath;
@@ -122,13 +110,12 @@ public partial class JobListPanelViewModel : ObservableObject
     private bool CanCreateJobFromSelection =>
         !HasValidationErrors
         && _currentContext is not null
-        && _sourceList is not null
         && (_sourceList.SelectedSources.Count > 0 || _sourceList.SelectedSource is not null);
 
     [RelayCommand(CanExecute = nameof(CanCreateJobFromSelection))]
     private async Task CreateJobFromSelectionAsync()
     {
-        if (_currentContext is null || _sourceList is null || _videoPreview is null) return;
+        if (_currentContext is null) return;
 
         var selected = _sourceList.SelectedSources
             .Where(s => s.MediaInfo is not null).ToList();
@@ -140,7 +127,7 @@ public partial class JobListPanelViewModel : ObservableObject
         if (selected.Count == 0) return;
 
         var settings = _currentContext.Settings;
-        var outputDirectory = _outputPath?.GetEffectiveDirectory();
+        var outputDirectory = _outputPath.GetEffectiveDirectory();
 
         // Save current source's trim/crop so it's up to date
         if (_sourceList.SelectedSource is { } currentSource)
@@ -198,17 +185,16 @@ public partial class JobListPanelViewModel : ObservableObject
 
     private bool CanCreateJobsForAll =>
         !HasValidationErrors
-        && _sourceList is not null
         && _sourceList.Sources.Count > 0
         && _sourceList.Sources.Any(s => s.MediaInfo is not null);
 
     [RelayCommand(CanExecute = nameof(CanCreateJobsForAll))]
     private async Task CreateJobsForAllAsync()
     {
-        if (_sourceList is null || _videoPreview is null || _currentContext is null) return;
+        if (_currentContext is null) return;
 
         var settings = _currentContext.Settings;
-        var outputDirectory = _outputPath?.GetEffectiveDirectory();
+        var outputDirectory = _outputPath.GetEffectiveDirectory();
 
         // Save current source's trim/crop so it's up to date
         if (_sourceList.SelectedSource is { } currentSource)
@@ -231,7 +217,7 @@ public partial class JobListPanelViewModel : ObservableObject
             var mediaInfo = source.MediaInfo!;
 
             // Get effective trim/crop (respects "apply to all" flags)
-            var (trimIn, trimOut, crop) = _videoPreview!.GetEffectiveTrimCrop(source);
+            var (trimIn, trimOut, crop) = _videoPreview.GetEffectiveTrimCrop(source);
 
             // Auto-name output (isAutoName: true enables collision avoidance)
             var outputPath = DefaultCommandBuilder.SuggestOutputPath(

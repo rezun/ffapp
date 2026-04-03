@@ -54,13 +54,15 @@ public partial class App : Application
                 mainWindow.WindowState = WindowState.Maximized;
 
             var services = new ServiceCollection();
+
+            // Infrastructure services
             services.AddSingleton<ExecutablePathsConfig>();
             services.AddSingleton<IDependencyService, DependencyManager>();
-            services.AddSingleton<ISettingsService>(_ => new SettingsService());
-            services.AddSingleton<IPresetService>(_ => new PresetService());
+            services.AddSingleton<ISettingsService, SettingsService>();
+            services.AddSingleton<IPresetService, PresetService>();
             services.AddSingleton<IValidationService, ValidationService>();
             services.AddSingleton<IProcessRunner, ProcessRunner>();
-            services.AddSingleton<IDialogService>(new DialogService(() => mainWindow));
+            services.AddSingleton<IDialogService>(_ => new DialogService(() => mainWindow));
             services.AddSingleton<ICommandBuilder, DefaultCommandBuilder>();
             services.AddSingleton<IMediaProbeService, MediaProbeService>();
             services.AddSingleton<IJobExecutionService, DefaultJobExecutionService>();
@@ -73,9 +75,29 @@ public partial class App : Application
             if (libVlc is not null)
                 services.AddSingleton(libVlc);
 
+            // ViewModels
+            services.AddSingleton<MainWindowViewModel>();
+            services.AddTransient<DependencySetupViewModel>();
+
+            // Workspace VMs use Scoped lifetime — all children within one workspace
+            // share the same instances, enabling sibling VM injection.
+            services.AddScoped<WorkspaceViewModel>();
+            services.AddScoped<SourceListPanelViewModel>();
+            services.AddScoped<OutputPathViewModel>();
+            services.AddScoped<OutputSettingsViewModel>();
+            services.AddScoped<PresetViewModel>();
+            services.AddScoped<CommandPreviewViewModel>();
+            services.AddScoped<JobListPanelViewModel>();
+            services.AddScoped<VideoPreviewViewModel>(sp =>
+                new VideoPreviewViewModel(sp.GetService<LibVLC>()));
+
+            // Factory delegate for on-demand DependencySetupViewModel creation
+            services.AddSingleton<Func<DependencySetupViewModel>>(sp =>
+                () => sp.GetRequiredService<DependencySetupViewModel>());
+
             var provider = services.BuildServiceProvider();
 
-            var vm = new MainWindowViewModel(provider);
+            var vm = provider.GetRequiredService<MainWindowViewModel>();
             mainWindow.DataContext = vm;
             desktop.MainWindow = mainWindow;
         }

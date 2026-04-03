@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
 using FFApp.Services;
@@ -18,8 +19,16 @@ public class JobListPanelViewModelTests
 
     public JobListPanelViewModelTests()
     {
+        var sourceList = new SourceListPanelViewModel(
+            Substitute.For<IMediaProbeService>(),
+            Substitute.For<IDialogService>(),
+            Substitute.For<IMessenger>());
+        var videoPreview = new VideoPreviewViewModel(null);
+        var outputPath = new OutputPathViewModel(Substitute.For<IDialogService>());
+
         _sut = new JobListPanelViewModel(
-            _queueService, _commandBuilder, _validationService, _dialogService);
+            _queueService, _commandBuilder, _validationService, _dialogService,
+            sourceList, videoPreview, outputPath);
     }
 
     private static JobContext MakeContext() =>

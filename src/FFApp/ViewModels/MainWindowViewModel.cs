@@ -14,8 +14,13 @@ public partial class MainWindowViewModel : ObservableObject,
     IRecipient<DependenciesResolvedMessage>,
     IRecipient<NavigateToDependencySetupMessage>
 {
-    private readonly IServiceProvider _services;
+    private readonly ISettingsService _settingsService;
+    private readonly IDependencyService _dependencyService;
+    private readonly ExecutablePathsConfig _config;
     private readonly IMessenger _messenger;
+    private readonly Func<DependencySetupViewModel> _createSetup;
+    private readonly IServiceScopeFactory _scopeFactory;
+    private IServiceScope? _workspaceScope;
 
     [ObservableProperty]
     private object? _currentView;
@@ -27,13 +32,23 @@ public partial class MainWindowViewModel : ObservableObject,
     public AppSettings? LoadedSettings { get; private set; }
     public void UpdateSettings(Func<AppSettings, AppSettings> transform) =>
         LoadedSettings = transform(LoadedSettings ?? new AppSettings());
-    public ISettingsService SettingsService => _services.GetRequiredService<ISettingsService>();
+    public ISettingsService SettingsService => _settingsService;
     public Task<AppSettings> SettingsLoadedTask => _settingsLoaded.Task;
 
-    public MainWindowViewModel(IServiceProvider services)
+    public MainWindowViewModel(
+        ISettingsService settingsService,
+        IDependencyService dependencyService,
+        ExecutablePathsConfig config,
+        IMessenger messenger,
+        Func<DependencySetupViewModel> createSetup,
+        IServiceScopeFactory scopeFactory)
     {
-        _services = services;
-        _messenger = services.GetRequiredService<IMessenger>();
+        _settingsService = settingsService;
+        _dependencyService = dependencyService;
+        _config = config;
+        _messenger = messenger;
+        _createSetup = createSetup;
+        _scopeFactory = scopeFactory;
 
         _messenger.Register<DependenciesResolvedMessage>(this);
         _messenger.Register<NavigateToDependencySetupMessage>(this);
@@ -43,13 +58,10 @@ public partial class MainWindowViewModel : ObservableObject,
     {
         try
         {
-            var settingsService = _services.GetRequiredService<ISettingsService>();
-            var dependencyService = _services.GetRequiredService<IDependencyService>();
-
-            var settings = await settingsService.LoadAsync();
+            var settings = await _settingsService.LoadAsync();
             LoadedSettings = settings;
             _settingsLoaded.TrySetResult(settings);
-            var status = await dependencyService.DiscoverAsync(settings);
+            var status = await _dependencyService.DiscoverAsync(settings);
 
             if (status.IsReady)
             {
@@ -57,11 +69,7 @@ public partial class MainWindowViewModel : ObservableObject,
             }
             else
             {
-                var setup = new DependencySetupViewModel(
-                    _services.GetRequiredService<IDependencyService>(),
-                    _services.GetRequiredService<ISettingsService>(),
-                    _services.GetRequiredService<IDialogService>(),
-                    _messenger);
+                var setup = _createSetup();
                 setup.SetFromSettings(settings);
                 CurrentView = setup;
             }
@@ -88,20 +96,19 @@ public partial class MainWindowViewModel : ObservableObject,
 
     public void Receive(NavigateToDependencySetupMessage message)
     {
-        var setup = new DependencySetupViewModel(
-            _services.GetRequiredService<IDependencyService>(),
-            _services.GetRequiredService<ISettingsService>(),
-            _services.GetRequiredService<IDialogService>(),
-            _messenger);
+        var setup = _createSetup();
         CurrentView = setup;
     }
 
     private async Task SwitchToWorkspaceAsync(DependencyStatus status)
     {
-        var config = _services.GetRequiredService<ExecutablePathsConfig>();
-        config.Configure(status.ExecutablePaths);
+        _config.Configure(status.ExecutablePaths);
 
-        var workspace = new WorkspaceViewModel(_services);
+        _workspaceScope?.Dispose();
+        _workspaceScope = _scopeFactory.CreateScope();
+
+        var workspace = _workspaceScope.ServiceProvider
+            .GetRequiredService<WorkspaceViewModel>();
         await workspace.LoadAsync();
         CurrentView = workspace;
     }

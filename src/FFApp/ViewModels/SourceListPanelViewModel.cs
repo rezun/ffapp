@@ -67,14 +67,6 @@ public partial class SourceListPanelViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task AddFileAsync()
-    {
-        var path = await _dialogService.OpenFileAsync("Select source media file");
-        if (path is not null)
-            await AddSinglePathAsync(path);
-    }
-
-    [RelayCommand]
     private async Task AddFilesAsync()
     {
         var paths = await _dialogService.OpenFilesAsync("Select media files");
@@ -118,7 +110,9 @@ public partial class SourceListPanelViewModel : ObservableObject
         UpdateStatus();
     }
 
-    [RelayCommand]
+    private bool CanClearAll => Sources.Count > 0;
+
+    [RelayCommand(CanExecute = nameof(CanClearAll))]
     private void ClearAll()
     {
         Sources.Clear();
@@ -196,5 +190,7 @@ public partial class SourceListPanelViewModel : ObservableObject
             if (errors > 0) parts.Add($"{errors} failed");
             StatusText = string.Join(", ", parts);
         }
+
+        ClearAllCommand.NotifyCanExecuteChanged();
     }
 }

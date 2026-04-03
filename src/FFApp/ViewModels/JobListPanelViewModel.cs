@@ -123,7 +123,7 @@ public partial class JobListPanelViewModel : ObservableObject
         !HasValidationErrors
         && _currentContext is not null
         && _sourceList is not null
-        && _sourceList.SelectedSources.Count > 0;
+        && (_sourceList.SelectedSources.Count > 0 || _sourceList.SelectedSource is not null);
 
     [RelayCommand(CanExecute = nameof(CanCreateJobFromSelection))]
     private async Task CreateJobFromSelectionAsync()
@@ -132,6 +132,11 @@ public partial class JobListPanelViewModel : ObservableObject
 
         var selected = _sourceList.SelectedSources
             .Where(s => s.MediaInfo is not null).ToList();
+
+        // Fall back to the focused source if multi-selection is empty
+        if (selected.Count == 0 && _sourceList.SelectedSource?.MediaInfo is not null)
+            selected = [_sourceList.SelectedSource];
+
         if (selected.Count == 0) return;
 
         var settings = _currentContext.Settings;

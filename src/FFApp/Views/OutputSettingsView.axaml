@@ -165,7 +165,7 @@
                                     IsChecked="{Binding Strategy.SelectedStrategy,
                                         Converter={StaticResource EnumToBool},
                                         ConverterParameter={x:Static models:EncodingStrategy.TargetQuality}}" />
-                                <RadioButton Content="File Size" GroupName="Strategy"
+                                <RadioButton Content="File size" GroupName="Strategy"
                                     IsChecked="{Binding Strategy.SelectedStrategy,
                                         Converter={StaticResource EnumToBool},
                                         ConverterParameter={x:Static models:EncodingStrategy.TargetFileSize}}" />

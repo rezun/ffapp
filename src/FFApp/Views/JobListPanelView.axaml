@@ -13,32 +13,36 @@
 
     <DockPanel Margin="4,8,8,8">
 
-        <!-- Header -->
-        <TextBlock DockPanel.Dock="Top"
-                   Text="Jobs"
-                   Classes="panel-header"
-                   Margin="8,0,8,4" />
-
-        <!-- Execution controls -->
+        <!-- Header + execution controls -->
         <DockPanel DockPanel.Dock="Top" Margin="8,0,8,4">
-            <StackPanel Orientation="Horizontal" Spacing="4">
+            <TextBlock Text="Encode Queue"
+                       Classes="panel-header"
+                       VerticalAlignment="Center" />
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        Spacing="4">
                 <Button Classes="accent"
                         Content="Start"
                         Command="{Binding StartCommand}"
                         IsVisible="{Binding !IsRunning}"
-                        Padding="12,3" />
-                <Button Command="{Binding PauseResumeCommand}"
-                        Padding="12,3"
+                        Padding="8,2"
+                        FontSize="11" />
+                <Button Classes="warning"
+                        Command="{Binding PauseResumeCommand}"
+                        Padding="8,2"
+                        FontSize="11"
                         IsVisible="{Binding IsRunning}">
                     <Panel>
                         <TextBlock Text="Pause" IsVisible="{Binding !IsPaused}" />
                         <TextBlock Text="Resume" IsVisible="{Binding IsPaused}" />
                     </Panel>
                 </Button>
-                <Button Content="Stop"
+                <Button Classes="danger"
+                        Content="Stop"
                         Command="{Binding StopCommand}"
                         IsVisible="{Binding IsRunning}"
-                        Padding="12,3" />
+                        Padding="8,2"
+                        FontSize="11" />
             </StackPanel>
         </DockPanel>
 
@@ -99,11 +103,11 @@
                             Command="{Binding RemoveSelectedCommand}"
                             Padding="6,2"
                             FontSize="11" />
-                    <Button Content="Clear Finished"
+                    <Button Content="Clear finished"
                             Command="{Binding ClearFinishedCommand}"
                             Padding="6,2"
                             FontSize="11" />
-                    <Button Content="Clear All"
+                    <Button Content="Clear all"
                             Command="{Binding ClearAllCommand}"
                             Padding="6,2"
                             FontSize="11" />

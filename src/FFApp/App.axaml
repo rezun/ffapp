@@ -116,6 +116,28 @@
             <Setter Property="Background" Value="Transparent" />
         </Style>
 
+        <!-- Danger button (red) -->
+        <Style Selector="Button.danger /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ButtonDangerBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource ButtonDangerForegroundBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ButtonDangerBrush}" />
+        </Style>
+        <Style Selector="Button.danger:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ButtonDangerHoverBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ButtonDangerHoverBrush}" />
+        </Style>
+
+        <!-- Warning button (yellow/amber) -->
+        <Style Selector="Button.warning /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ButtonWarningBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource ButtonWarningForegroundBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ButtonWarningBrush}" />
+        </Style>
+        <Style Selector="Button.warning:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ButtonWarningHoverBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ButtonWarningHoverBrush}" />
+        </Style>
+
         <!-- Separators: subtle but visible -->
         <Style Selector="Separator">
             <Setter Property="Background" Value="{DynamicResource BorderSubtleBrush}" />

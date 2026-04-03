@@ -20,7 +20,7 @@
                 </DataTemplate>
             </ctrl:NoWheelComboBox.ItemTemplate>
         </ctrl:NoWheelComboBox>
-        <Button Content="Save As" Command="{Binding SavePresetCommand}"
+        <Button Content="Save as" Command="{Binding SavePresetCommand}"
                 ToolTip.Tip="Save current settings as a preset" />
         <Button Content="Rename" Command="{Binding RenamePresetCommand}"
                 IsEnabled="{Binding IsUserPresetSelected}" />

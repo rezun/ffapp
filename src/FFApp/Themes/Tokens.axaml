@@ -26,6 +26,14 @@
             <SolidColorBrush x:Key="ValidationWarningBrush" Color="Orange" />
             <SolidColorBrush x:Key="ValidationOkBrush" Color="#50DC50" />
 
+            <!-- Button variants -->
+            <SolidColorBrush x:Key="ButtonDangerBrush" Color="#E04040" />
+            <SolidColorBrush x:Key="ButtonDangerHoverBrush" Color="#C83030" />
+            <SolidColorBrush x:Key="ButtonDangerForegroundBrush" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="ButtonWarningBrush" Color="#D4A017" />
+            <SolidColorBrush x:Key="ButtonWarningHoverBrush" Color="#B88A10" />
+            <SolidColorBrush x:Key="ButtonWarningForegroundBrush" Color="#1A1A1A" />
+
             <!-- Job states -->
             <SolidColorBrush x:Key="JobStatePendingBrush" Color="#C8C8C8" />
             <SolidColorBrush x:Key="JobStateRunningBrush" Color="#64C8FF" />
@@ -56,6 +64,14 @@
             <!-- Semantic -->
             <SolidColorBrush x:Key="ValidationWarningBrush" Color="#CA5010" />
             <SolidColorBrush x:Key="ValidationOkBrush" Color="#107C10" />
+
+            <!-- Button variants -->
+            <SolidColorBrush x:Key="ButtonDangerBrush" Color="#D13438" />
+            <SolidColorBrush x:Key="ButtonDangerHoverBrush" Color="#B52428" />
+            <SolidColorBrush x:Key="ButtonDangerForegroundBrush" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="ButtonWarningBrush" Color="#D4940A" />
+            <SolidColorBrush x:Key="ButtonWarningHoverBrush" Color="#B07C08" />
+            <SolidColorBrush x:Key="ButtonWarningForegroundBrush" Color="#1A1A1A" />
 
             <!-- Job states -->
             <SolidColorBrush x:Key="JobStatePendingBrush" Color="#666666" />

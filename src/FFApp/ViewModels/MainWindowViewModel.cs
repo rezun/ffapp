@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace FFApp.ViewModels;
 
 public partial class MainWindowViewModel : ObservableObject,
+    IAsyncInitializable,
     IRecipient<DependenciesResolvedMessage>,
     IRecipient<NavigateToDependencySetupMessage>
 {
@@ -36,11 +37,9 @@ public partial class MainWindowViewModel : ObservableObject,
 
         _messenger.Register<DependenciesResolvedMessage>(this);
         _messenger.Register<NavigateToDependencySetupMessage>(this);
-
-        InitializeAsync();
     }
 
-    private async void InitializeAsync()
+    public async Task InitializeAsync()
     {
         try
         {
@@ -74,9 +73,17 @@ public partial class MainWindowViewModel : ObservableObject,
         }
     }
 
+    // async void: IRecipient<T>.Receive must return void — fire-and-forget is unavoidable here.
     public async void Receive(DependenciesResolvedMessage message)
     {
-        await SwitchToWorkspaceAsync(message.Value);
+        try
+        {
+            await SwitchToWorkspaceAsync(message.Value);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to switch to workspace: {ex}");
+        }
     }
 
     public void Receive(NavigateToDependencySetupMessage message)
@@ -99,6 +106,7 @@ public partial class MainWindowViewModel : ObservableObject,
         CurrentView = workspace;
     }
 
+    // async void: Called from Avalonia DragDrop event handler — fire-and-forget is unavoidable here.
     public async void HandleFileDrop(IReadOnlyList<string> paths)
     {
         if (CurrentView is not WorkspaceViewModel workspace || paths.Count == 0)
@@ -110,7 +118,7 @@ public partial class MainWindowViewModel : ObservableObject,
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"File drop failed: {ex.Message}");
+            Debug.WriteLine($"File drop failed: {ex}");
         }
     }
 }

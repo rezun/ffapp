@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Reflection;
 using Avalonia;
 using Avalonia.Controls;
@@ -26,15 +27,25 @@ public partial class MainWindow : Window
             versionItem.Header = $"FFApp v{versionStr}";
     }
 
+    // async void: Avalonia event handler bridge — cannot return Task.
     private async void OnLoaded(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (DataContext is not MainWindowViewModel vm)
             return;
 
-        var settings = await vm.SettingsLoadedTask;
-        SetTheme(settings.ThemePreference, persist: false);
+        try
+        {
+            await vm.InitializeAsync();
 
-        Dispatcher.UIThread.Post(Activate);
+            var settings = await vm.SettingsLoadedTask;
+            SetTheme(settings.ThemePreference, persist: false);
+
+            Dispatcher.UIThread.Post(Activate);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Window initialization failed: {ex}");
+        }
     }
 
     public void OnThemeSystem(object? sender, EventArgs e) => SetTheme(ThemePreference.System);
@@ -57,13 +68,22 @@ public partial class MainWindow : Window
             PersistThemePreference(preference);
     }
 
+    // async void: Called from synchronous SetTheme which is bound to menu handlers — fire-and-forget
+    // is unavoidable here. Wrapped in try/catch so save failures don't crash the app.
     private async void PersistThemePreference(ThemePreference preference)
     {
         if (DataContext is not MainWindowViewModel vm)
             return;
 
-        vm.UpdateSettings(s => s with { ThemePreference = preference });
-        await vm.SettingsService.SaveAsync(vm.LoadedSettings!);
+        try
+        {
+            vm.UpdateSettings(s => s with { ThemePreference = preference });
+            await vm.SettingsService.SaveAsync(vm.LoadedSettings!);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to persist theme preference: {ex}");
+        }
     }
 
     private NativeMenu? FindMenu(string header)
@@ -99,6 +119,7 @@ public partial class MainWindow : Window
             vm.HandleFileDrop(paths);
     }
 
+    // async void: Avalonia lifecycle override — must return void.
     protected override async void OnClosing(WindowClosingEventArgs e)
     {
         if (_closingSaved || DataContext is not MainWindowViewModel vm)
@@ -109,35 +130,43 @@ public partial class MainWindow : Window
 
         e.Cancel = true;
 
-        var isMaximized = WindowState == WindowState.Maximized;
-
-        var geo = new WindowGeometry(
-            X: Position.X,
-            Y: Position.Y,
-            Width: (int)Width,
-            Height: (int)Height,
-            IsMaximized: isMaximized);
-
-        vm.UpdateSettings(s => s with { WindowGeometry = geo });
-
-        if (vm.CurrentView is WorkspaceViewModel workspace)
+        try
         {
-            if (workspace.CurrentSettings is { } outputSettings)
-                vm.UpdateSettings(s => s with { LastUsedSettings = outputSettings });
+            var isMaximized = WindowState == WindowState.Maximized;
 
-            var workspaceView = this.GetVisualDescendants().OfType<WorkspaceView>().FirstOrDefault();
-            if (workspaceView is not null)
+            var geo = new WindowGeometry(
+                X: Position.X,
+                Y: Position.Y,
+                Width: (int)Width,
+                Height: (int)Height,
+                IsMaximized: isMaximized);
+
+            vm.UpdateSettings(s => s with { WindowGeometry = geo });
+
+            if (vm.CurrentView is WorkspaceViewModel workspace)
             {
-                var layout = workspaceView.GetSplitterLayout();
-                vm.UpdateSettings(s => s with { SplitterLayout = layout });
+                if (workspace.CurrentSettings is { } outputSettings)
+                    vm.UpdateSettings(s => s with { LastUsedSettings = outputSettings });
+
+                var workspaceView = this.GetVisualDescendants().OfType<WorkspaceView>().FirstOrDefault();
+                if (workspaceView is not null)
+                {
+                    var layout = workspaceView.GetSplitterLayout();
+                    vm.UpdateSettings(s => s with { SplitterLayout = layout });
+                }
             }
+
+            await vm.SettingsService.SaveAsync(vm.LoadedSettings!);
         }
-
-        await vm.SettingsService.SaveAsync(vm.LoadedSettings!);
-
-        (vm.CurrentView as WorkspaceViewModel)?.VideoPreview.Dispose();
-
-        _closingSaved = true;
-        Close();
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to save settings on close: {ex}");
+        }
+        finally
+        {
+            (vm.CurrentView as WorkspaceViewModel)?.VideoPreview.Dispose();
+            _closingSaved = true;
+            Close();
+        }
     }
 }

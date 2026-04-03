@@ -22,11 +22,13 @@
 
   **Resolution:** Sync load is intentional (avoids window flash). Consolidated geometry restoration to `App.axaml.cs` only, added screen-bounds validation, removed duplicate from `MainWindow.OnLoaded`.
 
-- [ ] **3. `async void` fire-and-forget in constructor**
+- [x] **3. `async void` fire-and-forget in constructor**
 
   **File:** `src/FFApp/ViewModels/MainWindowViewModel.cs:38-39`
 
-  `InitializeAsync()` is called fire-and-forget from the constructor. The catch block silently swallows initialization failures with no UI feedback — the user sees nothing if settings loading fails.
+  ~~`InitializeAsync()` is called fire-and-forget from the constructor. The catch block silently swallows initialization failures with no UI feedback — the user sees nothing if settings loading fails.~~
+
+  **Resolution:** Introduced `IAsyncInitializable` interface. Removed fire-and-forget from constructor; `MainWindow.OnLoaded` now awaits `InitializeAsync()`. All remaining `async void` methods (event handler bridges, `IRecipient<T>.Receive`) are documented with comments explaining why fire-and-forget is unavoidable, and wrapped in `try/catch`. `OnClosing` save path protected with `try/catch/finally` to ensure cleanup even on failure.
 
 - [x] **4. `SemaphoreSlim` never disposed**
 

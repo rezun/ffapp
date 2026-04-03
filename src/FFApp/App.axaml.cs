@@ -38,7 +38,17 @@ public partial class App : Application
                 mainWindow.Height = h;
             }
             if (geo.X is { } x && geo.Y is { } y)
-                mainWindow.Position = new PixelPoint(x, y);
+            {
+                var savedRect = new PixelRect(x, y, (int)mainWindow.Width, (int)mainWindow.Height);
+                foreach (var screen in mainWindow.Screens.All)
+                {
+                    if (screen.Bounds.Intersects(savedRect))
+                    {
+                        mainWindow.Position = new PixelPoint(x, y);
+                        break;
+                    }
+                }
+            }
             if (geo.IsMaximized)
                 mainWindow.WindowState = WindowState.Maximized;
 

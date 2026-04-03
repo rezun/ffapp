@@ -32,35 +32,9 @@ public partial class MainWindow : Window
             return;
 
         var settings = await vm.SettingsLoadedTask;
-        ApplyWindowGeometry(settings.WindowGeometry);
         SetTheme(settings.ThemePreference, persist: false);
 
         Dispatcher.UIThread.Post(Activate);
-    }
-
-    private void ApplyWindowGeometry(WindowGeometry geo)
-    {
-        if (geo.Width is { } w && geo.Height is { } h && w > 0 && h > 0)
-        {
-            Width = w;
-            Height = h;
-        }
-
-        if (geo.X is { } x && geo.Y is { } y)
-        {
-            var savedRect = new PixelRect(x, y, (int)Width, (int)Height);
-            foreach (var screen in Screens.All)
-            {
-                if (screen.Bounds.Intersects(savedRect))
-                {
-                    Position = new PixelPoint(x, y);
-                    break;
-                }
-            }
-        }
-
-        if (geo.IsMaximized)
-            WindowState = WindowState.Maximized;
     }
 
     public void OnThemeSystem(object? sender, EventArgs e) => SetTheme(ThemePreference.System);

@@ -1,5 +1,7 @@
 using System.Text;
+using Avalonia.Data.Converters;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using FFApp.Core.Models;
 using FFApp.Helpers;
 
@@ -87,6 +89,9 @@ public partial class JobItemViewModel : ObservableObject
 
 public partial class JobItemDetailsViewModel : ObservableObject
 {
+    public static readonly FuncValueConverter<bool, string> ExpandCollapseConverter =
+        new(expanded => expanded ? "\u25BC Collapse" : "\u25B6 Expand");
+
     private JobItemViewModel? _trackedItem;
 
     [ObservableProperty]
@@ -97,6 +102,12 @@ public partial class JobItemDetailsViewModel : ObservableObject
 
     [ObservableProperty]
     private string _logText = "";
+
+    [ObservableProperty]
+    private bool _isLogExpanded;
+
+    [RelayCommand]
+    private void ToggleLogExpanded() => IsLogExpanded = !IsLogExpanded;
 
     public void UpdateFromItem(JobItemViewModel? item)
     {

@@ -3,12 +3,16 @@ using CommunityToolkit.Mvvm.Input;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
 using FFApp.Helpers;
+using Avalonia.Data.Converters;
 using FFApp.Services;
 
 namespace FFApp.ViewModels;
 
 public partial class CommandPreviewViewModel : ObservableObject
 {
+    public static readonly FuncValueConverter<bool, string> ExpandCollapseConverter =
+        new(expanded => expanded ? "\u25BC Collapse" : "\u25B6 Expand");
+
     private readonly ICommandBuilder _commandBuilder;
     private readonly IDialogService? _dialogService;
     private JobContext? _context;
@@ -18,6 +22,9 @@ public partial class CommandPreviewViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _hasCommands;
+
+    [ObservableProperty]
+    private bool _isExpanded;
 
     private IReadOnlyList<GeneratedCommand>? _commands;
 
@@ -35,6 +42,9 @@ public partial class CommandPreviewViewModel : ObservableObject
         _context = context;
         Refresh();
     }
+
+    [RelayCommand]
+    private void ToggleExpanded() => IsExpanded = !IsExpanded;
 
     [RelayCommand]
     private async Task CopyCommandAsync()

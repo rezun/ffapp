@@ -36,13 +36,6 @@
             </Grid>
         </Border>
 
-        <!-- BOTTOM BAR: Command Preview (full width) -->
-        <Border DockPanel.Dock="Bottom"
-                BorderBrush="{DynamicResource BorderSubtleBrush}"
-                BorderThickness="0,1,0,0">
-            <views:CommandPreviewView DataContext="{Binding CommandPreview}" />
-        </Border>
-
         <!-- THREE-COLUMN LAYOUT -->
         <Grid x:Name="MainGrid" ColumnDefinitions="280,6,*,6,240">
 
@@ -54,6 +47,10 @@
 
             <!-- CENTER COLUMN: Preview + Preset bar + Output Settings (scrollable) -->
             <DockPanel Grid.Column="2">
+                <!-- Command Preview (bottom of center column) -->
+                <views:CommandPreviewView DockPanel.Dock="Bottom"
+                                          DataContext="{Binding CommandPreview}" />
+
                 <!-- Preview + Settings with optional splitter -->
                 <Grid x:Name="PreviewSettingsGrid" RowDefinitions="Auto,Auto,*">
                     <!-- Video Preview (collapsible) -->

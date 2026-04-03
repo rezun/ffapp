@@ -17,23 +17,6 @@
                    TextWrapping="Wrap"
                    Margin="0,0,0,4" />
 
-        <!-- Log output (expandable, docked to bottom) -->
-        <Expander DockPanel.Dock="Bottom"
-                  Header="Log"
-                  IsExpanded="False"
-                  Padding="0"
-                  MinHeight="0">
-            <TextBox Text="{Binding LogText, Mode=OneWay}"
-                     IsReadOnly="True"
-                     AcceptsReturn="True"
-                     TextWrapping="Wrap"
-                     FontFamily="Cascadia Code,Consolas,Menlo,monospace"
-                     FontSize="11"
-                     MaxHeight="120"
-                     Watermark="Job logs will appear here."
-                     BorderThickness="1" />
-        </Expander>
-
         <!-- Command preview (fills remaining space, grows with splitter) -->
         <TextBox Text="{Binding CommandText, Mode=OneWay}"
                  IsReadOnly="True"

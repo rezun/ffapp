@@ -10,6 +10,7 @@ using FFApp.Core.Services;
 using FFApp.Core.Validation;
 using FFApp.Infrastructure;
 using FFApp.Services;
+using LibVLCSharp.Shared;
 using FFApp.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -67,6 +68,10 @@ public partial class App : Application
                 _ => sp.GetRequiredService<IJobExecutionService>());
             services.AddSingleton<IQueueService, QueueService>();
             services.AddSingleton<IMessenger>(WeakReferenceMessenger.Default);
+
+            var libVlc = VlcLocator.TryCreate();
+            if (libVlc is not null)
+                services.AddSingleton(libVlc);
 
             var provider = services.BuildServiceProvider();
 

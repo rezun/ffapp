@@ -3,8 +3,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
-using FFApp.Infrastructure;
 using FFApp.Services;
+using LibVLCSharp.Shared;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace FFApp.ViewModels;
@@ -45,7 +45,6 @@ public partial class WorkspaceViewModel : ObservableObject,
 
         CommandPreview = new CommandPreviewViewModel(
             services.GetRequiredService<ICommandBuilder>(),
-            services.GetRequiredService<IValidationService>(),
             dialogService);
 
         JobList = new JobListPanelViewModel(
@@ -54,7 +53,7 @@ public partial class WorkspaceViewModel : ObservableObject,
             services.GetRequiredService<IValidationService>(),
             dialogService);
 
-        VideoPreview = new VideoPreviewViewModel(VlcLocator.TryCreate());
+        VideoPreview = new VideoPreviewViewModel(services.GetService<LibVLC>());
         VideoPreview.PropertyChanged += OnVideoPreviewPropertyChanged;
         OutputSettings.PropertyChanged += OnOutputSettingsPropertyChanged;
         OutputPath.PropertyChanged += OnOutputPathContainerChanged;

@@ -143,7 +143,7 @@ public partial class SourceListPanelViewModel : ObservableObject
         }
     }
 
-    private async Task AddSinglePathAsync(string path)
+    private async Task AddSinglePathAsync(string path, CancellationToken ct = default)
     {
         if (!File.Exists(path)) return;
 
@@ -158,7 +158,7 @@ public partial class SourceListPanelViewModel : ObservableObject
 
         try
         {
-            var mediaInfo = await _mediaProbeService.ProbeAsync(path);
+            var mediaInfo = await _mediaProbeService.ProbeAsync(path, ct);
             vm.InitializeFromMediaInfo(mediaInfo);
             vm.IsProbing = false;
 

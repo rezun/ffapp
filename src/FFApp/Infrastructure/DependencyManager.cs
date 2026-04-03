@@ -120,7 +120,10 @@ public sealed class DependencyManager : IDependencyService
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             timeoutCts.CancelAfter(ValidationTimeout);
 
-            var stdout = await process.StandardOutput.ReadToEndAsync(timeoutCts.Token);
+            var stdoutTask = process.StandardOutput.ReadToEndAsync(timeoutCts.Token);
+            var stderrTask = process.StandardError.ReadToEndAsync(timeoutCts.Token);
+            var stdout = await stdoutTask;
+            var stderr = await stderrTask;
             await process.WaitForExitAsync(timeoutCts.Token);
 
             if (process.ExitCode != 0)
@@ -129,9 +132,10 @@ public sealed class DependencyManager : IDependencyService
                     Error: $"{name} exited with code {process.ExitCode}.");
             }
 
-            var firstLine = stdout.AsSpan().IndexOf('\n') is var idx and >= 0
-                ? stdout[..idx].TrimEnd()
-                : stdout.TrimEnd();
+            var output = string.IsNullOrWhiteSpace(stdout) ? stderr : stdout;
+            var firstLine = output.AsSpan().IndexOf('\n') is var idx and >= 0
+                ? output[..idx].TrimEnd()
+                : output.TrimEnd();
 
             return new ExecutableValidation(name, path, IsValid: true, VersionOutput: firstLine);
         }

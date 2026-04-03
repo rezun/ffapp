@@ -169,7 +169,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
                 arguments.AddRange(["-map", $"-0:{stream.Index}"]);
         }
 
-        if (EffectiveAudioMode(job) == AudioMode.Remove)
+        if (job.AudioOptions.Mode == AudioMode.Remove)
             arguments.AddRange(["-map", "-0:a?"]);
         if (job.StreamHandling.RemoveSubtitles)
             arguments.AddRange(["-map", "-0:s?"]);
@@ -182,7 +182,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
     private static List<string> BuildStreamArguments(JobDefinition job, SourceMediaInfo mediaInfo)
     {
         var arguments = new List<string>();
-        var audioMode = EffectiveAudioMode(job);
+        var audioMode = job.AudioOptions.Mode;
 
         if (audioMode == AudioMode.Copy)
         {
@@ -406,7 +406,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
     private static long EstimateAudioBits(JobDefinition job, SourceMediaInfo mediaInfo, double duration)
     {
         var result = CompatibilityData.EstimateAudioBits(
-            EffectiveAudioMode(job),
+            job.AudioOptions.Mode,
             job.AudioOptions.Bitrate,
             mediaInfo.AudioStreams,
             duration);
@@ -463,9 +463,6 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
 
         return resolution;
     }
-
-    private static AudioMode EffectiveAudioMode(JobDefinition job) =>
-        job.AudioOptions.Mode;
 
     private static bool UsesTwoPass(JobDefinition job) => job.EncodingStrategy switch
     {

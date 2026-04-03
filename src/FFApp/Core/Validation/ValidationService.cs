@@ -160,7 +160,7 @@ public sealed class ValidationService : IValidationService
         }
 
         // Audio copy compatibility.
-        var effectiveMode = EffectiveAudioMode(settings);
+        var effectiveMode = settings.AudioOptions.Mode;
         if (effectiveMode is AudioMode.Copy)
         {
             ValidateAudioCopyCompatibility(settings, mediaInfo, issues);
@@ -177,7 +177,7 @@ public sealed class ValidationService : IValidationService
         OutputSettings settings,
         ImmutableArray<ValidationIssue>.Builder issues)
     {
-        var effectiveMode = EffectiveAudioMode(settings);
+        var effectiveMode = settings.AudioOptions.Mode;
         if (effectiveMode is AudioMode.Reencode
             && settings.AudioOptions.Codec is { } codec
             && !AudioCodecMatrix[settings.Container].Contains(codec))
@@ -427,7 +427,7 @@ public sealed class ValidationService : IValidationService
         OutputSettings settings,
         ImmutableArray<ValidationIssue>.Builder issues)
     {
-        var mode = EffectiveAudioMode(settings);
+        var mode = settings.AudioOptions.Mode;
 
         if (settings.AudioOptions.AudioChannels is not null && mode is not AudioMode.Reencode)
         {
@@ -708,9 +708,6 @@ public sealed class ValidationService : IValidationService
 
     // ── Helpers ─────────────────────────────────────────────────────────
 
-    private static AudioMode EffectiveAudioMode(OutputSettings settings) =>
-        settings.AudioOptions.Mode;
-
     private static Resolution? SourceResolution(SourceMediaInfo mediaInfo)
     {
         var primary = mediaInfo.PrimaryVideoStream;
@@ -721,7 +718,7 @@ public sealed class ValidationService : IValidationService
 
     private static long? EstimateAudioBitsForSettings(OutputSettings settings, SourceMediaInfo mediaInfo, double? effectiveDuration = null) =>
         CompatibilityData.EstimateAudioBits(
-            EffectiveAudioMode(settings),
+            settings.AudioOptions.Mode,
             settings.AudioOptions.Bitrate,
             mediaInfo.AudioStreams,
             effectiveDuration ?? mediaInfo.DurationSeconds);

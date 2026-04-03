@@ -92,7 +92,7 @@ public partial class PresetViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task SavePresetAsync()
+    private async Task SavePresetAsync(CancellationToken ct)
     {
 
         // If no settings have been captured yet, use defaults
@@ -106,7 +106,7 @@ public partial class PresetViewModel : ObservableObject
             return;
 
         var preset = new PresetDefinition(name.Trim(), _currentSettings);
-        await _presetService.SaveAsync(preset);
+        await _presetService.SaveAsync(preset, ct);
         await LoadPresetsAsync();
 
         SelectedPreset = Presets.FirstOrDefault(p => p.Name == preset.Name);
@@ -114,7 +114,7 @@ public partial class PresetViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task RenamePresetAsync()
+    private async Task RenamePresetAsync(CancellationToken ct)
     {
         if (SelectedPreset is null)
             return;
@@ -126,14 +126,14 @@ public partial class PresetViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(newName))
             return;
 
-        var renamed = await _presetService.RenameAsync(SelectedPreset.Name, newName.Trim());
+        var renamed = await _presetService.RenameAsync(SelectedPreset.Name, newName.Trim(), ct);
         await LoadPresetsAsync();
 
         SelectedPreset = Presets.FirstOrDefault(p => p.Name == renamed.Name);
     }
 
     [RelayCommand]
-    private async Task DeletePresetAsync()
+    private async Task DeletePresetAsync(CancellationToken ct)
     {
         if (SelectedPreset is null)
             return;
@@ -145,7 +145,7 @@ public partial class PresetViewModel : ObservableObject
         if (!confirmed)
             return;
 
-        await _presetService.DeleteAsync(SelectedPreset.Name);
+        await _presetService.DeleteAsync(SelectedPreset.Name, ct);
         await LoadPresetsAsync();
         SelectedPreset = CurrentSettingsPreset;
     }

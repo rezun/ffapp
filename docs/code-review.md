@@ -141,47 +141,61 @@
 
 ## Simplifications / Dead Code
 
-- [ ] **16. Unused constructor parameter**
+- [x] **16. Unused constructor parameter**
 
   **File:** `src/FFApp/ViewModels/CommandPreviewViewModel.cs:33`
 
-  Constructor accepts `IValidationService` but never stores or uses it.
+  ~~Constructor accepts `IValidationService` but never stores or uses it.~~
 
-- [ ] **17. Dead method `FormatTime`**
+  **Resolution:** Removed `IValidationService` parameter from constructor and updated the caller in `WorkspaceViewModel`.
+
+- [x] **17. Dead method `FormatTime`**
 
   **File:** `src/FFApp/ViewModels/VideoPreviewViewModel.cs:452-458`
 
-  `FormatTime` is defined but never called — only `FormatTimePrecise` is used.
+  ~~`FormatTime` is defined but never called — only `FormatTimePrecise` is used.~~
 
-- [ ] **18. `EffectiveAudioMode` wrapper adds no value**
+  **Resolution:** Removed the unused `FormatTime` method.
+
+- [x] **18. `EffectiveAudioMode` wrapper adds no value**
 
   **Files:**
   - `src/FFApp/Core/CommandBuilder.cs:467`
   - `src/FFApp/Core/Validation/ValidationService.cs:714`
 
-  Both simply return `settings.AudioOptions.Mode` with no additional logic. Remove the indirection.
+  ~~Both simply return `settings.AudioOptions.Mode` with no additional logic. Remove the indirection.~~
 
-- [ ] **19. `VideoPreviewViewModel.Dispose` missing `GC.SuppressFinalize`**
+  **Resolution:** Inlined all call sites to use `.AudioOptions.Mode` directly and removed both wrapper methods.
+
+- [x] **19. `VideoPreviewViewModel.Dispose` missing `GC.SuppressFinalize`**
 
   **File:** `src/FFApp/ViewModels/VideoPreviewViewModel.cs:566-571`
 
-  Best practice for `IDisposable` implementations.
+  ~~Best practice for `IDisposable` implementations.~~
 
-- [ ] **20. `DependencyManager.ValidateExecutableAsync` ignores stderr**
+  **Resolution:** Added `GC.SuppressFinalize(this)` to `Dispose()`.
+
+- [x] **20. `DependencyManager.ValidateExecutableAsync` ignores stderr**
 
   **File:** `src/FFApp/Infrastructure/DependencyManager.cs:105-136`
 
-  Standard error is redirected but never read. If `ffmpeg -version` writes to stderr, the version check succeeds but returns an empty version string.
+  ~~Standard error is redirected but never read. If `ffmpeg -version` writes to stderr, the version check succeeds but returns an empty version string.~~
 
-- [ ] **21. No `CancellationToken` forwarding in several ViewModel commands**
+  **Resolution:** Now reads both stdout and stderr concurrently. Falls back to stderr for version output if stdout is empty.
 
-  `PresetViewModel.SavePresetAsync`, `RenamePresetAsync`, `DeletePresetAsync`, and `SourceListPanelViewModel.AddSinglePathAsync` do not pass cancellation tokens to underlying service calls.
+- [x] **21. No `CancellationToken` forwarding in several ViewModel commands**
 
-- [ ] **22. `VlcLocator.TryCreate()` called directly, not through DI**
+  ~~`PresetViewModel.SavePresetAsync`, `RenamePresetAsync`, `DeletePresetAsync`, and `SourceListPanelViewModel.AddSinglePathAsync` do not pass cancellation tokens to underlying service calls.~~
+
+  **Resolution:** Added `CancellationToken` parameters to all four methods and forwarded them to service calls.
+
+- [x] **22. `VlcLocator.TryCreate()` called directly, not through DI**
 
   **File:** `src/FFApp/ViewModels/WorkspaceViewModel.cs:57`
 
-  Performs file system scanning and native library loading outside the DI container, making `VideoPreviewViewModel` hard to test.
+  ~~Performs file system scanning and native library loading outside the DI container, making `VideoPreviewViewModel` hard to test.~~
+
+  **Resolution:** `LibVLC` is now created in `App.axaml.cs` and registered in DI when available. `WorkspaceViewModel` resolves it via `GetService<LibVLC>()`.
 
 ---
 

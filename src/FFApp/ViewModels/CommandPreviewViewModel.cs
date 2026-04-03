@@ -30,7 +30,6 @@ public partial class CommandPreviewViewModel : ObservableObject
 
     public CommandPreviewViewModel(
         ICommandBuilder commandBuilder,
-        IValidationService validationService,
         IDialogService? dialogService = null)
     {
         _commandBuilder = commandBuilder;

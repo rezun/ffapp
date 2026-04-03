@@ -449,15 +449,6 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
         });
     }
 
-    private static string FormatTime(double seconds)
-    {
-        if (seconds < 0) seconds = 0;
-        var ts = TimeSpan.FromSeconds(seconds);
-        return ts.Hours > 0
-            ? $"{(int)ts.TotalHours:D2}:{ts.Minutes:D2}:{ts.Seconds:D2}"
-            : $"00:{ts.Minutes:D2}:{ts.Seconds:D2}";
-    }
-
     private static bool TryParseTimecode(string text, out double seconds)
     {
         seconds = 0;
@@ -568,5 +559,6 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
         if (_disposed) return;
         _disposed = true;
         DisposePlayer();
+        GC.SuppressFinalize(this);
     }
 }

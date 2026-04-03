@@ -116,6 +116,7 @@ public partial class OutputSettingsViewModel : ObservableObject
         {
             Format.SelectedVideoMode = settings.VideoMode;
             Format.SelectedContainer = settings.Container;
+            Audio.AvailableAudioCodecs = Format.AvailableAudioCodecs;
             Format.SelectedVideoCodec = settings.VideoCodec;
             Strategy.SelectedStrategy = settings.EncodingStrategy;
             SelectedResolution = settings.ResolutionPreset;
@@ -156,6 +157,9 @@ public partial class OutputSettingsViewModel : ObservableObject
 
             // Update dependent state after all values are set
             Audio.IsRemoveAllowed = settings.VideoMode != VideoMode.Remove;
+            Strategy.Quality.UpdateForCodec(settings.VideoCodec);
+            Hdr.UpdateForCodec(settings.VideoCodec);
+            Hdr.IsHdrModeVisible = Format.IsVideoReencode && Hdr.IsSourceHdr;
         }
         finally
         {

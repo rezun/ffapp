@@ -4,7 +4,7 @@ using FFApp.Core.Services;
 namespace FFApp.Infrastructure;
 
 public sealed class QueueService(
-    Func<QueuedJob, IJobExecutionService> executionServiceFactory) : IQueueService
+    Func<QueuedJob, IJobExecutionService> executionServiceFactory) : IQueueService, IDisposable
 {
     private readonly Lock _lock = new();
     private readonly List<QueueItem> _items = [];
@@ -28,8 +28,8 @@ public sealed class QueueService(
         {
             if (_paused) return;
             _paused = true;
-            _pauseGate.Wait(); // Acquire so the loop blocks
         }
+        _pauseGate.Wait(); // Acquire outside lock so the execution loop blocks
     }
 
     public void Resume()
@@ -38,8 +38,8 @@ public sealed class QueueService(
         {
             if (!_paused) return;
             _paused = false;
-            _pauseGate.Release();
         }
+        _pauseGate.Release();
     }
 
     public IReadOnlyList<QueueItem> Enqueue(IEnumerable<(string Id, QueuedJob Job)> jobs)
@@ -298,4 +298,6 @@ public sealed class QueueService(
             ElapsedSeconds: result.ElapsedSeconds,
             Percentage: result.State == JobState.Completed ? 100.0 : null);
     }
+
+    public void Dispose() => _pauseGate.Dispose();
 }

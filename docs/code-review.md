@@ -6,11 +6,13 @@
 
 ## Critical / High Severity
 
-- [ ] **1. Deadlock risk in `QueueService.Pause()`**
+- [x] **1. Deadlock risk in `QueueService.Pause()`**
 
   **File:** `src/FFApp/Infrastructure/QueueService.cs:26-32`
 
-  `_pauseGate.Wait()` is called while holding `_lock`. If `ExecuteAllAsync` holds the semaphore and tries to acquire `_lock` (e.g., in `StartNextItem`, `UpdateItem`), this creates a classic lock-ordering deadlock. Make `Pause` async or acquire the semaphore outside the lock.
+  ~~`_pauseGate.Wait()` is called while holding `_lock`. If `ExecuteAllAsync` holds the semaphore and tries to acquire `_lock` (e.g., in `StartNextItem`, `UpdateItem`), this creates a classic lock-ordering deadlock. Make `Pause` async or acquire the semaphore outside the lock.~~
+
+  **Resolution:** Moved `_pauseGate.Wait()` and `_pauseGate.Release()` outside the `lock` block in `Pause()` and `Resume()`.
 
 - [x] **2. Redundant synchronous file I/O on startup**
 
@@ -26,17 +28,21 @@
 
   `InitializeAsync()` is called fire-and-forget from the constructor. The catch block silently swallows initialization failures with no UI feedback — the user sees nothing if settings loading fails.
 
-- [ ] **4. `SemaphoreSlim` never disposed**
+- [x] **4. `SemaphoreSlim` never disposed**
 
   **File:** `src/FFApp/Infrastructure/QueueService.cs:14`
 
-  `_pauseGate` is a `SemaphoreSlim` that is never disposed. `QueueService` should implement `IDisposable`.
+  ~~`_pauseGate` is a `SemaphoreSlim` that is never disposed. `QueueService` should implement `IDisposable`.~~
 
-- [ ] **5. Race condition in ProcessRunner cancellation**
+  **Resolution:** `QueueService` now implements `IDisposable` and disposes `_pauseGate`.
+
+- [x] **5. Race condition in ProcessRunner cancellation**
 
   **File:** `src/FFApp/Infrastructure/ProcessRunner.cs:53-86`
 
-  `ReadLineAsync(ct)` uses the cancellation token, but the process kill happens separately. Cancellation can fire before the process is killed, causing `OperationCanceledException` to race with stream closure.
+  ~~`ReadLineAsync(ct)` uses the cancellation token, but the process kill happens separately. Cancellation can fire before the process is killed, causing `OperationCanceledException` to race with stream closure.~~
+
+  **Resolution:** Removed `ct` from `ReadLineAsync` calls. Streams now close naturally when the process is killed via the cancellation registration, avoiding the race.
 
 - [ ] **6. `new`-ing up dependencies directly**
 

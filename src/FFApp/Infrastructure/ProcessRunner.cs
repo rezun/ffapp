@@ -52,7 +52,7 @@ public sealed class ProcessRunner : IProcessRunner
 
         var stdoutTask = Task.Run(async () =>
         {
-            while (await process.StandardOutput.ReadLineAsync(ct).ConfigureAwait(false) is { } line)
+            while (await process.StandardOutput.ReadLineAsync().ConfigureAwait(false) is { } line)
             {
                 var separatorIndex = line.IndexOf('=');
                 if (separatorIndex < 0)
@@ -77,7 +77,7 @@ public sealed class ProcessRunner : IProcessRunner
 
         var stderrTask = Task.Run(async () =>
         {
-            while (await process.StandardError.ReadLineAsync(ct).ConfigureAwait(false) is { } line)
+            while (await process.StandardError.ReadLineAsync().ConfigureAwait(false) is { } line)
             {
                 stderrLines.Add(line);
                 logCallback?.Invoke(line);

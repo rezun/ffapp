@@ -429,7 +429,10 @@ public partial class JobListPanelViewModel : ObservableObject
         UpdateSummary();
     }
 
-    [RelayCommand]
+    private bool CanClearFinished =>
+        Jobs.Any(j => j.State is JobState.Completed or JobState.Failed or JobState.Canceled);
+
+    [RelayCommand(CanExecute = nameof(CanClearFinished))]
     private void ClearFinished()
     {
         var finished = Jobs.Where(j => j.State is JobState.Completed or JobState.Failed or JobState.Canceled).ToList();
@@ -446,10 +449,11 @@ public partial class JobListPanelViewModel : ObservableObject
         UpdateSummary();
     }
 
-    [RelayCommand]
+    private bool CanClearAll => Jobs.Count > 0 && !IsRunning;
+
+    [RelayCommand(CanExecute = nameof(CanClearAll))]
     private void ClearAll()
     {
-        if (IsRunning) return;
 
         var ids = Jobs.Select(j => j.Id).ToList();
         if (ids.Count > 0)
@@ -496,6 +500,8 @@ public partial class JobListPanelViewModel : ObservableObject
     {
         StartCommand.NotifyCanExecuteChanged();
         RemoveSelectedCommand.NotifyCanExecuteChanged();
+        ClearFinishedCommand.NotifyCanExecuteChanged();
+        ClearAllCommand.NotifyCanExecuteChanged();
         CreateJobFromSelectionCommand.NotifyCanExecuteChanged();
         CreateJobsForAllCommand.NotifyCanExecuteChanged();
     }

@@ -46,7 +46,7 @@
                                     Command="{Binding RemoveSelectedCommand}"
                                     Padding="6,2"
                                     FontSize="11" />
-                            <Button Content="Clear all"
+                            <Button Content="Remove all"
                                     Command="{Binding ClearAllCommand}"
                                     Padding="6,2"
                                     FontSize="11" />

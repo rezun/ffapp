@@ -159,9 +159,6 @@ public sealed class ValidationService : IValidationService
                 "video_codec"));
         }
 
-        // Audio codec compatibility.
-        ValidateAudioContainerCompatibility(settings, issues);
-
         // Audio copy compatibility.
         var effectiveMode = EffectiveAudioMode(settings);
         if (effectiveMode is AudioMode.Copy)
@@ -722,7 +719,7 @@ public sealed class ValidationService : IValidationService
         return new Resolution(primary.DisplayWidth.Value, primary.DisplayHeight.Value);
     }
 
-    private static int? EstimateAudioBitsForSettings(OutputSettings settings, SourceMediaInfo mediaInfo, double? effectiveDuration = null) =>
+    private static long? EstimateAudioBitsForSettings(OutputSettings settings, SourceMediaInfo mediaInfo, double? effectiveDuration = null) =>
         CompatibilityData.EstimateAudioBits(
             EffectiveAudioMode(settings),
             settings.AudioOptions.Bitrate,

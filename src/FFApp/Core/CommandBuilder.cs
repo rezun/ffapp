@@ -397,13 +397,13 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
             if (videoBudgetBits <= 0)
                 throw new CommandBuildException("The target file size leaves no bitrate budget for video.");
 
-            return (int)(videoBudgetBits / duration);
+            return (int)Math.Min(videoBudgetBits / duration, int.MaxValue);
         }
 
         throw new CommandBuildException("Bitrate resolution was requested for a quality-based encode.");
     }
 
-    private static int EstimateAudioBits(JobDefinition job, SourceMediaInfo mediaInfo, double duration)
+    private static long EstimateAudioBits(JobDefinition job, SourceMediaInfo mediaInfo, double duration)
     {
         var result = CompatibilityData.EstimateAudioBits(
             EffectiveAudioMode(job),

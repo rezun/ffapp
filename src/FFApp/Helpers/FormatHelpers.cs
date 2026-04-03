@@ -223,12 +223,15 @@ public static class FormatHelpers
         var dir = Path.GetDirectoryName(candidate) ?? ".";
         var stem = Path.GetFileNameWithoutExtension(candidate);
         var suffix = Path.GetExtension(candidate);
-        for (int counter = 1; ; counter++)
+        for (int counter = 1; counter <= 10_000; counter++)
         {
             var numbered = Path.Combine(dir, $"{stem}-{counter}{suffix}");
             if (!File.Exists(numbered) && !reservedOutputs.Contains(Path.GetFullPath(numbered)))
                 return numbered;
         }
+
+        throw new InvalidOperationException(
+            $"Could not find an available output filename after 10,000 attempts for '{stem}{suffix}'.");
     }
 
     public static string VideoCodecLabel(VideoCodec codec) => codec switch

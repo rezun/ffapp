@@ -22,7 +22,7 @@ public partial class WorkspaceViewModel : ObservableObject,
     public VideoPreviewViewModel VideoPreview { get; }
 
     private SourceMediaInfo? _currentMediaInfo;
-    private OutputSettings? _currentSettings;
+    public OutputSettings? CurrentSettings { get; private set; }
     private SourceFileViewModel? _previousSource;
 
     public WorkspaceViewModel(IServiceProvider services)
@@ -69,7 +69,7 @@ public partial class WorkspaceViewModel : ObservableObject,
 
     private void RebuildAndPushJobContext()
     {
-        if (_currentMediaInfo is null || _currentSettings is null)
+        if (_currentMediaInfo is null || CurrentSettings is null)
         {
             CommandPreview.UpdateJobContext(null);
             JobList.UpdateJobContext(null);
@@ -88,7 +88,7 @@ public partial class WorkspaceViewModel : ObservableObject,
             VideoPreview.CropW, VideoPreview.CropH);
 
         var context = new JobContext(
-            _currentMediaInfo, _currentSettings,
+            _currentMediaInfo, CurrentSettings,
             trimStart, trimEnd, crop,
             OutputPath.GetEffectiveDirectory(),
             OutputPath.GetEffectiveFilename(),
@@ -205,10 +205,10 @@ public partial class WorkspaceViewModel : ObservableObject,
 
     public void Receive(OutputSettingsChangedMessage message)
     {
-        _currentSettings = message.Value;
+        CurrentSettings = message.Value;
         OutputPath.UpdateAvailableContainers(OutputSettings.Format.AvailableContainers);
-        OutputPath.UpdateContainer(_currentSettings.Container);
-        Preset.UpdateOutputSettings(_currentSettings);
+        OutputPath.UpdateContainer(CurrentSettings.Container);
+        Preset.UpdateOutputSettings(CurrentSettings);
         RebuildAndPushJobContext();
     }
 }

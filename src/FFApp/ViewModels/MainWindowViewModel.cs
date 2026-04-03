@@ -23,7 +23,9 @@ public partial class MainWindowViewModel : ObservableObject,
 
     private readonly TaskCompletionSource<AppSettings> _settingsLoaded = new();
 
-    public AppSettings? LoadedSettings { get; set; }
+    public AppSettings? LoadedSettings { get; private set; }
+    public void UpdateSettings(Func<AppSettings, AppSettings> transform) =>
+        LoadedSettings = transform(LoadedSettings ?? new AppSettings());
     public ISettingsService SettingsService => _services.GetRequiredService<ISettingsService>();
     public Task<AppSettings> SettingsLoadedTask => _settingsLoaded.Task;
 

@@ -55,49 +55,63 @@
 
 ## Medium Severity
 
-- [ ] **7. Potential integer overflow in bitrate calculations**
+- [x] **7. Potential integer overflow in bitrate calculations**
 
   **Files:**
   - `src/FFApp/Core/Validation/CompatibilityData.cs:113` — `(int)(audioBitrate * durationSeconds * streams.Length)` can overflow for long videos (128kbps * 7200s * 2 streams = 1.84B, near `int.MaxValue`).
   - `src/FFApp/Core/CommandBuilder.cs:400` — Casts a potentially large `long` division result to `int`.
 
-  Use `long` for these calculations.
+  ~~Use `long` for these calculations.~~
 
-- [ ] **8. Infinite loop with no upper bound**
+  **Resolution:** Changed `EstimateAudioBits` return type to `long?` throughout (`CompatibilityData`, `CommandBuilder`, `ValidationService`). Added `Math.Min` guard on video bitrate cast.
+
+- [x] **8. Infinite loop with no upper bound**
 
   **File:** `src/FFApp/Helpers/FormatHelpers.cs:226-231`
 
-  `SuggestQueueOutputPath` has an unbounded `for` loop, unlike `SuggestOutputPath` which caps at 10,000.
+  ~~`SuggestQueueOutputPath` has an unbounded `for` loop, unlike `SuggestOutputPath` which caps at 10,000.~~
 
-- [ ] **9. `KeyNotFoundException` for audio-only containers**
+  **Resolution:** Added 10,000 iteration cap with `InvalidOperationException` on exhaustion.
+
+- [x] **9. `KeyNotFoundException` for audio-only containers**
 
   **File:** `src/FFApp/Infrastructure/Serialization/SettingsSerializer.cs:394`
 
-  `VideoCodecMatrix[container]` will throw for audio-only containers (M4a, Mka, OpusFile) if someone edits the settings file manually. Should use `TryGetValue` or `AllowedVideoCodecs`.
+  ~~`VideoCodecMatrix[container]` will throw for audio-only containers (M4a, Mka, OpusFile) if someone edits the settings file manually. Should use `TryGetValue` or `AllowedVideoCodecs`.~~
 
-- [ ] **10. Double validation of audio container compatibility**
+  **Resolution:** Changed to use `AllowedVideoCodecs()` which uses `TryGetValue` internally.
+
+- [x] **10. Double validation of audio container compatibility**
 
   **File:** `src/FFApp/Core/Validation/ValidationService.cs`
 
-  `ValidateAudioContainerCompatibility` is called at line 65 (always) and again at line 163 (inside `ValidateContainerCompatibility`), potentially producing duplicate warnings.
+  ~~`ValidateAudioContainerCompatibility` is called at line 65 (always) and again at line 163 (inside `ValidateContainerCompatibility`), potentially producing duplicate warnings.~~
 
-- [ ] **11. Event handler returns `Task` instead of `void`**
+  **Resolution:** Removed the duplicate call inside `ValidateContainerCompatibility`. The top-level call at line 65 covers all cases.
+
+- [x] **11. Event handler returns `Task` instead of `void`**
 
   **File:** `src/FFApp/Views/MainWindow.axaml.cs:109`
 
-  `OnDrop` returns `Task` but is registered as a Drag event handler. Avalonia cannot await it; exceptions will be silently lost.
+  ~~`OnDrop` returns `Task` but is registered as a Drag event handler. Avalonia cannot await it; exceptions will be silently lost.~~
 
-- [ ] **12. `LoadedSettings` is publicly mutable**
+  **Resolution:** Changed `OnDrop` to `async void`.
+
+- [x] **12. `LoadedSettings` is publicly mutable**
 
   **File:** `src/FFApp/ViewModels/MainWindowViewModel.cs:26`
 
-  `public AppSettings? LoadedSettings { get; set; }` is directly mutated from the View, breaking ViewModel encapsulation. Consider making the setter private and providing a method.
+  ~~`public AppSettings? LoadedSettings { get; set; }` is directly mutated from the View, breaking ViewModel encapsulation. Consider making the setter private and providing a method.~~
 
-- [ ] **13. `LastUsedSettings` never persisted**
+  **Resolution:** Made setter private, added `UpdateSettings(Func<AppSettings, AppSettings>)` method. Updated all callers in `MainWindow.axaml.cs`.
+
+- [x] **13. `LastUsedSettings` never persisted**
 
   **File:** `src/FFApp/Views/MainWindow.axaml.cs:129-168`
 
-  `OnClosing` saves window geometry but never writes the current `OutputSettings` to `AppSettings.LastUsedSettings`, so users lose their working settings on restart.
+  ~~`OnClosing` saves window geometry but never writes the current `OutputSettings` to `AppSettings.LastUsedSettings`, so users lose their working settings on restart.~~
+
+  **Resolution:** `OnClosing` now captures `WorkspaceViewModel.CurrentSettings` into `LastUsedSettings` before saving. Exposed `CurrentSettings` as a public read-only property on `WorkspaceViewModel`.
 
 ---
 

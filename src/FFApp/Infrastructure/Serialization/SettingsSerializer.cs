@@ -391,7 +391,8 @@ public static class SettingsSerializer
     private static void ValidateContainerCodecs(
         OutputContainer container, VideoCodec videoCodec)
     {
-        if (!CompatibilityData.VideoCodecMatrix[container].Contains(videoCodec))
+        var allowed = CompatibilityData.AllowedVideoCodecs(container);
+        if (allowed.Count == 0 || !allowed.Contains(videoCodec))
         {
             throw new SettingsDecodeException(
                 $"{EnumToString(videoCodec)} is not supported in the " +

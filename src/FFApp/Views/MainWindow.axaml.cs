@@ -62,9 +62,8 @@ public partial class MainWindow : Window
         if (DataContext is not MainWindowViewModel vm)
             return;
 
-        var settings = (vm.LoadedSettings ?? new AppSettings()) with { ThemePreference = preference };
-        vm.LoadedSettings = settings;
-        await vm.SettingsService.SaveAsync(settings);
+        vm.UpdateSettings(s => s with { ThemePreference = preference });
+        await vm.SettingsService.SaveAsync(vm.LoadedSettings!);
     }
 
     private NativeMenu? FindMenu(string header)
@@ -80,7 +79,7 @@ public partial class MainWindow : Window
             .FirstOrDefault(i => i.Header?.ToString() == itemHeader);
     }
 
-    private async Task OnDrop(object? sender, DragEventArgs e)
+    private async void OnDrop(object? sender, DragEventArgs e)
     {
         if (DataContext is not MainWindowViewModel vm)
             return;
@@ -119,23 +118,24 @@ public partial class MainWindow : Window
             Height: (int)Height,
             IsMaximized: isMaximized);
 
-        var settings = (vm.LoadedSettings ?? new AppSettings()) with { WindowGeometry = geo };
+        vm.UpdateSettings(s => s with { WindowGeometry = geo });
 
-        if (vm.CurrentView is WorkspaceViewModel)
+        if (vm.CurrentView is WorkspaceViewModel workspace)
         {
+            if (workspace.CurrentSettings is { } outputSettings)
+                vm.UpdateSettings(s => s with { LastUsedSettings = outputSettings });
+
             var workspaceView = this.GetVisualDescendants().OfType<WorkspaceView>().FirstOrDefault();
             if (workspaceView is not null)
             {
                 var layout = workspaceView.GetSplitterLayout();
-                settings = settings with { SplitterLayout = layout };
+                vm.UpdateSettings(s => s with { SplitterLayout = layout });
             }
         }
 
-        vm.LoadedSettings = settings;
-        await vm.SettingsService.SaveAsync(settings);
+        await vm.SettingsService.SaveAsync(vm.LoadedSettings!);
 
-        if (vm.CurrentView is WorkspaceViewModel workspace)
-            workspace.VideoPreview.Dispose();
+        (vm.CurrentView as WorkspaceViewModel)?.VideoPreview.Dispose();
 
         _closingSaved = true;
         Close();

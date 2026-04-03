@@ -94,7 +94,7 @@ public static class CompatibilityData
     public static IReadOnlyList<AudioCodec> AllowedAudioCodecs(OutputContainer container) =>
         AudioCodecMatrix[container];
 
-    public static int? EstimateAudioBits(
+    public static long? EstimateAudioBits(
         AudioMode audioMode,
         int? audioBitrate,
         ImmutableArray<AudioStreamInfo> streams,
@@ -110,18 +110,18 @@ public static class CompatibilityData
         {
             if (audioBitrate is null)
                 return null;
-            return (int)(audioBitrate.Value * durationSeconds.Value * streams.Length);
+            return (long)(audioBitrate.Value * durationSeconds.Value * streams.Length);
         }
 
         // Copy mode: sum source bitrates.
-        var totalBitrate = 0;
+        long totalBitrate = 0;
         foreach (var stream in streams)
         {
             if (stream.BitRate is null)
                 return null;
             totalBitrate += stream.BitRate.Value;
         }
-        return (int)(totalBitrate * durationSeconds.Value);
+        return (long)(totalBitrate * durationSeconds.Value);
     }
 
     public static int? BitrateWarningThreshold(Resolution? resolution)

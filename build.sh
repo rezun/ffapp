@@ -10,19 +10,22 @@ DEFAULT_RIDS=("win-x64" "osx-arm64" "osx-x64" "linux-x64")
 
 VERSION=""
 RIDS=()
+DEPLOY_MAC=false
 
 usage() {
-    echo "Usage: $0 [--version <version>] [--rid <rid>]"
+    echo "Usage: $0 [--version <version>] [--rid <rid>] [--deploy-mac]"
     echo ""
     echo "Options:"
     echo "  --version, -v   Set the version (default: read from csproj)"
     echo "  --rid, -r       Build for a specific RID (default: all)"
     echo "                  Available: win-x64, osx-arm64, osx-x64, linux-x64"
+    echo "  --deploy-mac    Build osx-arm64 slim and deploy to /Applications/FFApp.app"
     echo ""
     echo "Examples:"
     echo "  $0                          Build all platforms"
     echo "  $0 --rid osx-arm64          Build macOS ARM only"
     echo "  $0 --version 1.2.3          Build all with version 1.2.3"
+    echo "  $0 --deploy-mac             Build and deploy to /Applications"
     exit 1
 }
 
@@ -35,6 +38,10 @@ while [[ $# -gt 0 ]]; do
         --rid|-r)
             RIDS+=("$2")
             shift 2
+            ;;
+        --deploy-mac)
+            DEPLOY_MAC=true
+            shift
             ;;
         --help|-h)
             usage
@@ -163,6 +170,28 @@ package_linux() {
     tar -czf "$DIST_DIR/$archive_name.tar.gz" -C "$DIST_DIR/staging" "$archive_name"
     rm -rf "$staging"
 }
+
+if [[ "$DEPLOY_MAC" == true ]]; then
+    echo "Building and deploying $APP_NAME v$VERSION to /Applications..."
+    echo ""
+
+    mkdir -p "$DIST_DIR"
+    publish "osx-arm64" false "slim"
+    package_macos "osx-arm64" "slim"
+
+    local_app="/Applications/$APP_NAME.app"
+    built_app="$DIST_DIR/$APP_NAME-$VERSION-osx-arm64-slim.app"
+
+    rm -rf "$local_app"
+    cp -r "$built_app" "$local_app"
+
+    rm -rf "$DIST_DIR/publish" "$DIST_DIR/staging"
+    rm -rf "$built_app"
+
+    echo ""
+    echo "Deployed to $local_app"
+    exit 0
+fi
 
 for RID in "${RIDS[@]}"; do
     echo ""

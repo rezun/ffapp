@@ -36,6 +36,16 @@ public partial class BitrateViewModel : ObservableObject
         }
     }
 
+    [ObservableProperty]
+    private string? _estimatedFileSizeText;
+
+    public bool HasEstimatedFileSize => !string.IsNullOrEmpty(EstimatedFileSizeText);
+
+    partial void OnEstimatedFileSizeTextChanged(string? value)
+    {
+        OnPropertyChanged(nameof(HasEstimatedFileSize));
+    }
+
     partial void OnVideoBitrateKbpsChanged(decimal value)
     {
         OnPropertyChanged(nameof(VideoBitrateKbpsText));

@@ -84,7 +84,9 @@ public partial class OutputSettingsViewModel : ObservableObject
     {
         _trimmedDurationSeconds = effectiveDurationSeconds;
         RefreshValidation();
-        UpdateFileSizeBitrateDisplay(BuildSettings());
+        var settings = BuildSettings();
+        UpdateFileSizeBitrateDisplay(settings);
+        UpdateBitrateFileSizeDisplay(settings);
     }
 
     public void UpdateSourceInfo(SourceMediaInfo mediaInfo)
@@ -249,6 +251,7 @@ public partial class OutputSettingsViewModel : ObservableObject
         var settings = BuildSettings();
         RefreshValidation(settings);
         UpdateFileSizeBitrateDisplay(settings);
+        UpdateBitrateFileSizeDisplay(settings);
         _messenger.Send(new OutputSettingsChangedMessage(settings));
     }
 
@@ -325,6 +328,46 @@ public partial class OutputSettingsViewModel : ObservableObject
         var videoBitrate = (int)(videoBudgetBits / effectiveDuration);
         var mbps = videoBitrate / 1_000_000.0;
         Strategy.FileSize.VideoBitrateText = $"~{mbps:F2} Mbps video bitrate";
+    }
+
+    private void UpdateBitrateFileSizeDisplay(OutputSettings settings)
+    {
+        if (settings.VideoMode != VideoMode.Reencode
+            || Strategy.SelectedStrategy != EncodingStrategy.TargetBitrate
+            || _mediaInfo is null)
+        {
+            Strategy.Bitrate.EstimatedFileSizeText = null;
+            return;
+        }
+
+        if (_mediaInfo.DurationSeconds is null or <= 0)
+        {
+            Strategy.Bitrate.EstimatedFileSizeText = null;
+            return;
+        }
+
+        var effectiveDuration = _trimmedDurationSeconds ?? _mediaInfo.DurationSeconds.Value;
+        var videoBits = (long)settings.TargetBitrate.VideoBitrate * (long)effectiveDuration;
+
+        var audioBits = CompatibilityData.EstimateAudioBits(
+            settings.AudioOptions.Mode,
+            settings.AudioOptions.Bitrate,
+            _mediaInfo.AudioStreams,
+            effectiveDuration);
+
+        if (audioBits is null)
+        {
+            Strategy.Bitrate.EstimatedFileSizeText = null;
+            return;
+        }
+
+        var totalBits = videoBits + audioBits.Value;
+        var totalBytes = totalBits / 8.0;
+        var totalMb = totalBytes / (1024.0 * 1024.0);
+
+        Strategy.Bitrate.EstimatedFileSizeText = totalMb >= 1024
+            ? $"~{totalMb / 1024.0:F2} GiB estimated"
+            : $"~{totalMb:F0} MiB estimated";
     }
 
     private static VideoEncoderOptions BuildVideoEncoderOptions(VideoCodec codec, QualityViewModel quality) =>

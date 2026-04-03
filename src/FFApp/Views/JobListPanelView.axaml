@@ -11,94 +11,54 @@
         <conv:JobStateToColorConverter x:Key="StateToColor" />
     </UserControl.Resources>
 
-    <DockPanel Margin="4,8,8,8">
+    <Grid x:Name="QueueDetailGrid" RowDefinitions="3*,6,1*" Margin="4,8,8,8">
 
-        <!-- Header + execution controls -->
-        <DockPanel DockPanel.Dock="Top" Margin="8,0,8,4">
-            <TextBlock Text="Encode Queue"
-                       Classes="panel-header"
-                       VerticalAlignment="Center" />
-            <StackPanel Orientation="Horizontal"
-                        HorizontalAlignment="Right"
-                        Spacing="4">
-                <Button Classes="accent"
-                        Content="Start"
-                        Command="{Binding StartCommand}"
-                        IsVisible="{Binding !IsRunning}"
-                        Padding="8,2"
-                        FontSize="11" />
-                <Button Classes="warning"
-                        Command="{Binding PauseResumeCommand}"
-                        Padding="8,2"
-                        FontSize="11"
-                        IsVisible="{Binding IsRunning}">
-                    <Panel>
-                        <TextBlock Text="Pause" IsVisible="{Binding !IsPaused}" />
-                        <TextBlock Text="Resume" IsVisible="{Binding IsPaused}" />
-                    </Panel>
-                </Button>
-                <Button Classes="danger"
-                        Content="Stop"
-                        Command="{Binding StopCommand}"
-                        IsVisible="{Binding IsRunning}"
-                        Padding="8,2"
-                        FontSize="11" />
-            </StackPanel>
-        </DockPanel>
+        <!-- Panel 1: Encode Queue -->
+        <Border Grid.Row="0" Classes="card" MinHeight="200">
+            <DockPanel>
+                <!-- Header + execution controls -->
+                <DockPanel DockPanel.Dock="Top" Margin="8,6,8,4">
+                    <TextBlock Text="Encode Queue"
+                               Classes="card-header" Margin="0"
+                               VerticalAlignment="Center" />
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Right"
+                                Spacing="4">
+                        <Button Classes="accent"
+                                Content="Start"
+                                Command="{Binding StartCommand}"
+                                IsVisible="{Binding !IsRunning}"
+                                Padding="8,2"
+                                FontSize="11" />
+                        <Button Classes="warning"
+                                Command="{Binding PauseResumeCommand}"
+                                Padding="8,2"
+                                FontSize="11"
+                                IsVisible="{Binding IsRunning}">
+                            <Panel>
+                                <TextBlock Text="Pause" IsVisible="{Binding !IsPaused}" />
+                                <TextBlock Text="Resume" IsVisible="{Binding IsPaused}" />
+                            </Panel>
+                        </Button>
+                        <Button Classes="danger"
+                                Content="Stop"
+                                Command="{Binding StopCommand}"
+                                IsVisible="{Binding IsRunning}"
+                                Padding="8,2"
+                                FontSize="11" />
+                    </StackPanel>
+                </DockPanel>
 
-        <!-- Summary text -->
-        <TextBlock DockPanel.Dock="Top"
-                   Text="{Binding SummaryText}"
-                   FontSize="12"
-                   Foreground="{DynamicResource TextSecondaryBrush}"
-                   Margin="8,0,8,4" />
+                <!-- Summary text -->
+                <TextBlock DockPanel.Dock="Top"
+                           Text="{Binding SummaryText}"
+                           FontSize="12"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           Margin="8,0,8,4" />
 
-        <!-- Job list + splitter + details -->
-        <Grid RowDefinitions="*,6,Auto">
-
-            <!-- Job list -->
-            <ListBox x:Name="JobList"
-                     Grid.Row="0"
-                     ItemsSource="{Binding Jobs}"
-                     SelectedItem="{Binding SelectedJob}"
-                     SelectionMode="Multiple"
-                     Background="{DynamicResource SurfaceCardBrush}"
-                     MinHeight="60">
-                <ListBox.ItemTemplate>
-                    <DataTemplate x:DataType="vm:JobItemViewModel">
-                        <StackPanel Spacing="2">
-                            <DockPanel>
-                                <TextBlock DockPanel.Dock="Right"
-                                           Text="{Binding State}"
-                                           Foreground="{Binding State, Converter={StaticResource StateToColor}}"
-                                           Margin="8,0,0,0" />
-                                <TextBlock Text="{Binding DisplayLabel}"
-                                           TextTrimming="CharacterEllipsis" />
-                            </DockPanel>
-                            <StackPanel Spacing="2"
-                                        IsVisible="{Binding ProgressText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                                <TextBlock Text="{Binding ProgressText}"
-                                           FontSize="11"
-                                           Opacity="0.75" />
-                                <ProgressBar Value="{Binding Percentage}"
-                                             Minimum="0"
-                                             Maximum="100"
-                                             Height="4"
-                                             Foreground="{DynamicResource SystemAccentColor}"
-                                             Opacity="0.9" />
-                            </StackPanel>
-                        </StackPanel>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
-
-            <!-- Splitter -->
-            <GridSplitter Grid.Row="1" Height="6" ResizeDirection="Rows" />
-
-            <!-- Details + cleanup buttons -->
-            <DockPanel Grid.Row="2" MinHeight="80">
-                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal"
-                            Spacing="4" Margin="0,0,0,4">
+                <!-- Bottom actions -->
+                <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
+                            Spacing="4" Margin="8,4,8,6">
                     <Button Content="Remove"
                             Command="{Binding RemoveSelectedCommand}"
                             Padding="6,2"
@@ -112,10 +72,57 @@
                             Padding="6,2"
                             FontSize="11" />
                 </StackPanel>
+
+                <!-- Job list -->
+                <ListBox x:Name="JobList"
+                         ItemsSource="{Binding Jobs}"
+                         SelectedItem="{Binding SelectedJob}"
+                         SelectionMode="Multiple"
+                         Background="{DynamicResource SurfaceCardBrush}"
+                         MinHeight="60"
+                         Margin="4,0,4,0">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:JobItemViewModel">
+                            <StackPanel Spacing="2">
+                                <DockPanel>
+                                    <TextBlock DockPanel.Dock="Right"
+                                               Text="{Binding State}"
+                                               Foreground="{Binding State, Converter={StaticResource StateToColor}}"
+                                               Margin="8,0,0,0" />
+                                    <TextBlock Text="{Binding DisplayLabel}"
+                                               TextTrimming="CharacterEllipsis" />
+                                </DockPanel>
+                                <StackPanel Spacing="2"
+                                            IsVisible="{Binding ProgressText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                    <TextBlock Text="{Binding ProgressText}"
+                                               FontSize="11"
+                                               Opacity="0.75" />
+                                    <ProgressBar Value="{Binding Percentage}"
+                                                 Minimum="0"
+                                                 Maximum="100"
+                                                 Height="4"
+                                                 Foreground="{DynamicResource SystemAccentColor}"
+                                                 Opacity="0.9" />
+                                </StackPanel>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+        </Border>
+
+        <!-- Splitter between the two panels -->
+        <GridSplitter Grid.Row="1" Height="6" ResizeDirection="Rows" />
+
+        <!-- Panel 2: Details -->
+        <Border Grid.Row="2" Classes="card" MinHeight="80">
+            <DockPanel Margin="8,6,8,8">
+                <TextBlock DockPanel.Dock="Top"
+                           Text="Details"
+                           Classes="card-header" Margin="0,0,0,4" />
                 <views:JobItemDetailsView DataContext="{Binding Details}" />
             </DockPanel>
+        </Border>
 
-        </Grid>
-
-    </DockPanel>
+    </Grid>
 </UserControl>

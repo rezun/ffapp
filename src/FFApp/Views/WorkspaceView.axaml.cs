@@ -82,6 +82,12 @@ public partial class WorkspaceView : UserControl
 
         if (layout.PreviewHeight > 0)
             _savedPreviewHeight = layout.PreviewHeight;
+
+        if (layout.QueueSplitterSizes is { Length: 2 })
+        {
+            var jobListPanel = this.GetVisualDescendants().OfType<JobListPanelView>().FirstOrDefault();
+            jobListPanel?.RestoreSplitterSizes(layout.QueueSplitterSizes);
+        }
     }
 
     public SplitterLayout GetSplitterLayout()
@@ -95,9 +101,13 @@ public partial class WorkspaceView : UserControl
             ? (int)PreviewSettingsGrid.RowDefinitions[0].ActualHeight
             : _savedPreviewHeight;
 
+        var jobListPanel = this.GetVisualDescendants().OfType<JobListPanelView>().FirstOrDefault();
+        var queueSizes = jobListPanel?.GetSplitterSizes() ?? [];
+
         return new SplitterLayout
         {
             MainSplitterSizes = [col0, col2, col4],
+            QueueSplitterSizes = queueSizes,
             PreviewHeight = previewHeight,
         };
     }

@@ -7,63 +7,50 @@ using NSubstitute;
 
 namespace FFApp.Tests.ViewModels;
 
-public class SourcePanelViewModelTests
+public class SourceListPanelViewModelTests
 {
     private readonly IMediaProbeService _probeService = Substitute.For<IMediaProbeService>();
     private readonly IDialogService _dialogService = Substitute.For<IDialogService>();
     private readonly IMessenger _messenger = Substitute.For<IMessenger>();
-    private readonly SourcePanelViewModel _sut;
+    private readonly SourceListPanelViewModel _sut;
 
-    public SourcePanelViewModelTests()
+    public SourceListPanelViewModelTests()
     {
-        _sut = new SourcePanelViewModel(_probeService, _dialogService, _messenger);
+        _sut = new SourceListPanelViewModel(_probeService, _dialogService, _messenger);
     }
 
     [Fact]
-    public void MediaSummaryText_WhenNoMediaInfo_ReturnsEmpty()
+    public void MediaSummaryText_WhenNoSelectedSource_ReturnsEmpty()
     {
         _sut.MediaSummaryText.Should().BeEmpty();
     }
 
     [Fact]
-    public async Task ChooseFileAsync_DialogReturnsNull_NoProbe()
+    public async Task AddFilesAsync_DialogReturnsNull_NoProbe()
     {
-        _dialogService.OpenFileAsync(Arg.Any<string>(), Arg.Any<string?>())
-            .Returns((string?)null);
+        _dialogService.OpenFilesAsync(Arg.Any<string>(), Arg.Any<string?>())
+            .Returns((string[]?)null);
 
-        await _sut.ChooseFileCommand.ExecuteAsync(null);
+        await _sut.AddFilesCommand.ExecuteAsync(null);
 
         await _probeService.DidNotReceive().ProbeAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task PastePathAsync_ClipboardEmpty_NoProbe()
+    public void Default_StatusText_IsNoSourceFilesLoaded()
     {
-        _dialogService.GetClipboardTextAsync()
-            .Returns((string?)null);
-
-        await _sut.PastePathCommand.ExecuteAsync(null);
-
-        await _probeService.DidNotReceive().ProbeAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        _sut.StatusText.Should().Be("No source files loaded.");
     }
 
     [Fact]
-    public async Task LoadSource_NonexistentFile_SetsFileNotFoundStatus()
+    public void Default_SelectedSource_IsNull()
     {
-        await _sut.LoadSource("/does/not/exist.mp4");
-
-        _sut.StatusText.Should().Be("File not found.");
+        _sut.SelectedSource.Should().BeNull();
     }
 
     [Fact]
-    public void Default_StatusText_IsNoSourceFileLoaded()
+    public void Default_Sources_IsEmpty()
     {
-        _sut.StatusText.Should().Be("No source file loaded.");
-    }
-
-    [Fact]
-    public void Default_MediaInfo_IsNull()
-    {
-        _sut.MediaInfo.Should().BeNull();
+        _sut.Sources.Should().BeEmpty();
     }
 }

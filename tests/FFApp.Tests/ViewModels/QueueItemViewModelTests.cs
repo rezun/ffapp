@@ -1,4 +1,3 @@
-using System.Collections.Immutable;
 using FFApp.Core.Models;
 using FFApp.Tests.Builders;
 using FFApp.ViewModels;
@@ -6,12 +5,17 @@ using FluentAssertions;
 
 namespace FFApp.Tests.ViewModels;
 
-public class QueueItemViewModelTests
+public class JobItemViewModelTests
 {
     private static readonly SourceMediaInfo DefaultMedia = new TestMediaInfoBuilder().Build();
 
-    private static QueueItemViewModel CreateSut(string id = "item-1", string label = "source.mp4") =>
-        new(id, DefaultMedia, label);
+    private static JobItemViewModel CreateSut(
+        string id = "item-1", string label = "source.mp4")
+    {
+        var job = new TestJobDefinitionBuilder().Build();
+        var queuedJob = new QueuedJob(job, DefaultMedia, [], new ValidationResult());
+        return new JobItemViewModel(id, DefaultMedia, queuedJob, label);
+    }
 
     [Fact]
     public void Constructor_SetsInitialState()
@@ -24,7 +28,7 @@ public class QueueItemViewModelTests
         sut.Percentage.Should().Be(0);
         sut.ProgressText.Should().BeEmpty();
         sut.LogText.Should().BeEmpty();
-        sut.QueuedJob.Should().BeNull();
+        sut.QueuedJob.Should().NotBeNull();
         sut.Result.Should().BeNull();
     }
 
@@ -41,19 +45,7 @@ public class QueueItemViewModelTests
         sut.Percentage.Should().Be(0);
         sut.ProgressText.Should().BeEmpty();
         sut.LogText.Should().BeEmpty();
-        sut.QueuedJob.Should().BeNull();
         sut.Result.Should().BeNull();
-    }
-
-    [Fact]
-    public void ResolveWithSettings_SetsQueuedJob()
-    {
-        var sut = CreateSut();
-        var job = CreateQueuedJob();
-
-        sut.ResolveWithSettings(job);
-
-        sut.QueuedJob.Should().BeSameAs(job);
     }
 
     [Fact]
@@ -105,12 +97,6 @@ public class QueueItemViewModelTests
 
         sut.LogText.Should().Contain("line one");
         sut.LogText.Should().Contain("line two");
-    }
-
-    private static QueuedJob CreateQueuedJob()
-    {
-        var jobDef = new TestJobDefinitionBuilder().Build();
-        return new QueuedJob(jobDef, DefaultMedia, [], new ValidationResult());
     }
 
     private static JobResult CreateJobResult(JobState state) =>

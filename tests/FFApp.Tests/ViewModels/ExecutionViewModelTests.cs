@@ -8,63 +8,22 @@ using NSubstitute;
 
 namespace FFApp.Tests.ViewModels;
 
-public class ExecutionViewModelTests
+public class JobListPanelViewModelTests
 {
-    private readonly IJobExecutionService _jobService = Substitute.For<IJobExecutionService>();
+    private readonly IQueueService _queueService = Substitute.For<IQueueService>();
+    private readonly ICommandBuilder _commandBuilder = Substitute.For<ICommandBuilder>();
+    private readonly IValidationService _validationService = Substitute.For<IValidationService>();
     private readonly IDialogService _dialogService = Substitute.For<IDialogService>();
-    private readonly ExecutionViewModel _sut;
+    private readonly JobListPanelViewModel _sut;
 
-    public ExecutionViewModelTests()
+    public JobListPanelViewModelTests()
     {
-        _sut = new ExecutionViewModel(_jobService, _dialogService);
+        _sut = new JobListPanelViewModel(
+            _queueService, _commandBuilder, _validationService, _dialogService);
     }
 
     private static JobContext MakeContext() =>
         new(new TestMediaInfoBuilder().Build(), new OutputSettings());
-
-    [Fact]
-    public void CanStart_NullContext_ReturnsFalse()
-    {
-        _sut.CanStart.Should().BeFalse();
-    }
-
-    [Fact]
-    public void CanStart_WithValidContext_ReturnsTrue()
-    {
-        _sut.UpdateJobContext(MakeContext());
-
-        _sut.CanStart.Should().BeTrue();
-    }
-
-    [Fact]
-    public void CanStart_WithValidationErrors_ReturnsFalse()
-    {
-        _sut.UpdateJobContext(MakeContext());
-        _sut.UpdateHasValidationErrors(true);
-
-        _sut.CanStart.Should().BeFalse();
-    }
-
-    [Fact]
-    public void UpdateJobContext_TransitionsCanStart()
-    {
-        _sut.CanStart.Should().BeFalse();
-
-        _sut.UpdateJobContext(MakeContext());
-
-        _sut.CanStart.Should().BeTrue();
-    }
-
-    [Fact]
-    public void UpdateJobContext_Null_ClearsCanStart()
-    {
-        _sut.UpdateJobContext(MakeContext());
-        _sut.CanStart.Should().BeTrue();
-
-        _sut.UpdateJobContext(null);
-
-        _sut.CanStart.Should().BeFalse();
-    }
 
     [Fact]
     public void Default_IsRunning_IsFalse()
@@ -73,8 +32,44 @@ public class ExecutionViewModelTests
     }
 
     [Fact]
-    public void Default_StateText_IsReady()
+    public void Default_SummaryText_IsNoJobs()
     {
-        _sut.StateText.Should().Be("Ready");
+        _sut.SummaryText.Should().Be("No jobs.");
+    }
+
+    [Fact]
+    public void Default_HasValidationErrors_IsFalse()
+    {
+        _sut.HasValidationErrors.Should().BeFalse();
+    }
+
+    [Fact]
+    public void UpdateHasValidationErrors_SetsProperty()
+    {
+        _sut.UpdateHasValidationErrors(true);
+        _sut.HasValidationErrors.Should().BeTrue();
+
+        _sut.UpdateHasValidationErrors(false);
+        _sut.HasValidationErrors.Should().BeFalse();
+    }
+
+    [Fact]
+    public void UpdateJobContext_Null_IsAccepted()
+    {
+        _sut.UpdateJobContext(MakeContext());
+        _sut.UpdateJobContext(null);
+        // Should not throw
+    }
+
+    [Fact]
+    public void Default_Jobs_IsEmpty()
+    {
+        _sut.Jobs.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Default_IsPaused_IsFalse()
+    {
+        _sut.IsPaused.Should().BeFalse();
     }
 }

@@ -148,6 +148,11 @@ public partial class MainWindow : Window
                 if (workspace.CurrentSettings is { } outputSettings)
                     vm.UpdateSettings(s => s with { LastUsedSettings = outputSettings });
 
+                vm.UpdateSettings(s => s with
+                {
+                    LastUsedPresetName = workspace.Preset.SelectedPreset?.Name,
+                });
+
                 var workspaceView = this.GetVisualDescendants().OfType<WorkspaceView>().FirstOrDefault();
                 if (workspaceView is not null)
                 {

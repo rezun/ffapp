@@ -142,9 +142,21 @@ public partial class WorkspaceViewModel : ObservableObject,
         }
     }
 
-    public async Task LoadAsync()
+    public async Task LoadAsync(AppSettings appSettings)
     {
         await Preset.LoadPresetsAsync();
+
+        // Restore last-used output settings into the workspace. This fires an
+        // OutputSettingsChangedMessage, which in turn calls Preset.SyncWithSettings —
+        // so any value-equality match against a saved preset will auto-select it.
+        OutputSettings.ApplySettings(appSettings.LastUsedSettings);
+
+        // If a preset was selected at exit, re-establish the association. When the
+        // stored blob matches the preset exactly, SyncWithSettings has already done
+        // this via value-equality. When it differs, this call selects the preset
+        // without overwriting the restored settings, leaving it in dirty state.
+        if (Preset.SelectedPreset is null)
+            Preset.RestoreSelection(appSettings.LastUsedPresetName);
     }
 
     public void Receive(SourceLoadedMessage message)

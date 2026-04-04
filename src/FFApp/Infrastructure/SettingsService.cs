@@ -39,6 +39,8 @@ public sealed class SettingsService(string? path = null) : ISettingsService
             lastUsedSettings = new OutputSettings();
         }
 
+        var lastUsedPresetName = ReadOptionalString(root, "last_used_preset_name");
+
         var splitterLayout = DeserializeSplitterLayout(root);
         var windowGeometry = DeserializeWindowGeometry(root);
         var themeStr = ReadOptionalString(root, "theme_preference") ?? "system";
@@ -51,6 +53,7 @@ public sealed class SettingsService(string? path = null) : ISettingsService
             SchemaVersion = schemaVersion,
             ExecutablePaths = executablePaths,
             LastUsedSettings = lastUsedSettings,
+            LastUsedPresetName = lastUsedPresetName,
             SplitterLayout = splitterLayout,
             WindowGeometry = windowGeometry,
             ThemePreference = themePreference,
@@ -91,6 +94,7 @@ public sealed class SettingsService(string? path = null) : ISettingsService
             },
             ["last_used_settings"] = SettingsSerializer.SerializeOutputSettings(
                 settings.LastUsedSettings),
+            ["last_used_preset_name"] = settings.LastUsedPresetName,
             ["splitter_layout"] = new JsonObject
             {
                 ["main_splitter_sizes"] = ToJsonArray(settings.SplitterLayout.MainSplitterSizes),

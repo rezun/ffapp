@@ -109,7 +109,7 @@ public partial class MainWindowViewModel : ObservableObject,
 
         var workspace = _workspaceScope.ServiceProvider
             .GetRequiredService<WorkspaceViewModel>();
-        await workspace.LoadAsync();
+        await workspace.LoadAsync(LoadedSettings ?? new AppSettings());
         CurrentView = workspace;
     }
 

@@ -24,12 +24,13 @@ public class PresetViewModelTests
     }
 
     [Fact]
-    public async Task LoadPresetsAsync_AddsCurrentSettingsFirst()
+    public async Task LoadPresetsAsync_EmptyLibrary_ListIsEmpty()
     {
         await _sut.LoadPresetsAsync();
 
-        _sut.Presets.Should().HaveCountGreaterThanOrEqualTo(1);
-        _sut.Presets[0].Name.Should().Be("Current Settings");
+        _sut.Presets.Should().BeEmpty();
+        _sut.SelectedPreset.Should().BeNull();
+        _sut.IsUserPresetSelected.Should().BeFalse();
     }
 
     [Fact]
@@ -41,8 +42,9 @@ public class PresetViewModelTests
 
         await _sut.LoadPresetsAsync();
 
-        _sut.Presets.Should().HaveCount(2);
-        _sut.Presets[1].Name.Should().Be("My Preset");
+        _sut.Presets.Should().HaveCount(1);
+        _sut.Presets[0].Name.Should().Be("My Preset");
+        _sut.SelectedPreset.Should().BeNull();
     }
 
     [Fact]
@@ -70,20 +72,24 @@ public class PresetViewModelTests
     }
 
     [Fact]
-    public async Task DeletePresetAsync_UserConfirms_ServiceCalled()
+    public async Task DeletePresetAsync_UserConfirms_ServiceCalledAndSelectionCleared()
     {
         var userPreset = new PresetDefinition("To Delete", new OutputSettings());
         _presetService.LoadAllAsync(Arg.Any<CancellationToken>())
             .Returns([userPreset]);
         await _sut.LoadPresetsAsync();
-        _sut.SelectedPreset = _sut.Presets[1];
+        _sut.SelectedPreset = _sut.Presets[0];
 
+        // Second load after delete returns empty library.
+        _presetService.LoadAllAsync(Arg.Any<CancellationToken>())
+            .Returns([]);
         _dialogService.ConfirmAsync(Arg.Any<string>(), Arg.Any<string>())
             .Returns(true);
 
         await _sut.DeletePresetCommand.ExecuteAsync(null);
 
         await _presetService.Received().DeleteAsync("To Delete", Arg.Any<CancellationToken>());
+        _sut.SelectedPreset.Should().BeNull();
     }
 
     [Fact]
@@ -93,7 +99,7 @@ public class PresetViewModelTests
         _presetService.LoadAllAsync(Arg.Any<CancellationToken>())
             .Returns([userPreset]);
         await _sut.LoadPresetsAsync();
-        _sut.SelectedPreset = _sut.Presets[1];
+        _sut.SelectedPreset = _sut.Presets[0];
 
         _dialogService.ConfirmAsync(Arg.Any<string>(), Arg.Any<string>())
             .Returns(false);
@@ -104,7 +110,7 @@ public class PresetViewModelTests
     }
 
     [Fact]
-    public void SelectedPresetChange_InvokesCallback()
+    public void SelectedPresetChange_NonNull_InvokesCallback()
     {
         var preset = new PresetDefinition("Test", new OutputSettings(Container: OutputContainer.Mkv));
 
@@ -115,23 +121,164 @@ public class PresetViewModelTests
     }
 
     [Fact]
-    public async Task IsUserPresetSelected_CurrentSettings_ReturnsFalse()
+    public void SelectedPresetChange_Null_DoesNotInvokeCallback()
+    {
+        _sut.SelectedPreset = null;
+
+        _appliedSettings.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task SyncWithSettings_MatchesPreset_SelectsItAndClearsDirty()
+    {
+        var settings = new OutputSettings(Container: OutputContainer.Webm, VideoCodec: VideoCodec.Vp9);
+        var preset = new PresetDefinition("Web", settings);
+        _presetService.LoadAllAsync(Arg.Any<CancellationToken>())
+            .Returns([preset]);
+        await _sut.LoadPresetsAsync();
+
+        _sut.UpdateOutputSettings(settings);
+
+        _sut.SelectedPreset.Should().Be(preset);
+        _sut.IsPresetDirty.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task SyncWithSettings_PresetSelectedAndValuesDrift_MarksDirty()
+    {
+        var original = new OutputSettings(Container: OutputContainer.Mp4);
+        var preset = new PresetDefinition("Base", original);
+        _presetService.LoadAllAsync(Arg.Any<CancellationToken>())
+            .Returns([preset]);
+        await _sut.LoadPresetsAsync();
+        _sut.SelectedPreset = _sut.Presets[0];
+
+        var drifted = new OutputSettings(Container: OutputContainer.Mkv);
+        _sut.UpdateOutputSettings(drifted);
+
+        _sut.IsPresetDirty.Should().BeTrue();
+        _sut.SelectedPreset.Should().Be(preset);
+    }
+
+    [Fact]
+    public async Task SyncWithSettings_NoSelection_NoMatch_StaysCleanAndNull()
+    {
+        var preset = new PresetDefinition("Base", new OutputSettings(Container: OutputContainer.Mp4));
+        _presetService.LoadAllAsync(Arg.Any<CancellationToken>())
+            .Returns([preset]);
+        await _sut.LoadPresetsAsync();
+
+        _sut.UpdateOutputSettings(new OutputSettings(Container: OutputContainer.Mkv));
+
+        _sut.SelectedPreset.Should().BeNull();
+        _sut.IsPresetDirty.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task RestoreSelection_NameMatches_SelectsWithoutInvokingCallback()
+    {
+        var preset = new PresetDefinition("Saved", new OutputSettings(Container: OutputContainer.Mkv));
+        _presetService.LoadAllAsync(Arg.Any<CancellationToken>())
+            .Returns([preset]);
+        await _sut.LoadPresetsAsync();
+
+        _sut.RestoreSelection("Saved");
+
+        _sut.SelectedPreset.Should().Be(preset);
+        _appliedSettings.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task RestoreSelection_NameMissing_LeavesSelectionNull()
+    {
+        var preset = new PresetDefinition("Only", new OutputSettings());
+        _presetService.LoadAllAsync(Arg.Any<CancellationToken>())
+            .Returns([preset]);
+        await _sut.LoadPresetsAsync();
+
+        _sut.RestoreSelection("Ghost");
+
+        _sut.SelectedPreset.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task RestoreSelection_WithDriftedSettings_MarksDirty()
+    {
+        var presetSettings = new OutputSettings(Container: OutputContainer.Mp4);
+        var preset = new PresetDefinition("Base", presetSettings);
+        _presetService.LoadAllAsync(Arg.Any<CancellationToken>())
+            .Returns([preset]);
+        await _sut.LoadPresetsAsync();
+
+        // Simulate the workspace having hydrated drifted settings before restoring the selection.
+        _sut.UpdateOutputSettings(new OutputSettings(Container: OutputContainer.Mkv));
+        _sut.RestoreSelection("Base");
+
+        _sut.SelectedPreset.Should().Be(preset);
+        _sut.IsPresetDirty.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task RevertPresetCommand_Dirty_AppliesOriginalAndClearsDirty()
+    {
+        var original = new OutputSettings(Container: OutputContainer.Mp4);
+        var preset = new PresetDefinition("Base", original);
+        _presetService.LoadAllAsync(Arg.Any<CancellationToken>())
+            .Returns([preset]);
+        await _sut.LoadPresetsAsync();
+        _sut.SelectedPreset = _sut.Presets[0];
+
+        // Drift settings to mark dirty.
+        _sut.UpdateOutputSettings(new OutputSettings(Container: OutputContainer.Mkv));
+        _sut.IsPresetDirty.Should().BeTrue();
+        _sut.RevertPresetCommand.CanExecute(null).Should().BeTrue();
+
+        _appliedSettings = null;
+        _sut.RevertPresetCommand.Execute(null);
+
+        _appliedSettings.Should().Be(original);
+
+        // Simulate the workspace echoing the reverted settings back through the message bus.
+        _sut.UpdateOutputSettings(original);
+        _sut.IsPresetDirty.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task RevertPresetCommand_Clean_CannotExecute()
+    {
+        var preset = new PresetDefinition("Base", new OutputSettings());
+        _presetService.LoadAllAsync(Arg.Any<CancellationToken>())
+            .Returns([preset]);
+        await _sut.LoadPresetsAsync();
+        _sut.SelectedPreset = _sut.Presets[0];
+
+        _sut.RevertPresetCommand.CanExecute(null).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task RevertPresetCommand_NoSelection_CannotExecute()
     {
         await _sut.LoadPresetsAsync();
-        _sut.SelectedPreset = _sut.Presets[0]; // "Current Settings"
+
+        _sut.RevertPresetCommand.CanExecute(null).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task IsUserPresetSelected_NoSelection_ReturnsFalse()
+    {
+        await _sut.LoadPresetsAsync();
 
         _sut.IsUserPresetSelected.Should().BeFalse();
     }
 
     [Fact]
-    public async Task IsUserPresetSelected_UserPreset_ReturnsTrue()
+    public async Task IsUserPresetSelected_PresetSelected_ReturnsTrue()
     {
         var userPreset = new PresetDefinition("User One", new OutputSettings());
         _presetService.LoadAllAsync(Arg.Any<CancellationToken>())
             .Returns([userPreset]);
         await _sut.LoadPresetsAsync();
-
-        _sut.SelectedPreset = _sut.Presets[1];
+        _sut.SelectedPreset = _sut.Presets[0];
 
         _sut.IsUserPresetSelected.Should().BeTrue();
     }

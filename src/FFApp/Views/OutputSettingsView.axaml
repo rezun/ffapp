@@ -31,9 +31,6 @@
         <DataTemplate x:Key="Av1TuneTemplate" x:DataType="sys:Int32">
             <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.Av1Tune}}" />
         </DataTemplate>
-        <DataTemplate x:Key="Av1EnableOverlaysTemplate" x:DataType="sys:Int32">
-            <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.Av1EnableOverlays}}" />
-        </DataTemplate>
         <DataTemplate x:Key="Av1ScmTemplate" x:DataType="sys:Int32">
             <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.Av1Scm}}" />
         </DataTemplate>
@@ -87,8 +84,7 @@
 
                     <!-- Re-encode settings (visible only when re-encoding) -->
                     <StackPanel Spacing="4" IsVisible="{Binding Format.IsVideoReencode}">
-                        <Grid ColumnDefinitions="85,Auto,16,85,Auto,*"
-                              RowDefinitions="Auto,Auto">
+                        <Grid ColumnDefinitions="85,Auto,16,Auto,8,Auto,16,Auto,8,Auto,*">
                             <TextBlock Text="Video Codec" VerticalAlignment="Center" />
                             <ctrl:NoWheelComboBox Grid.Column="1"
                                 MinWidth="108"
@@ -96,17 +92,14 @@
                                 SelectedItem="{Binding Format.SelectedVideoCodec}"
                                 ItemTemplate="{StaticResource VideoCodecTemplate}" />
                             <TextBlock Grid.Column="3" Text="Resolution" VerticalAlignment="Center" />
-                            <ctrl:NoWheelComboBox Grid.Column="4"
+                            <ctrl:NoWheelComboBox Grid.Column="5"
                                 MinWidth="108"
                                 ItemsSource="{Binding AvailableResolutions}"
                                 SelectedItem="{Binding SelectedResolution}"
                                 ItemTemplate="{StaticResource ResolutionTemplate}" />
-
-                            <TextBlock Grid.Row="1" Grid.Column="3" Text="Frame Rate"
-                                       VerticalAlignment="Center" Margin="0,4,0,0" />
-                            <ctrl:NoWheelComboBox Grid.Row="1" Grid.Column="4"
+                            <TextBlock Grid.Column="7" Text="Frame Rate" VerticalAlignment="Center" />
+                            <ctrl:NoWheelComboBox Grid.Column="9"
                                 MinWidth="108"
-                                Margin="0,4,0,0"
                                 ItemsSource="{Binding AvailableFrameRates}"
                                 SelectedItem="{Binding SelectedFrameRate}"
                                 ItemTemplate="{StaticResource FrameRateTemplate}" />
@@ -257,27 +250,23 @@
                                             <Run Text="{Binding Strategy.Quality.Av1Preset}" />
                                         </TextBlock>
                                     </Grid>
-                                    <Grid ColumnDefinitions="80,Auto,16,80,Auto" Margin="0,0,0,2">
+                                    <Grid ColumnDefinitions="80,Auto,16,Auto,8,Auto,16,Auto,*">
                                         <TextBlock Text="Tune" VerticalAlignment="Center" />
                                         <ctrl:NoWheelComboBox Grid.Column="1"
                                             MinWidth="120"
                                             ItemsSource="{Binding Strategy.Quality.AvailableAv1Tunes}"
                                             SelectedItem="{Binding Strategy.Quality.Av1Tune}"
                                             ItemTemplate="{StaticResource Av1TuneTemplate}" />
-                                        <TextBlock Grid.Column="3" Text="Overlays" VerticalAlignment="Center" />
-                                        <ctrl:NoWheelComboBox Grid.Column="4"
-                                            MinWidth="92"
-                                            ItemsSource="{Binding Strategy.Quality.AvailableAv1EnableOverlays}"
-                                            SelectedItem="{Binding Strategy.Quality.Av1EnableOverlays}"
-                                            ItemTemplate="{StaticResource Av1EnableOverlaysTemplate}" />
-                                    </Grid>
-                                    <Grid ColumnDefinitions="80,Auto">
-                                        <TextBlock Text="SCM" VerticalAlignment="Center" />
-                                        <ctrl:NoWheelComboBox Grid.Column="1"
-                                            MinWidth="180"
+                                        <TextBlock Grid.Column="3" Text="SCM" VerticalAlignment="Center" />
+                                        <ctrl:NoWheelComboBox Grid.Column="5"
+                                            MinWidth="160"
                                             ItemsSource="{Binding Strategy.Quality.AvailableAv1Scm}"
                                             SelectedItem="{Binding Strategy.Quality.Av1Scm}"
                                             ItemTemplate="{StaticResource Av1ScmTemplate}" />
+                                        <CheckBox Grid.Column="7"
+                                                  Content="Overlays"
+                                                  VerticalAlignment="Center"
+                                                  IsChecked="{Binding Strategy.Quality.Av1EnableOverlaysChecked}" />
                                     </Grid>
                                 </StackPanel>
                             </DockPanel>

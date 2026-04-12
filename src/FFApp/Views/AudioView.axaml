@@ -36,7 +36,7 @@
 
         <!-- Re-encode controls (visible only in Reencode mode) -->
         <StackPanel Spacing="4" IsVisible="{Binding IsReencodeMode}">
-            <Grid ColumnDefinitions="85,Auto,16,55,*">
+            <Grid ColumnDefinitions="85,Auto,16,75,*">
                 <TextBlock Text="Audio Codec" VerticalAlignment="Center" />
                 <ctrl:NoWheelComboBox Grid.Column="1"
                     Width="104"

@@ -42,6 +42,15 @@ public partial class QualityViewModel : ObservableObject
     [ObservableProperty]
     private int _av1EnableOverlays = 1;
 
+    public bool Av1EnableOverlaysChecked
+    {
+        get => Av1EnableOverlays != 0;
+        set => Av1EnableOverlays = value ? 1 : 0;
+    }
+
+    partial void OnAv1EnableOverlaysChanged(int value) =>
+        OnPropertyChanged(nameof(Av1EnableOverlaysChecked));
+
     [ObservableProperty]
     private int _av1Scm = 2;
 
@@ -67,10 +76,7 @@ public partial class QualityViewModel : ObservableObject
     public IReadOnlyList<int> AvailableAv1Tunes { get; } =
         CompatibilityData.Av1TuneOptions.ToList();
 
-    public IReadOnlyList<int> AvailableAv1EnableOverlays { get; } =
-        CompatibilityData.Av1EnableOverlaysOptions.ToList();
-
-    public IReadOnlyList<int> AvailableAv1Scm { get; } =
+public IReadOnlyList<int> AvailableAv1Scm { get; } =
         CompatibilityData.Av1ScmOptions.ToList();
 
     public void UpdateForCodec(VideoCodec codec)

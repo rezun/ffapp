@@ -58,13 +58,6 @@ public static class EnumLabelConverters
             _ => v.ToString(),
         });
 
-    public static readonly FuncValueConverter<int, string> Av1EnableOverlays =
-        new(v => v switch
-        {
-            0 => "Disabled",
-            1 => "Enabled",
-            _ => v.ToString(),
-        });
 
     public static readonly FuncValueConverter<int, string> Av1Scm =
         new(v => v switch

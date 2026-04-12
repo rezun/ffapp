@@ -10,6 +10,13 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceInclude Source="avares://FFApp/Themes/Tokens.axaml" />
             </ResourceDictionary.MergedDictionaries>
+            <!-- Override Fluent's 32px CheckBox/RadioButton min height so their
+                 internal glyph-grid (which uses this resource as a fixed Height)
+                 shrinks to match our compact 22px sizing. Without this override,
+                 overriding MinHeight via a Style has no effect on the internal
+                 glyph positioning, leaving the box visually offset from inline
+                 siblings like ComboBox/TextBox. -->
+            <x:Double x:Key="CheckBoxMinHeight">22</x:Double>
         </ResourceDictionary>
     </Application.Resources>
     <Application.Styles>
@@ -43,6 +50,7 @@
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Padding" Value="6,0,0,0" />
             <Setter Property="MinHeight" Value="22" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
         <Style Selector="RadioButton">
             <Setter Property="FontSize" Value="12" />

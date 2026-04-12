@@ -174,6 +174,7 @@
                         <Grid ColumnDefinitions="85,Auto,8,Auto,*" Margin="0,4,0,0">
                             <TextBlock Text="Keyframes" VerticalAlignment="Center" />
                             <ctrl:NumericTextBox Grid.Column="1"
+                                     Classes="numeric-input"
                                      MinWidth="72"
                                      Watermark="Auto"
                                      Text="{Binding KeyframeIntervalText}" />

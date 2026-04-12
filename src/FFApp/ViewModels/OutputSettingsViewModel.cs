@@ -28,6 +28,15 @@ public partial class OutputSettingsViewModel : ObservableObject
     [ObservableProperty]
     private FrameRatePreset _selectedFrameRate = FrameRatePreset.Original;
 
+    [ObservableProperty]
+    private string _keyframeIntervalText = "";
+
+    [ObservableProperty]
+    private KeyframeUnit _selectedKeyframeUnit = KeyframeUnit.Frames;
+
+    [ObservableProperty]
+    private IReadOnlyList<KeyframeUnit> _availableKeyframeUnits = [KeyframeUnit.Frames];
+
     public IReadOnlyList<ResolutionPreset> AvailableResolutions { get; } =
         Enum.GetValues<ResolutionPreset>();
 
@@ -54,6 +63,21 @@ public partial class OutputSettingsViewModel : ObservableObject
         if (!_isSuppressing)
             RebuildAndNotify();
     }
+
+    partial void OnKeyframeIntervalTextChanged(string value)
+    {
+        if (!_isSuppressing)
+            RebuildAndNotify();
+    }
+
+    partial void OnSelectedKeyframeUnitChanged(KeyframeUnit value)
+    {
+        if (!_isSuppressing)
+            RebuildAndNotify();
+    }
+
+    public int? KeyframeInterval =>
+        int.TryParse(KeyframeIntervalText, out var v) && v > 0 ? v : null;
 
     public OutputSettingsViewModel(IValidationService validationService, IMessenger messenger)
     {
@@ -123,6 +147,9 @@ public partial class OutputSettingsViewModel : ObservableObject
             Strategy.SelectedStrategy = settings.EncodingStrategy;
             SelectedResolution = settings.ResolutionPreset;
             SelectedFrameRate = settings.FrameRatePreset;
+            KeyframeIntervalText = settings.KeyframeInterval?.ToString() ?? "";
+            UpdateKeyframeUnitsForCodec(settings.VideoCodec);
+            SelectedKeyframeUnit = settings.KeyframeUnit;
 
             // Audio
             Audio.SelectedAudioMode = settings.AudioOptions.Mode;
@@ -209,7 +236,9 @@ public partial class OutputSettingsViewModel : ObservableObject
             ToneMapSettings: new ToneMapSettings(
                 Algorithm: Hdr.SelectedAlgorithm,
                 Desaturation: Hdr.Desaturation,
-                PeakNits: Hdr.PeakNits));
+                PeakNits: Hdr.PeakNits),
+            KeyframeInterval: KeyframeInterval,
+            KeyframeUnit: SelectedKeyframeUnit);
     }
 
     private void OnChildPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -235,6 +264,7 @@ public partial class OutputSettingsViewModel : ObservableObject
         {
             Strategy.Quality.UpdateForCodec(Format.SelectedVideoCodec);
             Hdr.UpdateForCodec(Format.SelectedVideoCodec);
+            UpdateKeyframeUnitsForCodec(Format.SelectedVideoCodec);
         }
 
         if (e.PropertyName is nameof(FormatViewModel.AvailableAudioCodecs)
@@ -385,7 +415,10 @@ public partial class OutputSettingsViewModel : ObservableObject
                 TileColumns: quality.VpxTileColumns,
                 TileRows: quality.VpxTileRows),
             VideoCodec.Av1 => new Av1EncoderOptions(
-                Preset: quality.Av1Preset),
+                Preset: quality.Av1Preset,
+                Tune: quality.Av1Tune,
+                EnableOverlays: quality.Av1EnableOverlays,
+                Scm: quality.Av1Scm),
             _ => new H264EncoderOptions(),
         };
 
@@ -408,7 +441,10 @@ public partial class OutputSettingsViewModel : ObservableObject
                 TwoPass: quality.VpxTwoPass),
             VideoCodec.Av1 => new Av1QualityOptions(
                 Crf: quality.Av1Crf,
-                Preset: quality.Av1Preset),
+                Preset: quality.Av1Preset,
+                Tune: quality.Av1Tune,
+                EnableOverlays: quality.Av1EnableOverlays,
+                Scm: quality.Av1Scm),
             _ => new H264QualityOptions(),
         };
 
@@ -439,6 +475,9 @@ public partial class OutputSettingsViewModel : ObservableObject
             case Av1QualityOptions av1:
                 Strategy.Quality.Av1Crf = av1.Crf;
                 Strategy.Quality.Av1Preset = av1.Preset;
+                Strategy.Quality.Av1Tune = av1.Tune;
+                Strategy.Quality.Av1EnableOverlays = av1.EnableOverlays;
+                Strategy.Quality.Av1Scm = av1.Scm;
                 break;
         }
     }
@@ -462,7 +501,20 @@ public partial class OutputSettingsViewModel : ObservableObject
                 break;
             case Av1EncoderOptions av1:
                 Strategy.Quality.Av1Preset = av1.Preset;
+                Strategy.Quality.Av1Tune = av1.Tune;
+                Strategy.Quality.Av1EnableOverlays = av1.EnableOverlays;
+                Strategy.Quality.Av1Scm = av1.Scm;
                 break;
         }
+    }
+
+    private static readonly IReadOnlyList<KeyframeUnit> FramesOnly = [KeyframeUnit.Frames];
+    private static readonly IReadOnlyList<KeyframeUnit> FramesAndSeconds = [KeyframeUnit.Frames, KeyframeUnit.Seconds];
+
+    private void UpdateKeyframeUnitsForCodec(VideoCodec codec)
+    {
+        AvailableKeyframeUnits = codec == VideoCodec.Av1 ? FramesAndSeconds : FramesOnly;
+        if (SelectedKeyframeUnit == KeyframeUnit.Seconds && codec != VideoCodec.Av1)
+            SelectedKeyframeUnit = KeyframeUnit.Frames;
     }
 }

@@ -37,6 +37,15 @@ public partial class QualityViewModel : ObservableObject
     private int _av1Preset = 6;
 
     [ObservableProperty]
+    private int _av1Tune;
+
+    [ObservableProperty]
+    private int _av1EnableOverlays = 1;
+
+    [ObservableProperty]
+    private int _av1Scm = 2;
+
+    [ObservableProperty]
     private bool _isH26xCodec = true;
 
     [ObservableProperty]
@@ -54,6 +63,15 @@ public partial class QualityViewModel : ObservableObject
     public IReadOnlyList<int> AvailableTileColumns { get; } = [0, 1, 2, 3, 4, 5, 6];
 
     public IReadOnlyList<int> AvailableTileRows { get; } = [0, 1, 2];
+
+    public IReadOnlyList<int> AvailableAv1Tunes { get; } =
+        CompatibilityData.Av1TuneOptions.ToList();
+
+    public IReadOnlyList<int> AvailableAv1EnableOverlays { get; } =
+        CompatibilityData.Av1EnableOverlaysOptions.ToList();
+
+    public IReadOnlyList<int> AvailableAv1Scm { get; } =
+        CompatibilityData.Av1ScmOptions.ToList();
 
     public void UpdateForCodec(VideoCodec codec)
     {
@@ -100,6 +118,9 @@ public partial class QualityViewModel : ObservableObject
             case VideoCodec.Av1:
                 Av1Crf = 30;
                 Av1Preset = 6;
+                Av1Tune = 0;
+                Av1EnableOverlays = 1;
+                Av1Scm = 2;
                 break;
         }
     }

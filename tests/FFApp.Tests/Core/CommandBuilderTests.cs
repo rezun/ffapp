@@ -989,7 +989,6 @@ public class CommandBuilderTests
 
         args.Should().Contain("-pix_fmt yuv420p10le");
         args.Should().NotContain("color_primaries");
-        args.Should().NotContain("svtav1-params");
     }
 
     // --- HDR-to-HDR preserve ---
@@ -1063,7 +1062,8 @@ public class CommandBuilderTests
 
         args.Should().Contain("-pix_fmt yuv420p10le");
         args.Should().Contain("-color_primaries bt2020");
-        args.Should().Contain("-svtav1-params enable-hdr=1");
+        args.Should().Contain("-svtav1-params");
+        args.Should().Contain("enable-hdr=1");
         args.Should().NotContain("x265-params");
     }
 
@@ -1159,5 +1159,154 @@ public class CommandBuilderTests
 
         args.Should().NotContain("zscale");
         args.Should().NotContain("tonemap");
+    }
+
+    // ---------------------------------------------------------------
+    // Keyframe interval
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public void Build_KeyframeIntervalFrames_EmitsGopFlag()
+    {
+        var job = JobWith(s => s.WithKeyframeInterval(120));
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        args.Should().Contain("-g 120");
+    }
+
+    [Fact]
+    public void Build_KeyframeIntervalFrames_Av1_EmitsGopFlag()
+    {
+        var job = JobWith(s => s.WithAv1().WithKeyframeInterval(240));
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        args.Should().Contain("-g 240");
+        args.Should().NotContain("keyint=");
+    }
+
+    [Fact]
+    public void Build_KeyframeIntervalSeconds_Av1_EmitsViaSvtav1Params()
+    {
+        var job = JobWith(s => s.WithAv1().WithKeyframeIntervalSeconds(5));
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        args.Should().Contain("-svtav1-params");
+        args.Should().Contain("keyint=5s");
+        args.Should().NotContain("-g ");
+    }
+
+    [Fact]
+    public void Build_KeyframeIntervalSeconds_Av1Hdr_CombinesWithHdrParam()
+    {
+        var job = JobWith(s => s.WithAv1().WithHdrPreserve().WithKeyframeIntervalSeconds(10));
+        var media = new TestMediaInfoBuilder().WithHdr10().Build();
+        var args = JoinArgs(_sut.Build(job, media)[0]);
+
+        args.Should().Contain("keyint=10s");
+        args.Should().Contain("enable-hdr=1");
+        // Both should be in a single -svtav1-params value
+        var svtIdx = args.IndexOf("-svtav1-params");
+        args.IndexOf("-svtav1-params", svtIdx + 1).Should().Be(-1,
+            "there should be only one -svtav1-params flag");
+    }
+
+    [Fact]
+    public void Build_NoKeyframeInterval_DoesNotEmitGopFlag()
+    {
+        var job = JobWith(s => s.WithAv1());
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        args.Should().NotContain("-g ");
+    }
+
+    // ---------------------------------------------------------------
+    // AV1 encoder tuning (tune, enable-overlays, scm)
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public void Build_Av1Quality_AppDefaults_EmitsOpinionatedParams()
+    {
+        // App defaults (tune=0, overlays=1, scm=2) — tune and overlays differ
+        // from SVT-AV1 encoder defaults (tune=1, overlays=0, scm=2)
+        var job = JobWith(s => s.WithAv1());
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        args.Should().Contain("-svtav1-params");
+        args.Should().Contain("tune=0");
+        args.Should().Contain("enable-overlays=1");
+        args.Should().NotContain("scm="); // scm=2 matches encoder default
+    }
+
+    [Fact]
+    public void Build_Av1Quality_EncoderDefaults_OnlyEmitsScd()
+    {
+        // When tuning values match SVT-AV1 encoder defaults, only scd=1 is emitted
+        var job = JobWith(s => s.WithAv1()
+            .WithQuality(new Av1QualityOptions(Tune: 1, EnableOverlays: 0, Scm: 2)));
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        args.Should().Contain("-svtav1-params scd=1");
+        args.Should().NotContain("tune=");
+        args.Should().NotContain("enable-overlays=");
+        args.Should().NotContain("scm=");
+    }
+
+    [Fact]
+    public void Build_Av1Quality_NonDefaultTune_EmitsTuneParam()
+    {
+        var job = JobWith(s => s.WithAv1()
+            .WithQuality(new Av1QualityOptions(Tune: 2)));
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        args.Should().Contain("-svtav1-params");
+        args.Should().Contain("tune=2");
+    }
+
+    [Fact]
+    public void Build_Av1Quality_OverlaysEnabled_EmitsOverlayParam()
+    {
+        // enable-overlays=1 differs from SVT-AV1 encoder default (0)
+        var job = JobWith(s => s.WithAv1()
+            .WithQuality(new Av1QualityOptions(Tune: 1, EnableOverlays: 1, Scm: 2)));
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        args.Should().Contain("-svtav1-params");
+        args.Should().Contain("enable-overlays=1");
+    }
+
+    [Fact]
+    public void Build_Av1Quality_ScmOff_EmitsScmParam()
+    {
+        // scm=0 differs from SVT-AV1 encoder default (2)
+        var job = JobWith(s => s.WithAv1()
+            .WithQuality(new Av1QualityOptions(Tune: 1, EnableOverlays: 0, Scm: 0)));
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        args.Should().Contain("-svtav1-params scm=0");
+    }
+
+    [Fact]
+    public void Build_Av1Quality_AllNonEncoderDefault_CombinesAllParams()
+    {
+        // All values differ from SVT-AV1 encoder defaults (tune=1, overlays=0, scm=2)
+        var job = JobWith(s => s.WithAv1()
+            .WithQuality(new Av1QualityOptions(Tune: 0, EnableOverlays: 1, Scm: 3)));
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        args.Should().Contain("tune=0");
+        args.Should().Contain("enable-overlays=1");
+        args.Should().Contain("scm=3");
+    }
+
+    [Fact]
+    public void Build_Av1Bitrate_NonDefaultTune_EmitsTuneParam()
+    {
+        var job = JobWith(s => s.WithAv1()
+            .WithEncoderOptions(new Av1EncoderOptions(Tune: 3))
+            .WithTargetBitrate(5_000_000));
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        args.Should().Contain("-svtav1-params");
+        args.Should().Contain("tune=3");
     }
 }

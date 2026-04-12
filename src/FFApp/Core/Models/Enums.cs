@@ -115,6 +115,13 @@ public enum ToneMapAlgorithm
     [JsonStringEnumMemberName("clip")] Clip,
 }
 
+[JsonConverter(typeof(JsonStringEnumConverter<KeyframeUnit>))]
+public enum KeyframeUnit
+{
+    [JsonStringEnumMemberName("frames")] Frames,
+    [JsonStringEnumMemberName("seconds")] Seconds,
+}
+
 [JsonConverter(typeof(JsonStringEnumConverter<HdrFormat>))]
 public enum HdrFormat
 {

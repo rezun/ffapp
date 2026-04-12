@@ -5,6 +5,7 @@
              xmlns:ctrl="using:FFApp.Controls"
              xmlns:models="using:FFApp.Core.Models"
              xmlns:conv="using:FFApp.Converters"
+             xmlns:sys="using:System"
              x:Class="FFApp.Views.OutputSettingsView"
              x:CompileBindings="True"
              x:DataType="vm:OutputSettingsViewModel">
@@ -23,6 +24,18 @@
         </DataTemplate>
         <DataTemplate x:Key="ToneMapAlgorithmTemplate" x:DataType="models:ToneMapAlgorithm">
             <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.ToneMapAlgorithm}}" />
+        </DataTemplate>
+        <DataTemplate x:Key="KeyframeUnitTemplate" x:DataType="models:KeyframeUnit">
+            <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.KeyframeUnitLabel}}" />
+        </DataTemplate>
+        <DataTemplate x:Key="Av1TuneTemplate" x:DataType="sys:Int32">
+            <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.Av1Tune}}" />
+        </DataTemplate>
+        <DataTemplate x:Key="Av1EnableOverlaysTemplate" x:DataType="sys:Int32">
+            <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.Av1EnableOverlays}}" />
+        </DataTemplate>
+        <DataTemplate x:Key="Av1ScmTemplate" x:DataType="sys:Int32">
+            <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.Av1Scm}}" />
         </DataTemplate>
     </UserControl.Resources>
 
@@ -157,6 +170,23 @@
                             </DockPanel>
                         </Border>
 
+                        <!-- Keyframe Interval (all codecs) -->
+                        <Grid ColumnDefinitions="85,Auto,8,Auto,*" Margin="0,4,0,0">
+                            <TextBlock Text="Keyframes" VerticalAlignment="Center" />
+                            <ctrl:NumericTextBox Grid.Column="1"
+                                     MinWidth="72"
+                                     Watermark="Auto"
+                                     Text="{Binding KeyframeIntervalText}" />
+                            <ctrl:NoWheelComboBox Grid.Column="3"
+                                MinWidth="88"
+                                ItemsSource="{Binding AvailableKeyframeUnits}"
+                                SelectedItem="{Binding SelectedKeyframeUnit}"
+                                ItemTemplate="{StaticResource KeyframeUnitTemplate}" />
+                            <TextBlock Grid.Column="4" Text="empty = encoder default"
+                                       VerticalAlignment="Center" Margin="8,0,0,0"
+                                       FontSize="12" Opacity="0.6" />
+                        </Grid>
+
                         <!-- Encoding Strategy -->
                         <Grid ColumnDefinitions="85,*" Margin="0,4,0,0">
                             <TextBlock Text="Strategy" VerticalAlignment="Center" />
@@ -209,20 +239,43 @@
                                 <TextBlock DockPanel.Dock="Top" Text="AV1 Encoder Tuning"
                                            Classes="nested-card-header" />
                                 <Separator DockPanel.Dock="Top" />
-                                <Grid ColumnDefinitions="80,*,Auto"
-                                      Margin="6,4,6,6">
-                                    <TextBlock Text="Preset" VerticalAlignment="Center" />
-                                    <Slider Grid.Column="1"
-                                            Value="{Binding Strategy.Quality.Av1Preset}"
-                                            Minimum="0" Maximum="13"
-                                            TickFrequency="1" IsSnapToTickEnabled="True"
-                                            VerticalAlignment="Center"
-                                            TickPlacement="BottomRight" />
-                                    <TextBlock Grid.Column="2" VerticalAlignment="Center"
-                                               MinWidth="20" TextAlignment="Right" Margin="8,0,0,0">
-                                        <Run Text="{Binding Strategy.Quality.Av1Preset}" />
-                                    </TextBlock>
-                                </Grid>
+                                <StackPanel Spacing="4" Margin="6,4,6,6">
+                                    <Grid ColumnDefinitions="80,*,Auto">
+                                        <TextBlock Text="Preset" VerticalAlignment="Center" />
+                                        <Slider Grid.Column="1"
+                                                Value="{Binding Strategy.Quality.Av1Preset}"
+                                                Minimum="0" Maximum="13"
+                                                TickFrequency="1" IsSnapToTickEnabled="True"
+                                                VerticalAlignment="Center"
+                                                TickPlacement="BottomRight" />
+                                        <TextBlock Grid.Column="2" VerticalAlignment="Center"
+                                                   MinWidth="20" TextAlignment="Right" Margin="8,0,0,0">
+                                            <Run Text="{Binding Strategy.Quality.Av1Preset}" />
+                                        </TextBlock>
+                                    </Grid>
+                                    <Grid ColumnDefinitions="80,Auto,16,80,Auto" Margin="0,0,0,2">
+                                        <TextBlock Text="Tune" VerticalAlignment="Center" />
+                                        <ctrl:NoWheelComboBox Grid.Column="1"
+                                            MinWidth="120"
+                                            ItemsSource="{Binding Strategy.Quality.AvailableAv1Tunes}"
+                                            SelectedItem="{Binding Strategy.Quality.Av1Tune}"
+                                            ItemTemplate="{StaticResource Av1TuneTemplate}" />
+                                        <TextBlock Grid.Column="3" Text="Overlays" VerticalAlignment="Center" />
+                                        <ctrl:NoWheelComboBox Grid.Column="4"
+                                            MinWidth="92"
+                                            ItemsSource="{Binding Strategy.Quality.AvailableAv1EnableOverlays}"
+                                            SelectedItem="{Binding Strategy.Quality.Av1EnableOverlays}"
+                                            ItemTemplate="{StaticResource Av1EnableOverlaysTemplate}" />
+                                    </Grid>
+                                    <Grid ColumnDefinitions="80,Auto">
+                                        <TextBlock Text="SCM" VerticalAlignment="Center" />
+                                        <ctrl:NoWheelComboBox Grid.Column="1"
+                                            MinWidth="180"
+                                            ItemsSource="{Binding Strategy.Quality.AvailableAv1Scm}"
+                                            SelectedItem="{Binding Strategy.Quality.Av1Scm}"
+                                            ItemTemplate="{StaticResource Av1ScmTemplate}" />
+                                    </Grid>
+                                </StackPanel>
                             </DockPanel>
                         </Border>
 

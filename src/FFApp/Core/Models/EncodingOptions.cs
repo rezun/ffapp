@@ -19,7 +19,10 @@ public sealed record VpxEncoderOptions(
     int TileRows = 0) : VideoEncoderOptions(Codec);
 
 public sealed record Av1EncoderOptions(
-    int Preset = 6) : VideoEncoderOptions(VideoCodec.Av1);
+    int Preset = 6,
+    int Tune = 0,
+    int EnableOverlays = 1,
+    int Scm = 2) : VideoEncoderOptions(VideoCodec.Av1);
 
 // --- Quality Options (discriminated union via abstract record) ---
 
@@ -45,7 +48,10 @@ public sealed record Vp9QualityOptions(
 
 public sealed record Av1QualityOptions(
     int Crf = 30,
-    int Preset = 6) : QualityOptions(VideoCodec.Av1);
+    int Preset = 6,
+    int Tune = 0,
+    int EnableOverlays = 1,
+    int Scm = 2) : QualityOptions(VideoCodec.Av1);
 
 // --- Helpers ---
 

@@ -47,6 +47,43 @@ public static class EnumLabelConverters
             _ => $"{v} ch",
         });
 
+    public static readonly FuncValueConverter<int, string> Av1Tune =
+        new(v => v switch
+        {
+            0 => "0 — VQ",
+            1 => "1 — PSNR",
+            2 => "2 — SSIM",
+            3 => "3 — IQ",
+            4 => "4 — MS-SSIM",
+            _ => v.ToString(),
+        });
+
+    public static readonly FuncValueConverter<int, string> Av1EnableOverlays =
+        new(v => v switch
+        {
+            0 => "Disabled",
+            1 => "Enabled",
+            _ => v.ToString(),
+        });
+
+    public static readonly FuncValueConverter<int, string> Av1Scm =
+        new(v => v switch
+        {
+            0 => "Off",
+            1 => "Block Copy + Palette",
+            2 => "Content Adaptive",
+            3 => "Content Adaptive (AA)",
+            _ => v.ToString(),
+        });
+
+    public static readonly FuncValueConverter<KeyframeUnit, string> KeyframeUnitLabel =
+        new(v => v switch
+        {
+            Core.Models.KeyframeUnit.Frames => "frames",
+            Core.Models.KeyframeUnit.Seconds => "seconds",
+            _ => v.ToString(),
+        });
+
     public static readonly FuncValueConverter<HdrMode, string> HdrMode =
         new(v => FormatHelpers.HdrModeLabel(v));
 

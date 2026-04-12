@@ -218,7 +218,9 @@ public static class FormatHelpers
             TrimEndSeconds: trimEndSeconds,
             Crop: crop,
             HdrMode: settings.HdrMode,
-            ToneMapSettings: settings.ToneMapSettings);
+            ToneMapSettings: settings.ToneMapSettings,
+            KeyframeInterval: settings.KeyframeInterval,
+            KeyframeUnit: settings.KeyframeUnit);
 
     public static string SuggestQueueOutputPath(string sourcePath, OutputContainer container, HashSet<string> reservedOutputs)
     {

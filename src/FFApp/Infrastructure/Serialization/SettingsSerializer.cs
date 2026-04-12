@@ -63,6 +63,8 @@ public static class SettingsSerializer
                 ["desaturation"] = settings.ToneMapSettings.Desaturation,
                 ["peak_nits"] = settings.ToneMapSettings.PeakNits,
             },
+            ["keyframe_interval"] = settings.KeyframeInterval,
+            ["keyframe_unit"] = EnumToString(settings.KeyframeUnit),
         };
     }
 
@@ -149,6 +151,10 @@ public static class SettingsSerializer
             Desaturation: ReadDouble(toneMapEl, "desaturation", 2.0),
             PeakNits: ReadOptionalInt(toneMapEl, "peak_nits"));
 
+        // Keyframe interval
+        var keyframeInterval = ReadOptionalInt(element, "keyframe_interval");
+        var keyframeUnit = ReadEnum<KeyframeUnit>(element, "keyframe_unit", KeyframeUnit.Frames);
+
         return new OutputSettings(
             Container: container,
             VideoCodec: videoCodec,
@@ -167,7 +173,9 @@ public static class SettingsSerializer
             TargetBitrate: targetBitrate,
             TargetQuality: targetQuality,
             HdrMode: hdrMode,
-            ToneMapSettings: toneMapSettings);
+            ToneMapSettings: toneMapSettings,
+            KeyframeInterval: keyframeInterval,
+            KeyframeUnit: keyframeUnit);
     }
 
     // --- Preset serialization ---
@@ -244,6 +252,9 @@ public static class SettingsSerializer
             {
                 ["codec"] = EnumToString(av1.Codec),
                 ["preset"] = av1.Preset,
+                ["tune"] = av1.Tune,
+                ["enable_overlays"] = av1.EnableOverlays,
+                ["scm"] = av1.Scm,
             },
             _ => throw new InvalidOperationException(
                 $"Unknown VideoEncoderOptions type: {options.GetType().Name}"),
@@ -285,6 +296,9 @@ public static class SettingsSerializer
                 ["codec"] = EnumToString(av1.Codec),
                 ["crf"] = av1.Crf,
                 ["preset"] = av1.Preset,
+                ["tune"] = av1.Tune,
+                ["enable_overlays"] = av1.EnableOverlays,
+                ["scm"] = av1.Scm,
             },
             _ => throw new InvalidOperationException(
                 $"Unknown QualityOptions type: {options.GetType().Name}"),
@@ -319,7 +333,12 @@ public static class SettingsSerializer
         if (videoCodec == VideoCodec.Av1)
         {
             var preset = ReadInt(element, "preset", 6);
-            return new Av1EncoderOptions(Preset: preset);
+            var tune = ReadInt(element, "tune", 0);
+            var enableOverlays = ReadInt(element, "enable_overlays", 1);
+            var scm = ReadInt(element, "scm", 2);
+            return new Av1EncoderOptions(
+                Preset: preset, Tune: tune,
+                EnableOverlays: enableOverlays, Scm: scm);
         }
 
         // VP8 or VP9
@@ -378,7 +397,10 @@ public static class SettingsSerializer
         {
             return new Av1QualityOptions(
                 Crf: ReadInt(element, "crf", 30),
-                Preset: ReadInt(element, "preset", 6));
+                Preset: ReadInt(element, "preset", 6),
+                Tune: ReadInt(element, "tune", 0),
+                EnableOverlays: ReadInt(element, "enable_overlays", 1),
+                Scm: ReadInt(element, "scm", 2));
         }
 
         return new Vp9QualityOptions(

@@ -245,12 +245,22 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         if (job.EncodingStrategy == EncodingStrategy.TargetQuality)
         {
             arguments.AddRange(QualityArguments(job, mediaInfo, passIndex));
-            return arguments;
+        }
+        else
+        {
+            arguments.AddRange(VideoEncoderTuningArguments(job, mediaInfo, passIndex));
+            var resolvedBitrate = bitrate ?? ResolveVideoBitrate(job, mediaInfo);
+            arguments.AddRange(["-b:v", FormatVideoBitrateArgument(resolvedBitrate)]);
         }
 
-        arguments.AddRange(VideoEncoderTuningArguments(job, mediaInfo, passIndex));
-        var resolvedBitrate = bitrate ?? ResolveVideoBitrate(job, mediaInfo);
-        arguments.AddRange(["-b:v", FormatVideoBitrateArgument(resolvedBitrate)]);
+        if (job.KeyframeInterval is > 0
+            && !(job.VideoCodec == VideoCodec.Av1 && job.KeyframeUnit == KeyframeUnit.Seconds))
+        {
+            arguments.AddRange(["-g", job.KeyframeInterval.Value.ToString()]);
+        }
+
+        if (job.VideoCodec == VideoCodec.Av1)
+            arguments.AddRange(BuildSvtAv1Params(job, mediaInfo));
 
         return arguments;
     }
@@ -566,10 +576,49 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
 
         if (job.VideoCodec == VideoCodec.H265)
             args.AddRange(BuildX265HdrParams(video));
-        else if (job.VideoCodec == VideoCodec.Av1)
-            args.AddRange(["-svtav1-params", "enable-hdr=1"]);
+        // AV1 HDR params are consolidated in BuildSvtAv1Params
 
         return args;
+    }
+
+    private static List<string> BuildSvtAv1Params(JobDefinition job, SourceMediaInfo mediaInfo)
+    {
+        var parts = new List<string>();
+
+        // Keyframe interval in seconds (AV1-only feature)
+        if (job.KeyframeInterval is > 0 && job.KeyframeUnit == KeyframeUnit.Seconds)
+            parts.Add($"keyint={job.KeyframeInterval.Value}s");
+
+        // HDR preservation
+        var video = mediaInfo.PrimaryVideoStream;
+        if (video is not null && video.IsHdr && job.HdrMode == HdrMode.Preserve)
+            parts.Add("enable-hdr=1");
+
+        // Resolve AV1-specific tuning from either quality or encoder options
+        var (tune, enableOverlays, scm) = job.TargetQuality switch
+        {
+            Av1QualityOptions av1 when job.EncodingStrategy == EncodingStrategy.TargetQuality
+                => (av1.Tune, av1.EnableOverlays, av1.Scm),
+            _ => job.VideoEncoderOptions switch
+            {
+                Av1EncoderOptions enc => (enc.Tune, enc.EnableOverlays, enc.Scm),
+                _ => (0, 1, 2),
+            },
+        };
+
+        // Emit when value differs from SVT-AV1 encoder defaults (tune=1, overlays=0, scm=2)
+        if (tune != 1)
+            parts.Add($"tune={tune}");
+        if (enableOverlays != 0)
+            parts.Add($"enable-overlays={enableOverlays}");
+        if (scm != 2)
+            parts.Add($"scm={scm}");
+
+        // Always enable scene change detection
+        parts.Add("scd=1");
+
+
+        return ["-svtav1-params", string.Join(":", parts)];
     }
 
     private static List<string> BuildX265HdrParams(VideoStreamInfo video)

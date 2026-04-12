@@ -352,4 +352,126 @@ public class SettingsSerializerTests
         result.ToneMapSettings.Desaturation.Should().Be(2.0);
         result.ToneMapSettings.PeakNits.Should().BeNull();
     }
+
+    // --- Keyframe interval ---
+
+    [Fact]
+    public void RoundTrip_KeyframeIntervalFrames_PreservesValues()
+    {
+        var original = new TestOutputSettingsBuilder()
+            .WithKeyframeInterval(120)
+            .Build();
+
+        var result = RoundTrip(original);
+
+        result.KeyframeInterval.Should().Be(120);
+        result.KeyframeUnit.Should().Be(KeyframeUnit.Frames);
+    }
+
+    [Fact]
+    public void RoundTrip_KeyframeIntervalSeconds_PreservesValues()
+    {
+        var original = new TestOutputSettingsBuilder()
+            .WithAv1()
+            .WithKeyframeIntervalSeconds(5)
+            .Build();
+
+        var result = RoundTrip(original);
+
+        result.KeyframeInterval.Should().Be(5);
+        result.KeyframeUnit.Should().Be(KeyframeUnit.Seconds);
+    }
+
+    [Fact]
+    public void Deserialize_MissingKeyframeFields_ReturnsDefaults()
+    {
+        var json = """{ "video_codec": "av1", "container": "mkv" }""";
+        var element = JsonDocument.Parse(json).RootElement;
+
+        var result = SettingsSerializer.DeserializeOutputSettings(element);
+
+        result.KeyframeInterval.Should().BeNull();
+        result.KeyframeUnit.Should().Be(KeyframeUnit.Frames);
+    }
+
+    // --- AV1 encoder options ---
+
+    [Fact]
+    public void RoundTrip_Av1Quality_PreservesAllFields()
+    {
+        var original = new TestOutputSettingsBuilder()
+            .WithAv1()
+            .WithQuality(new Av1QualityOptions(
+                Crf: 25, Preset: 4, Tune: 2, EnableOverlays: 0, Scm: 3))
+            .Build();
+
+        var result = RoundTrip(original);
+
+        result.TargetQuality.Should().BeOfType<Av1QualityOptions>();
+        var q = (Av1QualityOptions)result.TargetQuality;
+        q.Crf.Should().Be(25);
+        q.Preset.Should().Be(4);
+        q.Tune.Should().Be(2);
+        q.EnableOverlays.Should().Be(0);
+        q.Scm.Should().Be(3);
+    }
+
+    [Fact]
+    public void RoundTrip_Av1EncoderOptions_PreservesAllFields()
+    {
+        var original = new TestOutputSettingsBuilder()
+            .WithAv1()
+            .WithEncoderOptions(new Av1EncoderOptions(
+                Preset: 8, Tune: 4, EnableOverlays: 1, Scm: 1))
+            .Build();
+
+        var result = RoundTrip(original);
+
+        result.VideoEncoderOptions.Should().BeOfType<Av1EncoderOptions>();
+        var opts = (Av1EncoderOptions)result.VideoEncoderOptions!;
+        opts.Preset.Should().Be(8);
+        opts.Tune.Should().Be(4);
+        opts.EnableOverlays.Should().Be(1);
+        opts.Scm.Should().Be(1);
+    }
+
+    [Fact]
+    public void Deserialize_Av1Quality_MissingNewFields_UsesDefaults()
+    {
+        var json = """
+        {
+            "video_codec": "av1",
+            "container": "mkv",
+            "target_quality": { "codec": "av1", "crf": 30, "preset": 6 }
+        }
+        """;
+        var element = JsonDocument.Parse(json).RootElement;
+
+        var result = SettingsSerializer.DeserializeOutputSettings(element);
+
+        var q = result.TargetQuality.Should().BeOfType<Av1QualityOptions>().Subject;
+        q.Tune.Should().Be(0);
+        q.EnableOverlays.Should().Be(1);
+        q.Scm.Should().Be(2);
+    }
+
+    [Fact]
+    public void Deserialize_Av1EncoderOptions_MissingNewFields_UsesDefaults()
+    {
+        var json = """
+        {
+            "video_codec": "av1",
+            "container": "mkv",
+            "video_encoder_options": { "codec": "av1", "preset": 6 }
+        }
+        """;
+        var element = JsonDocument.Parse(json).RootElement;
+
+        var result = SettingsSerializer.DeserializeOutputSettings(element);
+
+        var opts = result.VideoEncoderOptions.Should().BeOfType<Av1EncoderOptions>().Subject;
+        opts.Tune.Should().Be(0);
+        opts.EnableOverlays.Should().Be(1);
+        opts.Scm.Should().Be(2);
+    }
 }

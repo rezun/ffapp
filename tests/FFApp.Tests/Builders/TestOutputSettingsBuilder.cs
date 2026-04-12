@@ -104,6 +104,12 @@ public class TestOutputSettingsBuilder
             TargetQuality = new Av1QualityOptions(),
         });
 
+    public TestOutputSettingsBuilder WithKeyframeInterval(int frames) =>
+        Apply(s => s with { KeyframeInterval = frames, KeyframeUnit = KeyframeUnit.Frames });
+
+    public TestOutputSettingsBuilder WithKeyframeIntervalSeconds(int seconds) =>
+        Apply(s => s with { KeyframeInterval = seconds, KeyframeUnit = KeyframeUnit.Seconds });
+
     public TestOutputSettingsBuilder WithHdrPreserve() =>
         Apply(s => s with { HdrMode = HdrMode.Preserve });
 

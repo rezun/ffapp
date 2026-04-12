@@ -21,7 +21,9 @@ public sealed record JobDefinition(
     double? TrimEndSeconds = null,
     CropRect? Crop = null,
     HdrMode HdrMode = HdrMode.Preserve,
-    ToneMapSettings? ToneMapSettings = null)
+    ToneMapSettings? ToneMapSettings = null,
+    int? KeyframeInterval = null,
+    KeyframeUnit KeyframeUnit = KeyframeUnit.Frames)
 {
     public AudioOptions AudioOptions { get; init; } = AudioOptions ?? new AudioOptions();
     public StreamHandlingOptions StreamHandling { get; init; } = StreamHandling ?? new StreamHandlingOptions();

@@ -1,3 +1,5 @@
+@~/code/csharp-rules.md
+
 **Always** use the avalonia-ux skill
 
 ## Rules

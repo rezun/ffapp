@@ -15,6 +15,7 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
     private readonly LibVLC? _libVlc;
     private MediaPlayer? _mediaPlayer;
     private Media? _currentMedia;
+    private const long DefaultFrameDurationMs = 33; // ~30 fps fallback
     private double _frameRate = 30.0;
     private bool _disposed;
     private bool _pauseOnFirstPlay;
@@ -276,7 +277,7 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
     {
         if (_mediaPlayer is null) return;
         _mediaPlayer.NextFrame();
-        var frameDurationMs = _frameRate > 0 ? (long)(1000.0 / _frameRate) : 33;
+        var frameDurationMs = _frameRate > 0 ? (long)(1000.0 / _frameRate) : DefaultFrameDurationMs;
         var targetMs = Math.Min(DurationMs, TimeMs + frameDurationMs);
         TimeMs = targetMs;
         Position = DurationMs > 0 ? (double)targetMs / DurationMs : 0;
@@ -287,7 +288,7 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
     private void StepBackward()
     {
         if (_mediaPlayer is null) return;
-        var frameDurationMs = _frameRate > 0 ? (long)(1000.0 / _frameRate) : 33;
+        var frameDurationMs = _frameRate > 0 ? (long)(1000.0 / _frameRate) : DefaultFrameDurationMs;
         var targetMs = Math.Max(0, _mediaPlayer.Time - frameDurationMs);
         _mediaPlayer.Time = targetMs;
         TimeMs = targetMs;

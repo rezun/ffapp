@@ -36,6 +36,9 @@ public partial class AudioViewModel : ObservableObject
     [ObservableProperty]
     private IReadOnlyList<AudioCodec> _availableAudioCodecs = [];
 
+    /// <summary>Default audio bitrate in bits per second (128 kbps).</summary>
+    public const int DefaultBitrateBps = 128_000;
+
     /// <summary>Predefined bitrate options in kbps, plus -1 as the "Custom" sentinel.</summary>
     public static IReadOnlyList<int> AvailableBitrateOptions { get; } =
         [32, 64, 96, 128, 160, 192, 256, 320, -1];

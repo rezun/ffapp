@@ -154,7 +154,7 @@ public partial class OutputSettingsViewModel : ObservableObject
             // Audio
             Audio.SelectedAudioMode = settings.AudioOptions.Mode;
             Audio.SelectedAudioCodec = settings.AudioOptions.Codec;
-            Audio.AudioBitrate = settings.AudioOptions.Bitrate ?? 128000;
+            Audio.AudioBitrate = settings.AudioOptions.Bitrate ?? AudioViewModel.DefaultBitrateBps;
             Audio.SelectedAudioChannels = settings.AudioOptions.AudioChannels ?? 0;
             Audio.SelectedSampleRate = settings.AudioOptions.SampleRate ?? 0;
 

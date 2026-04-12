@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Diagnostics;
 
+using FFApp.Core;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
 
@@ -159,7 +160,7 @@ public sealed class DefaultJobExecutionService(
             return;
 
         var stem = Path.GetFileNameWithoutExtension(outputPath);
-        var pattern = $".{stem}-ffpass*";
+        var pattern = $".{stem}-{DefaultCommandBuilder.TwoPassLogSuffix}*";
 
         try
         {

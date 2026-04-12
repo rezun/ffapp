@@ -17,6 +17,8 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
     private static readonly string NullOutputPath =
         RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "NUL" : "/dev/null";
 
+    internal const string TwoPassLogSuffix = "ffpass";
+
     public IReadOnlyList<GeneratedCommand> Build(JobDefinition job, SourceMediaInfo mediaInfo)
     {
         var inputArgs = new List<string> { "-hide_banner", "-y" };
@@ -487,7 +489,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
     {
         var directory = Path.GetDirectoryName(outputPath) ?? string.Empty;
         var stem = Path.GetFileNameWithoutExtension(outputPath);
-        return Path.Combine(directory, $".{stem}-ffpass");
+        return Path.Combine(directory, $".{stem}-{TwoPassLogSuffix}");
     }
 
     private static string VideoEncoderName(VideoCodec codec) => codec switch

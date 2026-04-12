@@ -15,6 +15,13 @@ public partial class AudioView : UserControl
         DataContextChanged += OnDataContextChanged;
     }
 
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        _subscription?.Dispose();
+        _subscription = null;
+        base.OnDetachedFromVisualTree(e);
+    }
+
     private void OnDataContextChanged(object? sender, EventArgs e)
     {
         _subscription?.Dispose();

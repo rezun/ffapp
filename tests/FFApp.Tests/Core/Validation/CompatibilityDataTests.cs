@@ -8,10 +8,17 @@ namespace FFApp.Tests.Core.Validation;
 public class CompatibilityDataTests
 {
     [Fact]
-    public void VideoCodecMatrix_Mp4_ContainsOnlyH264AndH265()
+    public void VideoCodecMatrix_Mp4_ContainsExpectedCodecs()
     {
         CompatibilityData.VideoCodecMatrix[OutputContainer.Mp4]
-            .Should().BeEquivalentTo([VideoCodec.H264, VideoCodec.H265, VideoCodec.Av1]);
+            .Should().BeEquivalentTo([VideoCodec.H264, VideoCodec.H265, VideoCodec.Av1, VideoCodec.Vp9]);
+    }
+
+    [Fact]
+    public void VideoCodecMatrix_Mp4_DoesNotContainVp8()
+    {
+        CompatibilityData.VideoCodecMatrix[OutputContainer.Mp4]
+            .Should().NotContain(VideoCodec.Vp8);
     }
 
     [Fact]
@@ -37,10 +44,10 @@ public class CompatibilityDataTests
     }
 
     [Fact]
-    public void AudioCodecMatrix_Mp4_ContainsAacAndMp3()
+    public void AudioCodecMatrix_Mp4_ContainsAacMp3AndOpus()
     {
         CompatibilityData.AudioCodecMatrix[OutputContainer.Mp4]
-            .Should().BeEquivalentTo([AudioCodec.Aac, AudioCodec.Mp3]);
+            .Should().BeEquivalentTo([AudioCodec.Aac, AudioCodec.Mp3, AudioCodec.Opus]);
     }
 
     [Fact]

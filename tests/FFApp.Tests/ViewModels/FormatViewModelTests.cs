@@ -64,13 +64,13 @@ public class FormatViewModelTests
     }
 
     [Fact]
-    public void ChangeContainer_Mp4_AudioCodecListHasAacAndMp3()
+    public void ChangeContainer_Mp4_AudioCodecListHasAacMp3AndOpus()
     {
         _sut.SelectedContainer = OutputContainer.Webm;
         _sut.SelectedContainer = OutputContainer.Mp4;
 
         _sut.AvailableAudioCodecs.Should().BeEquivalentTo(
-            [AudioCodec.Aac, AudioCodec.Mp3],
+            [AudioCodec.Aac, AudioCodec.Mp3, AudioCodec.Opus],
             o => o.WithStrictOrdering());
     }
 }

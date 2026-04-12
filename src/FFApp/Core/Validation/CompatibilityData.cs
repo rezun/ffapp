@@ -35,7 +35,7 @@ public static class CompatibilityData
     public static readonly FrozenDictionary<OutputContainer, IReadOnlyList<VideoCodec>> VideoCodecMatrix =
         new Dictionary<OutputContainer, IReadOnlyList<VideoCodec>>
         {
-            [OutputContainer.Mp4] = [VideoCodec.H264, VideoCodec.H265, VideoCodec.Av1],
+            [OutputContainer.Mp4] = [VideoCodec.H264, VideoCodec.H265, VideoCodec.Av1, VideoCodec.Vp9],
             [OutputContainer.Mkv] = [VideoCodec.Av1, VideoCodec.H265, VideoCodec.H264, VideoCodec.Vp9, VideoCodec.Vp8],
             [OutputContainer.Webm] = [VideoCodec.Av1, VideoCodec.Vp9, VideoCodec.Vp8],
             [OutputContainer.Ogg] = [VideoCodec.Vp9, VideoCodec.Vp8],
@@ -44,7 +44,7 @@ public static class CompatibilityData
     public static readonly FrozenDictionary<OutputContainer, IReadOnlyList<AudioCodec>> AudioCodecMatrix =
         new Dictionary<OutputContainer, IReadOnlyList<AudioCodec>>
         {
-            [OutputContainer.Mp4] = [AudioCodec.Aac, AudioCodec.Mp3],
+            [OutputContainer.Mp4] = [AudioCodec.Aac, AudioCodec.Mp3, AudioCodec.Opus],
             [OutputContainer.Mkv] = [AudioCodec.Aac, AudioCodec.Opus, AudioCodec.Mp3, AudioCodec.Vorbis],
             [OutputContainer.Webm] = [AudioCodec.Opus, AudioCodec.Vorbis],
             [OutputContainer.Ogg] = [AudioCodec.Opus, AudioCodec.Vorbis],

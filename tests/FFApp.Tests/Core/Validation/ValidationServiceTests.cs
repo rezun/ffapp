@@ -41,10 +41,10 @@ public class ValidationServiceTests
     }
 
     [Fact]
-    public void Validate_Vp9InMp4_ReturnsVideoCodecIncompatible()
+    public void Validate_Vp8InMp4_ReturnsVideoCodecIncompatible()
     {
         var settings = new TestOutputSettingsBuilder()
-            .WithVideoCodec(VideoCodec.Vp9)
+            .WithVideoCodec(VideoCodec.Vp8)
             .WithContainer(OutputContainer.Mp4)
             .Build();
         var media = new TestMediaInfoBuilder().Build();
@@ -57,6 +57,7 @@ public class ValidationServiceTests
     [Theory]
     [InlineData(OutputContainer.Mp4, VideoCodec.H264)]
     [InlineData(OutputContainer.Mp4, VideoCodec.H265)]
+    [InlineData(OutputContainer.Mp4, VideoCodec.Vp9)]
     [InlineData(OutputContainer.Mkv, VideoCodec.H264)]
     [InlineData(OutputContainer.Mkv, VideoCodec.H265)]
     [InlineData(OutputContainer.Mkv, VideoCodec.Vp8)]
@@ -91,10 +92,10 @@ public class ValidationServiceTests
     }
 
     [Fact]
-    public void Validate_OpusReencodeInMp4_ReturnsAudioCodecIncompatible()
+    public void Validate_VorbisReencodeInMp4_ReturnsAudioCodecIncompatible()
     {
         var settings = new TestOutputSettingsBuilder()
-            .WithAudioReencode(AudioCodec.Opus, 128_000)
+            .WithAudioReencode(AudioCodec.Vorbis, 128_000)
             .Build();
         var media = new TestMediaInfoBuilder().Build();
 
@@ -149,13 +150,13 @@ public class ValidationServiceTests
     [Fact]
     public void Validate_CopyModeWithIncompatibleSourceCodec_ReturnsAudioCopyIncompatible()
     {
-        // Opus source copied into MP4 is not allowed.
+        // Vorbis source copied into MP4 is not allowed.
         var settings = new TestOutputSettingsBuilder()
             .WithContainer(OutputContainer.Mp4)
             .WithAudioCopy()
             .Build();
         var media = new TestMediaInfoBuilder()
-            .WithAudioStreams(new AudioStreamInfo(1, "opus", 128_000))
+            .WithAudioStreams(new AudioStreamInfo(1, "vorbis", 128_000))
             .Build();
 
         var result = _sut.Validate(settings, media);
@@ -698,11 +699,11 @@ public class ValidationServiceTests
     // ── AllowedVideoCodecs / AllowedAudioCodecs ─────────────────────────
 
     [Fact]
-    public void AllowedVideoCodecs_Mp4_ReturnsH264AndH265()
+    public void AllowedVideoCodecs_Mp4_ReturnsExpectedCodecs()
     {
         var result = _sut.AllowedVideoCodecs(OutputContainer.Mp4);
 
-        result.Should().BeEquivalentTo([VideoCodec.H264, VideoCodec.H265, VideoCodec.Av1]);
+        result.Should().BeEquivalentTo([VideoCodec.H264, VideoCodec.H265, VideoCodec.Av1, VideoCodec.Vp9]);
     }
 
     [Fact]
@@ -714,11 +715,11 @@ public class ValidationServiceTests
     }
 
     [Fact]
-    public void AllowedAudioCodecs_Mp4_ReturnsAacAndMp3()
+    public void AllowedAudioCodecs_Mp4_ReturnsAacMp3AndOpus()
     {
         var result = _sut.AllowedAudioCodecs(OutputContainer.Mp4);
 
-        result.Should().BeEquivalentTo([AudioCodec.Aac, AudioCodec.Mp3]);
+        result.Should().BeEquivalentTo([AudioCodec.Aac, AudioCodec.Mp3, AudioCodec.Opus]);
     }
 
     [Fact]

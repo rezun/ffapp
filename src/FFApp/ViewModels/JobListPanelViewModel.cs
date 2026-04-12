@@ -180,7 +180,7 @@ public partial class JobListPanelViewModel : ObservableObject
         var queuedJob = new QueuedJob(job, mediaInfo, [.. commands], validation);
         var id = $"job-{++_nextJobId}";
         var label = Path.GetFileName(mediaInfo.SourcePath);
-        Jobs.Add(new JobItemViewModel(id, mediaInfo, queuedJob, label));
+        AddJob(new JobItemViewModel(id, mediaInfo, queuedJob, label), queuedJob);
     }
 
     private bool CanCreateJobsForAll =>
@@ -247,7 +247,7 @@ public partial class JobListPanelViewModel : ObservableObject
 
             var queuedJob = new QueuedJob(job, mediaInfo, [.. commands], validation);
             var id = $"job-{++_nextJobId}";
-            Jobs.Add(new JobItemViewModel(id, mediaInfo, queuedJob, source.DisplayLabel));
+            AddJob(new JobItemViewModel(id, mediaInfo, queuedJob, source.DisplayLabel), queuedJob);
         }
 
         if (errorMessages.Count > 0)
@@ -268,17 +268,19 @@ public partial class JobListPanelViewModel : ObservableObject
         if (IsRunning || !Jobs.Any(j => j.State == JobState.Pending))
             return;
 
-        // Reset failed/canceled jobs so they re-run
+        // Reset failed/canceled jobs so they re-run. Items are already enqueued at creation
+        // time, so here we only flip VM + queue state back to Pending.
+        var resetIds = new List<string>();
         foreach (var job in Jobs)
         {
             if (job.State is JobState.Canceled or JobState.Failed)
+            {
                 job.ResetToPending();
+                resetIds.Add(job.Id);
+            }
         }
-
-        // Enqueue all pending jobs into the queue service
-        var pendingJobs = Jobs.Where(j => j.State == JobState.Pending).ToList();
-        var toEnqueue = pendingJobs.Select(j => (j.Id, j.QueuedJob)).ToList();
-        _queueService.Enqueue(toEnqueue);
+        if (resetIds.Count > 0)
+            _queueService.ResetToPending(resetIds);
 
         IsRunning = true;
         IsPaused = false;
@@ -454,6 +456,17 @@ public partial class JobListPanelViewModel : ObservableObject
 
     private JobItemViewModel? FindJobById(string id) =>
         Jobs.FirstOrDefault(j => j.Id == id);
+
+    /// <summary>
+    /// Adds a job to the visible list AND enqueues it in the queue service so that jobs added
+    /// mid-run are picked up by the running execution loop. Jobs added while paused also sit
+    /// as Pending and are processed after Resume.
+    /// </summary>
+    private void AddJob(JobItemViewModel vm, QueuedJob queuedJob)
+    {
+        Jobs.Add(vm);
+        _queueService.Enqueue([(vm.Id, queuedJob)]);
+    }
 
     private void UpdateSummary()
     {

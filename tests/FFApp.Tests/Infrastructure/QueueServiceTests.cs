@@ -245,6 +245,120 @@ public class QueueServiceTests
         result.Should().Contain(i => i.Id == "b" && i.State == JobState.Completed);
     }
 
+    // --- Mid-run enqueue ---
+
+    [Fact]
+    public async Task ExecuteAllAsync_ItemEnqueuedMidRun_IsProcessed()
+    {
+        // Gate the first job so the loop is still running when we enqueue a second.
+        var firstGate = new TaskCompletionSource<JobResult>();
+        var finishedIds = new List<string>();
+
+        _mockExecution.ExecuteAsync(
+            Arg.Any<JobDefinition>(),
+            Arg.Any<SourceMediaInfo>(),
+            Arg.Any<Action<JobProgress>?>(),
+            Arg.Any<Action<string>?>(),
+            Arg.Any<CancellationToken>())
+        .Returns(call =>
+        {
+            // First invocation blocks until firstGate is set; subsequent invocations
+            // complete synchronously.
+            if (!firstGate.Task.IsCompleted)
+                return firstGate.Task;
+
+            return Task.FromResult(new JobResult(
+                call.Arg<JobDefinition>(),
+                JobState.Completed, [], [], 1.0, ""));
+        });
+
+        _sut.Enqueue([MakeQueueEntry("a")]);
+
+        var run = _sut.ExecuteAllAsync(itemFinished: i => finishedIds.Add(i.Id));
+
+        // Enqueue "b" while "a" is mid-flight, then release "a".
+        _sut.Enqueue([MakeQueueEntry("b")]);
+        firstGate.SetResult(new JobResult(
+            new TestJobDefinitionBuilder().Build(),
+            JobState.Completed, [], [], 1.0, ""));
+
+        var result = await run;
+
+        finishedIds.Should().BeEquivalentTo(["a", "b"], o => o.WithStrictOrdering());
+        result.Should().OnlyContain(i => i.State == JobState.Completed);
+    }
+
+    // --- ResetToPending ---
+
+    [Fact]
+    public void ResetToPending_ResetsFailedItemToPending()
+    {
+        _sut.Enqueue([MakeQueueEntry("a")]);
+        // Force "a" into a Failed state by running with a throwing execution.
+        var items = _sut.Items.ToList();
+        // Directly verify: Remove requires non-Running; simulate a prior failed run via
+        // running the queue with an execution that throws.
+        _mockExecution.ExecuteAsync(
+            Arg.Any<JobDefinition>(),
+            Arg.Any<SourceMediaInfo>(),
+            Arg.Any<Action<JobProgress>?>(),
+            Arg.Any<Action<string>?>(),
+            Arg.Any<CancellationToken>())
+        .Returns<Task<JobResult>>(_ => throw new InvalidOperationException("boom"));
+
+        Func<Task> run = () => _sut.ExecuteAllAsync();
+        run.Should().ThrowAsync<InvalidOperationException>();
+
+        _sut.Items[0].State.Should().Be(JobState.Failed);
+
+        SetupDefaultExecution();
+        _sut.ResetToPending(["a"]);
+
+        _sut.Items[0].State.Should().Be(JobState.Pending);
+        _sut.Items[0].FailureMessage.Should().BeNull();
+        _sut.Items[0].Result.Should().BeNull();
+        _sut.Items[0].Progress.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ResetToPending_LeavesRunningItemsUntouched()
+    {
+        var tcs = new TaskCompletionSource<JobResult>();
+        _mockExecution.ExecuteAsync(
+            Arg.Any<JobDefinition>(),
+            Arg.Any<SourceMediaInfo>(),
+            Arg.Any<Action<JobProgress>?>(),
+            Arg.Any<Action<string>?>(),
+            Arg.Any<CancellationToken>())
+        .Returns(tcs.Task);
+
+        _sut.Enqueue([MakeQueueEntry("a")]);
+        var run = _sut.ExecuteAllAsync();
+
+        // Wait for "a" to enter Running state.
+        var spin = new System.Diagnostics.Stopwatch();
+        spin.Start();
+        while (_sut.Items[0].State != JobState.Running && spin.ElapsedMilliseconds < 1000)
+            Thread.Sleep(10);
+
+        _sut.ResetToPending(["a"]);
+        _sut.Items[0].State.Should().Be(JobState.Running);
+
+        tcs.SetResult(new JobResult(
+            new TestJobDefinitionBuilder().Build(),
+            JobState.Completed, [], [], 1.0, ""));
+        await run;
+    }
+
+    [Fact]
+    public void ResetToPending_EmptyIds_NoEffect()
+    {
+        _sut.Enqueue([MakeQueueEntry("a")]);
+        var result = _sut.ResetToPending([]);
+        result.Should().HaveCount(1);
+        result[0].State.Should().Be(JobState.Pending);
+    }
+
     // --- Empty queue ---
 
     [Fact]

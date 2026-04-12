@@ -88,6 +88,33 @@ public sealed class QueueService(
         }
     }
 
+    public IReadOnlyList<QueueItem> ResetToPending(IEnumerable<string> itemIds)
+    {
+        var toReset = new HashSet<string>(itemIds);
+        if (toReset.Count == 0)
+            return Items;
+
+        lock (_lock)
+        {
+            for (var i = 0; i < _items.Count; i++)
+            {
+                if (!toReset.Contains(_items[i].Id))
+                    continue;
+                if (_items[i].State == JobState.Running)
+                    continue;
+
+                _items[i] = _items[i] with
+                {
+                    State = JobState.Pending,
+                    Progress = null,
+                    Result = null,
+                    FailureMessage = null,
+                };
+            }
+            return [.. _items];
+        }
+    }
+
     public async Task<IReadOnlyList<QueueItem>> ExecuteAllAsync(
         Action<QueueItem>? itemStarted = null,
         Action<QueueItem>? itemProgress = null,

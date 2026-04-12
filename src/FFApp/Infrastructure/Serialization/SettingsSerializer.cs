@@ -299,6 +299,7 @@ public static class SettingsSerializer
                 ["tune"] = av1.Tune,
                 ["enable_overlays"] = av1.EnableOverlays,
                 ["scm"] = av1.Scm,
+                ["max_bitrate_kbps"] = av1.MaxBitrateKbps,
             },
             _ => throw new InvalidOperationException(
                 $"Unknown QualityOptions type: {options.GetType().Name}"),
@@ -400,7 +401,8 @@ public static class SettingsSerializer
                 Preset: ReadInt(element, "preset", 6),
                 Tune: ReadInt(element, "tune", 0),
                 EnableOverlays: ReadInt(element, "enable_overlays", 1),
-                Scm: ReadInt(element, "scm", 2));
+                Scm: ReadInt(element, "scm", 2),
+                MaxBitrateKbps: ReadInt(element, "max_bitrate_kbps", 0));
         }
 
         return new Vp9QualityOptions(

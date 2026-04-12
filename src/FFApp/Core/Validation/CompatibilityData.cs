@@ -26,6 +26,8 @@ public static class CompatibilityData
     public const int Av1PresetMax = 13;
     public const int Av1CrfMin = 0;
     public const int Av1CrfMax = 63;
+    public const int Av1MaxBitrateKbpsMin = 0;
+    public const int Av1MaxBitrateKbpsMax = 1_000_000;
 
     public static readonly IReadOnlyList<int> Av1TuneOptions = [0, 1, 2, 3, 4];
     public static readonly IReadOnlyList<int> Av1ScmOptions = [0, 1, 2, 3];

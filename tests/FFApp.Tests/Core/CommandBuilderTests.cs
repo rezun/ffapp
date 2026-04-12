@@ -1302,6 +1302,37 @@ public class CommandBuilderTests
     }
 
     [Fact]
+    public void Build_Av1Quality_MaxBitrateSet_EmitsMbrParam()
+    {
+        var job = JobWith(s => s.WithAv1().WithAv1MaxBitrateKbps(5000));
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        args.Should().Contain("-svtav1-params");
+        args.Should().Contain("mbr=5000k");
+    }
+
+    [Fact]
+    public void Build_Av1Quality_MaxBitrateZero_OmitsMbrParam()
+    {
+        var job = JobWith(s => s.WithAv1());
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        args.Should().NotContain("mbr=");
+    }
+
+    [Fact]
+    public void Build_Av1Bitrate_MaxBitrateIgnored_OmitsMbrParam()
+    {
+        // mbr only meaningful with CRF; in bitrate mode MaxBitrateKbps on quality options is moot.
+        var job = JobWith(s => s.WithAv1()
+            .WithAv1MaxBitrateKbps(5000)
+            .WithTargetBitrate(3_000_000));
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        args.Should().NotContain("mbr=");
+    }
+
+    [Fact]
     public void Build_Av1Bitrate_NonDefaultTune_EmitsTuneParam()
     {
         var job = JobWith(s => s.WithAv1()

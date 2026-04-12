@@ -55,6 +55,12 @@ public partial class QualityViewModel : ObservableObject
     private int _av1Scm = 2;
 
     [ObservableProperty]
+    private string _av1MaxBitrateKbpsText = "";
+
+    public int Av1MaxBitrateKbps =>
+        int.TryParse(Av1MaxBitrateKbpsText, out var v) && v > 0 ? v : 0;
+
+    [ObservableProperty]
     private bool _isH26xCodec = true;
 
     [ObservableProperty]
@@ -127,6 +133,7 @@ public IReadOnlyList<int> AvailableAv1Scm { get; } =
                 Av1Tune = 0;
                 Av1EnableOverlays = 1;
                 Av1Scm = 2;
+                Av1MaxBitrateKbpsText = "";
                 break;
         }
     }

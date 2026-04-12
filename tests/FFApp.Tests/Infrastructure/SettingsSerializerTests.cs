@@ -402,7 +402,8 @@ public class SettingsSerializerTests
         var original = new TestOutputSettingsBuilder()
             .WithAv1()
             .WithQuality(new Av1QualityOptions(
-                Crf: 25, Preset: 4, Tune: 2, EnableOverlays: 0, Scm: 3))
+                Crf: 25, Preset: 4, Tune: 2, EnableOverlays: 0, Scm: 3,
+                MaxBitrateKbps: 4500))
             .Build();
 
         var result = RoundTrip(original);
@@ -414,6 +415,7 @@ public class SettingsSerializerTests
         q.Tune.Should().Be(2);
         q.EnableOverlays.Should().Be(0);
         q.Scm.Should().Be(3);
+        q.MaxBitrateKbps.Should().Be(4500);
     }
 
     [Fact]
@@ -453,6 +455,7 @@ public class SettingsSerializerTests
         q.Tune.Should().Be(0);
         q.EnableOverlays.Should().Be(1);
         q.Scm.Should().Be(2);
+        q.MaxBitrateKbps.Should().Be(0);
     }
 
     [Fact]

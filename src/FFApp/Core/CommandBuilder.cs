@@ -616,6 +616,14 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         if (scm != 2)
             parts.Add($"scm={scm}");
 
+        // Capped CRF: max bit rate is only meaningful in TargetQuality mode.
+        if (job.TargetQuality is Av1QualityOptions q
+            && job.EncodingStrategy == EncodingStrategy.TargetQuality
+            && q.MaxBitrateKbps > 0)
+        {
+            parts.Add($"mbr={q.MaxBitrateKbps}k");
+        }
+
         // Always enable scene change detection
         parts.Add("scd=1");
 

@@ -444,7 +444,8 @@ public partial class OutputSettingsViewModel : ObservableObject
                 Preset: quality.Av1Preset,
                 Tune: quality.Av1Tune,
                 EnableOverlays: quality.Av1EnableOverlays,
-                Scm: quality.Av1Scm),
+                Scm: quality.Av1Scm,
+                MaxBitrateKbps: quality.Av1MaxBitrateKbps),
             _ => new H264QualityOptions(),
         };
 
@@ -478,6 +479,9 @@ public partial class OutputSettingsViewModel : ObservableObject
                 Strategy.Quality.Av1Tune = av1.Tune;
                 Strategy.Quality.Av1EnableOverlays = av1.EnableOverlays;
                 Strategy.Quality.Av1Scm = av1.Scm;
+                Strategy.Quality.Av1MaxBitrateKbpsText = av1.MaxBitrateKbps > 0
+                    ? av1.MaxBitrateKbps.ToString()
+                    : "";
                 break;
         }
     }

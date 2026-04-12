@@ -51,7 +51,8 @@ public sealed record Av1QualityOptions(
     int Preset = 6,
     int Tune = 0,
     int EnableOverlays = 1,
-    int Scm = 2) : QualityOptions(VideoCodec.Av1);
+    int Scm = 2,
+    int MaxBitrateKbps = 0) : QualityOptions(VideoCodec.Av1);
 
 // --- Helpers ---
 

@@ -104,6 +104,11 @@ public class TestOutputSettingsBuilder
             TargetQuality = new Av1QualityOptions(),
         });
 
+    public TestOutputSettingsBuilder WithAv1MaxBitrateKbps(int kbps) =>
+        Apply(s => s.TargetQuality is Av1QualityOptions av1
+            ? s with { TargetQuality = av1 with { MaxBitrateKbps = kbps } }
+            : s);
+
     public TestOutputSettingsBuilder WithKeyframeInterval(int frames) =>
         Apply(s => s with { KeyframeInterval = frames, KeyframeUnit = KeyframeUnit.Frames });
 

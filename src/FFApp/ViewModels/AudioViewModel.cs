@@ -136,6 +136,13 @@ public partial class AudioViewModel : ObservableObject
     partial void OnSelectedAudioModeChanged(AudioMode value)
     {
         OnPropertyChanged(nameof(IsReencodeMode));
+
+        if (value == AudioMode.Reencode
+            && SelectedAudioCodec is null
+            && AvailableAudioCodecs.Count > 0)
+        {
+            SelectedAudioCodec = AvailableAudioCodecs[0];
+        }
     }
 
     partial void OnIsRemoveAllowedChanged(bool value)

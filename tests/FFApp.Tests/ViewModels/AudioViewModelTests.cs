@@ -79,4 +79,26 @@ public class AudioViewModelTests
 
         _sut.IsReencodeMode.Should().BeFalse();
     }
+
+    [Fact]
+    public void SwitchToReencode_WhenCodecIsNull_SelectsFirstAvailable()
+    {
+        _sut.AvailableAudioCodecs = [AudioCodec.Aac, AudioCodec.Mp3, AudioCodec.Opus];
+        _sut.SelectedAudioCodec = null;
+
+        _sut.SelectedAudioMode = AudioMode.Reencode;
+
+        _sut.SelectedAudioCodec.Should().Be(AudioCodec.Aac);
+    }
+
+    [Fact]
+    public void SwitchToReencode_WhenCodecAlreadySet_LeavesSelectionAlone()
+    {
+        _sut.AvailableAudioCodecs = [AudioCodec.Aac, AudioCodec.Mp3, AudioCodec.Opus];
+        _sut.SelectedAudioCodec = AudioCodec.Mp3;
+
+        _sut.SelectedAudioMode = AudioMode.Reencode;
+
+        _sut.SelectedAudioCodec.Should().Be(AudioCodec.Mp3);
+    }
 }

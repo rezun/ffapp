@@ -18,12 +18,11 @@
                    Margin="0,0,0,4" />
 
         <!-- Command preview (fills remaining space, grows with splitter) -->
-        <TextBox Text="{Binding CommandText, Mode=OneWay}"
+        <TextBox Classes="mono caption"
+                 Text="{Binding CommandText, Mode=OneWay}"
                  IsReadOnly="True"
                  AcceptsReturn="True"
                  TextWrapping="Wrap"
-                 FontFamily="Cascadia Code,Consolas,Menlo,monospace"
-                 FontSize="11"
                  MinHeight="40"
                  Watermark="Commands will appear here."
                  BorderThickness="1" />

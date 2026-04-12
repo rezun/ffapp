@@ -72,15 +72,17 @@
                     </Grid>
 
                     <!-- Copy mode info -->
-                    <TextBlock Text="Video stream will be copied without re-encoding."
-                               FontSize="12" Opacity="0.6" Margin="85,0,0,0"
+                    <TextBlock Classes="secondary"
+                               Text="Video stream will be copied without re-encoding."
+                               Margin="85,0,0,0"
                                IsVisible="{Binding Format.SelectedVideoMode,
                                    Converter={StaticResource EnumToBool},
                                    ConverterParameter={x:Static models:VideoMode.Copy}}" />
 
                     <!-- Audio-only source info -->
-                    <TextBlock Text="Source has no video streams."
-                               FontSize="12" Opacity="0.6" Margin="85,0,0,0"
+                    <TextBlock Classes="secondary"
+                               Text="Source has no video streams."
+                               Margin="85,0,0,0"
                                IsVisible="{Binding !Format.SourceHasVideo}" />
 
                     <!-- Re-encode settings (visible only when re-encoding) -->
@@ -132,8 +134,9 @@
                                                     ConverterParameter={x:Static models:HdrMode.TonemapToSdr}}" />
                                         </StackPanel>
                                     </Grid>
-                                    <TextBlock Text="{Binding Hdr.HdrModeNote}"
-                                               FontSize="12" Opacity="0.6" Margin="85,0,0,0"
+                                    <TextBlock Classes="secondary"
+                                               Text="{Binding Hdr.HdrModeNote}"
+                                               Margin="85,0,0,0"
                                                IsVisible="{Binding Hdr.HdrModeNote,
                                                    Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                                     <StackPanel Spacing="4" IsVisible="{Binding Hdr.IsToneMapSettingsVisible}">
@@ -183,9 +186,9 @@
                                 ItemsSource="{Binding AvailableKeyframeUnits}"
                                 SelectedItem="{Binding SelectedKeyframeUnit}"
                                 ItemTemplate="{StaticResource KeyframeUnitTemplate}" />
-                            <TextBlock Grid.Column="4" Text="empty = encoder default"
-                                       VerticalAlignment="Center" Margin="8,0,0,0"
-                                       FontSize="12" Opacity="0.6" />
+                            <TextBlock Grid.Column="4" Classes="secondary"
+                                       Text="empty = encoder default"
+                                       VerticalAlignment="Center" Margin="8,0,0,0" />
                         </Grid>
 
                         <!-- Encoding Strategy -->
@@ -364,11 +367,12 @@
                 <Separator DockPanel.Dock="Top" />
                 <StackPanel Margin="8,4,8,6" Spacing="4">
                     <TextBlock Text="{Binding ValidationText}"
-                               TextWrapping="Wrap" FontSize="12"
+                               TextWrapping="Wrap"
                                Foreground="{DynamicResource ValidationWarningBrush}"
                                IsVisible="{Binding HasValidationIssues}" />
-                    <TextBlock Text="No validation issues."
-                               TextWrapping="Wrap" FontSize="12" Opacity="0.5"
+                    <TextBlock Classes="secondary"
+                               Text="No validation issues."
+                               TextWrapping="Wrap"
                                IsVisible="{Binding !HasValidationIssues}" />
                 </StackPanel>
             </DockPanel>

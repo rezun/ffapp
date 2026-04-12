@@ -165,6 +165,58 @@
             <Setter Property="FontSize" Value="13" />
             <Setter Property="Foreground" Value="{DynamicResource CardHeaderBrush}" />
         </Style>
+
+        <!-- Dense text size variant -->
+        <Style Selector="TextBlock.caption">
+            <Setter Property="FontSize" Value="11" />
+        </Style>
+        <Style Selector="TextBox.caption">
+            <Setter Property="FontSize" Value="11" />
+        </Style>
+        <Style Selector="SelectableTextBlock.caption">
+            <Setter Property="FontSize" Value="11" />
+        </Style>
+
+        <!-- Secondary (de-emphasized) text role -->
+        <Style Selector="TextBlock.secondary">
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        </Style>
+
+        <!-- Monospace text for numeric/timecode values -->
+        <Style Selector="TextBlock.mono">
+            <Setter Property="FontFamily" Value="Cascadia Code,Consolas,Menlo,monospace" />
+        </Style>
+        <Style Selector="TextBox.mono">
+            <Setter Property="FontFamily" Value="Cascadia Code,Consolas,Menlo,monospace" />
+        </Style>
+        <Style Selector="SelectableTextBlock.mono">
+            <Setter Property="FontFamily" Value="Cascadia Code,Consolas,Menlo,monospace" />
+        </Style>
+
+        <!-- Compact text input (24px, tight padding) -->
+        <Style Selector="TextBox.compact">
+            <Setter Property="Height" Value="24" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="Padding" Value="4,0" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+
+        <!-- Small / extra-small button variants (keep global MinHeight=26) -->
+        <Style Selector="Button.sm">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Padding" Value="8,2" />
+        </Style>
+        <Style Selector="Button.xs">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Padding" Value="6,1" />
+        </Style>
+
+        <!-- Compact checkbox (dense inline variant) -->
+        <Style Selector="CheckBox.compact">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Padding" Value="4,0" />
+            <Setter Property="MinHeight" Value="0" />
+        </Style>
     </Application.Styles>
     <Application.DataTemplates>
         <DataTemplate DataType="vm:DependencySetupViewModel"><views:DependencySetupView /></DataTemplate>

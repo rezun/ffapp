@@ -36,8 +36,7 @@
                     <TextBlock Text="Folder" VerticalAlignment="Center" />
                     <TextBox Grid.Column="1"
                              Text="{Binding OutputDirectory}"
-                             Watermark="Output folder"
-                             FontSize="12" />
+                             Watermark="Output folder" />
                     <Button Grid.Column="2"
                             Content="Browse"
                             Command="{Binding BrowseDirectoryCommand}"
@@ -56,23 +55,18 @@
                     <TextBlock Text="Filename" VerticalAlignment="Center" />
                     <TextBox Grid.Column="1"
                              Text="{Binding OutputFilename}"
-                             Watermark="Enter filename"
-                             FontSize="12" />
+                             Watermark="Enter filename" />
                     <TextBlock Grid.Column="2"
+                               Classes="mono secondary"
                                Text="{Binding Extension}"
                                VerticalAlignment="Center"
-                               Margin="6,0,0,0"
-                               FontFamily="Cascadia Code,Consolas,Menlo,monospace"
-                               FontSize="12"
-                               Opacity="0.7" />
+                               Margin="6,0,0,0" />
                 </Grid>
 
                 <!-- Resolved path preview -->
-                <TextBlock Text="{Binding ResolvedPath}"
+                <TextBlock Classes="mono caption secondary"
+                           Text="{Binding ResolvedPath}"
                            TextWrapping="Wrap"
-                           FontSize="11"
-                           FontFamily="Cascadia Code,Consolas,Menlo,monospace"
-                           Foreground="{DynamicResource TextSecondaryBrush}"
                            Margin="85,0,0,0"
                            IsVisible="{Binding ResolvedPath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
 

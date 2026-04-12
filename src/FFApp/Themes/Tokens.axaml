@@ -25,6 +25,7 @@
             <!-- Semantic -->
             <SolidColorBrush x:Key="ValidationWarningBrush" Color="Orange" />
             <SolidColorBrush x:Key="ValidationOkBrush" Color="#50DC50" />
+            <SolidColorBrush x:Key="ValidationErrorBrush" Color="#FF6A6A" />
 
             <!-- Button variants -->
             <SolidColorBrush x:Key="ButtonDangerBrush" Color="#E04040" />
@@ -64,6 +65,7 @@
             <!-- Semantic -->
             <SolidColorBrush x:Key="ValidationWarningBrush" Color="#CA5010" />
             <SolidColorBrush x:Key="ValidationOkBrush" Color="#107C10" />
+            <SolidColorBrush x:Key="ValidationErrorBrush" Color="#C42B1C" />
 
             <!-- Button variants -->
             <SolidColorBrush x:Key="ButtonDangerBrush" Color="#D13438" />

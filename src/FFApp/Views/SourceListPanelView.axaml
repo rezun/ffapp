@@ -20,16 +20,13 @@
                                 HorizontalAlignment="Right"
                                 Spacing="4">
                         <Button Content="Add"
-                                Classes="accent"
+                                Classes="accent sm"
                                 Command="{Binding AddFilesCommand}"
-                                ToolTip.Tip="Add one or more files"
-                                Padding="8,2"
-                                FontSize="11" />
+                                ToolTip.Tip="Add one or more files" />
                         <Button Content="Add folder"
+                                Classes="sm"
                                 Command="{Binding AddFolderCommand}"
-                                ToolTip.Tip="Add all media files from a folder"
-                                Padding="8,2"
-                                FontSize="11" />
+                                ToolTip.Tip="Add all media files from a folder" />
                     </StackPanel>
                 </DockPanel>
 
@@ -37,19 +34,16 @@
                 <StackPanel DockPanel.Dock="Bottom" Margin="8,4,8,6" Spacing="4">
                     <DockPanel>
                         <TextBlock DockPanel.Dock="Right"
+                                   Classes="caption secondary"
                                    Text="{Binding StatusText}"
-                                   FontSize="11"
-                                   Foreground="{DynamicResource TextSecondaryBrush}"
                                    VerticalAlignment="Center" />
                         <StackPanel Orientation="Horizontal" Spacing="4">
-                            <Button Content="Remove"
-                                    Command="{Binding RemoveSelectedCommand}"
-                                    Padding="6,2"
-                                    FontSize="11" />
-                            <Button Content="Remove all"
-                                    Command="{Binding ClearAllCommand}"
-                                    Padding="6,2"
-                                    FontSize="11" />
+                            <Button Classes="sm"
+                                    Content="Remove"
+                                    Command="{Binding RemoveSelectedCommand}" />
+                            <Button Classes="sm"
+                                    Content="Remove all"
+                                    Command="{Binding ClearAllCommand}" />
                         </StackPanel>
                     </DockPanel>
 
@@ -58,21 +52,19 @@
                           x:DataType="vm:WorkspaceViewModel"
                           DataContext="{Binding $parent[UserControl;1].DataContext}">
                         <Button Grid.Column="0"
-                                Classes="accent"
+                                Classes="accent sm"
                                 Content="Add selected to queue"
                                 Command="{Binding JobList.CreateJobFromSelectionCommand}"
                                 ToolTip.Tip="Add selected source files to the encode queue"
                                 HorizontalAlignment="Stretch"
-                                HorizontalContentAlignment="Center"
-                                FontSize="11" />
+                                HorizontalContentAlignment="Center" />
                         <Button Grid.Column="2"
-                                Classes="accent"
+                                Classes="accent sm"
                                 Content="Add all to queue"
                                 Command="{Binding JobList.CreateJobsForAllCommand}"
                                 ToolTip.Tip="Add all source files to the encode queue"
                                 HorizontalAlignment="Stretch"
-                                HorizontalContentAlignment="Center"
-                                FontSize="11" />
+                                HorizontalContentAlignment="Center" />
                     </Grid>
                 </StackPanel>
 
@@ -96,9 +88,9 @@
                                              Margin="4,0,0,0"
                                              VerticalAlignment="Center" />
                                 <TextBlock DockPanel.Dock="Right"
+                                           Classes="caption"
                                            Text="Error"
-                                           Foreground="IndianRed"
-                                           FontSize="11"
+                                           Foreground="{DynamicResource ValidationErrorBrush}"
                                            IsVisible="{Binding HasError}"
                                            VerticalAlignment="Center"
                                            Margin="4,0,0,0" />
@@ -120,13 +112,12 @@
                            Text="Media Info"
                            Classes="card-header" Margin="0,0,0,4" />
 
-                <SelectableTextBlock Text="{Binding MediaSummaryText, Mode=OneWay}"
-                         FontFamily="Cascadia Code, Consolas, Menlo, monospace"
-                         FontSize="11"
+                <SelectableTextBlock Classes="mono caption"
+                         Text="{Binding MediaSummaryText, Mode=OneWay}"
                          TextWrapping="Wrap"
                          IsVisible="{Binding MediaSummaryText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-                <TextBlock Text="No source file selected."
-                           FontSize="11" Opacity="0.5"
+                <TextBlock Classes="caption secondary"
+                           Text="No source file selected."
                            IsVisible="{Binding MediaSummaryText, Converter={x:Static StringConverters.IsNullOrEmpty}}" />
             </DockPanel>
         </Border>

@@ -14,25 +14,22 @@
                            Classes="card-header" Margin="0"
                            VerticalAlignment="Center" />
                 <TextBlock Grid.Column="1"
+                           Classes="secondary"
                            Text="{Binding StatusText}"
-                           Foreground="{DynamicResource TextSecondaryBrush}"
-                           FontSize="12"
                            VerticalAlignment="Center"
                            Margin="8,0,0,0" />
                 <Button Grid.Column="2"
+                        Classes="sm"
                         Content="{Binding IsExpanded, Converter={x:Static vm:VideoPreviewViewModel.ExpandCollapseConverter}}"
                         Command="{Binding ToggleExpandedCommand}"
-                        IsVisible="{Binding IsAvailable}"
-                        Padding="8,2"
-                        FontSize="11" />
+                        IsVisible="{Binding IsAvailable}" />
             </Grid>
             <Separator DockPanel.Dock="Top" IsVisible="{Binding IsExpanded}" />
 
             <!-- VLC not installed message -->
             <TextBlock IsVisible="{Binding !IsAvailable}"
+                       Classes="secondary"
                        Text="Install VLC to enable video preview."
-                       Foreground="{DynamicResource TextSecondaryBrush}"
-                       FontSize="12"
                        Margin="8,6,8,8" />
 
             <!-- Expandable content (only when VLC is available) -->
@@ -47,40 +44,35 @@
                             Value="{Binding Position}"
                             SmallChange="0.001"
                             LargeChange="0.01"
-                            Padding="0"
                             Margin="0,-4,0,-4" />
 
                     <!-- Time display row -->
                     <Grid ColumnDefinitions="*,Auto,*" Margin="0,2,0,0">
                         <TextBlock Grid.Column="0"
+                                   Classes="mono caption"
                                    Text="{Binding TimeDisplay}"
-                                   FontFamily="Cascadia Code,Consolas,Menlo,monospace"
-                                   FontSize="11"
                                    VerticalAlignment="Center" />
 
                         <!-- Transport buttons: centered -->
                         <StackPanel Grid.Column="1"
                                     Orientation="Horizontal"
                                     Spacing="4">
-                            <Button Content="&#x25C0;&#xFE0E;"
+                            <Button Classes="sm"
+                                    Content="&#x25C0;&#xFE0E;"
                                     ToolTip.Tip="Step back one frame"
                                     Command="{Binding StepBackwardCommand}"
-                                    Padding="8,3"
-                                    FontSize="11"
                                     IsEnabled="{Binding HasMedia}" />
-                            <Button Content="{Binding PlayPauseLabel}"
+                            <Button Classes="sm"
+                                    Content="{Binding PlayPauseLabel}"
                                     ToolTip.Tip="Play / Pause"
                                     Command="{Binding PlayPauseCommand}"
                                     MinWidth="36"
-                                    Padding="8,3"
-                                    FontSize="11"
                                     HorizontalContentAlignment="Center"
                                     IsEnabled="{Binding HasMedia}" />
-                            <Button Content="&#x25B6;&#xFE0E;"
+                            <Button Classes="sm"
+                                    Content="&#x25B6;&#xFE0E;"
                                     ToolTip.Tip="Step forward one frame"
                                     Command="{Binding StepForwardCommand}"
-                                    Padding="8,3"
-                                    FontSize="11"
                                     IsEnabled="{Binding HasMedia}" />
                         </StackPanel>
 
@@ -99,59 +91,43 @@
                                 <Separator DockPanel.Dock="Top" />
                                 <StackPanel Spacing="4" Margin="8,4,8,6">
                                     <Grid ColumnDefinitions="30,*,Auto" RowDefinitions="Auto,Auto">
-                                        <TextBlock Text="In"
-                                                   VerticalAlignment="Center"
-                                                   FontSize="12" />
+                                        <TextBlock Text="In" VerticalAlignment="Center" />
                                         <TextBox x:Name="TrimInTextBox"
                                                  Grid.Column="1"
-                                                 Text="{Binding TrimInDisplay}"
-                                                 FontFamily="Cascadia Code,Consolas,Menlo,monospace"
-                                                 FontSize="12"
-                                                 Padding="4,0"
-                                                 MinHeight="0"
-                                                 Height="24"
-                                                 VerticalContentAlignment="Center" />
-                                        <Button Grid.Column="2" Content="Set"
+                                                 Classes="compact mono"
+                                                 Text="{Binding TrimInDisplay}" />
+                                        <Button Grid.Column="2"
+                                                Classes="xs"
+                                                Content="Set"
                                                 Command="{Binding SetTrimInCommand}"
-                                                IsEnabled="{Binding HasMedia}"
-                                                Padding="8,1"
-                                                FontSize="11" />
+                                                IsEnabled="{Binding HasMedia}" />
 
                                         <TextBlock Grid.Row="1" Text="Out"
                                                    VerticalAlignment="Center"
-                                                   FontSize="12"
                                                    Margin="0,2,0,0" />
                                         <TextBox x:Name="TrimOutTextBox"
                                                  Grid.Row="1" Grid.Column="1"
+                                                 Classes="compact mono"
                                                  Text="{Binding TrimOutDisplay}"
-                                                 FontFamily="Cascadia Code,Consolas,Menlo,monospace"
-                                                 FontSize="12"
-                                                 Padding="4,0"
-                                                 MinHeight="0"
-                                                 Height="24"
-                                                 VerticalContentAlignment="Center"
                                                  Margin="0,2,0,0" />
-                                        <Button Grid.Row="1" Grid.Column="2" Content="Set"
+                                        <Button Grid.Row="1" Grid.Column="2"
+                                                Classes="xs"
+                                                Content="Set"
                                                 Command="{Binding SetTrimOutCommand}"
                                                 IsEnabled="{Binding HasMedia}"
-                                                Padding="8,1"
-                                                FontSize="11"
                                                 Margin="0,2,0,0" />
                                     </Grid>
                                     <DockPanel>
                                         <Button DockPanel.Dock="Left"
+                                                Classes="xs"
                                                 Content="Clear"
                                                 Command="{Binding ClearTrimCommand}"
-                                                IsEnabled="{Binding HasMedia}"
-                                                Padding="6,1"
-                                                FontSize="11" />
+                                                IsEnabled="{Binding HasMedia}" />
                                         <CheckBox DockPanel.Dock="Right"
+                                                  Classes="compact"
                                                   Content="Apply to all"
                                                   ToolTip.Tip="Apply this trim to all source files"
                                                   IsChecked="{Binding ApplyTrimToAll}"
-                                                  FontSize="11"
-                                                  Padding="4,0"
-                                                  MinHeight="0"
                                                   VerticalAlignment="Center"
                                                   HorizontalAlignment="Right" />
                                     </DockPanel>
@@ -169,61 +145,41 @@
                                 <StackPanel Spacing="4" Margin="8,4,8,6">
                                     <Grid ColumnDefinitions="16,*,8,16,*"
                                           RowDefinitions="Auto,Auto">
-                                        <TextBlock Text="X" VerticalAlignment="Center" FontSize="11" />
+                                        <TextBlock Classes="caption" Text="X" VerticalAlignment="Center" />
                                         <TextBox Grid.Column="1"
-                                                 Text="{Binding CropX}"
-                                                 FontSize="11"
-                                                 Padding="4,0"
-                                                 MinHeight="0"
-                                                 Height="24"
-                                                 VerticalContentAlignment="Center" />
-                                        <TextBlock Grid.Column="3" Text="Y"
-                                                   VerticalAlignment="Center" FontSize="11" />
+                                                 Classes="compact caption"
+                                                 Text="{Binding CropX}" />
+                                        <TextBlock Grid.Column="3" Classes="caption" Text="Y" VerticalAlignment="Center" />
                                         <TextBox Grid.Column="4"
-                                                 Text="{Binding CropY}"
-                                                 FontSize="11"
-                                                 Padding="4,0"
-                                                 MinHeight="0"
-                                                 Height="24"
-                                                 VerticalContentAlignment="Center" />
+                                                 Classes="compact caption"
+                                                 Text="{Binding CropY}" />
 
-                                        <TextBlock Grid.Row="1" Text="W"
-                                                   VerticalAlignment="Center" FontSize="11"
+                                        <TextBlock Grid.Row="1" Classes="caption" Text="W"
+                                                   VerticalAlignment="Center"
                                                    Margin="0,4,0,0" />
                                         <TextBox Grid.Row="1" Grid.Column="1"
+                                                 Classes="compact caption"
                                                  Text="{Binding CropW}"
-                                                 FontSize="11"
-                                                 Padding="4,0"
-                                                 MinHeight="0"
-                                                 Height="24"
-                                                 VerticalContentAlignment="Center"
                                                  Margin="0,4,0,0" />
-                                        <TextBlock Grid.Row="1" Grid.Column="3" Text="H"
-                                                   VerticalAlignment="Center" FontSize="11"
+                                        <TextBlock Grid.Row="1" Grid.Column="3" Classes="caption" Text="H"
+                                                   VerticalAlignment="Center"
                                                    Margin="0,4,0,0" />
                                         <TextBox Grid.Row="1" Grid.Column="4"
+                                                 Classes="compact caption"
                                                  Text="{Binding CropH}"
-                                                 FontSize="11"
-                                                 Padding="4,0"
-                                                 MinHeight="0"
-                                                 Height="24"
-                                                 VerticalContentAlignment="Center"
                                                  Margin="0,4,0,0" />
                                     </Grid>
                                     <DockPanel>
                                         <Button DockPanel.Dock="Left"
+                                                Classes="xs"
                                                 Content="Reset"
                                                 Command="{Binding ResetCropCommand}"
-                                                IsEnabled="{Binding HasMedia}"
-                                                Padding="6,1"
-                                                FontSize="11" />
+                                                IsEnabled="{Binding HasMedia}" />
                                         <CheckBox DockPanel.Dock="Right"
+                                                  Classes="compact"
                                                   Content="Apply to all"
                                                   ToolTip.Tip="Apply this crop to all source files"
                                                   IsChecked="{Binding ApplyCropToAll}"
-                                                  FontSize="11"
-                                                  Padding="4,0"
-                                                  MinHeight="0"
                                                   VerticalAlignment="Center"
                                                   HorizontalAlignment="Right" />
                                     </DockPanel>

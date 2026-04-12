@@ -13,44 +13,40 @@
                            Classes="card-header" Margin="0"
                            VerticalAlignment="Center" />
                 <TextBlock Grid.Column="1"
+                           Classes="caption"
                            Text="Copied to clipboard"
                            IsVisible="{Binding ShowCopiedIndicator}"
                            Foreground="{DynamicResource SystemAccentColor}"
-                           FontSize="11"
                            VerticalAlignment="Center"
                            Margin="0,0,8,0" />
                 <Button Grid.Column="2"
+                        Classes="sm"
                         Content="Copy"
                         Command="{Binding CopyCommandCommand}"
                         IsEnabled="{Binding HasCommands}"
                         ToolTip.Tip="Copy command to clipboard"
-                        Padding="8,2"
-                        FontSize="11"
                         Margin="0,0,4,0" />
                 <Button Grid.Column="3"
+                        Classes="sm"
                         Content="Copy Template"
                         Command="{Binding CopyTemplateCommand}"
                         IsEnabled="{Binding HasCommands}"
                         ToolTip.Tip="Copy command with $input placeholder instead of actual paths"
-                        Padding="8,2"
-                        FontSize="11"
                         Margin="0,0,4,0" />
                 <Button Grid.Column="4"
+                        Classes="sm"
                         Content="{Binding IsExpanded, Converter={x:Static vm:CommandPreviewViewModel.ExpandCollapseConverter}}"
-                        Command="{Binding ToggleExpandedCommand}"
-                        Padding="8,2"
-                        FontSize="11" />
+                        Command="{Binding ToggleExpandedCommand}" />
             </Grid>
             <Separator DockPanel.Dock="Top" IsVisible="{Binding IsExpanded}" />
 
             <!-- Expandable content -->
             <TextBox IsVisible="{Binding IsExpanded}"
+                     Classes="mono"
                      Text="{Binding CommandText, Mode=OneWay}"
                      IsReadOnly="True"
                      AcceptsReturn="True"
                      TextWrapping="Wrap"
-                     FontFamily="Cascadia Code,Consolas,Menlo,monospace"
-                     FontSize="12"
                      MaxHeight="200"
                      Margin="8,4,8,8"
                      Watermark="Load a source file to preview commands." />

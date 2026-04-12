@@ -40,11 +40,14 @@
             <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
         <Style Selector="TextBox">
-            <Setter Property="Height" Value="26" />
             <Setter Property="MinHeight" Value="26" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Padding" Value="6,0" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <!-- Pin height only for single-line TextBoxes; multi-line must grow. -->
+        <Style Selector="TextBox[AcceptsReturn=False]">
+            <Setter Property="Height" Value="26" />
         </Style>
         <Style Selector="TextBox.numeric-input">
             <Setter Property="Height" Value="26" />

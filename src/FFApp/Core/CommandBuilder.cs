@@ -619,6 +619,14 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         // Always enable scene change detection
         parts.Add("scd=1");
 
+        // Quantization matrices for perceptual quality improvement
+        parts.Add("enable-qm=1");
+        parts.Add("qm-min=2");
+        parts.Add("qm-max=15");
+
+        // Luminance bias and sharpness
+        parts.Add("luminance-qp-bias=10");
+        parts.Add("sharpness=1");
 
         return ["-svtav1-params", string.Join(":", parts)];
     }

@@ -88,7 +88,7 @@ public IReadOnlyList<int> AvailableAv1Scm { get; } =
     public void UpdateForCodec(VideoCodec codec)
     {
         IsH26xCodec = codec is VideoCodec.H264 or VideoCodec.H265;
-        IsVpxCodec = codec is VideoCodec.Vp8 or VideoCodec.Vp9;
+        IsVpxCodec = codec is VideoCodec.Vp9;
         IsAv1Codec = codec is VideoCodec.Av1;
 
         switch (codec)
@@ -111,13 +111,6 @@ public IReadOnlyList<int> AvailableAv1Scm { get; } =
                 Crf = 28;
                 H26xPreset = "medium";
                 H26xProfile = "main";
-                break;
-
-            case VideoCodec.Vp8:
-                VpxQuality = 31;
-                VpxCpuUsed = 4;
-                VpxTileColumns = 0;
-                VpxTileRows = 0;
                 break;
 
             case VideoCodec.Vp9:

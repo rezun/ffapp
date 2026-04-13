@@ -31,16 +31,6 @@ public class QualityViewModelTests
     }
 
     [Fact]
-    public void UpdateForCodec_Vp8_SetsExpectedDefaults()
-    {
-        _sut.UpdateForCodec(VideoCodec.Vp8);
-
-        _sut.IsH26xCodec.Should().BeFalse();
-        _sut.VpxQuality.Should().Be(31);
-        _sut.VpxCpuUsed.Should().Be(4);
-    }
-
-    [Fact]
     public void UpdateForCodec_Vp9_SetsExpectedDefaults()
     {
         _sut.UpdateForCodec(VideoCodec.Vp9);
@@ -61,9 +51,9 @@ public class QualityViewModelTests
     }
 
     [Fact]
-    public void UpdateForCodec_SwitchFromVp8ToH265_SetsH26xFlag()
+    public void UpdateForCodec_SwitchFromVp9ToH265_SetsH26xFlag()
     {
-        _sut.UpdateForCodec(VideoCodec.Vp8);
+        _sut.UpdateForCodec(VideoCodec.Vp9);
         _sut.IsH26xCodec.Should().BeFalse();
 
         _sut.UpdateForCodec(VideoCodec.H265);

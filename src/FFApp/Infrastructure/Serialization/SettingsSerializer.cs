@@ -134,12 +134,11 @@ public static class SettingsSerializer
         var targetQuality = DeserializeQualityOptions(videoCodec, qualityEl);
 
         // VPx fallback: if no explicit encoder options, derive from quality speed
-        if (videoEncoderOptions is null && videoCodec is VideoCodec.Vp8 or VideoCodec.Vp9)
+        if (videoEncoderOptions is null && videoCodec is VideoCodec.Vp9)
         {
-            var cpuUsed = ReadInt(qualityEl, "speed",
-                EncoderDefaults.DefaultVpxCpuUsed(videoCodec));
+            var cpuUsed = ReadInt(qualityEl, "speed", 2);
             if (cpuUsed < CompatibilityData.VpxSpeedMin || cpuUsed > CompatibilityData.VpxSpeedMax)
-                throw new SettingsDecodeException("Invalid VP8/VP9 CPU used setting.");
+                throw new SettingsDecodeException("Invalid VP9 CPU used setting.");
             videoEncoderOptions = new VpxEncoderOptions(videoCodec, CpuUsed: cpuUsed);
         }
 
@@ -279,12 +278,6 @@ public static class SettingsSerializer
                 ["preset"] = h265.Preset,
                 ["profile"] = h265.Profile,
             },
-            Vp8QualityOptions vp8 => new JsonObject
-            {
-                ["codec"] = EnumToString(vp8.Codec),
-                ["quality"] = vp8.Quality,
-                ["two_pass"] = vp8.TwoPass,
-            },
             Vp9QualityOptions vp9 => new JsonObject
             {
                 ["codec"] = EnumToString(vp9.Codec),
@@ -342,17 +335,16 @@ public static class SettingsSerializer
                 EnableOverlays: enableOverlays, Scm: scm);
         }
 
-        // VP8 or VP9
-        var cpuUsed = ReadInt(element, "cpu_used",
-            EncoderDefaults.DefaultVpxCpuUsed(videoCodec));
+        // VP9
+        var cpuUsed = ReadInt(element, "cpu_used", 2);
         if (cpuUsed < CompatibilityData.VpxSpeedMin || cpuUsed > CompatibilityData.VpxSpeedMax)
-            throw new SettingsDecodeException("Invalid VP8/VP9 CPU used setting.");
+            throw new SettingsDecodeException("Invalid VP9 CPU used setting.");
         var tileColumns = ReadInt(element, "tile_columns", 0);
         if (tileColumns < CompatibilityData.VpxTileColumnsMin || tileColumns > CompatibilityData.VpxTileColumnsMax)
-            throw new SettingsDecodeException("Invalid VP8/VP9 tile columns setting.");
+            throw new SettingsDecodeException("Invalid VP9 tile columns setting.");
         var tileRows = ReadInt(element, "tile_rows", 0);
         if (tileRows < CompatibilityData.VpxTileRowsMin || tileRows > CompatibilityData.VpxTileRowsMax)
-            throw new SettingsDecodeException("Invalid VP8/VP9 tile rows setting.");
+            throw new SettingsDecodeException("Invalid VP9 tile rows setting.");
         return new VpxEncoderOptions(videoCodec, CpuUsed: cpuUsed, TileColumns: tileColumns, TileRows: tileRows);
     }
 
@@ -385,13 +377,6 @@ public static class SettingsSerializer
                 Crf: ReadInt(element, "crf", 28),
                 Preset: preset,
                 Profile: profile);
-        }
-
-        if (videoCodec == VideoCodec.Vp8)
-        {
-            return new Vp8QualityOptions(
-                Quality: ReadInt(element, "quality", 31),
-                TwoPass: ReadBool(element, "two_pass"));
         }
 
         if (videoCodec == VideoCodec.Av1)

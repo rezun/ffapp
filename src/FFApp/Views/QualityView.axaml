@@ -37,7 +37,7 @@
             </TextBlock>
         </Grid>
 
-        <!-- VP8/VP9: Quality slider + two-pass -->
+        <!-- VP9: Quality slider + two-pass -->
         <StackPanel Spacing="4" IsVisible="{Binding IsVpxCodec}">
             <Grid ColumnDefinitions="85,*,Auto">
                 <TextBlock Text="Quality" VerticalAlignment="Center" />

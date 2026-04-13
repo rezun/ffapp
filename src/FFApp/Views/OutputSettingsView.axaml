@@ -288,11 +288,11 @@
                             </DockPanel>
                         </Border>
 
-                        <!-- VP8/VP9 Encoder Tuning -->
+                        <!-- VP9 Encoder Tuning -->
                         <Border Classes="nested-card" Margin="0,4,0,0"
                                 IsVisible="{Binding Strategy.Quality.IsVpxCodec}">
                             <DockPanel>
-                                <TextBlock DockPanel.Dock="Top" Text="VP8 / VP9 Encoder Tuning"
+                                <TextBlock DockPanel.Dock="Top" Text="VP9 Encoder Tuning"
                                            Classes="nested-card-header" />
                                 <Separator DockPanel.Dock="Top" />
                                 <StackPanel Spacing="4" Margin="6,4,6,6">

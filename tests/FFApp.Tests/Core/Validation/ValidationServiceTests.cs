@@ -40,31 +40,14 @@ public class ValidationServiceTests
         result.HasErrors.Should().BeTrue();
     }
 
-    [Fact]
-    public void Validate_Vp8InMp4_ReturnsVideoCodecIncompatible()
-    {
-        var settings = new TestOutputSettingsBuilder()
-            .WithVideoCodec(VideoCodec.Vp8)
-            .WithContainer(OutputContainer.Mp4)
-            .Build();
-        var media = new TestMediaInfoBuilder().Build();
-
-        var result = _sut.Validate(settings, media);
-
-        HasIssueWithCode(result, "video_codec_incompatible").Should().BeTrue();
-    }
-
     [Theory]
     [InlineData(OutputContainer.Mp4, VideoCodec.H264)]
     [InlineData(OutputContainer.Mp4, VideoCodec.H265)]
     [InlineData(OutputContainer.Mp4, VideoCodec.Vp9)]
     [InlineData(OutputContainer.Mkv, VideoCodec.H264)]
     [InlineData(OutputContainer.Mkv, VideoCodec.H265)]
-    [InlineData(OutputContainer.Mkv, VideoCodec.Vp8)]
     [InlineData(OutputContainer.Mkv, VideoCodec.Vp9)]
-    [InlineData(OutputContainer.Webm, VideoCodec.Vp8)]
     [InlineData(OutputContainer.Webm, VideoCodec.Vp9)]
-    [InlineData(OutputContainer.Ogg, VideoCodec.Vp8)]
     [InlineData(OutputContainer.Ogg, VideoCodec.Vp9)]
     public void Validate_ValidContainerCodecCombo_NoVideoCodecError(OutputContainer container, VideoCodec codec)
     {
@@ -72,10 +55,7 @@ public class ValidationServiceTests
             .WithContainer(container)
             .WithVideoCodec(codec);
 
-        // Use matching encoder options and quality for the codec.
-        if (codec is VideoCodec.Vp8)
-            builder = builder.WithVp8();
-        else if (codec is VideoCodec.Vp9)
+        if (codec is VideoCodec.Vp9)
             builder = builder.WithVp9();
         else if (codec is VideoCodec.H265)
             builder = builder.WithH265();
@@ -199,7 +179,7 @@ public class ValidationServiceTests
     {
         var builder = container == OutputContainer.Webm
             ? new TestOutputSettingsBuilder().WithVp9()
-            : new TestOutputSettingsBuilder().WithVp8().WithContainer(OutputContainer.Ogg);
+            : new TestOutputSettingsBuilder().WithVp9().WithContainer(OutputContainer.Ogg);
 
         var settings = builder.Build();
         var media = new TestMediaInfoBuilder().WithSubtitles("subrip").Build();
@@ -461,22 +441,6 @@ public class ValidationServiceTests
     [Theory]
     [InlineData(0)]
     [InlineData(63)]
-    public void Validate_Vp8QualityBoundary_NoQualityValueError(int quality)
-    {
-        var settings = new TestOutputSettingsBuilder()
-            .WithVp8()
-            .WithQuality(new Vp8QualityOptions(Quality: quality))
-            .Build();
-        var media = new TestMediaInfoBuilder().Build();
-
-        var result = _sut.Validate(settings, media);
-
-        HasIssueWithCode(result, "quality_value_invalid").Should().BeFalse();
-    }
-
-    [Theory]
-    [InlineData(0)]
-    [InlineData(63)]
     public void Validate_Vp9QualityBoundary_NoQualityValueError(int quality)
     {
         var settings = new TestOutputSettingsBuilder()
@@ -491,11 +455,11 @@ public class ValidationServiceTests
     }
 
     [Fact]
-    public void Validate_Vp8QualityNegative_ReturnsQualityValueInvalid()
+    public void Validate_Vp9QualityNegative_ReturnsQualityValueInvalid()
     {
         var settings = new TestOutputSettingsBuilder()
-            .WithVp8()
-            .WithQuality(new Vp8QualityOptions(Quality: -1))
+            .WithVp9()
+            .WithQuality(new Vp9QualityOptions(Quality: -1))
             .Build();
         var media = new TestMediaInfoBuilder().Build();
 
@@ -711,7 +675,7 @@ public class ValidationServiceTests
     {
         var result = _sut.AllowedVideoCodecs(OutputContainer.Webm);
 
-        result.Should().BeEquivalentTo([VideoCodec.Vp8, VideoCodec.Vp9, VideoCodec.Av1]);
+        result.Should().BeEquivalentTo([VideoCodec.Vp9, VideoCodec.Av1]);
     }
 
     [Fact]
@@ -909,19 +873,6 @@ public class ValidationServiceTests
 
     // ── VPX with wrong codec in encoder options ─────────────────────────
 
-    [Fact]
-    public void Validate_Vp9WithVp8EncoderOptions_ReturnsEncoderOptionsRequired()
-    {
-        var settings = new TestOutputSettingsBuilder()
-            .WithVp9()
-            .WithEncoderOptions(new VpxEncoderOptions(VideoCodec.Vp8, CpuUsed: 4))
-            .Build();
-        var media = new TestMediaInfoBuilder().Build();
-
-        var result = _sut.Validate(settings, media);
-
-        HasIssueWithCode(result, "video_encoder_options_required").Should().BeTrue();
-    }
 
     // ── HDR validation ─────────────────────────────────────────────────
 

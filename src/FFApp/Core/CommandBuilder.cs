@@ -281,13 +281,6 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
                 ["-crf", h265.Crf.ToString(), "-preset", h265.Preset,
                  "-profile:v", ResolveH265Profile(job, mediaInfo, h265.Profile)],
 
-            Vp8QualityOptions vp8 =>
-            [
-                "-crf", vp8.Quality.ToString(), "-b:v", "0",
-                .. VpxEncoderTuningArguments(job,
-                    ResolveVpxEncoderOptions(job.VideoCodec, job.VideoEncoderOptions), passIndex),
-            ],
-
             Vp9QualityOptions vp9 =>
             [
                 "-crf", vp9.Quality.ToString(), "-b:v", "0",
@@ -340,15 +333,13 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         {
             if (vpx.Codec == videoCodec)
                 return vpx;
-            throw new CommandBuildException("VP8/VP9 encoding requires matching VPx encoder options.");
+            throw new CommandBuildException("VP9 encoding requires matching VPx encoder options.");
         }
 
         if (configuredOptions is not null)
-            throw new CommandBuildException("VP8/VP9 encoding requires VPx encoder options.");
+            throw new CommandBuildException("VP9 encoding requires VPx encoder options.");
 
-        return new VpxEncoderOptions(
-            Codec: videoCodec,
-            CpuUsed: EncoderDefaults.DefaultVpxCpuUsed(videoCodec));
+        return new VpxEncoderOptions(Codec: videoCodec);
     }
 
     private static List<string> VpxEncoderTuningArguments(
@@ -480,8 +471,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
     {
         EncodingStrategy.TargetFileSize => job.TargetFileSize is { TwoPass: true },
         EncodingStrategy.TargetBitrate => job.TargetBitrate is { TwoPass: true },
-        EncodingStrategy.TargetQuality => job.TargetQuality is Vp8QualityOptions { TwoPass: true }
-                                       or Vp9QualityOptions { TwoPass: true },
+        EncodingStrategy.TargetQuality => job.TargetQuality is Vp9QualityOptions { TwoPass: true },
         _ => false,
     };
 
@@ -496,7 +486,6 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
     {
         VideoCodec.H264 => "libx264",
         VideoCodec.H265 => "libx265",
-        VideoCodec.Vp8 => "libvpx",
         VideoCodec.Vp9 => "libvpx-vp9",
         VideoCodec.Av1 => "libsvtav1",
         _ => throw new CommandBuildException($"Unsupported video codec: {codec}"),

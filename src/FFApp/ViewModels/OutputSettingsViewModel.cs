@@ -409,7 +409,7 @@ public partial class OutputSettingsViewModel : ObservableObject
             VideoCodec.H265 => new H265EncoderOptions(
                 Preset: quality.H26xPreset,
                 Profile: quality.H26xProfile),
-            VideoCodec.Vp8 or VideoCodec.Vp9 => new VpxEncoderOptions(
+            VideoCodec.Vp9 => new VpxEncoderOptions(
                 Codec: codec,
                 CpuUsed: quality.VpxCpuUsed,
                 TileColumns: quality.VpxTileColumns,
@@ -433,9 +433,6 @@ public partial class OutputSettingsViewModel : ObservableObject
                 Crf: quality.Crf,
                 Preset: quality.H26xPreset,
                 Profile: quality.H26xProfile),
-            VideoCodec.Vp8 => new Vp8QualityOptions(
-                Quality: quality.VpxQuality,
-                TwoPass: quality.VpxTwoPass),
             VideoCodec.Vp9 => new Vp9QualityOptions(
                 Quality: quality.VpxQuality,
                 TwoPass: quality.VpxTwoPass),
@@ -464,10 +461,6 @@ public partial class OutputSettingsViewModel : ObservableObject
                 Strategy.Quality.Crf = h265.Crf;
                 Strategy.Quality.H26xPreset = h265.Preset;
                 Strategy.Quality.H26xProfile = h265.Profile;
-                break;
-            case Vp8QualityOptions vp8:
-                Strategy.Quality.VpxQuality = vp8.Quality;
-                Strategy.Quality.VpxTwoPass = vp8.TwoPass;
                 break;
             case Vp9QualityOptions vp9:
                 Strategy.Quality.VpxQuality = vp9.Quality;

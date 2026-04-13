@@ -36,9 +36,9 @@ public static class CompatibilityData
         new Dictionary<OutputContainer, IReadOnlyList<VideoCodec>>
         {
             [OutputContainer.Mp4] = [VideoCodec.H264, VideoCodec.H265, VideoCodec.Av1, VideoCodec.Vp9],
-            [OutputContainer.Mkv] = [VideoCodec.Av1, VideoCodec.H265, VideoCodec.H264, VideoCodec.Vp9, VideoCodec.Vp8],
-            [OutputContainer.Webm] = [VideoCodec.Av1, VideoCodec.Vp9, VideoCodec.Vp8],
-            [OutputContainer.Ogg] = [VideoCodec.Vp9, VideoCodec.Vp8],
+            [OutputContainer.Mkv] = [VideoCodec.Av1, VideoCodec.H265, VideoCodec.H264, VideoCodec.Vp9],
+            [OutputContainer.Webm] = [VideoCodec.Av1, VideoCodec.Vp9],
+            [OutputContainer.Ogg] = [VideoCodec.Vp9],
         }.ToFrozenDictionary();
 
     public static readonly FrozenDictionary<OutputContainer, IReadOnlyList<AudioCodec>> AudioCodecMatrix =
@@ -163,7 +163,6 @@ public static class CompatibilityData
         {
             VideoCodec.H264 => "H.264",
             VideoCodec.H265 => "H.265",
-            VideoCodec.Vp8 => "VP8",
             VideoCodec.Vp9 => "VP9",
             VideoCodec.Av1 => "AV1",
             _ => codec.ToString(),

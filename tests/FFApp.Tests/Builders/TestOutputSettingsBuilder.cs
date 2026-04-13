@@ -83,15 +83,6 @@ public class TestOutputSettingsBuilder
             TargetQuality = new Vp9QualityOptions(TwoPass: twoPass),
         });
 
-    public TestOutputSettingsBuilder WithVp8(bool twoPass = false) =>
-        Apply(s => s with
-        {
-            VideoCodec = VideoCodec.Vp8,
-            Container = OutputContainer.Webm,
-            VideoEncoderOptions = new VpxEncoderOptions(VideoCodec.Vp8, CpuUsed: 4),
-            TargetQuality = new Vp8QualityOptions(TwoPass: twoPass),
-        });
-
     public TestOutputSettingsBuilder WithFrameRate(FrameRatePreset preset) =>
         Apply(s => s with { FrameRatePreset = preset });
 

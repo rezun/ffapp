@@ -15,32 +15,25 @@ public class CompatibilityDataTests
     }
 
     [Fact]
-    public void VideoCodecMatrix_Mp4_DoesNotContainVp8()
-    {
-        CompatibilityData.VideoCodecMatrix[OutputContainer.Mp4]
-            .Should().NotContain(VideoCodec.Vp8);
-    }
-
-    [Fact]
-    public void VideoCodecMatrix_Mkv_ContainsAllFourCodecs()
+    public void VideoCodecMatrix_Mkv_ContainsExpectedCodecs()
     {
         CompatibilityData.VideoCodecMatrix[OutputContainer.Mkv]
-            .Should().HaveCount(5)
-            .And.Contain([VideoCodec.H264, VideoCodec.H265, VideoCodec.Vp8, VideoCodec.Vp9, VideoCodec.Av1]);
+            .Should().HaveCount(4)
+            .And.Contain([VideoCodec.H264, VideoCodec.H265, VideoCodec.Vp9, VideoCodec.Av1]);
     }
 
     [Fact]
     public void VideoCodecMatrix_Webm_ContainsOnlyVpxCodecs()
     {
         CompatibilityData.VideoCodecMatrix[OutputContainer.Webm]
-            .Should().BeEquivalentTo([VideoCodec.Vp8, VideoCodec.Vp9, VideoCodec.Av1]);
+            .Should().BeEquivalentTo([VideoCodec.Vp9, VideoCodec.Av1]);
     }
 
     [Fact]
     public void VideoCodecMatrix_Ogg_ContainsOnlyVpxCodecs()
     {
         CompatibilityData.VideoCodecMatrix[OutputContainer.Ogg]
-            .Should().BeEquivalentTo([VideoCodec.Vp8, VideoCodec.Vp9]);
+            .Should().BeEquivalentTo([VideoCodec.Vp9]);
     }
 
     [Fact]
@@ -215,9 +208,9 @@ public class CompatibilityDataTests
     }
 
     [Fact]
-    public void QualityPresetOptions_Vp8_ReturnsEmpty()
+    public void QualityPresetOptions_Vp9_ReturnsEmpty()
     {
-        CompatibilityData.QualityPresetOptions(VideoCodec.Vp8).Should().BeEmpty();
+        CompatibilityData.QualityPresetOptions(VideoCodec.Vp9).Should().BeEmpty();
     }
 
     [Fact]
@@ -243,7 +236,6 @@ public class CompatibilityDataTests
     [Theory]
     [InlineData(VideoCodec.H264, "H.264")]
     [InlineData(VideoCodec.H265, "H.265")]
-    [InlineData(VideoCodec.Vp8, "VP8")]
     [InlineData(VideoCodec.Vp9, "VP9")]
     public void VideoCodecLabel_ReturnsExpected(VideoCodec codec, string expected)
     {

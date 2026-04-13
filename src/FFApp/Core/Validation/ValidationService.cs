@@ -353,16 +353,16 @@ public sealed class ValidationService : IValidationService
                 }
                 break;
             }
-            default: // VP8 / VP9
+            default: // VP9
             {
                 var encoder = settings.VideoEncoderOptions
-                    ?? new VpxEncoderOptions(settings.VideoCodec, EncoderDefaults.DefaultVpxCpuUsed(settings.VideoCodec));
+                    ?? new VpxEncoderOptions(settings.VideoCodec);
                 if (encoder is not VpxEncoderOptions vpx || vpx.Codec != settings.VideoCodec)
                 {
                     issues.Add(new ValidationIssue(
                         ValidationSeverity.Error,
                         "video_encoder_options_required",
-                        "Choose a valid VP8/VP9 CPU used setting.",
+                        "Choose a valid VP9 CPU used setting.",
                         "video_encoder"));
                     return;
                 }
@@ -371,7 +371,7 @@ public sealed class ValidationService : IValidationService
                     issues.Add(new ValidationIssue(
                         ValidationSeverity.Error,
                         "video_encoder_cpu_used_invalid",
-                        "VP8/VP9 CPU used must be between 0 and 8.",
+                        "VP9 CPU used must be between 0 and 8.",
                         "video_encoder"));
                 }
                 if (vpx.TileColumns < VpxTileColumnsMin || vpx.TileColumns > VpxTileColumnsMax)
@@ -379,7 +379,7 @@ public sealed class ValidationService : IValidationService
                     issues.Add(new ValidationIssue(
                         ValidationSeverity.Error,
                         "video_encoder_tile_columns_invalid",
-                        $"VP8/VP9 tile columns must be between {VpxTileColumnsMin} and {VpxTileColumnsMax}.",
+                        $"VP9 tile columns must be between {VpxTileColumnsMin} and {VpxTileColumnsMax}.",
                         "video_encoder"));
                 }
                 if (vpx.TileRows < VpxTileRowsMin || vpx.TileRows > VpxTileRowsMax)
@@ -387,7 +387,7 @@ public sealed class ValidationService : IValidationService
                     issues.Add(new ValidationIssue(
                         ValidationSeverity.Error,
                         "video_encoder_tile_rows_invalid",
-                        $"VP8/VP9 tile rows must be between {VpxTileRowsMin} and {VpxTileRowsMax}.",
+                        $"VP9 tile rows must be between {VpxTileRowsMin} and {VpxTileRowsMax}.",
                         "video_encoder"));
                 }
                 break;
@@ -583,23 +583,13 @@ public sealed class ValidationService : IValidationService
                     H26xPresetOptions, H265ProfileOptions,
                     "target_quality", issues);
                 break;
-            case Vp8QualityOptions vp8:
-                if (vp8.Quality is < 0 or > 63)
-                {
-                    issues.Add(new ValidationIssue(
-                        ValidationSeverity.Error,
-                        "quality_value_invalid",
-                        "VP8/VP9 quality must be between 0 and 63.",
-                        "target_quality"));
-                }
-                break;
             case Vp9QualityOptions vp9:
                 if (vp9.Quality is < 0 or > 63)
                 {
                     issues.Add(new ValidationIssue(
                         ValidationSeverity.Error,
                         "quality_value_invalid",
-                        "VP8/VP9 quality must be between 0 and 63.",
+                        "VP9 quality must be between 0 and 63.",
                         "target_quality"));
                 }
                 break;

@@ -38,10 +38,6 @@ public sealed record H265QualityOptions(
     string Preset = "medium",
     string Profile = "main") : QualityOptions(VideoCodec.H265);
 
-public sealed record Vp8QualityOptions(
-    int Quality = 31,
-    bool TwoPass = false) : QualityOptions(VideoCodec.Vp8);
-
 public sealed record Vp9QualityOptions(
     int Quality = 32,
     bool TwoPass = false) : QualityOptions(VideoCodec.Vp9);
@@ -54,10 +50,3 @@ public sealed record Av1QualityOptions(
     int Scm = 2,
     int MaxBitrateKbps = 0) : QualityOptions(VideoCodec.Av1);
 
-// --- Helpers ---
-
-public static class EncoderDefaults
-{
-    public static int DefaultVpxCpuUsed(VideoCodec codec) =>
-        codec == VideoCodec.Vp8 ? 4 : 2;
-}

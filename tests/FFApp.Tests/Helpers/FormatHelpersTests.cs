@@ -209,7 +209,6 @@ public class FormatHelpersTests
     [Theory]
     [InlineData(VideoCodec.H264, "H.264")]
     [InlineData(VideoCodec.H265, "H.265")]
-    [InlineData(VideoCodec.Vp8, "VP8")]
     [InlineData(VideoCodec.Vp9, "VP9")]
     public void VideoCodecLabel_AllValues_ReturnExpected(VideoCodec codec, string expected)
     {

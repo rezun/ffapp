@@ -107,17 +107,6 @@ public class CommandBuilderTests
     }
 
     [Fact]
-    public void Build_Vp8Quality_ProducesCorrectCodecArguments()
-    {
-        var job = JobWith(s => s.WithVp8());
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        args.Should().Contain("-c:v libvpx")
-            .And.Contain("-crf 31 -b:v 0")
-            .And.Contain("-deadline good -cpu-used 4");
-    }
-
-    [Fact]
     public void Build_Vp9Quality_ProducesCorrectCodecArguments()
     {
         var job = JobWith(s => s.WithVp9());
@@ -216,24 +205,6 @@ public class CommandBuilderTests
         var pass1Args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
 
         pass1Args.Should().NotContain("-auto-alt-ref");
-    }
-
-    [Fact]
-    public void Build_Vp8QualityTwoPass_ReturnsTwoCommands()
-    {
-        var job = JobWith(s => s.WithVp8(twoPass: true));
-        var commands = _sut.Build(job, DefaultMedia());
-
-        commands.Should().HaveCount(2);
-    }
-
-    [Fact]
-    public void Build_Vp8QualityTwoPass_Pass2_DoesNotHaveRowMt()
-    {
-        var job = JobWith(s => s.WithVp8(twoPass: true));
-        var pass2Args = JoinArgs(_sut.Build(job, DefaultMedia())[1]);
-
-        pass2Args.Should().NotContain("-row-mt");
     }
 
     [Fact]
@@ -817,13 +788,13 @@ public class CommandBuilderTests
     }
 
     [Fact]
-    public void Build_Vp8Bitrate_SinglePass_UsesDefaultCpuUsed4()
+    public void Build_Vp9Bitrate_SinglePass_UsesDefaultCpuUsed2()
     {
-        var job = JobWith(s => s.WithVp8().WithTargetBitrate(1_000_000));
+        var job = JobWith(s => s.WithVp9().WithTargetBitrate(1_000_000));
         var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
 
-        args.Should().Contain("-c:v libvpx")
-            .And.Contain("-cpu-used 4")
+        args.Should().Contain("-c:v libvpx-vp9")
+            .And.Contain("-cpu-used 2")
             .And.Contain("-b:v 1000k");
     }
 

@@ -79,22 +79,6 @@ public class SettingsSerializerTests
     }
 
     [Fact]
-    public void RoundTrip_Vp8Quality_PreservesFields()
-    {
-        var original = new TestOutputSettingsBuilder()
-            .WithVp8(twoPass: false)
-            .WithQuality(new Vp8QualityOptions(Quality: 25, TwoPass: false))
-            .Build();
-
-        var result = RoundTrip(original);
-
-        result.TargetQuality.Should().BeOfType<Vp8QualityOptions>();
-        var q = (Vp8QualityOptions)result.TargetQuality;
-        q.Quality.Should().Be(25);
-        q.TwoPass.Should().BeFalse();
-    }
-
-    [Fact]
     public void RoundTrip_TargetFileSize_PreservesAllFields()
     {
         var original = new TestOutputSettingsBuilder()

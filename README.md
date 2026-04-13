@@ -4,7 +4,7 @@ A cross-platform desktop GUI for FFmpeg, built to make video and audio encoding 
 
 ## Features
 
-- **Multiple codecs** — H.264, H.265, VP8, VP9, AV1 for video; MP3, AAC, Vorbis, Opus for audio
+- **Multiple codecs** — H.264, H.265, VP9, AV1 for video; MP3, AAC, Vorbis, Opus for audio
 - **Three encoding strategies** — Target quality (CRF), target bitrate (two-pass), or target file size
 - **Job queue** — Batch encode with progress tracking, pause/resume, and per-job logs
 - **Video preview** — Scrub through video with trim and crop controls (via LibVLC)

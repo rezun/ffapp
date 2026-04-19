@@ -234,18 +234,21 @@ public static class SettingsSerializer
                 ["cpu_used"] = vpx.CpuUsed,
                 ["tile_columns"] = vpx.TileColumns,
                 ["tile_rows"] = vpx.TileRows,
+                ["additional_options"] = vpx.AdditionalOptions,
             },
             H264EncoderOptions h264 => new JsonObject
             {
                 ["codec"] = EnumToString(h264.Codec),
                 ["preset"] = h264.Preset,
                 ["profile"] = h264.Profile,
+                ["additional_options"] = h264.AdditionalOptions,
             },
             H265EncoderOptions h265 => new JsonObject
             {
                 ["codec"] = EnumToString(h265.Codec),
                 ["preset"] = h265.Preset,
                 ["profile"] = h265.Profile,
+                ["additional_options"] = h265.AdditionalOptions,
             },
             Av1EncoderOptions av1 => new JsonObject
             {
@@ -255,6 +258,7 @@ public static class SettingsSerializer
                 ["enable_overlays"] = av1.EnableOverlays,
                 ["scm"] = av1.Scm,
                 ["enable_variance_boost"] = av1.EnableVarianceBoost,
+                ["additional_options"] = av1.AdditionalOptions,
             },
             _ => throw new InvalidOperationException(
                 $"Unknown VideoEncoderOptions type: {options.GetType().Name}"),
@@ -312,7 +316,9 @@ public static class SettingsSerializer
                 throw new SettingsDecodeException("Invalid H.264 encoder preset.");
             if (!CompatibilityData.QualityProfileOptions(videoCodec).Contains(profile))
                 throw new SettingsDecodeException("Invalid H.264 encoder profile.");
-            return new H264EncoderOptions(Preset: preset, Profile: profile);
+            return new H264EncoderOptions(
+                Preset: preset, Profile: profile,
+                AdditionalOptions: ReadString(element, "additional_options", ""));
         }
 
         if (videoCodec == VideoCodec.H265)
@@ -323,7 +329,9 @@ public static class SettingsSerializer
                 throw new SettingsDecodeException("Invalid H.265 encoder preset.");
             if (!CompatibilityData.QualityProfileOptions(videoCodec).Contains(profile))
                 throw new SettingsDecodeException("Invalid H.265 encoder profile.");
-            return new H265EncoderOptions(Preset: preset, Profile: profile);
+            return new H265EncoderOptions(
+                Preset: preset, Profile: profile,
+                AdditionalOptions: ReadString(element, "additional_options", ""));
         }
 
         if (videoCodec == VideoCodec.Av1)
@@ -336,7 +344,8 @@ public static class SettingsSerializer
             return new Av1EncoderOptions(
                 Preset: preset, Tune: tune,
                 EnableOverlays: enableOverlays, Scm: scm,
-                EnableVarianceBoost: enableVarianceBoost);
+                EnableVarianceBoost: enableVarianceBoost,
+                AdditionalOptions: ReadString(element, "additional_options", ""));
         }
 
         // VP9
@@ -349,7 +358,9 @@ public static class SettingsSerializer
         var tileRows = ReadInt(element, "tile_rows", 0);
         if (tileRows < CompatibilityData.VpxTileRowsMin || tileRows > CompatibilityData.VpxTileRowsMax)
             throw new SettingsDecodeException("Invalid VP9 tile rows setting.");
-        return new VpxEncoderOptions(videoCodec, CpuUsed: cpuUsed, TileColumns: tileColumns, TileRows: tileRows);
+        return new VpxEncoderOptions(
+            videoCodec, CpuUsed: cpuUsed, TileColumns: tileColumns, TileRows: tileRows,
+            AdditionalOptions: ReadString(element, "additional_options", ""));
     }
 
     private static QualityOptions DeserializeQualityOptions(

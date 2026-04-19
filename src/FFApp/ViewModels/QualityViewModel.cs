@@ -69,6 +69,18 @@ public partial class QualityViewModel : ObservableObject
     [ObservableProperty]
     private string _av1MaxBitrateKbpsText = "";
 
+    [ObservableProperty]
+    private string _h264AdditionalOptions = "";
+
+    [ObservableProperty]
+    private string _h265AdditionalOptions = "";
+
+    [ObservableProperty]
+    private string _vp9AdditionalOptions = "";
+
+    [ObservableProperty]
+    private string _av1AdditionalOptions = "";
+
     public int Av1MaxBitrateKbps =>
         int.TryParse(Av1MaxBitrateKbpsText, out var v) && v > 0 ? v : 0;
 
@@ -113,6 +125,7 @@ public IReadOnlyList<int> AvailableAv1Scm { get; } =
                 Crf = 23;
                 H26xPreset = "medium";
                 H26xProfile = "high";
+                H264AdditionalOptions = "";
                 break;
 
             case VideoCodec.H265:
@@ -123,6 +136,7 @@ public IReadOnlyList<int> AvailableAv1Scm { get; } =
                 Crf = 28;
                 H26xPreset = "medium";
                 H26xProfile = "main";
+                H265AdditionalOptions = "";
                 break;
 
             case VideoCodec.Vp9:
@@ -130,6 +144,7 @@ public IReadOnlyList<int> AvailableAv1Scm { get; } =
                 VpxCpuUsed = 2;
                 VpxTileColumns = 0;
                 VpxTileRows = 0;
+                Vp9AdditionalOptions = "";
                 break;
 
             case VideoCodec.Av1:
@@ -140,6 +155,7 @@ public IReadOnlyList<int> AvailableAv1Scm { get; } =
                 Av1Scm = 2;
                 Av1EnableVarianceBoost = 0;
                 Av1MaxBitrateKbpsText = "";
+                Av1AdditionalOptions = "";
                 break;
         }
     }

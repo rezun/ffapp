@@ -264,7 +264,70 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         if (job.VideoCodec == VideoCodec.Av1)
             arguments.AddRange(BuildSvtAv1Params(job, mediaInfo));
 
+        arguments.AddRange(CodecParamsArguments(job, mediaInfo));
+
         return arguments;
+    }
+
+    private static List<string> CodecParamsArguments(JobDefinition job, SourceMediaInfo mediaInfo)
+    {
+        var additional = ExtractAdditionalOptions(job.VideoEncoderOptions);
+
+        return job.VideoCodec switch
+        {
+            VideoCodec.H264 => string.IsNullOrWhiteSpace(additional)
+                ? []
+                : ["-x264-params", additional.Trim()],
+            VideoCodec.H265 => BuildX265ParamsArguments(job, mediaInfo, additional),
+            VideoCodec.Vp9 => BuildVpxExtraFlags(additional),
+            // AV1 additional options are merged inside BuildSvtAv1Params
+            _ => [],
+        };
+    }
+
+    private static string ExtractAdditionalOptions(VideoEncoderOptions? options) => options switch
+    {
+        H264EncoderOptions h264 => h264.AdditionalOptions,
+        H265EncoderOptions h265 => h265.AdditionalOptions,
+        VpxEncoderOptions vpx => vpx.AdditionalOptions,
+        Av1EncoderOptions av1 => av1.AdditionalOptions,
+        _ => "",
+    };
+
+    private static List<string> BuildX265ParamsArguments(
+        JobDefinition job, SourceMediaInfo mediaInfo, string additional)
+    {
+        var parts = new List<string>();
+
+        var video = mediaInfo.PrimaryVideoStream;
+        if (video is not null && video.IsHdr && job.HdrMode == HdrMode.Preserve)
+            parts.AddRange(BuildX265HdrParts(video));
+
+        if (!string.IsNullOrWhiteSpace(additional))
+            parts.Add(additional.Trim());
+
+        return parts.Count == 0 ? [] : ["-x265-params", string.Join(":", parts)];
+    }
+
+    private static List<string> BuildVpxExtraFlags(string additional)
+    {
+        if (string.IsNullOrWhiteSpace(additional))
+            return [];
+
+        var flags = new List<string>();
+        foreach (var segment in additional.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var eq = segment.IndexOf('=');
+            if (eq <= 0)
+                continue;
+            var key = segment[..eq].Trim();
+            var value = segment[(eq + 1)..].Trim();
+            if (key.Length == 0)
+                continue;
+            flags.Add("-" + key);
+            flags.Add(value);
+        }
+        return flags;
     }
 
     private static List<string> QualityArguments(JobDefinition job, SourceMediaInfo mediaInfo, int? passIndex)
@@ -565,10 +628,8 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
             "-colorspace", "bt2020nc",
         };
 
-        if (job.VideoCodec == VideoCodec.H265)
-            args.AddRange(BuildX265HdrParams(video));
-        // AV1 HDR params are consolidated in BuildSvtAv1Params
-
+        // H.265 x265-params (HDR) are emitted by CodecParamsArguments;
+        // AV1 HDR params are consolidated in BuildSvtAv1Params.
         return args;
     }
 
@@ -626,10 +687,16 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
 
         parts.Add("luminance-qp-bias=10");
 
+        if (job.VideoEncoderOptions is Av1EncoderOptions avEnc
+            && !string.IsNullOrWhiteSpace(avEnc.AdditionalOptions))
+        {
+            parts.Add(avEnc.AdditionalOptions.Trim());
+        }
+
         return ["-svtav1-params", string.Join(":", parts)];
     }
 
-    private static List<string> BuildX265HdrParams(VideoStreamInfo video)
+    private static List<string> BuildX265HdrParts(VideoStreamInfo video)
     {
         var transfer = video.ColorTransfer ?? "smpte2084";
         var parts = new List<string>
@@ -653,7 +720,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
                 parts.Add($"master-display={FormatMasteringDisplay(md)}");
         }
 
-        return ["-x265-params", string.Join(":", parts)];
+        return parts;
     }
 
     internal static string FormatMasteringDisplay(MasteringDisplayMetadata md) =>

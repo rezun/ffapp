@@ -405,21 +405,25 @@ public partial class OutputSettingsViewModel : ObservableObject
         {
             VideoCodec.H264 => new H264EncoderOptions(
                 Preset: quality.H26xPreset,
-                Profile: quality.H26xProfile),
+                Profile: quality.H26xProfile,
+                AdditionalOptions: quality.H264AdditionalOptions),
             VideoCodec.H265 => new H265EncoderOptions(
                 Preset: quality.H26xPreset,
-                Profile: quality.H26xProfile),
+                Profile: quality.H26xProfile,
+                AdditionalOptions: quality.H265AdditionalOptions),
             VideoCodec.Vp9 => new VpxEncoderOptions(
                 Codec: codec,
                 CpuUsed: quality.VpxCpuUsed,
                 TileColumns: quality.VpxTileColumns,
-                TileRows: quality.VpxTileRows),
+                TileRows: quality.VpxTileRows,
+                AdditionalOptions: quality.Vp9AdditionalOptions),
             VideoCodec.Av1 => new Av1EncoderOptions(
                 Preset: quality.Av1Preset,
                 Tune: quality.Av1Tune,
                 EnableOverlays: quality.Av1EnableOverlays,
                 Scm: quality.Av1Scm,
-                EnableVarianceBoost: quality.Av1EnableVarianceBoost),
+                EnableVarianceBoost: quality.Av1EnableVarianceBoost,
+                AdditionalOptions: quality.Av1AdditionalOptions),
             _ => new H264EncoderOptions(),
         };
 
@@ -489,15 +493,18 @@ public partial class OutputSettingsViewModel : ObservableObject
             case H264EncoderOptions h264:
                 Strategy.Quality.H26xPreset = h264.Preset;
                 Strategy.Quality.H26xProfile = h264.Profile;
+                Strategy.Quality.H264AdditionalOptions = h264.AdditionalOptions;
                 break;
             case H265EncoderOptions h265:
                 Strategy.Quality.H26xPreset = h265.Preset;
                 Strategy.Quality.H26xProfile = h265.Profile;
+                Strategy.Quality.H265AdditionalOptions = h265.AdditionalOptions;
                 break;
             case VpxEncoderOptions vpx:
                 Strategy.Quality.VpxCpuUsed = vpx.CpuUsed;
                 Strategy.Quality.VpxTileColumns = vpx.TileColumns;
                 Strategy.Quality.VpxTileRows = vpx.TileRows;
+                Strategy.Quality.Vp9AdditionalOptions = vpx.AdditionalOptions;
                 break;
             case Av1EncoderOptions av1:
                 Strategy.Quality.Av1Preset = av1.Preset;
@@ -505,6 +512,7 @@ public partial class OutputSettingsViewModel : ObservableObject
                 Strategy.Quality.Av1EnableOverlays = av1.EnableOverlays;
                 Strategy.Quality.Av1Scm = av1.Scm;
                 Strategy.Quality.Av1EnableVarianceBoost = av1.EnableVarianceBoost;
+                Strategy.Quality.Av1AdditionalOptions = av1.AdditionalOptions;
                 break;
         }
     }

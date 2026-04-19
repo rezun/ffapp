@@ -446,6 +446,46 @@ public class SettingsSerializerTests
     }
 
     [Fact]
+    public void RoundTrip_AdditionalOptions_PreservedForAllCodecs()
+    {
+        var h264 = RoundTrip(new TestOutputSettingsBuilder()
+            .WithEncoderOptions(new H264EncoderOptions(AdditionalOptions: "-refs 4")).Build());
+        ((H264EncoderOptions)h264.VideoEncoderOptions!).AdditionalOptions.Should().Be("-refs 4");
+
+        var h265 = RoundTrip(new TestOutputSettingsBuilder()
+            .WithH265()
+            .WithEncoderOptions(new H265EncoderOptions(AdditionalOptions: "-tune grain")).Build());
+        ((H265EncoderOptions)h265.VideoEncoderOptions!).AdditionalOptions.Should().Be("-tune grain");
+
+        var vp9 = RoundTrip(new TestOutputSettingsBuilder()
+            .WithVp9()
+            .WithEncoderOptions(new VpxEncoderOptions(VideoCodec.Vp9, AdditionalOptions: "-lag-in-frames 25")).Build());
+        ((VpxEncoderOptions)vp9.VideoEncoderOptions!).AdditionalOptions.Should().Be("-lag-in-frames 25");
+
+        var av1 = RoundTrip(new TestOutputSettingsBuilder()
+            .WithAv1()
+            .WithEncoderOptions(new Av1EncoderOptions(AdditionalOptions: "-g 240")).Build());
+        ((Av1EncoderOptions)av1.VideoEncoderOptions!).AdditionalOptions.Should().Be("-g 240");
+    }
+
+    [Fact]
+    public void Deserialize_EncoderOptions_MissingAdditionalOptions_DefaultsToEmpty()
+    {
+        var json = """
+        {
+            "video_codec": "h264",
+            "container": "mp4",
+            "video_encoder_options": { "codec": "h264", "preset": "medium", "profile": "high" }
+        }
+        """;
+        var element = JsonDocument.Parse(json).RootElement;
+
+        var result = SettingsSerializer.DeserializeOutputSettings(element);
+
+        ((H264EncoderOptions)result.VideoEncoderOptions!).AdditionalOptions.Should().Be("");
+    }
+
+    [Fact]
     public void Deserialize_Av1EncoderOptions_MissingNewFields_UsesDefaults()
     {
         var json = """

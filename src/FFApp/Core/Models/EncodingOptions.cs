@@ -6,24 +6,28 @@ public abstract record VideoEncoderOptions(VideoCodec Codec);
 
 public sealed record H264EncoderOptions(
     string Preset = "medium",
-    string Profile = "high") : VideoEncoderOptions(VideoCodec.H264);
+    string Profile = "high",
+    string AdditionalOptions = "") : VideoEncoderOptions(VideoCodec.H264);
 
 public sealed record H265EncoderOptions(
     string Preset = "medium",
-    string Profile = "main") : VideoEncoderOptions(VideoCodec.H265);
+    string Profile = "main",
+    string AdditionalOptions = "") : VideoEncoderOptions(VideoCodec.H265);
 
 public sealed record VpxEncoderOptions(
     VideoCodec Codec,
     int CpuUsed = 2,
     int TileColumns = 0,
-    int TileRows = 0) : VideoEncoderOptions(Codec);
+    int TileRows = 0,
+    string AdditionalOptions = "") : VideoEncoderOptions(Codec);
 
 public sealed record Av1EncoderOptions(
     int Preset = 6,
     int Tune = 0,
     int EnableOverlays = 1,
     int Scm = 2,
-    int EnableVarianceBoost = 0) : VideoEncoderOptions(VideoCodec.Av1);
+    int EnableVarianceBoost = 0,
+    string AdditionalOptions = "") : VideoEncoderOptions(VideoCodec.Av1);
 
 // --- Quality Options (discriminated union via abstract record) ---
 

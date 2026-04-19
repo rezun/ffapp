@@ -1345,4 +1345,64 @@ public class CommandBuilderTests
         args.Should().Contain("-svtav1-params");
         args.Should().Contain("tune=3");
     }
+
+    // ---------------------------------------------------------------
+    // Additional options (pass-through escape hatch)
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public void Build_H264_AdditionalOptions_EmittedAsX264Params()
+    {
+        var job = JobWith(s => s.WithAdditionalOptions("ref=4:bframes=3"));
+        var cmd = _sut.Build(job, DefaultMedia())[0];
+
+        cmd.Arguments.Should().ContainInOrder("-x264-params", "ref=4:bframes=3");
+    }
+
+    [Fact]
+    public void Build_H265_AdditionalOptions_EmittedAsX265Params()
+    {
+        var job = JobWith(s => s.WithH265()
+            .WithQuality(new H265QualityOptions())
+            .WithAdditionalOptions("aq-mode=3:psy-rd=1.0"));
+        var cmd = _sut.Build(job, DefaultMedia())[0];
+
+        cmd.Arguments.Should().ContainInOrder("-x265-params", "aq-mode=3:psy-rd=1.0");
+    }
+
+    [Fact]
+    public void Build_Vp9_AdditionalOptions_SplitIntoSeparateFlags()
+    {
+        var job = JobWith(s => s.WithVp9()
+            .WithAdditionalOptions("lag-in-frames=25:tune-content=screen"));
+        var cmd = _sut.Build(job, DefaultMedia())[0];
+
+        cmd.Arguments.Should().ContainInOrder(
+            "-lag-in-frames", "25", "-tune-content", "screen");
+    }
+
+    [Fact]
+    public void Build_Av1_AdditionalOptions_MergedIntoSvtAv1Params()
+    {
+        var job = JobWith(s => s.WithAv1()
+            .WithAdditionalOptions("sharpness=1:film-grain=8"));
+        var cmd = _sut.Build(job, DefaultMedia())[0];
+        var paramsIdx = cmd.Arguments.IndexOf("-svtav1-params");
+        paramsIdx.Should().BeGreaterThanOrEqualTo(0);
+        var value = cmd.Arguments[paramsIdx + 1];
+
+        value.Should().Contain("sharpness=1");
+        value.Should().Contain("film-grain=8");
+        // Merged into existing colon-separated params string, not duplicated.
+        cmd.Arguments.Count(a => a == "-svtav1-params").Should().Be(1);
+    }
+
+    [Fact]
+    public void Build_EmptyAdditionalOptions_AddsNoArgs()
+    {
+        var baseline = _sut.Build(DefaultJob(), DefaultMedia())[0].Arguments.Length;
+        var job = JobWith(s => s.WithAdditionalOptions("   "));
+
+        _sut.Build(job, DefaultMedia())[0].Arguments.Length.Should().Be(baseline);
+    }
 }

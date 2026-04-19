@@ -213,19 +213,38 @@
                                 <TextBlock DockPanel.Dock="Top" Text="H.264 / H.265 Encoder Tuning"
                                            Classes="nested-card-header" />
                                 <Separator DockPanel.Dock="Top" />
-                                <Grid ColumnDefinitions="55,Auto,16,55,Auto,*"
-                                      Margin="6,4,6,6">
-                                    <TextBlock Text="Preset" VerticalAlignment="Center" />
-                                    <ctrl:NoWheelComboBox Grid.Column="1"
-                                        MinWidth="92"
-                                        ItemsSource="{Binding Strategy.Quality.AvailablePresets}"
-                                        SelectedItem="{Binding Strategy.Quality.H26xPreset}" />
-                                    <TextBlock Grid.Column="3" Text="Profile" VerticalAlignment="Center" />
-                                    <ctrl:NoWheelComboBox Grid.Column="4"
-                                        MinWidth="92"
-                                        ItemsSource="{Binding Strategy.Quality.AvailableProfiles}"
-                                        SelectedItem="{Binding Strategy.Quality.H26xProfile}" />
-                                </Grid>
+                                <StackPanel Spacing="4" Margin="6,4,6,6">
+                                    <Grid ColumnDefinitions="80,Auto,16,55,Auto,*">
+                                        <TextBlock Text="Preset" VerticalAlignment="Center" />
+                                        <ctrl:NoWheelComboBox Grid.Column="1"
+                                            MinWidth="92"
+                                            ItemsSource="{Binding Strategy.Quality.AvailablePresets}"
+                                            SelectedItem="{Binding Strategy.Quality.H26xPreset}" />
+                                        <TextBlock Grid.Column="3" Text="Profile" VerticalAlignment="Center" />
+                                        <ctrl:NoWheelComboBox Grid.Column="4"
+                                            MinWidth="92"
+                                            ItemsSource="{Binding Strategy.Quality.AvailableProfiles}"
+                                            SelectedItem="{Binding Strategy.Quality.H26xProfile}" />
+                                    </Grid>
+                                    <Grid ColumnDefinitions="80,*"
+                                          IsVisible="{Binding Format.SelectedVideoCodec,
+                                              Converter={StaticResource EnumToBool},
+                                              ConverterParameter={x:Static models:VideoCodec.H264}}">
+                                        <TextBlock Text="Additional" VerticalAlignment="Center" />
+                                        <TextBox Grid.Column="1"
+                                                 PlaceholderText="e.g. ref=4:bframes=3"
+                                                 Text="{Binding Strategy.Quality.H264AdditionalOptions}" />
+                                    </Grid>
+                                    <Grid ColumnDefinitions="80,*"
+                                          IsVisible="{Binding Format.SelectedVideoCodec,
+                                              Converter={StaticResource EnumToBool},
+                                              ConverterParameter={x:Static models:VideoCodec.H265}}">
+                                        <TextBlock Text="Additional" VerticalAlignment="Center" />
+                                        <TextBox Grid.Column="1"
+                                                 PlaceholderText="e.g. aq-mode=3:psy-rd=1.0"
+                                                 Text="{Binding Strategy.Quality.H265AdditionalOptions}" />
+                                    </Grid>
+                                </StackPanel>
                             </DockPanel>
                         </Border>
 
@@ -290,6 +309,12 @@
                                                   VerticalAlignment="Center"
                                                   IsChecked="{Binding Strategy.Quality.Av1EnableVarianceBoostChecked}" />
                                     </Grid>
+                                    <Grid ColumnDefinitions="80,*">
+                                        <TextBlock Text="Additional" VerticalAlignment="Center" />
+                                        <TextBox Grid.Column="1"
+                                                 PlaceholderText="e.g. film-grain=8:sharpness=1"
+                                                 Text="{Binding Strategy.Quality.Av1AdditionalOptions}" />
+                                    </Grid>
                                 </StackPanel>
                             </DockPanel>
                         </Border>
@@ -326,6 +351,12 @@
                                             MinWidth="64"
                                             ItemsSource="{Binding Strategy.Quality.AvailableTileRows}"
                                             SelectedItem="{Binding Strategy.Quality.VpxTileRows}" />
+                                    </Grid>
+                                    <Grid ColumnDefinitions="80,*">
+                                        <TextBlock Text="Additional" VerticalAlignment="Center" />
+                                        <TextBox Grid.Column="1"
+                                                 PlaceholderText="e.g. lag-in-frames=25:tune-content=screen"
+                                                 Text="{Binding Strategy.Quality.Vp9AdditionalOptions}" />
                                     </Grid>
                                 </StackPanel>
                             </DockPanel>

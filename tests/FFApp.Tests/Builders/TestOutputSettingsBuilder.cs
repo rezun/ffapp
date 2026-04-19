@@ -100,6 +100,20 @@ public class TestOutputSettingsBuilder
             ? s with { TargetQuality = av1 with { MaxBitrateKbps = kbps } }
             : s);
 
+    public TestOutputSettingsBuilder WithAdditionalOptions(string options) =>
+        Apply(s => s with
+        {
+            VideoEncoderOptions = s.VideoEncoderOptions switch
+            {
+                H264EncoderOptions h264 => h264 with { AdditionalOptions = options },
+                H265EncoderOptions h265 => h265 with { AdditionalOptions = options },
+                VpxEncoderOptions vpx => vpx with { AdditionalOptions = options },
+                Av1EncoderOptions av1 => av1 with { AdditionalOptions = options },
+                null => new H264EncoderOptions(AdditionalOptions: options),
+                _ => s.VideoEncoderOptions,
+            },
+        });
+
     public TestOutputSettingsBuilder WithKeyframeInterval(int frames) =>
         Apply(s => s with { KeyframeInterval = frames, KeyframeUnit = KeyframeUnit.Frames });
 

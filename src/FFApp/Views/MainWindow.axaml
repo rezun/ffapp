@@ -35,7 +35,10 @@
         </NativeMenu>
     </NativeMenu.Menu>
 
-    <ContentControl Content="{Binding CurrentView}"
-                    DragDrop.AllowDrop="True" />
+    <DockPanel>
+        <NativeMenuBar DockPanel.Dock="Top" />
+        <ContentControl Content="{Binding CurrentView}"
+                        DragDrop.AllowDrop="True" />
+    </DockPanel>
 
 </Window>

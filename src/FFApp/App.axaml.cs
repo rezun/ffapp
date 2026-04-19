@@ -3,12 +3,14 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Messaging;
 using FFApp.Core;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
 using FFApp.Core.Validation;
 using FFApp.Infrastructure;
+using FFApp.Infrastructure.SingleInstance;
 using FFApp.Services;
 using LibVLCSharp.Shared;
 using FFApp.ViewModels;
@@ -18,6 +20,16 @@ namespace FFApp;
 
 public partial class App : Application
 {
+    private readonly SingleInstanceCoordinator? _singleInstance;
+
+    public App() { }
+
+    public App(SingleInstanceCoordinator singleInstance)
+    {
+        ArgumentNullException.ThrowIfNull(singleInstance);
+        _singleInstance = singleInstance;
+    }
+
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
@@ -100,9 +112,51 @@ public partial class App : Application
             var vm = provider.GetRequiredService<MainWindowViewModel>();
             mainWindow.DataContext = vm;
             desktop.MainWindow = mainWindow;
+
+            if (_singleInstance is not null)
+            {
+                _singleInstance.ActivationRequested += OnSingleInstanceActivation;
+                desktop.Exit += OnDesktopExit;
+            }
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private void OnSingleInstanceActivation(object? sender, SingleInstanceActivationEventArgs e)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop
+                || desktop.MainWindow is not { } window)
+                return;
+
+            if (window.WindowState == WindowState.Minimized)
+                window.WindowState = WindowState.Normal;
+            window.Show();
+            window.Activate();
+        });
+    }
+
+    private void OnDesktopExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
+    {
+        // Event handler bridge: lifetime.Exit is synchronous, so fire-and-forget disposal
+        // is unavoidable here. Swallow exceptions — shutdown is terminal either way.
+        _ = DisposeSingleInstanceAsync();
+    }
+
+    private async Task DisposeSingleInstanceAsync()
+    {
+        if (_singleInstance is null)
+            return;
+        try
+        {
+            await _singleInstance.DisposeAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Failed to dispose single-instance coordinator: {ex.Message}");
+        }
     }
 
     public void SetThemeVariant(ThemePreference preference)

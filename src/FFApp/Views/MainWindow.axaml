@@ -37,8 +37,23 @@
 
     <DockPanel>
         <NativeMenuBar DockPanel.Dock="Top" />
-        <ContentControl Content="{Binding CurrentView}"
-                        DragDrop.AllowDrop="True" />
+        <Panel>
+            <ContentControl Content="{Binding CurrentView}"
+                            DragDrop.AllowDrop="True" />
+            <Border IsVisible="{Binding CurrentView, Converter={x:Static ObjectConverters.IsNull}}"
+                    Background="{DynamicResource SurfaceBaseBrush}">
+                <StackPanel HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Spacing="12">
+                    <ProgressBar IsIndeterminate="True"
+                                 Width="200"
+                                 HorizontalAlignment="Center" />
+                    <TextBlock Text="Checking dependencies…"
+                               Classes="secondary"
+                               HorizontalAlignment="Center" />
+                </StackPanel>
+            </Border>
+        </Panel>
     </DockPanel>
 
 </Window>

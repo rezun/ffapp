@@ -32,40 +32,32 @@
 
                 <!-- Bottom actions -->
                 <StackPanel DockPanel.Dock="Bottom" Margin="8,4,8,6" Spacing="4">
-                    <DockPanel>
-                        <TextBlock DockPanel.Dock="Right"
-                                   Classes="caption secondary"
-                                   Text="{Binding StatusText}"
-                                   VerticalAlignment="Center" />
-                        <StackPanel Orientation="Horizontal" Spacing="4">
-                            <Button Classes="sm"
-                                    Content="Remove"
-                                    Command="{Binding RemoveSelectedCommand}" />
-                            <Button Classes="sm"
-                                    Content="Remove all"
-                                    Command="{Binding ClearAllCommand}" />
-                        </StackPanel>
-                    </DockPanel>
+                    <WrapPanel Orientation="Horizontal" ItemSpacing="4" LineSpacing="4">
+                        <Button Classes="sm"
+                                Content="Remove"
+                                Command="{Binding RemoveSelectedCommand}" />
+                        <Button Classes="sm"
+                                Content="Remove all"
+                                Command="{Binding ClearAllCommand}" />
+                    </WrapPanel>
+
+                    <TextBlock Classes="caption secondary"
+                               Text="{Binding StatusText}"
+                               TextWrapping="Wrap" />
 
                     <!-- Add to queue buttons -->
-                    <Grid ColumnDefinitions="*,4,*"
-                          x:DataType="vm:WorkspaceViewModel"
-                          DataContext="{Binding $parent[UserControl;1].DataContext}">
-                        <Button Grid.Column="0"
-                                Classes="accent sm"
-                                Content="Add selected to queue"
+                    <WrapPanel Orientation="Horizontal" ItemSpacing="4" LineSpacing="4"
+                               x:DataType="vm:WorkspaceViewModel"
+                               DataContext="{Binding $parent[UserControl;1].DataContext}">
+                        <Button Classes="accent sm"
+                                Content="Queue selected"
                                 Command="{Binding JobList.CreateJobFromSelectionCommand}"
-                                ToolTip.Tip="Add selected source files to the encode queue"
-                                HorizontalAlignment="Stretch"
-                                HorizontalContentAlignment="Center" />
-                        <Button Grid.Column="2"
-                                Classes="accent sm"
-                                Content="Add all to queue"
+                                ToolTip.Tip="Add selected source files to the encode queue" />
+                        <Button Classes="accent sm"
+                                Content="Queue all"
                                 Command="{Binding JobList.CreateJobsForAllCommand}"
-                                ToolTip.Tip="Add all source files to the encode queue"
-                                HorizontalAlignment="Stretch"
-                                HorizontalContentAlignment="Center" />
-                    </Grid>
+                                ToolTip.Tip="Add all source files to the encode queue" />
+                    </WrapPanel>
                 </StackPanel>
 
                 <!-- File list -->

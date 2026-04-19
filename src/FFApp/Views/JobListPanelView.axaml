@@ -21,9 +21,9 @@
                     <TextBlock Text="Encode Queue"
                                Classes="card-header" Margin="0"
                                VerticalAlignment="Center" />
-                    <StackPanel Orientation="Horizontal"
-                                HorizontalAlignment="Right"
-                                Spacing="4">
+                    <WrapPanel Orientation="Horizontal"
+                               HorizontalAlignment="Right"
+                               ItemSpacing="4" LineSpacing="4">
                         <Button Classes="accent sm"
                                 Content="Start"
                                 Command="{Binding StartCommand}"
@@ -40,7 +40,7 @@
                                 Content="Stop"
                                 Command="{Binding StopCommand}"
                                 IsVisible="{Binding IsRunning}" />
-                    </StackPanel>
+                    </WrapPanel>
                 </DockPanel>
 
                 <!-- Summary text -->
@@ -50,8 +50,8 @@
                            Margin="8,0,8,4" />
 
                 <!-- Bottom actions -->
-                <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
-                            Spacing="4" Margin="8,4,8,6">
+                <WrapPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
+                           ItemSpacing="4" LineSpacing="4" Margin="8,4,8,6">
                     <Button Classes="sm"
                             Content="Remove"
                             Command="{Binding RemoveSelectedCommand}" />
@@ -61,7 +61,7 @@
                     <Button Classes="sm"
                             Content="Remove all"
                             Command="{Binding ClearAllCommand}" />
-                </StackPanel>
+                </WrapPanel>
 
                 <!-- Job list -->
                 <ListBox x:Name="JobList"

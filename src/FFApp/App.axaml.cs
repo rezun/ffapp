@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Messaging;
@@ -21,6 +22,7 @@ namespace FFApp;
 public partial class App : Application
 {
     private readonly SingleInstanceCoordinator? _singleInstance;
+    private MainWindowViewModel? _mainViewModel;
 
     public App() { }
 
@@ -110,8 +112,20 @@ public partial class App : Application
             var provider = services.BuildServiceProvider();
 
             var vm = provider.GetRequiredService<MainWindowViewModel>();
+            _mainViewModel = vm;
             mainWindow.DataContext = vm;
             desktop.MainWindow = mainWindow;
+
+            // Platform split:
+            //  - macOS: file opens always arrive via Apple Events (IActivatableLifetime), never argv.
+            //    Reading desktop.Args there would ingest whatever the launcher happens to put in
+            //    argv, which is not ours to interpret.
+            //  - Windows/Linux: argv is how installers and shells deliver an opened file path.
+            if (!OperatingSystem.IsMacOS())
+                QueueFilesFromArgs(desktop.Args);
+
+            if (this.TryGetFeature(typeof(IActivatableLifetime)) is IActivatableLifetime activatable)
+                activatable.Activated += OnActivatableLifetimeActivated;
 
             if (_singleInstance is not null)
             {
@@ -123,8 +137,100 @@ public partial class App : Application
         base.OnFrameworkInitializationCompleted();
     }
 
+    private void QueueFilesFromArgs(IReadOnlyList<string>? args)
+    {
+        if (args is null || args.Count == 0 || _mainViewModel is null)
+            return;
+
+        var paths = FilterExistingPaths(args);
+        if (paths.Count == 0)
+            return;
+
+        // Fire-and-forget: runs during OnFrameworkInitializationCompleted which is synchronous;
+        // OpenFilesAsync internally queues paths until the workspace is ready.
+        _ = SafeOpenFilesAsync(_mainViewModel, paths);
+    }
+
+    private static async Task SafeOpenFilesAsync(MainWindowViewModel vm, IReadOnlyList<string> paths)
+    {
+        try
+        {
+            await vm.OpenFilesAsync(paths);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Opening files failed: {ex.Message}");
+        }
+    }
+
+    // On macOS, NSApplication inspects argv at launch and dispatches anything that looks like
+    // a path to application:openFiles: automatically (legacy Cocoa behavior). When the process
+    // is started via `dotnet FFApp.dll` — which is what `dotnet run` produces — that puts the
+    // managed assembly path on argv, and it arrives in FileActivatedEventArgs alongside any
+    // real user file. Runtime files inside our own directory are never legitimate user input,
+    // so we reject them regardless of which channel they arrived on.
+    private static readonly string RuntimeDirectory =
+        Path.TrimEndingDirectorySeparator(
+            Path.GetFullPath(AppContext.BaseDirectory))
+        + Path.DirectorySeparatorChar;
+
+    private static readonly StringComparison PathComparison =
+        OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+
+    internal static bool IsInsideRuntimeDirectory(string path)
+    {
+        try
+        {
+            var full = Path.GetFullPath(path);
+            return full.StartsWith(RuntimeDirectory, PathComparison);
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    private static IReadOnlyList<string> FilterExistingPaths(IReadOnlyList<string> candidates)
+    {
+        var paths = new List<string>(candidates.Count);
+        foreach (var candidate in candidates)
+        {
+            if (string.IsNullOrWhiteSpace(candidate))
+                continue;
+            if (!File.Exists(candidate) && !Directory.Exists(candidate))
+                continue;
+            if (IsInsideRuntimeDirectory(candidate))
+                continue;
+            paths.Add(candidate);
+        }
+        return paths;
+    }
+
+    private void OnActivatableLifetimeActivated(object? sender, ActivatedEventArgs e)
+    {
+        if (e is not FileActivatedEventArgs fileArgs || _mainViewModel is null)
+            return;
+
+        var candidates = new List<string>(fileArgs.Files.Count);
+        foreach (var item in fileArgs.Files)
+        {
+            if (item.TryGetLocalPath() is { Length: > 0 } local)
+                candidates.Add(local);
+        }
+
+        var paths = FilterExistingPaths(candidates);
+        if (paths.Count == 0)
+            return;
+
+        var vm = _mainViewModel;
+        Dispatcher.UIThread.Post(() => _ = SafeOpenFilesAsync(vm, paths));
+    }
+
     private void OnSingleInstanceActivation(object? sender, SingleInstanceActivationEventArgs e)
     {
+        var paths = FilterExistingPaths(e.Args);
         Dispatcher.UIThread.Post(() =>
         {
             if (ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop
@@ -135,6 +241,9 @@ public partial class App : Application
                 window.WindowState = WindowState.Normal;
             window.Show();
             window.Activate();
+
+            if (paths.Count > 0 && _mainViewModel is { } vm)
+                _ = SafeOpenFilesAsync(vm, paths);
         });
     }
 

@@ -21,6 +21,8 @@ public partial class MainWindowViewModel : ObservableObject,
     private readonly Func<DependencySetupViewModel> _createSetup;
     private readonly IServiceScopeFactory _scopeFactory;
     private IServiceScope? _workspaceScope;
+    private readonly List<string> _pendingFiles = new();
+    private readonly Lock _pendingFilesLock = new();
 
     [ObservableProperty]
     private object? _currentView;
@@ -111,21 +113,68 @@ public partial class MainWindowViewModel : ObservableObject,
             .GetRequiredService<WorkspaceViewModel>();
         await workspace.LoadAsync(LoadedSettings ?? new AppSettings());
         CurrentView = workspace;
+
+        await FlushPendingFilesAsync(workspace);
     }
 
     // async void: Called from Avalonia DragDrop event handler — fire-and-forget is unavoidable here.
     public async void HandleFileDrop(IReadOnlyList<string> paths)
     {
-        if (CurrentView is not WorkspaceViewModel workspace || paths.Count == 0)
-            return;
-
         try
         {
-            await workspace.SourceList.AddPathsAsync(paths);
+            await OpenFilesAsync(paths);
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"File drop failed: {ex}");
+        }
+    }
+
+    /// <summary>
+    /// Adds external files to the source list. If the workspace is not yet ready (startup before
+    /// dependency discovery completes, or while the dependency setup screen is shown), paths are
+    /// queued and flushed once the workspace becomes active.
+    /// </summary>
+    public async Task OpenFilesAsync(IReadOnlyList<string> paths)
+    {
+        ArgumentNullException.ThrowIfNull(paths);
+        if (paths.Count == 0)
+            return;
+
+        if (CurrentView is WorkspaceViewModel workspace)
+        {
+            await workspace.SourceList.AddPathsAsync(paths);
+            return;
+        }
+
+        lock (_pendingFilesLock)
+            _pendingFiles.AddRange(paths);
+    }
+
+    internal IReadOnlyList<string> SnapshotPendingFiles()
+    {
+        lock (_pendingFilesLock)
+            return _pendingFiles.ToArray();
+    }
+
+    private async Task FlushPendingFilesAsync(WorkspaceViewModel workspace)
+    {
+        List<string> toAdd;
+        lock (_pendingFilesLock)
+        {
+            if (_pendingFiles.Count == 0)
+                return;
+            toAdd = new List<string>(_pendingFiles);
+            _pendingFiles.Clear();
+        }
+
+        try
+        {
+            await workspace.SourceList.AddPathsAsync(toAdd);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Flushing pending file opens failed: {ex}");
         }
     }
 }

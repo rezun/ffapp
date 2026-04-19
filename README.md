@@ -27,6 +27,14 @@ Download a release build for your platform, or build from source (see below).
 
 On first launch, FFApp will check for ffmpeg/ffprobe and prompt you to set their paths if they aren't found automatically.
 
+### File associations
+
+FFApp declares itself as an optional handler for common video and audio containers. Opening a file with FFApp adds it to the source list — launching a fresh window if the app isn't already running.
+
+- **macOS:** Associations ship in the `.app` bundle's `Info.plist`. FFApp registers as an `Alternate` handler so it won't displace QuickTime or VLC as the system default; right-click any media file and choose **Open With → FFApp**, or set FFApp as the default via **Get Info → Open with** for a specific extension.
+- **Windows:** File associations require the installer to write HKCR registry keys and are not registered by the standalone `.exe`. This will be wired up when the packaged installer lands.
+- **Linux:** `packaging/linux/ffapp.desktop` has no `MimeType=` entries yet. A full implementation depends on a proper package (`.deb`/`.rpm`/Flatpak) that can run `update-desktop-database`.
+
 ---
 
 ## Developer Guide

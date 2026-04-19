@@ -108,6 +108,24 @@ public sealed class SingleInstanceCoordinatorTests
     }
 
     [Fact]
+    public async Task SendActivation_Sync_DeliversArgsToPrimaryInstance()
+    {
+        var keys = UniqueKeys();
+        await using var primary = NewCoordinator(keys);
+        primary.TryAcquire().Should().BeTrue();
+
+        var received = new TaskCompletionSource<IReadOnlyList<string>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        primary.ActivationRequested += (_, e) => received.TrySetResult(e.Args);
+
+        await using var secondary = NewCoordinator(keys);
+        await Task.Run(() => secondary.SendActivation(new[] { "sync.mp4", "--flag" }));
+
+        var completed = await Task.WhenAny(received.Task, Task.Delay(TimeSpan.FromSeconds(5)));
+        completed.Should().Be(received.Task, "sync activation should be delivered within 5s");
+        (await received.Task).Should().Equal("sync.mp4", "--flag");
+    }
+
+    [Fact]
     public async Task SendActivationAsync_WhenNoPrimary_ThrowsTimeout()
     {
         var keys = UniqueKeys();

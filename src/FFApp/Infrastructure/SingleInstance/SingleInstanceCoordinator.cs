@@ -69,6 +69,23 @@ public sealed class SingleInstanceCoordinator : IAsyncDisposable
         return true;
     }
 
+    public void SendActivation(IReadOnlyList<string> args)
+    {
+        ArgumentNullException.ThrowIfNull(args);
+        using var client = new NamedPipeClientStream(
+            serverName: ".",
+            pipeName: _pipeName,
+            direction: PipeDirection.Out);
+
+        client.Connect((int)DefaultSendTimeout.TotalMilliseconds);
+
+        using var writer = new StreamWriter(client, Encoding.UTF8) { AutoFlush = false };
+        writer.WriteLine(ActivationTag);
+        foreach (var arg in args)
+            writer.WriteLine(arg);
+        writer.Flush();
+    }
+
     public async Task SendActivationAsync(IReadOnlyList<string> args, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(args);

@@ -5,21 +5,22 @@ namespace FFApp;
 
 public static class Program
 {
+    // Main must stay synchronous (not async Task) — async Main breaks OLE drag-drop
+    // on Windows even with [STAThread]. See AvaloniaUI/Avalonia#12499, #13694.
     [STAThread]
-    public static async Task<int> Main(string[] args)
+    public static int Main(string[] args)
     {
         var coordinator = SingleInstanceCoordinator.CreateDefault();
         if (!coordinator.TryAcquire())
         {
             try
             {
-                await coordinator.SendActivationAsync(args);
+                coordinator.SendActivation(args);
             }
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"Failed to activate existing FFApp instance: {ex.Message}");
             }
-            await coordinator.DisposeAsync();
             return 0;
         }
 

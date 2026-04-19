@@ -3,6 +3,7 @@ using System.Reflection;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using FFApp.Core.Models;
@@ -17,6 +18,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        AddHandler(DragDrop.DragOverEvent, OnDragOver);
         AddHandler(DragDrop.DropEvent, OnDrop);
         Loaded += OnLoaded;
 
@@ -99,20 +101,29 @@ public partial class MainWindow : Window
             .FirstOrDefault(i => i.Header?.ToString() == itemHeader);
     }
 
-    private async void OnDrop(object? sender, DragEventArgs e)
+    private void OnDragOver(object? sender, DragEventArgs e)
+    {
+        e.DragEffects = e.DataTransfer.TryGetFiles() is not null
+            ? DragDropEffects.Copy
+            : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void OnDrop(object? sender, DragEventArgs e)
     {
         if (DataContext is not MainWindowViewModel vm)
             return;
 
-        var storageItems = e.DataTransfer.TryGetFiles();
-        if (storageItems is null)
+        var files = e.DataTransfer.TryGetFiles();
+        if (files is null)
             return;
 
         var paths = new List<string>();
-        foreach (var item in storageItems)
+        foreach (var file in files)
         {
-            if (item.Path is { } uri)
-                paths.Add(uri.LocalPath);
+            var path = file.TryGetLocalPath();
+            if (!string.IsNullOrEmpty(path))
+                paths.Add(path);
         }
 
         if (paths.Count > 0)

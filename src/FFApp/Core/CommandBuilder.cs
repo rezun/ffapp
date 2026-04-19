@@ -586,24 +586,27 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
             parts.Add("enable-hdr=1");
 
         // Resolve AV1-specific tuning from either quality or encoder options
-        var (tune, enableOverlays, scm) = job.TargetQuality switch
+        var (tune, enableOverlays, scm, enableVarianceBoost) = job.TargetQuality switch
         {
             Av1QualityOptions av1 when job.EncodingStrategy == EncodingStrategy.TargetQuality
-                => (av1.Tune, av1.EnableOverlays, av1.Scm),
+                => (av1.Tune, av1.EnableOverlays, av1.Scm, av1.EnableVarianceBoost),
             _ => job.VideoEncoderOptions switch
             {
-                Av1EncoderOptions enc => (enc.Tune, enc.EnableOverlays, enc.Scm),
-                _ => (0, 1, 2),
+                Av1EncoderOptions enc => (enc.Tune, enc.EnableOverlays, enc.Scm, enc.EnableVarianceBoost),
+                _ => (0, 1, 2, 0),
             },
         };
 
-        // Emit when value differs from SVT-AV1 encoder defaults (tune=1, overlays=0, scm=2)
+        // Emit when value differs from SVT-AV1 encoder defaults
+        // (tune=1, overlays=0, scm=2, variance-boost=0)
         if (tune != 1)
             parts.Add($"tune={tune}");
         if (enableOverlays != 0)
             parts.Add($"enable-overlays={enableOverlays}");
         if (scm != 2)
             parts.Add($"scm={scm}");
+        if (enableVarianceBoost != 0)
+            parts.Add($"enable-variance-boost={enableVarianceBoost}");
 
         // Capped CRF: max bit rate is only meaningful in TargetQuality mode.
         if (job.TargetQuality is Av1QualityOptions q

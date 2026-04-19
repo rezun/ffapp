@@ -254,6 +254,7 @@ public static class SettingsSerializer
                 ["tune"] = av1.Tune,
                 ["enable_overlays"] = av1.EnableOverlays,
                 ["scm"] = av1.Scm,
+                ["enable_variance_boost"] = av1.EnableVarianceBoost,
             },
             _ => throw new InvalidOperationException(
                 $"Unknown VideoEncoderOptions type: {options.GetType().Name}"),
@@ -293,6 +294,7 @@ public static class SettingsSerializer
                 ["enable_overlays"] = av1.EnableOverlays,
                 ["scm"] = av1.Scm,
                 ["max_bitrate_kbps"] = av1.MaxBitrateKbps,
+                ["enable_variance_boost"] = av1.EnableVarianceBoost,
             },
             _ => throw new InvalidOperationException(
                 $"Unknown QualityOptions type: {options.GetType().Name}"),
@@ -330,9 +332,11 @@ public static class SettingsSerializer
             var tune = ReadInt(element, "tune", 0);
             var enableOverlays = ReadInt(element, "enable_overlays", 1);
             var scm = ReadInt(element, "scm", 2);
+            var enableVarianceBoost = ReadInt(element, "enable_variance_boost", 0);
             return new Av1EncoderOptions(
                 Preset: preset, Tune: tune,
-                EnableOverlays: enableOverlays, Scm: scm);
+                EnableOverlays: enableOverlays, Scm: scm,
+                EnableVarianceBoost: enableVarianceBoost);
         }
 
         // VP9
@@ -387,7 +391,8 @@ public static class SettingsSerializer
                 Tune: ReadInt(element, "tune", 0),
                 EnableOverlays: ReadInt(element, "enable_overlays", 1),
                 Scm: ReadInt(element, "scm", 2),
-                MaxBitrateKbps: ReadInt(element, "max_bitrate_kbps", 0));
+                MaxBitrateKbps: ReadInt(element, "max_bitrate_kbps", 0),
+                EnableVarianceBoost: ReadInt(element, "enable_variance_boost", 0));
         }
 
         return new Vp9QualityOptions(

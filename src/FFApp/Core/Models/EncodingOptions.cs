@@ -22,7 +22,8 @@ public sealed record Av1EncoderOptions(
     int Preset = 6,
     int Tune = 0,
     int EnableOverlays = 1,
-    int Scm = 2) : VideoEncoderOptions(VideoCodec.Av1);
+    int Scm = 2,
+    int EnableVarianceBoost = 0) : VideoEncoderOptions(VideoCodec.Av1);
 
 // --- Quality Options (discriminated union via abstract record) ---
 
@@ -48,5 +49,6 @@ public sealed record Av1QualityOptions(
     int Tune = 0,
     int EnableOverlays = 1,
     int Scm = 2,
-    int MaxBitrateKbps = 0) : QualityOptions(VideoCodec.Av1);
+    int MaxBitrateKbps = 0,
+    int EnableVarianceBoost = 0) : QualityOptions(VideoCodec.Av1);
 

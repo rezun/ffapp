@@ -55,6 +55,18 @@ public partial class QualityViewModel : ObservableObject
     private int _av1Scm = 2;
 
     [ObservableProperty]
+    private int _av1EnableVarianceBoost;
+
+    public bool Av1EnableVarianceBoostChecked
+    {
+        get => Av1EnableVarianceBoost != 0;
+        set => Av1EnableVarianceBoost = value ? 1 : 0;
+    }
+
+    partial void OnAv1EnableVarianceBoostChanged(int value) =>
+        OnPropertyChanged(nameof(Av1EnableVarianceBoostChecked));
+
+    [ObservableProperty]
     private string _av1MaxBitrateKbpsText = "";
 
     public int Av1MaxBitrateKbps =>
@@ -126,6 +138,7 @@ public IReadOnlyList<int> AvailableAv1Scm { get; } =
                 Av1Tune = 0;
                 Av1EnableOverlays = 1;
                 Av1Scm = 2;
+                Av1EnableVarianceBoost = 0;
                 Av1MaxBitrateKbpsText = "";
                 break;
         }

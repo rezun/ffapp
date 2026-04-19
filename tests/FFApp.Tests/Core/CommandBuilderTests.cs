@@ -1273,6 +1273,37 @@ public class CommandBuilderTests
     }
 
     [Fact]
+    public void Build_Av1Quality_VarianceBoostDefault_Omitted()
+    {
+        var job = JobWith(s => s.WithAv1());
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        args.Should().NotContain("enable-variance-boost=");
+    }
+
+    [Fact]
+    public void Build_Av1Quality_VarianceBoostEnabled_EmitsParam()
+    {
+        var job = JobWith(s => s.WithAv1()
+            .WithQuality(new Av1QualityOptions(EnableVarianceBoost: 1)));
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        args.Should().Contain("-svtav1-params");
+        args.Should().Contain("enable-variance-boost=1");
+    }
+
+    [Fact]
+    public void Build_Av1Encoder_VarianceBoostEnabled_EmitsParam()
+    {
+        var job = JobWith(s => s.WithAv1()
+            .WithStrategy(EncodingStrategy.TargetBitrate)
+            .WithEncoderOptions(new Av1EncoderOptions(EnableVarianceBoost: 1)));
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        args.Should().Contain("enable-variance-boost=1");
+    }
+
+    [Fact]
     public void Build_Av1Quality_MaxBitrateSet_EmitsMbrParam()
     {
         var job = JobWith(s => s.WithAv1().WithAv1MaxBitrateKbps(5000));

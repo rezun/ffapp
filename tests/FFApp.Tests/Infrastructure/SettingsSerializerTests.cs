@@ -387,7 +387,7 @@ public class SettingsSerializerTests
             .WithAv1()
             .WithQuality(new Av1QualityOptions(
                 Crf: 25, Preset: 4, Tune: 2, EnableOverlays: 0, Scm: 3,
-                MaxBitrateKbps: 4500))
+                MaxBitrateKbps: 4500, EnableVarianceBoost: 1))
             .Build();
 
         var result = RoundTrip(original);
@@ -400,6 +400,7 @@ public class SettingsSerializerTests
         q.EnableOverlays.Should().Be(0);
         q.Scm.Should().Be(3);
         q.MaxBitrateKbps.Should().Be(4500);
+        q.EnableVarianceBoost.Should().Be(1);
     }
 
     [Fact]
@@ -408,7 +409,7 @@ public class SettingsSerializerTests
         var original = new TestOutputSettingsBuilder()
             .WithAv1()
             .WithEncoderOptions(new Av1EncoderOptions(
-                Preset: 8, Tune: 4, EnableOverlays: 1, Scm: 1))
+                Preset: 8, Tune: 4, EnableOverlays: 1, Scm: 1, EnableVarianceBoost: 1))
             .Build();
 
         var result = RoundTrip(original);
@@ -419,6 +420,7 @@ public class SettingsSerializerTests
         opts.Tune.Should().Be(4);
         opts.EnableOverlays.Should().Be(1);
         opts.Scm.Should().Be(1);
+        opts.EnableVarianceBoost.Should().Be(1);
     }
 
     [Fact]
@@ -440,6 +442,7 @@ public class SettingsSerializerTests
         q.EnableOverlays.Should().Be(1);
         q.Scm.Should().Be(2);
         q.MaxBitrateKbps.Should().Be(0);
+        q.EnableVarianceBoost.Should().Be(0);
     }
 
     [Fact]
@@ -460,5 +463,6 @@ public class SettingsSerializerTests
         opts.Tune.Should().Be(0);
         opts.EnableOverlays.Should().Be(1);
         opts.Scm.Should().Be(2);
+        opts.EnableVarianceBoost.Should().Be(0);
     }
 }

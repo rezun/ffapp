@@ -51,20 +51,17 @@ public sealed class DependencyManager : IDependencyService
         return FindInPath(name);
     }
 
-    private static string? FindInPath(string name)
-    {
-        var pathVar = Environment.GetEnvironmentVariable("PATH");
-        if (string.IsNullOrEmpty(pathVar))
-            return null;
+    private static string? FindInPath(string name) =>
+        FindExecutable(name, EnumerateSearchDirectories());
 
-        var separator = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ';' : ':';
+    internal static string? FindExecutable(string name, IEnumerable<string> directories)
+    {
         var extensions = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
             ? [".exe", ".cmd", ".bat", ".com"]
             : Array.Empty<string>();
 
-        foreach (var directory in pathVar.Split(separator, StringSplitOptions.RemoveEmptyEntries))
+        foreach (var directory in directories)
         {
-            // On non-Windows, check the name directly
             if (extensions.Length == 0)
             {
                 var candidate = Path.Combine(directory, name);
@@ -73,7 +70,6 @@ public sealed class DependencyManager : IDependencyService
             }
             else
             {
-                // On Windows, try each extension
                 foreach (var ext in extensions)
                 {
                     var candidate = Path.Combine(directory, name + ext);
@@ -84,6 +80,45 @@ public sealed class DependencyManager : IDependencyService
         }
 
         return null;
+    }
+
+    internal static IEnumerable<string> EnumerateSearchDirectories()
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var separator = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ';' : ':';
+        var pathVar = Environment.GetEnvironmentVariable("PATH");
+
+        if (!string.IsNullOrEmpty(pathVar))
+        {
+            foreach (var dir in pathVar.Split(separator, StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (seen.Add(dir))
+                    yield return dir;
+            }
+        }
+
+        // GUI apps on macOS (and some Linux desktop environments) don't inherit the shell's
+        // PATH, so Homebrew and other common install locations are missed. Probe them explicitly.
+        foreach (var dir in GetFallbackDirectories())
+        {
+            if (seen.Add(dir))
+                yield return dir;
+        }
+    }
+
+    internal static IReadOnlyList<string> GetFallbackDirectories()
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            return ["/opt/homebrew/bin", "/usr/local/bin", "/opt/local/bin"];
+        }
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            return ["/usr/local/bin", "/home/linuxbrew/.linuxbrew/bin"];
+        }
+
+        return [];
     }
 
     private static async Task<ExecutableValidation> ValidateExecutableAsync(

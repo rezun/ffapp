@@ -624,9 +624,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         parts.Add("qm-min=2");
         parts.Add("qm-max=15");
 
-        // Luminance bias and sharpness
         parts.Add("luminance-qp-bias=10");
-        parts.Add("sharpness=1");
 
         return ["-svtav1-params", string.Join(":", parts)];
     }

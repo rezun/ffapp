@@ -158,7 +158,7 @@
                                             <TextBlock Text="Peak (nits)" VerticalAlignment="Center" />
                                             <TextBox Grid.Column="1"
                                                      MinWidth="80"
-                                                     Watermark="Auto"
+                                                     PlaceholderText="Auto"
                                                      Text="{Binding Hdr.PeakNitsText}" />
                                         </Grid>
                                     </StackPanel>
@@ -172,7 +172,7 @@
                             <ctrl:NumericTextBox Grid.Column="1"
                                      Classes="numeric-input"
                                      MinWidth="72"
-                                     Watermark="Auto"
+                                     PlaceholderText="Auto"
                                      Text="{Binding KeyframeIntervalText}" />
                             <ctrl:NoWheelComboBox Grid.Column="3"
                                 MinWidth="88"
@@ -258,7 +258,7 @@
                                         <ctrl:NumericTextBox Grid.Column="1"
                                                  Classes="numeric-input"
                                                  MinWidth="120"
-                                                 Watermark="Off"
+                                                 PlaceholderText="Off"
                                                  Text="{Binding Strategy.Quality.Av1MaxBitrateKbpsText}" />
                                         <TextBlock Grid.Column="3" Text="kbps" VerticalAlignment="Center"
                                                    Margin="6,0,0,0" />

@@ -135,7 +135,7 @@
                          TextWrapping="Wrap"
                          MaxHeight="120"
                          Margin="8,4,8,8"
-                         Watermark="Job logs will appear here." />
+                         PlaceholderText="Job logs will appear here." />
             </DockPanel>
         </Border>
 

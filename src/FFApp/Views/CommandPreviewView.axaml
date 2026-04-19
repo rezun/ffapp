@@ -49,7 +49,7 @@
                      TextWrapping="Wrap"
                      MaxHeight="200"
                      Margin="8,4,8,8"
-                     Watermark="Load a source file to preview commands." />
+                     PlaceholderText="Load a source file to preview commands." />
         </DockPanel>
     </Border>
 </UserControl>

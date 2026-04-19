@@ -36,7 +36,7 @@
                     <TextBlock Text="Folder" VerticalAlignment="Center" />
                     <TextBox Grid.Column="1"
                              Text="{Binding OutputDirectory}"
-                             Watermark="Output folder" />
+                             PlaceholderText="Output folder" />
                     <Button Grid.Column="2"
                             Content="Browse"
                             Command="{Binding BrowseDirectoryCommand}"
@@ -55,7 +55,7 @@
                     <TextBlock Text="Filename" VerticalAlignment="Center" />
                     <TextBox Grid.Column="1"
                              Text="{Binding OutputFilename}"
-                             Watermark="Enter filename" />
+                             PlaceholderText="Enter filename" />
                     <TextBlock Grid.Column="2"
                                Classes="mono secondary"
                                Text="{Binding Extension}"

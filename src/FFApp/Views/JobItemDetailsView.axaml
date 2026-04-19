@@ -24,7 +24,7 @@
                  AcceptsReturn="True"
                  TextWrapping="Wrap"
                  MinHeight="40"
-                 Watermark="Commands will appear here."
+                 PlaceholderText="Commands will appear here."
                  BorderThickness="1" />
 
     </DockPanel>

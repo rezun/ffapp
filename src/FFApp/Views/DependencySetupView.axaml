@@ -32,7 +32,7 @@
                         Margin="8,0,0,0"
                         Command="{Binding BrowseFfmpegCommand}" />
                 <TextBox Text="{Binding FfmpegPath, Mode=TwoWay}"
-                         Watermark="/usr/bin/ffmpeg" />
+                         PlaceholderText="/usr/bin/ffmpeg" />
             </DockPanel>
         </StackPanel>
 
@@ -45,7 +45,7 @@
                         Margin="8,0,0,0"
                         Command="{Binding BrowseFfprobeCommand}" />
                 <TextBox Text="{Binding FfprobePath, Mode=TwoWay}"
-                         Watermark="/usr/bin/ffprobe" />
+                         PlaceholderText="/usr/bin/ffprobe" />
             </DockPanel>
         </StackPanel>
 

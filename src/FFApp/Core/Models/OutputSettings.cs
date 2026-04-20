@@ -61,6 +61,6 @@ public sealed record OutputSettings(
     public StreamHandlingOptions StreamHandling { get; init; } = StreamHandling ?? new StreamHandlingOptions();
     public TargetFileSizeOptions TargetFileSize { get; init; } = TargetFileSize ?? new TargetFileSizeOptions();
     public TargetBitrateOptions TargetBitrate { get; init; } = TargetBitrate ?? new TargetBitrateOptions(3_000_000);
-    public QualityOptions TargetQuality { get; init; } = TargetQuality ?? new H264QualityOptions();
+    public QualityOptions TargetQuality { get; init; } = TargetQuality ?? H26xQualityOptions.ForCodec(VideoCodec.H264);
     public ToneMapSettings ToneMapSettings { get; init; } = ToneMapSettings ?? new ToneMapSettings();
 }

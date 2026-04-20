@@ -121,7 +121,7 @@ public class CommandBuilderTests
     public void Build_H264Quality_CustomCrf_UsesProvidedValue()
     {
         var job = JobWith(s => s.WithVideoCodec(VideoCodec.H264)
-            .WithQuality(new H264QualityOptions(Crf: 18, Preset: "slow", Profile: "high")));
+            .WithQuality(new H26xQualityOptions(VideoCodec.H264, Crf: 18, Preset: "slow", Profile: "high")));
         var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
 
         args.Should().Contain("-crf 18 -preset slow -profile:v high");
@@ -131,7 +131,7 @@ public class CommandBuilderTests
     public void Build_H265Quality_CustomCrf_UsesProvidedValue()
     {
         var job = JobWith(s => s.WithH265()
-            .WithQuality(new H265QualityOptions(Crf: 22, Preset: "fast", Profile: "main10")));
+            .WithQuality(new H26xQualityOptions(VideoCodec.H265, Crf: 22, Preset: "fast", Profile: "main10")));
         var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
 
         args.Should().Contain("-crf 22 -preset fast -profile:v main10");
@@ -739,7 +739,7 @@ public class CommandBuilderTests
             Container: OutputContainer.Webm,
             VideoCodec: VideoCodec.Vp9,
             EncodingStrategy: EncodingStrategy.TargetBitrate,
-            VideoEncoderOptions: new H264EncoderOptions(),
+            VideoEncoderOptions: H26xEncoderOptions.ForCodec(VideoCodec.H264),
             TargetBitrate: new TargetBitrateOptions(2_000_000));
 
         var act = () => _sut.Build(job, DefaultMedia());
@@ -1363,7 +1363,7 @@ public class CommandBuilderTests
     public void Build_H265_AdditionalOptions_EmittedAsX265Params()
     {
         var job = JobWith(s => s.WithH265()
-            .WithQuality(new H265QualityOptions())
+            .WithQuality(H26xQualityOptions.ForCodec(VideoCodec.H265))
             .WithAdditionalOptions("aq-mode=3:psy-rd=1.0"));
         var cmd = _sut.Build(job, DefaultMedia())[0];
 

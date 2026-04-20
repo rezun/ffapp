@@ -306,7 +306,7 @@ public class ValidationServiceTests
     {
         var settings = new TestOutputSettingsBuilder()
             .WithVideoCodec(VideoCodec.H264)
-            .WithEncoderOptions(new H265EncoderOptions())
+            .WithEncoderOptions(H26xEncoderOptions.ForCodec(VideoCodec.H265))
             .Build();
         var media = new TestMediaInfoBuilder().Build();
 
@@ -319,7 +319,7 @@ public class ValidationServiceTests
     public void Validate_H264WithInvalidPreset_ReturnsQualityPresetInvalid()
     {
         var settings = new TestOutputSettingsBuilder()
-            .WithEncoderOptions(new H264EncoderOptions(Preset: "bogus_preset"))
+            .WithEncoderOptions(new H26xEncoderOptions(VideoCodec.H264, Preset: "bogus_preset"))
             .Build();
         var media = new TestMediaInfoBuilder().Build();
 
@@ -377,7 +377,7 @@ public class ValidationServiceTests
     {
         var settings = new TestOutputSettingsBuilder()
             .WithH265()
-            .WithQuality(new H264QualityOptions())
+            .WithQuality(H26xQualityOptions.ForCodec(VideoCodec.H264))
             .Build();
         var media = new TestMediaInfoBuilder().Build();
 
@@ -390,7 +390,7 @@ public class ValidationServiceTests
     public void Validate_H264Crf0_NoCrfError()
     {
         var settings = new TestOutputSettingsBuilder()
-            .WithQuality(new H264QualityOptions(Crf: 0))
+            .WithQuality(new H26xQualityOptions(VideoCodec.H264, Crf: 0))
             .Build();
         var media = new TestMediaInfoBuilder().Build();
 
@@ -403,7 +403,7 @@ public class ValidationServiceTests
     public void Validate_H264Crf51_NoCrfError()
     {
         var settings = new TestOutputSettingsBuilder()
-            .WithQuality(new H264QualityOptions(Crf: 51))
+            .WithQuality(new H26xQualityOptions(VideoCodec.H264, Crf: 51))
             .Build();
         var media = new TestMediaInfoBuilder().Build();
 
@@ -416,7 +416,7 @@ public class ValidationServiceTests
     public void Validate_H264CrfNegative_ReturnsCrfInvalid()
     {
         var settings = new TestOutputSettingsBuilder()
-            .WithQuality(new H264QualityOptions(Crf: -1))
+            .WithQuality(new H26xQualityOptions(VideoCodec.H264, Crf: -1))
             .Build();
         var media = new TestMediaInfoBuilder().Build();
 
@@ -429,7 +429,7 @@ public class ValidationServiceTests
     public void Validate_H264Crf52_ReturnsCrfInvalid()
     {
         var settings = new TestOutputSettingsBuilder()
-            .WithQuality(new H264QualityOptions(Crf: 52))
+            .WithQuality(new H26xQualityOptions(VideoCodec.H264, Crf: 52))
             .Build();
         var media = new TestMediaInfoBuilder().Build();
 
@@ -750,7 +750,7 @@ public class ValidationServiceTests
     {
         var settings = new TestOutputSettingsBuilder()
             .WithH265()
-            .WithQuality(new H265QualityOptions(Crf: 0))
+            .WithQuality(new H26xQualityOptions(VideoCodec.H265, Crf: 0))
             .Build();
         var media = new TestMediaInfoBuilder().Build();
 
@@ -764,7 +764,7 @@ public class ValidationServiceTests
     {
         var settings = new TestOutputSettingsBuilder()
             .WithH265()
-            .WithQuality(new H265QualityOptions(Crf: 51))
+            .WithQuality(new H26xQualityOptions(VideoCodec.H265, Crf: 51))
             .Build();
         var media = new TestMediaInfoBuilder().Build();
 
@@ -778,7 +778,7 @@ public class ValidationServiceTests
     {
         var settings = new TestOutputSettingsBuilder()
             .WithH265()
-            .WithQuality(new H265QualityOptions(Crf: 52))
+            .WithQuality(new H26xQualityOptions(VideoCodec.H265, Crf: 52))
             .Build();
         var media = new TestMediaInfoBuilder().Build();
 
@@ -862,7 +862,7 @@ public class ValidationServiceTests
     {
         var settings = new TestOutputSettingsBuilder()
             .WithH265()
-            .WithEncoderOptions(new H264EncoderOptions())
+            .WithEncoderOptions(H26xEncoderOptions.ForCodec(VideoCodec.H264))
             .Build();
         var media = new TestMediaInfoBuilder().Build();
 
@@ -937,8 +937,8 @@ public class ValidationServiceTests
         var settings = new TestOutputSettingsBuilder()
             .WithH265()
             .WithHdrPreserve()
-            .WithEncoderOptions(new H265EncoderOptions(Profile: "main10"))
-            .WithQuality(new H265QualityOptions(Profile: "main10"))
+            .WithEncoderOptions(new H26xEncoderOptions(VideoCodec.H265, Profile: "main10"))
+            .WithQuality(new H26xQualityOptions(VideoCodec.H265, Profile: "main10"))
             .Build();
         var media = new TestMediaInfoBuilder().WithHdr10().Build();
 

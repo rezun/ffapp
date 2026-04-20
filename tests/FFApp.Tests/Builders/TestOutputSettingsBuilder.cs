@@ -70,8 +70,8 @@ public class TestOutputSettingsBuilder
         Apply(s => s with
         {
             VideoCodec = VideoCodec.H265,
-            VideoEncoderOptions = new H265EncoderOptions(),
-            TargetQuality = new H265QualityOptions(),
+            VideoEncoderOptions = H26xEncoderOptions.ForCodec(VideoCodec.H265),
+            TargetQuality = H26xQualityOptions.ForCodec(VideoCodec.H265),
         });
 
     public TestOutputSettingsBuilder WithVp9(bool twoPass = false) =>
@@ -105,11 +105,10 @@ public class TestOutputSettingsBuilder
         {
             VideoEncoderOptions = s.VideoEncoderOptions switch
             {
-                H264EncoderOptions h264 => h264 with { AdditionalOptions = options },
-                H265EncoderOptions h265 => h265 with { AdditionalOptions = options },
+                H26xEncoderOptions h26x => h26x with { AdditionalOptions = options },
                 VpxEncoderOptions vpx => vpx with { AdditionalOptions = options },
                 Av1EncoderOptions av1 => av1 with { AdditionalOptions = options },
-                null => new H264EncoderOptions(AdditionalOptions: options),
+                null => H26xEncoderOptions.ForCodec(VideoCodec.H264) with { AdditionalOptions = options },
                 _ => s.VideoEncoderOptions,
             },
         });

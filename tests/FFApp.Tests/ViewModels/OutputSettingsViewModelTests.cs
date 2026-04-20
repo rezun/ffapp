@@ -77,9 +77,9 @@ public class OutputSettingsViewModelTests
 
         _sut.ApplySettings(target);
 
-        _sut.Strategy.Quality.IsH26xCodec.Should().BeTrue();
-        _sut.Strategy.Quality.Crf.Should().Be(28);
-        _sut.Strategy.Quality.H26xProfile.Should().Be("main");
+        _sut.Strategy.Quality.Active.Should().BeSameAs(_sut.Strategy.Quality.H265);
+        _sut.Strategy.Quality.H265.Crf.Should().Be(28);
+        _sut.Strategy.Quality.H265.Profile.Should().Be("main");
     }
 
     [Fact]

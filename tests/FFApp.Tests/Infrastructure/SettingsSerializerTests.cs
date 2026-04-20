@@ -33,13 +33,14 @@ public class SettingsSerializerTests
     public void RoundTrip_H264Quality_PreservesAllFields()
     {
         var original = new TestOutputSettingsBuilder()
-            .WithQuality(new H264QualityOptions(Crf: 18, Preset: "slow", Profile: "high"))
+            .WithQuality(new H26xQualityOptions(VideoCodec.H264, Crf: 18, Preset: "slow", Profile: "high"))
             .Build();
 
         var result = RoundTrip(original);
 
-        result.TargetQuality.Should().BeOfType<H264QualityOptions>();
-        var q = (H264QualityOptions)result.TargetQuality;
+        result.TargetQuality.Should().BeOfType<H26xQualityOptions>();
+        var q = (H26xQualityOptions)result.TargetQuality;
+        q.Codec.Should().Be(VideoCodec.H264);
         q.Crf.Should().Be(18);
         q.Preset.Should().Be("slow");
         q.Profile.Should().Be("high");
@@ -50,13 +51,14 @@ public class SettingsSerializerTests
     {
         var original = new TestOutputSettingsBuilder()
             .WithH265()
-            .WithQuality(new H265QualityOptions(Crf: 24, Preset: "fast", Profile: "main10"))
+            .WithQuality(new H26xQualityOptions(VideoCodec.H265, Crf: 24, Preset: "fast", Profile: "main10"))
             .Build();
 
         var result = RoundTrip(original);
 
-        result.TargetQuality.Should().BeOfType<H265QualityOptions>();
-        var q = (H265QualityOptions)result.TargetQuality;
+        result.TargetQuality.Should().BeOfType<H26xQualityOptions>();
+        var q = (H26xQualityOptions)result.TargetQuality;
+        q.Codec.Should().Be(VideoCodec.H265);
         q.Crf.Should().Be(24);
         q.Preset.Should().Be("fast");
         q.Profile.Should().Be("main10");
@@ -169,13 +171,14 @@ public class SettingsSerializerTests
     public void RoundTrip_H264EncoderOptions_PreservesPresetProfile()
     {
         var original = new TestOutputSettingsBuilder()
-            .WithEncoderOptions(new H264EncoderOptions(Preset: "veryslow", Profile: "baseline"))
+            .WithEncoderOptions(new H26xEncoderOptions(VideoCodec.H264, Preset: "veryslow", Profile: "baseline"))
             .Build();
 
         var result = RoundTrip(original);
 
-        result.VideoEncoderOptions.Should().BeOfType<H264EncoderOptions>();
-        var opts = (H264EncoderOptions)result.VideoEncoderOptions!;
+        result.VideoEncoderOptions.Should().BeOfType<H26xEncoderOptions>();
+        var opts = (H26xEncoderOptions)result.VideoEncoderOptions!;
+        opts.Codec.Should().Be(VideoCodec.H264);
         opts.Preset.Should().Be("veryslow");
         opts.Profile.Should().Be("baseline");
     }
@@ -449,13 +452,13 @@ public class SettingsSerializerTests
     public void RoundTrip_AdditionalOptions_PreservedForAllCodecs()
     {
         var h264 = RoundTrip(new TestOutputSettingsBuilder()
-            .WithEncoderOptions(new H264EncoderOptions(AdditionalOptions: "-refs 4")).Build());
-        ((H264EncoderOptions)h264.VideoEncoderOptions!).AdditionalOptions.Should().Be("-refs 4");
+            .WithEncoderOptions(new H26xEncoderOptions(VideoCodec.H264, AdditionalOptions: "-refs 4")).Build());
+        ((H26xEncoderOptions)h264.VideoEncoderOptions!).AdditionalOptions.Should().Be("-refs 4");
 
         var h265 = RoundTrip(new TestOutputSettingsBuilder()
             .WithH265()
-            .WithEncoderOptions(new H265EncoderOptions(AdditionalOptions: "-tune grain")).Build());
-        ((H265EncoderOptions)h265.VideoEncoderOptions!).AdditionalOptions.Should().Be("-tune grain");
+            .WithEncoderOptions(new H26xEncoderOptions(VideoCodec.H265, AdditionalOptions: "-tune grain")).Build());
+        ((H26xEncoderOptions)h265.VideoEncoderOptions!).AdditionalOptions.Should().Be("-tune grain");
 
         var vp9 = RoundTrip(new TestOutputSettingsBuilder()
             .WithVp9()
@@ -482,7 +485,7 @@ public class SettingsSerializerTests
 
         var result = SettingsSerializer.DeserializeOutputSettings(element);
 
-        ((H264EncoderOptions)result.VideoEncoderOptions!).AdditionalOptions.Should().Be("");
+        ((H26xEncoderOptions)result.VideoEncoderOptions!).AdditionalOptions.Should().Be("");
     }
 
     [Fact]

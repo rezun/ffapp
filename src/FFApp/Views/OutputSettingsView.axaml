@@ -5,6 +5,7 @@
              xmlns:ctrl="using:FFApp.Controls"
              xmlns:models="using:FFApp.Core.Models"
              xmlns:conv="using:FFApp.Converters"
+             xmlns:qvm="using:FFApp.ViewModels.Quality"
              xmlns:sys="using:System"
              x:Class="FFApp.Views.OutputSettingsView"
              x:CompileBindings="True"
@@ -35,6 +36,150 @@
             <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.Av1Scm}}" />
         </DataTemplate>
     </UserControl.Resources>
+
+    <UserControl.DataTemplates>
+        <!-- Per-codec tuning panels, auto-selected by Active VM type -->
+        <DataTemplate DataType="qvm:H26xQualitySettingsViewModel">
+            <Border Classes="nested-card" Margin="0,4,0,0">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="H.264 / H.265 Encoder Tuning"
+                               Classes="nested-card-header" />
+                    <Separator DockPanel.Dock="Top" />
+                    <StackPanel Spacing="4" Margin="6,4,6,6">
+                        <Grid ColumnDefinitions="80,Auto,16,55,Auto,*">
+                            <TextBlock Text="Preset" VerticalAlignment="Center" />
+                            <ctrl:NoWheelComboBox Grid.Column="1"
+                                MinWidth="92"
+                                ItemsSource="{Binding AvailablePresets}"
+                                SelectedItem="{Binding Preset}" />
+                            <TextBlock Grid.Column="3" Text="Profile" VerticalAlignment="Center" />
+                            <ctrl:NoWheelComboBox Grid.Column="4"
+                                MinWidth="92"
+                                ItemsSource="{Binding AvailableProfiles}"
+                                SelectedItem="{Binding Profile}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="80,*">
+                            <TextBlock Text="Additional" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1"
+                                     Text="{Binding AdditionalOptions}"
+                                     PlaceholderText="{Binding AdditionalOptionsPlaceholder}" />
+                        </Grid>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate DataType="qvm:Av1QualitySettingsViewModel">
+            <Border Classes="nested-card" Margin="0,4,0,0">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="AV1 Encoder Tuning"
+                               Classes="nested-card-header" />
+                    <Separator DockPanel.Dock="Top" />
+                    <StackPanel Spacing="4" Margin="6,4,6,6">
+                        <Grid ColumnDefinitions="80,*,Auto">
+                            <TextBlock Text="Preset" VerticalAlignment="Center" />
+                            <Slider Grid.Column="1"
+                                    Value="{Binding Preset}"
+                                    Minimum="0" Maximum="13"
+                                    TickFrequency="1" IsSnapToTickEnabled="True"
+                                    VerticalAlignment="Center"
+                                    TickPlacement="BottomRight" />
+                            <TextBlock Grid.Column="2" VerticalAlignment="Center"
+                                       MinWidth="20" TextAlignment="Right" Margin="8,0,0,0">
+                                <Run Text="{Binding Preset}" />
+                            </TextBlock>
+                        </Grid>
+                        <Grid ColumnDefinitions="80,Auto,8,Auto,*">
+                            <TextBlock Text="Max Bitrate" VerticalAlignment="Center" />
+                            <ctrl:NumericTextBox Grid.Column="1"
+                                     Classes="numeric-input"
+                                     MinWidth="120"
+                                     PlaceholderText="Off"
+                                     Text="{Binding MaxBitrateKbpsText}" />
+                            <TextBlock Grid.Column="3" Text="kbps" VerticalAlignment="Center"
+                                       Margin="6,0,0,0" />
+                            <TextBlock Grid.Column="4" Classes="secondary"
+                                       Text="caps CRF (empty = uncapped)"
+                                       VerticalAlignment="Center" Margin="12,0,0,0" />
+                        </Grid>
+                        <Grid ColumnDefinitions="80,Auto,16,Auto,Auto,*">
+                            <TextBlock Text="Tune" VerticalAlignment="Center" />
+                            <ctrl:NoWheelComboBox Grid.Column="1"
+                                MinWidth="120"
+                                ItemsSource="{Binding AvailableTunes}"
+                                SelectedItem="{Binding Tune}"
+                                ItemTemplate="{StaticResource Av1TuneTemplate}" />
+                            <TextBlock Grid.Column="3" Text="SCM" VerticalAlignment="Center" />
+                            <ctrl:NoWheelComboBox Grid.Column="4"
+                                MinWidth="160" Margin="8,0,0,0"
+                                ItemsSource="{Binding AvailableScm}"
+                                SelectedItem="{Binding Scm}"
+                                ItemTemplate="{StaticResource Av1ScmTemplate}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="80,Auto,16,Auto,*">
+                            <CheckBox Grid.Column="1"
+                                      Content="Overlays"
+                                      VerticalAlignment="Center"
+                                      IsChecked="{Binding EnableOverlaysChecked}" />
+                            <CheckBox Grid.Column="3"
+                                      Content="Variance Boost"
+                                      VerticalAlignment="Center"
+                                      IsChecked="{Binding EnableVarianceBoostChecked}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="80,*">
+                            <TextBlock Text="Additional" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1"
+                                     PlaceholderText="e.g. film-grain=8:sharpness=1"
+                                     Text="{Binding AdditionalOptions}" />
+                        </Grid>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate DataType="qvm:VpxQualitySettingsViewModel">
+            <Border Classes="nested-card" Margin="0,4,0,0">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="VP9 Encoder Tuning"
+                               Classes="nested-card-header" />
+                    <Separator DockPanel.Dock="Top" />
+                    <StackPanel Spacing="4" Margin="6,4,6,6">
+                        <Grid ColumnDefinitions="80,*,Auto">
+                            <TextBlock Text="CPU Used" VerticalAlignment="Center" />
+                            <Slider Grid.Column="1"
+                                    Value="{Binding CpuUsed}"
+                                    Minimum="0" Maximum="8"
+                                    TickFrequency="1" IsSnapToTickEnabled="True"
+                                    VerticalAlignment="Center"
+                                    TickPlacement="BottomRight" />
+                            <TextBlock Grid.Column="2" VerticalAlignment="Center"
+                                       MinWidth="20" TextAlignment="Right" Margin="8,0,0,0">
+                                <Run Text="{Binding CpuUsed}" />
+                            </TextBlock>
+                        </Grid>
+                        <Grid ColumnDefinitions="80,Auto,16,80,Auto,*">
+                            <TextBlock Text="Tile Cols" VerticalAlignment="Center" />
+                            <ctrl:NoWheelComboBox Grid.Column="1"
+                                MinWidth="64"
+                                ItemsSource="{Binding AvailableTileColumns}"
+                                SelectedItem="{Binding TileColumns}" />
+                            <TextBlock Grid.Column="3" Text="Tile Rows" VerticalAlignment="Center" />
+                            <ctrl:NoWheelComboBox Grid.Column="4"
+                                MinWidth="64"
+                                ItemsSource="{Binding AvailableTileRows}"
+                                SelectedItem="{Binding TileRows}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="80,*">
+                            <TextBlock Text="Additional" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1"
+                                     PlaceholderText="e.g. lag-in-frames=25:tune-content=screen"
+                                     Text="{Binding AdditionalOptions}" />
+                        </Grid>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+        </DataTemplate>
+    </UserControl.DataTemplates>
 
     <!-- Single column layout: all cards stacked vertically -->
     <StackPanel Spacing="0">
@@ -206,161 +351,9 @@
                         <!-- Strategy-specific controls (resolved via DataTemplate in App.axaml) -->
                         <ContentControl Content="{Binding Strategy.ActiveStrategyViewModel}" />
 
-                        <!-- H.264/H.265 Encoder Tuning -->
-                        <Border Classes="nested-card" Margin="0,4,0,0"
-                                IsVisible="{Binding Strategy.Quality.IsH26xCodec}">
-                            <DockPanel>
-                                <TextBlock DockPanel.Dock="Top" Text="H.264 / H.265 Encoder Tuning"
-                                           Classes="nested-card-header" />
-                                <Separator DockPanel.Dock="Top" />
-                                <StackPanel Spacing="4" Margin="6,4,6,6">
-                                    <Grid ColumnDefinitions="80,Auto,16,55,Auto,*">
-                                        <TextBlock Text="Preset" VerticalAlignment="Center" />
-                                        <ctrl:NoWheelComboBox Grid.Column="1"
-                                            MinWidth="92"
-                                            ItemsSource="{Binding Strategy.Quality.AvailablePresets}"
-                                            SelectedItem="{Binding Strategy.Quality.H26xPreset}" />
-                                        <TextBlock Grid.Column="3" Text="Profile" VerticalAlignment="Center" />
-                                        <ctrl:NoWheelComboBox Grid.Column="4"
-                                            MinWidth="92"
-                                            ItemsSource="{Binding Strategy.Quality.AvailableProfiles}"
-                                            SelectedItem="{Binding Strategy.Quality.H26xProfile}" />
-                                    </Grid>
-                                    <Grid ColumnDefinitions="80,*"
-                                          IsVisible="{Binding Format.SelectedVideoCodec,
-                                              Converter={StaticResource EnumToBool},
-                                              ConverterParameter={x:Static models:VideoCodec.H264}}">
-                                        <TextBlock Text="Additional" VerticalAlignment="Center" />
-                                        <TextBox Grid.Column="1"
-                                                 PlaceholderText="e.g. ref=4:bframes=3"
-                                                 Text="{Binding Strategy.Quality.H264AdditionalOptions}" />
-                                    </Grid>
-                                    <Grid ColumnDefinitions="80,*"
-                                          IsVisible="{Binding Format.SelectedVideoCodec,
-                                              Converter={StaticResource EnumToBool},
-                                              ConverterParameter={x:Static models:VideoCodec.H265}}">
-                                        <TextBlock Text="Additional" VerticalAlignment="Center" />
-                                        <TextBox Grid.Column="1"
-                                                 PlaceholderText="e.g. aq-mode=3:psy-rd=1.0"
-                                                 Text="{Binding Strategy.Quality.H265AdditionalOptions}" />
-                                    </Grid>
-                                </StackPanel>
-                            </DockPanel>
-                        </Border>
+                        <!-- Per-codec encoder tuning: template selected by Active VM type -->
+                        <ContentControl Content="{Binding Strategy.Quality.Active}" />
 
-                        <!-- AV1 Encoder Tuning -->
-                        <Border Classes="nested-card" Margin="0,4,0,0"
-                                IsVisible="{Binding Strategy.Quality.IsAv1Codec}">
-                            <DockPanel>
-                                <TextBlock DockPanel.Dock="Top" Text="AV1 Encoder Tuning"
-                                           Classes="nested-card-header" />
-                                <Separator DockPanel.Dock="Top" />
-                                <StackPanel Spacing="4" Margin="6,4,6,6">
-                                    <Grid ColumnDefinitions="80,*,Auto">
-                                        <TextBlock Text="Preset" VerticalAlignment="Center" />
-                                        <Slider Grid.Column="1"
-                                                Value="{Binding Strategy.Quality.Av1Preset}"
-                                                Minimum="0" Maximum="13"
-                                                TickFrequency="1" IsSnapToTickEnabled="True"
-                                                VerticalAlignment="Center"
-                                                TickPlacement="BottomRight" />
-                                        <TextBlock Grid.Column="2" VerticalAlignment="Center"
-                                                   MinWidth="20" TextAlignment="Right" Margin="8,0,0,0">
-                                            <Run Text="{Binding Strategy.Quality.Av1Preset}" />
-                                        </TextBlock>
-                                    </Grid>
-                                    <Grid ColumnDefinitions="80,Auto,8,Auto,*"
-                                          IsVisible="{Binding Strategy.SelectedStrategy,
-                                              Converter={StaticResource EnumToBool},
-                                              ConverterParameter={x:Static models:EncodingStrategy.TargetQuality}}">
-                                        <TextBlock Text="Max Bitrate" VerticalAlignment="Center" />
-                                        <ctrl:NumericTextBox Grid.Column="1"
-                                                 Classes="numeric-input"
-                                                 MinWidth="120"
-                                                 PlaceholderText="Off"
-                                                 Text="{Binding Strategy.Quality.Av1MaxBitrateKbpsText}" />
-                                        <TextBlock Grid.Column="3" Text="kbps" VerticalAlignment="Center"
-                                                   Margin="6,0,0,0" />
-                                        <TextBlock Grid.Column="4" Classes="secondary"
-                                                   Text="caps CRF (empty = uncapped)"
-                                                   VerticalAlignment="Center" Margin="12,0,0,0" />
-                                    </Grid>
-                                    <Grid ColumnDefinitions="80,Auto,16,Auto,Auto,*">
-                                        <TextBlock Text="Tune" VerticalAlignment="Center" />
-                                        <ctrl:NoWheelComboBox Grid.Column="1"
-                                            MinWidth="120"
-                                            ItemsSource="{Binding Strategy.Quality.AvailableAv1Tunes}"
-                                            SelectedItem="{Binding Strategy.Quality.Av1Tune}"
-                                            ItemTemplate="{StaticResource Av1TuneTemplate}" />
-                                        <TextBlock Grid.Column="3" Text="SCM" VerticalAlignment="Center" />
-                                        <ctrl:NoWheelComboBox Grid.Column="4"
-                                            MinWidth="160" Margin="8,0,0,0"
-                                            ItemsSource="{Binding Strategy.Quality.AvailableAv1Scm}"
-                                            SelectedItem="{Binding Strategy.Quality.Av1Scm}"
-                                            ItemTemplate="{StaticResource Av1ScmTemplate}" />
-                                    </Grid>
-                                    <Grid ColumnDefinitions="80,Auto,16,Auto,*">
-                                        <CheckBox Grid.Column="1"
-                                                  Content="Overlays"
-                                                  VerticalAlignment="Center"
-                                                  IsChecked="{Binding Strategy.Quality.Av1EnableOverlaysChecked}" />
-                                        <CheckBox Grid.Column="3"
-                                                  Content="Variance Boost"
-                                                  VerticalAlignment="Center"
-                                                  IsChecked="{Binding Strategy.Quality.Av1EnableVarianceBoostChecked}" />
-                                    </Grid>
-                                    <Grid ColumnDefinitions="80,*">
-                                        <TextBlock Text="Additional" VerticalAlignment="Center" />
-                                        <TextBox Grid.Column="1"
-                                                 PlaceholderText="e.g. film-grain=8:sharpness=1"
-                                                 Text="{Binding Strategy.Quality.Av1AdditionalOptions}" />
-                                    </Grid>
-                                </StackPanel>
-                            </DockPanel>
-                        </Border>
-
-                        <!-- VP9 Encoder Tuning -->
-                        <Border Classes="nested-card" Margin="0,4,0,0"
-                                IsVisible="{Binding Strategy.Quality.IsVpxCodec}">
-                            <DockPanel>
-                                <TextBlock DockPanel.Dock="Top" Text="VP9 Encoder Tuning"
-                                           Classes="nested-card-header" />
-                                <Separator DockPanel.Dock="Top" />
-                                <StackPanel Spacing="4" Margin="6,4,6,6">
-                                    <Grid ColumnDefinitions="80,*,Auto">
-                                        <TextBlock Text="CPU Used" VerticalAlignment="Center" />
-                                        <Slider Grid.Column="1"
-                                                Value="{Binding Strategy.Quality.VpxCpuUsed}"
-                                                Minimum="0" Maximum="8"
-                                                TickFrequency="1" IsSnapToTickEnabled="True"
-                                                VerticalAlignment="Center"
-                                                TickPlacement="BottomRight" />
-                                        <TextBlock Grid.Column="2" VerticalAlignment="Center"
-                                                   MinWidth="20" TextAlignment="Right" Margin="8,0,0,0">
-                                            <Run Text="{Binding Strategy.Quality.VpxCpuUsed}" />
-                                        </TextBlock>
-                                    </Grid>
-                                    <Grid ColumnDefinitions="80,Auto,16,80,Auto,*">
-                                        <TextBlock Text="Tile Cols" VerticalAlignment="Center" />
-                                        <ctrl:NoWheelComboBox Grid.Column="1"
-                                            MinWidth="64"
-                                            ItemsSource="{Binding Strategy.Quality.AvailableTileColumns}"
-                                            SelectedItem="{Binding Strategy.Quality.VpxTileColumns}" />
-                                        <TextBlock Grid.Column="3" Text="Tile Rows" VerticalAlignment="Center" />
-                                        <ctrl:NoWheelComboBox Grid.Column="4"
-                                            MinWidth="64"
-                                            ItemsSource="{Binding Strategy.Quality.AvailableTileRows}"
-                                            SelectedItem="{Binding Strategy.Quality.VpxTileRows}" />
-                                    </Grid>
-                                    <Grid ColumnDefinitions="80,*">
-                                        <TextBlock Text="Additional" VerticalAlignment="Center" />
-                                        <TextBox Grid.Column="1"
-                                                 PlaceholderText="e.g. lag-in-frames=25:tune-content=screen"
-                                                 Text="{Binding Strategy.Quality.Vp9AdditionalOptions}" />
-                                    </Grid>
-                                </StackPanel>
-                            </DockPanel>
-                        </Border>
                     </StackPanel>
 
                 </StackPanel>

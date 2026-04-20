@@ -4,15 +4,19 @@ namespace FFApp.Core.Models;
 
 public abstract record VideoEncoderOptions(VideoCodec Codec);
 
-public sealed record H264EncoderOptions(
-    string Preset = "medium",
-    string Profile = "high",
-    string AdditionalOptions = "") : VideoEncoderOptions(VideoCodec.H264);
-
-public sealed record H265EncoderOptions(
+public sealed record H26xEncoderOptions(
+    VideoCodec Codec,
     string Preset = "medium",
     string Profile = "main",
-    string AdditionalOptions = "") : VideoEncoderOptions(VideoCodec.H265);
+    string AdditionalOptions = "") : VideoEncoderOptions(Codec)
+{
+    public static H26xEncoderOptions ForCodec(VideoCodec codec) => codec switch
+    {
+        VideoCodec.H264 => new H26xEncoderOptions(VideoCodec.H264, Profile: "high"),
+        VideoCodec.H265 => new H26xEncoderOptions(VideoCodec.H265, Profile: "main"),
+        _ => throw new ArgumentOutOfRangeException(nameof(codec), codec, "H26x encoder options require H.264 or H.265."),
+    };
+}
 
 public sealed record VpxEncoderOptions(
     VideoCodec Codec,
@@ -33,15 +37,19 @@ public sealed record Av1EncoderOptions(
 
 public abstract record QualityOptions(VideoCodec Codec);
 
-public sealed record H264QualityOptions(
+public sealed record H26xQualityOptions(
+    VideoCodec Codec,
     int Crf = 23,
     string Preset = "medium",
-    string Profile = "high") : QualityOptions(VideoCodec.H264);
-
-public sealed record H265QualityOptions(
-    int Crf = 28,
-    string Preset = "medium",
-    string Profile = "main") : QualityOptions(VideoCodec.H265);
+    string Profile = "main") : QualityOptions(Codec)
+{
+    public static H26xQualityOptions ForCodec(VideoCodec codec) => codec switch
+    {
+        VideoCodec.H264 => new H26xQualityOptions(VideoCodec.H264, Crf: 23, Profile: "high"),
+        VideoCodec.H265 => new H26xQualityOptions(VideoCodec.H265, Crf: 28, Profile: "main"),
+        _ => throw new ArgumentOutOfRangeException(nameof(codec), codec, "H26x quality options require H.264 or H.265."),
+    };
+}
 
 public sealed record Vp9QualityOptions(
     int Quality = 32,
@@ -55,4 +63,3 @@ public sealed record Av1QualityOptions(
     int Scm = 2,
     int MaxBitrateKbps = 0,
     int EnableVarianceBoost = 0) : QualityOptions(VideoCodec.Av1);
-

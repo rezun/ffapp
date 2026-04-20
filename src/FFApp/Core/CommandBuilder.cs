@@ -287,8 +287,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
 
     private static string ExtractAdditionalOptions(VideoEncoderOptions? options) => options switch
     {
-        H264EncoderOptions h264 => h264.AdditionalOptions,
-        H265EncoderOptions h265 => h265.AdditionalOptions,
+        H26xEncoderOptions h26x => h26x.AdditionalOptions,
         VpxEncoderOptions vpx => vpx.AdditionalOptions,
         Av1EncoderOptions av1 => av1.AdditionalOptions,
         _ => "",
@@ -337,12 +336,12 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
 
         return quality switch
         {
-            H264QualityOptions h264 =>
-                ["-crf", h264.Crf.ToString(), "-preset", h264.Preset, "-profile:v", h264.Profile],
+            H26xQualityOptions h26x when h26x.Codec == VideoCodec.H264 =>
+                ["-crf", h26x.Crf.ToString(), "-preset", h26x.Preset, "-profile:v", h26x.Profile],
 
-            H265QualityOptions h265 =>
-                ["-crf", h265.Crf.ToString(), "-preset", h265.Preset,
-                 "-profile:v", ResolveH265Profile(job, mediaInfo, h265.Profile)],
+            H26xQualityOptions h26x when h26x.Codec == VideoCodec.H265 =>
+                ["-crf", h26x.Crf.ToString(), "-preset", h26x.Preset,
+                 "-profile:v", ResolveH265Profile(job, mediaInfo, h26x.Profile)],
 
             Vp9QualityOptions vp9 =>
             [
@@ -360,20 +359,19 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
 
     private static List<string> VideoEncoderTuningArguments(JobDefinition job, SourceMediaInfo mediaInfo, int? passIndex)
     {
-        if (job.VideoCodec == VideoCodec.H264)
+        if (job.VideoCodec is VideoCodec.H264 or VideoCodec.H265)
         {
-            var encoder = job.VideoEncoderOptions as H264EncoderOptions ?? new H264EncoderOptions();
-            if (job.VideoEncoderOptions is not null and not H264EncoderOptions)
-                throw new CommandBuildException("H.264 bitrate-based encoding requires preset and profile.");
-            return ["-preset", encoder.Preset, "-profile:v", encoder.Profile];
-        }
-
-        if (job.VideoCodec == VideoCodec.H265)
-        {
-            var encoder = job.VideoEncoderOptions as H265EncoderOptions ?? new H265EncoderOptions();
-            if (job.VideoEncoderOptions is not null and not H265EncoderOptions)
-                throw new CommandBuildException("H.265 bitrate-based encoding requires preset and profile.");
-            return ["-preset", encoder.Preset, "-profile:v", ResolveH265Profile(job, mediaInfo, encoder.Profile)];
+            var encoder = job.VideoEncoderOptions switch
+            {
+                H26xEncoderOptions h26x when h26x.Codec == job.VideoCodec => h26x,
+                null => H26xEncoderOptions.ForCodec(job.VideoCodec),
+                _ => throw new CommandBuildException(
+                    $"{CompatibilityData.VideoCodecLabel(job.VideoCodec)} bitrate-based encoding requires preset and profile."),
+            };
+            var profile = job.VideoCodec == VideoCodec.H265
+                ? ResolveH265Profile(job, mediaInfo, encoder.Profile)
+                : encoder.Profile;
+            return ["-preset", encoder.Preset, "-profile:v", profile];
         }
 
         if (job.VideoCodec == VideoCodec.Av1)

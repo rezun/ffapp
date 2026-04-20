@@ -231,7 +231,7 @@ public partial class OutputSettingsViewModel : ObservableObject
                 VideoBitrate: (int)Strategy.Bitrate.VideoBitrateKbps * 1000,
                 TwoPass: Strategy.Bitrate.TwoPass),
             TargetQuality: videoMode == VideoMode.Reencode
-                ? BuildQualityOptions(codec, quality) : new H264QualityOptions(),
+                ? BuildQualityOptions(codec, quality) : H26xQualityOptions.ForCodec(VideoCodec.H264),
             HdrMode: Hdr.SelectedHdrMode,
             ToneMapSettings: new ToneMapSettings(
                 Algorithm: Hdr.SelectedAlgorithm,
@@ -401,120 +401,23 @@ public partial class OutputSettingsViewModel : ObservableObject
     }
 
     private static VideoEncoderOptions BuildVideoEncoderOptions(VideoCodec codec, QualityViewModel quality) =>
-        codec switch
-        {
-            VideoCodec.H264 => new H264EncoderOptions(
-                Preset: quality.H26xPreset,
-                Profile: quality.H26xProfile,
-                AdditionalOptions: quality.H264AdditionalOptions),
-            VideoCodec.H265 => new H265EncoderOptions(
-                Preset: quality.H26xPreset,
-                Profile: quality.H26xProfile,
-                AdditionalOptions: quality.H265AdditionalOptions),
-            VideoCodec.Vp9 => new VpxEncoderOptions(
-                Codec: codec,
-                CpuUsed: quality.VpxCpuUsed,
-                TileColumns: quality.VpxTileColumns,
-                TileRows: quality.VpxTileRows,
-                AdditionalOptions: quality.Vp9AdditionalOptions),
-            VideoCodec.Av1 => new Av1EncoderOptions(
-                Preset: quality.Av1Preset,
-                Tune: quality.Av1Tune,
-                EnableOverlays: quality.Av1EnableOverlays,
-                Scm: quality.Av1Scm,
-                EnableVarianceBoost: quality.Av1EnableVarianceBoost,
-                AdditionalOptions: quality.Av1AdditionalOptions),
-            _ => new H264EncoderOptions(),
-        };
+        quality.ViewModelFor(codec).BuildEncoderOptions();
 
     private static QualityOptions BuildQualityOptions(VideoCodec codec, QualityViewModel quality) =>
-        codec switch
-        {
-            VideoCodec.H264 => new H264QualityOptions(
-                Crf: quality.Crf,
-                Preset: quality.H26xPreset,
-                Profile: quality.H26xProfile),
-            VideoCodec.H265 => new H265QualityOptions(
-                Crf: quality.Crf,
-                Preset: quality.H26xPreset,
-                Profile: quality.H26xProfile),
-            VideoCodec.Vp9 => new Vp9QualityOptions(
-                Quality: quality.VpxQuality,
-                TwoPass: quality.VpxTwoPass),
-            VideoCodec.Av1 => new Av1QualityOptions(
-                Crf: quality.Av1Crf,
-                Preset: quality.Av1Preset,
-                Tune: quality.Av1Tune,
-                EnableOverlays: quality.Av1EnableOverlays,
-                Scm: quality.Av1Scm,
-                MaxBitrateKbps: quality.Av1MaxBitrateKbps,
-                EnableVarianceBoost: quality.Av1EnableVarianceBoost),
-            _ => new H264QualityOptions(),
-        };
+        quality.ViewModelFor(codec).BuildQualityOptions();
 
     private void ApplyQualitySettings(QualityOptions? qualityOptions, VideoCodec codec)
     {
         Strategy.Quality.UpdateForCodec(codec);
-
-        switch (qualityOptions)
-        {
-            case H264QualityOptions h264:
-                Strategy.Quality.Crf = h264.Crf;
-                Strategy.Quality.H26xPreset = h264.Preset;
-                Strategy.Quality.H26xProfile = h264.Profile;
-                break;
-            case H265QualityOptions h265:
-                Strategy.Quality.Crf = h265.Crf;
-                Strategy.Quality.H26xPreset = h265.Preset;
-                Strategy.Quality.H26xProfile = h265.Profile;
-                break;
-            case Vp9QualityOptions vp9:
-                Strategy.Quality.VpxQuality = vp9.Quality;
-                Strategy.Quality.VpxTwoPass = vp9.TwoPass;
-                break;
-            case Av1QualityOptions av1:
-                Strategy.Quality.Av1Crf = av1.Crf;
-                Strategy.Quality.Av1Preset = av1.Preset;
-                Strategy.Quality.Av1Tune = av1.Tune;
-                Strategy.Quality.Av1EnableOverlays = av1.EnableOverlays;
-                Strategy.Quality.Av1Scm = av1.Scm;
-                Strategy.Quality.Av1EnableVarianceBoost = av1.EnableVarianceBoost;
-                Strategy.Quality.Av1MaxBitrateKbpsText = av1.MaxBitrateKbps > 0
-                    ? av1.MaxBitrateKbps.ToString()
-                    : "";
-                break;
-        }
+        if (qualityOptions is not null)
+            Strategy.Quality.ViewModelFor(codec).ApplyQuality(qualityOptions);
     }
 
     private void ApplyEncoderOptions(VideoEncoderOptions? encoderOptions)
     {
-        switch (encoderOptions)
-        {
-            case H264EncoderOptions h264:
-                Strategy.Quality.H26xPreset = h264.Preset;
-                Strategy.Quality.H26xProfile = h264.Profile;
-                Strategy.Quality.H264AdditionalOptions = h264.AdditionalOptions;
-                break;
-            case H265EncoderOptions h265:
-                Strategy.Quality.H26xPreset = h265.Preset;
-                Strategy.Quality.H26xProfile = h265.Profile;
-                Strategy.Quality.H265AdditionalOptions = h265.AdditionalOptions;
-                break;
-            case VpxEncoderOptions vpx:
-                Strategy.Quality.VpxCpuUsed = vpx.CpuUsed;
-                Strategy.Quality.VpxTileColumns = vpx.TileColumns;
-                Strategy.Quality.VpxTileRows = vpx.TileRows;
-                Strategy.Quality.Vp9AdditionalOptions = vpx.AdditionalOptions;
-                break;
-            case Av1EncoderOptions av1:
-                Strategy.Quality.Av1Preset = av1.Preset;
-                Strategy.Quality.Av1Tune = av1.Tune;
-                Strategy.Quality.Av1EnableOverlays = av1.EnableOverlays;
-                Strategy.Quality.Av1Scm = av1.Scm;
-                Strategy.Quality.Av1EnableVarianceBoost = av1.EnableVarianceBoost;
-                Strategy.Quality.Av1AdditionalOptions = av1.AdditionalOptions;
-                break;
-        }
+        if (encoderOptions is null)
+            return;
+        Strategy.Quality.ViewModelFor(encoderOptions.Codec).ApplyEncoder(encoderOptions);
     }
 
     private static readonly IReadOnlyList<KeyframeUnit> FramesOnly = [KeyframeUnit.Frames];

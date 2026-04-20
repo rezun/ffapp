@@ -296,38 +296,23 @@ public sealed class ValidationService : IValidationService
         switch (settings.VideoCodec)
         {
             case VideoCodec.H264:
-            {
-                var encoder = settings.VideoEncoderOptions ?? new H264EncoderOptions();
-                if (encoder is not H264EncoderOptions h264)
-                {
-                    issues.Add(new ValidationIssue(
-                        ValidationSeverity.Error,
-                        "video_encoder_options_required",
-                        "Choose a valid H.264 preset and profile.",
-                        "video_encoder"));
-                    return;
-                }
-                ValidateH26xEncoderOptions(
-                    h264.Preset, h264.Profile,
-                    H26xPresetOptions, H264ProfileOptions,
-                    "video_encoder", issues);
-                break;
-            }
             case VideoCodec.H265:
             {
-                var encoder = settings.VideoEncoderOptions ?? new H265EncoderOptions();
-                if (encoder is not H265EncoderOptions h265)
+                var encoder = settings.VideoEncoderOptions
+                    ?? H26xEncoderOptions.ForCodec(settings.VideoCodec);
+                if (encoder is not H26xEncoderOptions h26x || h26x.Codec != settings.VideoCodec)
                 {
                     issues.Add(new ValidationIssue(
                         ValidationSeverity.Error,
                         "video_encoder_options_required",
-                        "Choose a valid H.265 preset and profile.",
+                        $"Choose a valid {VideoCodecLabel(settings.VideoCodec)} preset and profile.",
                         "video_encoder"));
                     return;
                 }
                 ValidateH26xEncoderOptions(
-                    h265.Preset, h265.Profile,
-                    H26xPresetOptions, H265ProfileOptions,
+                    h26x.Preset, h26x.Profile,
+                    H26xPresetOptions,
+                    settings.VideoCodec == VideoCodec.H264 ? H264ProfileOptions : H265ProfileOptions,
                     "video_encoder", issues);
                 break;
             }
@@ -571,16 +556,11 @@ public sealed class ValidationService : IValidationService
 
         switch (quality)
         {
-            case H264QualityOptions h264:
+            case H26xQualityOptions h26x:
                 ValidateH26xQuality(
-                    h264.Crf, h264.Preset, h264.Profile,
-                    H26xPresetOptions, H264ProfileOptions,
-                    "target_quality", issues);
-                break;
-            case H265QualityOptions h265:
-                ValidateH26xQuality(
-                    h265.Crf, h265.Preset, h265.Profile,
-                    H26xPresetOptions, H265ProfileOptions,
+                    h26x.Crf, h26x.Preset, h26x.Profile,
+                    H26xPresetOptions,
+                    h26x.Codec == VideoCodec.H264 ? H264ProfileOptions : H265ProfileOptions,
                     "target_quality", issues);
                 break;
             case Vp9QualityOptions vp9:
@@ -674,8 +654,8 @@ public sealed class ValidationService : IValidationService
             && settings.HdrMode == HdrMode.Preserve
             && settings.VideoCodec == VideoCodec.H265)
         {
-            var profile = (settings.VideoEncoderOptions as H265EncoderOptions)?.Profile
-                       ?? (settings.TargetQuality as H265QualityOptions)?.Profile;
+            var profile = (settings.VideoEncoderOptions as H26xEncoderOptions)?.Profile
+                       ?? (settings.TargetQuality as H26xQualityOptions)?.Profile;
             if (profile is not null && profile != "main10")
             {
                 issues.Add(new ValidationIssue(

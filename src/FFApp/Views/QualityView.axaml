@@ -1,61 +1,68 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:FFApp.ViewModels"
+             xmlns:qvm="using:FFApp.ViewModels.Quality"
              x:Class="FFApp.Views.QualityView"
              x:CompileBindings="True"
              x:DataType="vm:QualityViewModel">
 
-    <StackPanel Spacing="4">
-
-        <!-- H.264/H.265: CRF slider -->
-        <Grid ColumnDefinitions="85,*,Auto" IsVisible="{Binding IsH26xCodec}">
-            <TextBlock Text="CRF" VerticalAlignment="Center" />
-            <Slider Grid.Column="1"
-                    Value="{Binding Crf}"
-                    Minimum="0" Maximum="51"
-                    TickFrequency="1" IsSnapToTickEnabled="True"
-                    VerticalAlignment="Center"
-                    TickPlacement="BottomRight" />
-            <TextBlock Grid.Column="2" VerticalAlignment="Center"
-                       MinWidth="28" TextAlignment="Right" Margin="8,0,0,0">
-                <Run Text="{Binding Crf}" />
-            </TextBlock>
-        </Grid>
+    <UserControl.DataTemplates>
+        <!-- H.264 / H.265: CRF slider -->
+        <DataTemplate DataType="qvm:H26xQualitySettingsViewModel">
+            <Grid ColumnDefinitions="85,*,Auto">
+                <TextBlock Text="CRF" VerticalAlignment="Center" />
+                <Slider Grid.Column="1"
+                        Value="{Binding Crf}"
+                        Minimum="0" Maximum="51"
+                        TickFrequency="1" IsSnapToTickEnabled="True"
+                        VerticalAlignment="Center"
+                        TickPlacement="BottomRight" />
+                <TextBlock Grid.Column="2" VerticalAlignment="Center"
+                           MinWidth="28" TextAlignment="Right" Margin="8,0,0,0">
+                    <Run Text="{Binding Crf}" />
+                </TextBlock>
+            </Grid>
+        </DataTemplate>
 
         <!-- AV1: CRF slider -->
-        <Grid ColumnDefinitions="85,*,Auto" IsVisible="{Binding IsAv1Codec}">
-            <TextBlock Text="CRF" VerticalAlignment="Center" />
-            <Slider Grid.Column="1"
-                    Value="{Binding Av1Crf}"
-                    Minimum="0" Maximum="63"
-                    TickFrequency="1" IsSnapToTickEnabled="True"
-                    VerticalAlignment="Center"
-                    TickPlacement="BottomRight" />
-            <TextBlock Grid.Column="2" VerticalAlignment="Center"
-                       MinWidth="28" TextAlignment="Right" Margin="8,0,0,0">
-                <Run Text="{Binding Av1Crf}" />
-            </TextBlock>
-        </Grid>
-
-        <!-- VP9: Quality slider + two-pass -->
-        <StackPanel Spacing="4" IsVisible="{Binding IsVpxCodec}">
+        <DataTemplate DataType="qvm:Av1QualitySettingsViewModel">
             <Grid ColumnDefinitions="85,*,Auto">
-                <TextBlock Text="Quality" VerticalAlignment="Center" />
+                <TextBlock Text="CRF" VerticalAlignment="Center" />
                 <Slider Grid.Column="1"
-                        Value="{Binding VpxQuality}"
+                        Value="{Binding Crf}"
                         Minimum="0" Maximum="63"
                         TickFrequency="1" IsSnapToTickEnabled="True"
                         VerticalAlignment="Center"
                         TickPlacement="BottomRight" />
                 <TextBlock Grid.Column="2" VerticalAlignment="Center"
                            MinWidth="28" TextAlignment="Right" Margin="8,0,0,0">
-                    <Run Text="{Binding VpxQuality}" />
+                    <Run Text="{Binding Crf}" />
                 </TextBlock>
             </Grid>
-            <CheckBox Content="Use 2-pass encode"
-                      IsChecked="{Binding VpxTwoPass}"
-                      Margin="85,0,0,0" />
-        </StackPanel>
+        </DataTemplate>
 
-    </StackPanel>
+        <!-- VP9: Quality slider + two-pass -->
+        <DataTemplate DataType="qvm:VpxQualitySettingsViewModel">
+            <StackPanel Spacing="4">
+                <Grid ColumnDefinitions="85,*,Auto">
+                    <TextBlock Text="Quality" VerticalAlignment="Center" />
+                    <Slider Grid.Column="1"
+                            Value="{Binding Quality}"
+                            Minimum="0" Maximum="63"
+                            TickFrequency="1" IsSnapToTickEnabled="True"
+                            VerticalAlignment="Center"
+                            TickPlacement="BottomRight" />
+                    <TextBlock Grid.Column="2" VerticalAlignment="Center"
+                               MinWidth="28" TextAlignment="Right" Margin="8,0,0,0">
+                        <Run Text="{Binding Quality}" />
+                    </TextBlock>
+                </Grid>
+                <CheckBox Content="Use 2-pass encode"
+                          IsChecked="{Binding TwoPass}"
+                          Margin="85,0,0,0" />
+            </StackPanel>
+        </DataTemplate>
+    </UserControl.DataTemplates>
+
+    <ContentControl Content="{Binding Active}" />
 </UserControl>

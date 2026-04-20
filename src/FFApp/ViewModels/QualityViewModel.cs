@@ -1,162 +1,48 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using FFApp.Core.Models;
-using FFApp.Core.Validation;
+using FFApp.ViewModels.Quality;
 
 namespace FFApp.ViewModels;
 
 public partial class QualityViewModel : ObservableObject
 {
-    [ObservableProperty]
-    private int _crf = 23;
+    public H26xQualitySettingsViewModel H264 { get; } = new(VideoCodec.H264);
+    public H26xQualitySettingsViewModel H265 { get; } = new(VideoCodec.H265);
+    public Av1QualitySettingsViewModel Av1 { get; } = new();
+    public VpxQualitySettingsViewModel Vpx { get; } = new();
 
     [ObservableProperty]
-    private string _h26xPreset = "medium";
+    private CodecQualitySettingsViewModel _active;
 
-    [ObservableProperty]
-    private string _h26xProfile = "high";
-
-    [ObservableProperty]
-    private int _vpxQuality = 31;
-
-    [ObservableProperty]
-    private bool _vpxTwoPass;
-
-    [ObservableProperty]
-    private int _vpxCpuUsed = 2;
-
-    [ObservableProperty]
-    private int _vpxTileColumns;
-
-    [ObservableProperty]
-    private int _vpxTileRows;
-
-    [ObservableProperty]
-    private int _av1Crf = 30;
-
-    [ObservableProperty]
-    private int _av1Preset = 6;
-
-    [ObservableProperty]
-    private int _av1Tune;
-
-    [ObservableProperty]
-    private int _av1EnableOverlays = 1;
-
-    public bool Av1EnableOverlaysChecked
+    public QualityViewModel()
     {
-        get => Av1EnableOverlays != 0;
-        set => Av1EnableOverlays = value ? 1 : 0;
+        _active = H264;
+        WireChildNotifications();
     }
-
-    partial void OnAv1EnableOverlaysChanged(int value) =>
-        OnPropertyChanged(nameof(Av1EnableOverlaysChecked));
-
-    [ObservableProperty]
-    private int _av1Scm = 2;
-
-    [ObservableProperty]
-    private int _av1EnableVarianceBoost;
-
-    public bool Av1EnableVarianceBoostChecked
-    {
-        get => Av1EnableVarianceBoost != 0;
-        set => Av1EnableVarianceBoost = value ? 1 : 0;
-    }
-
-    partial void OnAv1EnableVarianceBoostChanged(int value) =>
-        OnPropertyChanged(nameof(Av1EnableVarianceBoostChecked));
-
-    [ObservableProperty]
-    private string _av1MaxBitrateKbpsText = "";
-
-    [ObservableProperty]
-    private string _h264AdditionalOptions = "";
-
-    [ObservableProperty]
-    private string _h265AdditionalOptions = "";
-
-    [ObservableProperty]
-    private string _vp9AdditionalOptions = "";
-
-    [ObservableProperty]
-    private string _av1AdditionalOptions = "";
-
-    public int Av1MaxBitrateKbps =>
-        int.TryParse(Av1MaxBitrateKbpsText, out var v) && v > 0 ? v : 0;
-
-    [ObservableProperty]
-    private bool _isH26xCodec = true;
-
-    [ObservableProperty]
-    private bool _isVpxCodec;
-
-    [ObservableProperty]
-    private bool _isAv1Codec;
-
-    public IReadOnlyList<string> AvailablePresets { get; private set; } =
-        CompatibilityData.H26xPresetOptions;
-
-    public IReadOnlyList<string> AvailableProfiles { get; private set; } =
-        CompatibilityData.H264ProfileOptions;
-
-    public IReadOnlyList<int> AvailableTileColumns { get; } = [0, 1, 2, 3, 4, 5, 6];
-
-    public IReadOnlyList<int> AvailableTileRows { get; } = [0, 1, 2];
-
-    public IReadOnlyList<int> AvailableAv1Tunes { get; } =
-        CompatibilityData.Av1TuneOptions.ToList();
-
-public IReadOnlyList<int> AvailableAv1Scm { get; } =
-        CompatibilityData.Av1ScmOptions.ToList();
 
     public void UpdateForCodec(VideoCodec codec)
     {
-        IsH26xCodec = codec is VideoCodec.H264 or VideoCodec.H265;
-        IsVpxCodec = codec is VideoCodec.Vp9;
-        IsAv1Codec = codec is VideoCodec.Av1;
+        var next = ViewModelFor(codec);
+        if (!ReferenceEquals(Active, next))
+            Active = next;
+        Active.Reset();
+    }
 
-        switch (codec)
-        {
-            case VideoCodec.H264:
-                AvailablePresets = CompatibilityData.QualityPresetOptions(codec);
-                AvailableProfiles = CompatibilityData.QualityProfileOptions(codec);
-                OnPropertyChanged(nameof(AvailablePresets));
-                OnPropertyChanged(nameof(AvailableProfiles));
-                Crf = 23;
-                H26xPreset = "medium";
-                H26xProfile = "high";
-                H264AdditionalOptions = "";
-                break;
+    public CodecQualitySettingsViewModel ViewModelFor(VideoCodec codec) => codec switch
+    {
+        VideoCodec.H264 => H264,
+        VideoCodec.H265 => H265,
+        VideoCodec.Av1 => Av1,
+        VideoCodec.Vp9 => Vpx,
+        _ => throw new ArgumentOutOfRangeException(nameof(codec), codec, "Unsupported video codec."),
+    };
 
-            case VideoCodec.H265:
-                AvailablePresets = CompatibilityData.QualityPresetOptions(codec);
-                AvailableProfiles = CompatibilityData.QualityProfileOptions(codec);
-                OnPropertyChanged(nameof(AvailablePresets));
-                OnPropertyChanged(nameof(AvailableProfiles));
-                Crf = 28;
-                H26xPreset = "medium";
-                H26xProfile = "main";
-                H265AdditionalOptions = "";
-                break;
-
-            case VideoCodec.Vp9:
-                VpxQuality = 32;
-                VpxCpuUsed = 2;
-                VpxTileColumns = 0;
-                VpxTileRows = 0;
-                Vp9AdditionalOptions = "";
-                break;
-
-            case VideoCodec.Av1:
-                Av1Crf = 30;
-                Av1Preset = 6;
-                Av1Tune = 0;
-                Av1EnableOverlays = 1;
-                Av1Scm = 2;
-                Av1EnableVarianceBoost = 0;
-                Av1MaxBitrateKbpsText = "";
-                Av1AdditionalOptions = "";
-                break;
-        }
+    private void WireChildNotifications()
+    {
+        // Bubble child property changes up so the parent OutputSettingsViewModel's
+        // OnChildPropertyChanged hook rebuilds settings when any codec-specific
+        // control is edited.
+        foreach (var child in new CodecQualitySettingsViewModel[] { H264, H265, Av1, Vpx })
+            child.PropertyChanged += (_, e) => OnPropertyChanged(e);
     }
 }

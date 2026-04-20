@@ -236,19 +236,12 @@ public static class SettingsSerializer
                 ["tile_rows"] = vpx.TileRows,
                 ["additional_options"] = vpx.AdditionalOptions,
             },
-            H264EncoderOptions h264 => new JsonObject
+            H26xEncoderOptions h26x => new JsonObject
             {
-                ["codec"] = EnumToString(h264.Codec),
-                ["preset"] = h264.Preset,
-                ["profile"] = h264.Profile,
-                ["additional_options"] = h264.AdditionalOptions,
-            },
-            H265EncoderOptions h265 => new JsonObject
-            {
-                ["codec"] = EnumToString(h265.Codec),
-                ["preset"] = h265.Preset,
-                ["profile"] = h265.Profile,
-                ["additional_options"] = h265.AdditionalOptions,
+                ["codec"] = EnumToString(h26x.Codec),
+                ["preset"] = h26x.Preset,
+                ["profile"] = h26x.Profile,
+                ["additional_options"] = h26x.AdditionalOptions,
             },
             Av1EncoderOptions av1 => new JsonObject
             {
@@ -269,19 +262,12 @@ public static class SettingsSerializer
     {
         return options switch
         {
-            H264QualityOptions h264 => new JsonObject
+            H26xQualityOptions h26x => new JsonObject
             {
-                ["codec"] = EnumToString(h264.Codec),
-                ["crf"] = h264.Crf,
-                ["preset"] = h264.Preset,
-                ["profile"] = h264.Profile,
-            },
-            H265QualityOptions h265 => new JsonObject
-            {
-                ["codec"] = EnumToString(h265.Codec),
-                ["crf"] = h265.Crf,
-                ["preset"] = h265.Preset,
-                ["profile"] = h265.Profile,
+                ["codec"] = EnumToString(h26x.Codec),
+                ["crf"] = h26x.Crf,
+                ["preset"] = h26x.Preset,
+                ["profile"] = h26x.Profile,
             },
             Vp9QualityOptions vp9 => new JsonObject
             {
@@ -308,29 +294,18 @@ public static class SettingsSerializer
     private static VideoEncoderOptions DeserializeVideoEncoderOptions(
         VideoCodec videoCodec, JsonElement element)
     {
-        if (videoCodec == VideoCodec.H264)
+        if (videoCodec is VideoCodec.H264 or VideoCodec.H265)
         {
-            var preset = ReadString(element, "preset", "medium");
-            var profile = ReadString(element, "profile", "high");
+            var defaults = H26xEncoderOptions.ForCodec(videoCodec);
+            var preset = ReadString(element, "preset", defaults.Preset);
+            var profile = ReadString(element, "profile", defaults.Profile);
+            var label = CompatibilityData.VideoCodecLabel(videoCodec);
             if (!CompatibilityData.QualityPresetOptions(videoCodec).Contains(preset))
-                throw new SettingsDecodeException("Invalid H.264 encoder preset.");
+                throw new SettingsDecodeException($"Invalid {label} encoder preset.");
             if (!CompatibilityData.QualityProfileOptions(videoCodec).Contains(profile))
-                throw new SettingsDecodeException("Invalid H.264 encoder profile.");
-            return new H264EncoderOptions(
-                Preset: preset, Profile: profile,
-                AdditionalOptions: ReadString(element, "additional_options", ""));
-        }
-
-        if (videoCodec == VideoCodec.H265)
-        {
-            var preset = ReadString(element, "preset", "medium");
-            var profile = ReadString(element, "profile", "main");
-            if (!CompatibilityData.QualityPresetOptions(videoCodec).Contains(preset))
-                throw new SettingsDecodeException("Invalid H.265 encoder preset.");
-            if (!CompatibilityData.QualityProfileOptions(videoCodec).Contains(profile))
-                throw new SettingsDecodeException("Invalid H.265 encoder profile.");
-            return new H265EncoderOptions(
-                Preset: preset, Profile: profile,
+                throw new SettingsDecodeException($"Invalid {label} encoder profile.");
+            return new H26xEncoderOptions(
+                Codec: videoCodec, Preset: preset, Profile: profile,
                 AdditionalOptions: ReadString(element, "additional_options", ""));
         }
 
@@ -366,30 +341,19 @@ public static class SettingsSerializer
     private static QualityOptions DeserializeQualityOptions(
         VideoCodec videoCodec, JsonElement element)
     {
-        if (videoCodec == VideoCodec.H264)
+        if (videoCodec is VideoCodec.H264 or VideoCodec.H265)
         {
-            var preset = ReadString(element, "preset", "medium");
-            var profile = ReadString(element, "profile", "high");
+            var defaults = H26xQualityOptions.ForCodec(videoCodec);
+            var preset = ReadString(element, "preset", defaults.Preset);
+            var profile = ReadString(element, "profile", defaults.Profile);
+            var label = CompatibilityData.VideoCodecLabel(videoCodec);
             if (!CompatibilityData.QualityPresetOptions(videoCodec).Contains(preset))
-                throw new SettingsDecodeException("Invalid H.264 quality preset.");
+                throw new SettingsDecodeException($"Invalid {label} quality preset.");
             if (!CompatibilityData.QualityProfileOptions(videoCodec).Contains(profile))
-                throw new SettingsDecodeException("Invalid H.264 quality profile.");
-            return new H264QualityOptions(
-                Crf: ReadInt(element, "crf", 23),
-                Preset: preset,
-                Profile: profile);
-        }
-
-        if (videoCodec == VideoCodec.H265)
-        {
-            var preset = ReadString(element, "preset", "medium");
-            var profile = ReadString(element, "profile", "main");
-            if (!CompatibilityData.QualityPresetOptions(videoCodec).Contains(preset))
-                throw new SettingsDecodeException("Invalid H.265 quality preset.");
-            if (!CompatibilityData.QualityProfileOptions(videoCodec).Contains(profile))
-                throw new SettingsDecodeException("Invalid H.265 quality profile.");
-            return new H265QualityOptions(
-                Crf: ReadInt(element, "crf", 28),
+                throw new SettingsDecodeException($"Invalid {label} quality profile.");
+            return new H26xQualityOptions(
+                Codec: videoCodec,
+                Crf: ReadInt(element, "crf", defaults.Crf),
                 Preset: preset,
                 Profile: profile);
         }

@@ -1,6 +1,4 @@
-@~/code/csharp-rules.md
-
-**Always** use the avalonia-ux skill
+@docs/coding-style.md
 
 ## Rules
 

@@ -170,6 +170,32 @@ public class ValidationServiceTests
         HasIssueWithCode(result, "audio_channels_requires_reencode").Should().BeFalse();
     }
 
+    [Fact]
+    public void Validate_AudioChannelsWithRemoveMode_NoChannelsError()
+    {
+        var settings = new TestOutputSettingsBuilder()
+            .WithAudio(new AudioOptions(AudioMode.Remove, AudioChannels: 2))
+            .Build();
+        var media = new TestMediaInfoBuilder().Build();
+
+        var result = _sut.Validate(settings, media);
+
+        HasIssueWithCode(result, "audio_channels_requires_reencode").Should().BeFalse();
+    }
+
+    [Fact]
+    public void Validate_SampleRateWithRemoveMode_NoSampleRateError()
+    {
+        var settings = new TestOutputSettingsBuilder()
+            .WithAudio(new AudioOptions(AudioMode.Remove, SampleRate: 44100))
+            .Build();
+        var media = new TestMediaInfoBuilder().Build();
+
+        var result = _sut.Validate(settings, media);
+
+        HasIssueWithCode(result, "audio_sample_rate_requires_reencode").Should().BeFalse();
+    }
+
     // ── Subtitle / data validation ──────────────────────────────────────
 
     [Theory]

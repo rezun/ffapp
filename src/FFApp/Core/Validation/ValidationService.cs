@@ -414,7 +414,7 @@ public sealed class ValidationService : IValidationService
     {
         var mode = settings.AudioOptions.Mode;
 
-        if (settings.AudioOptions.AudioChannels is not null && mode is not AudioMode.Reencode)
+        if (settings.AudioOptions.AudioChannels is not null && mode is not AudioMode.Reencode and not AudioMode.Remove)
         {
             issues.Add(new ValidationIssue(
                 ValidationSeverity.Error,
@@ -423,7 +423,7 @@ public sealed class ValidationService : IValidationService
                 "audio_mode"));
         }
 
-        if (settings.AudioOptions.SampleRate is not null && mode is not AudioMode.Reencode)
+        if (settings.AudioOptions.SampleRate is not null && mode is not AudioMode.Reencode and not AudioMode.Remove)
         {
             issues.Add(new ValidationIssue(
                 ValidationSeverity.Error,

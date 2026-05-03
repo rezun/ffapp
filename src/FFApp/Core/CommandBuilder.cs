@@ -173,10 +173,18 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
 
         if (job.AudioOptions.Mode == AudioMode.Remove)
             arguments.AddRange(["-map", "-0:a?"]);
-        if (job.StreamHandling.RemoveSubtitles)
+        var subtitlePolicy = StreamCompatibilityPolicy.ResolveSubtitlePolicy(
+            job.Container,
+            mediaInfo.SubtitleStreams,
+            job.StreamHandling.RemoveSubtitles);
+        if (subtitlePolicy.Mode is SubtitleStreamMode.Remove)
             arguments.AddRange(["-map", "-0:s?"]);
-        if (job.StreamHandling.RemoveData)
+
+        if (mediaInfo.DataStreams.Length > 0
+            && !StreamCompatibilityPolicy.ShouldCopyDataStreams(job.Container, job.StreamHandling.RemoveData))
+        {
             arguments.AddRange(["-map", "-0:d?"]);
+        }
 
         return arguments;
     }
@@ -195,10 +203,30 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
             arguments.AddRange(BuildAudioReencodeArguments(job));
         }
 
-        if (!job.StreamHandling.RemoveSubtitles && mediaInfo.SubtitleStreams.Length > 0)
-            arguments.AddRange(["-c:s", "copy"]);
-        if (!job.StreamHandling.RemoveData && mediaInfo.DataStreams.Length > 0)
+        var subtitlePolicy = StreamCompatibilityPolicy.ResolveSubtitlePolicy(
+            job.Container,
+            mediaInfo.SubtitleStreams,
+            job.StreamHandling.RemoveSubtitles);
+        switch (subtitlePolicy.Mode)
+        {
+            case SubtitleStreamMode.Copy:
+                arguments.AddRange(["-c:s", "copy"]);
+                break;
+            case SubtitleStreamMode.Convert:
+                arguments.AddRange(["-c:s", subtitlePolicy.EncoderName
+                    ?? throw new CommandBuildException("Subtitle conversion requires an encoder.")]);
+                break;
+            case SubtitleStreamMode.Unsupported:
+                throw new CommandBuildException(
+                    $"Subtitle stream {subtitlePolicy.UnsupportedStream?.Index ?? 0} cannot be preserved "
+                        + $"in {job.Container.ToString().ToUpperInvariant()} output.");
+        }
+
+        if (mediaInfo.DataStreams.Length > 0
+            && StreamCompatibilityPolicy.ShouldCopyDataStreams(job.Container, job.StreamHandling.RemoveData))
+        {
             arguments.AddRange(["-c:d", "copy"]);
+        }
 
         return arguments;
     }

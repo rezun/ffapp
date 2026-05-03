@@ -145,6 +145,57 @@ public class ValidationServiceTests
     }
 
     [Fact]
+    public void Validate_CopyModeWithMp4Ac3_NoAudioCopyError()
+    {
+        var settings = new TestOutputSettingsBuilder()
+            .WithContainer(OutputContainer.Mp4)
+            .WithAudioCopy()
+            .Build();
+        var media = new TestMediaInfoBuilder()
+            .WithAudioStreams(new AudioStreamInfo(1, "ac3", 384_000))
+            .Build();
+
+        var result = _sut.Validate(settings, media);
+
+        HasIssueWithCode(result, "audio_copy_codec_unknown").Should().BeFalse();
+        HasIssueWithCode(result, "audio_copy_incompatible").Should().BeFalse();
+    }
+
+    [Fact]
+    public void Validate_AudioOnlyMkaCopyWithUnknownSourceCodec_NoAudioCopyError()
+    {
+        var settings = new TestOutputSettingsBuilder()
+            .WithContainer(OutputContainer.Mka)
+            .WithVideoMode(VideoMode.Remove)
+            .WithAudioCopy()
+            .Build();
+        var media = new TestMediaInfoBuilder()
+            .WithAudioStreams(new AudioStreamInfo(1, "some_unknown_codec", 128_000))
+            .Build();
+
+        var result = _sut.Validate(settings, media);
+
+        HasIssueWithCode(result, "audio_copy_codec_unknown").Should().BeFalse();
+    }
+
+    [Fact]
+    public void Validate_AudioOnlyM4aCopyWithUnknownSourceCodec_ReturnsAudioCopyCodecUnknown()
+    {
+        var settings = new TestOutputSettingsBuilder()
+            .WithContainer(OutputContainer.M4a)
+            .WithVideoMode(VideoMode.Remove)
+            .WithAudioCopy()
+            .Build();
+        var media = new TestMediaInfoBuilder()
+            .WithAudioStreams(new AudioStreamInfo(1, "some_unknown_codec", 128_000))
+            .Build();
+
+        var result = _sut.Validate(settings, media);
+
+        HasIssueWithCode(result, "audio_copy_codec_unknown").Should().BeTrue();
+    }
+
+    [Fact]
     public void Validate_AudioChannelsWithCopyMode_ReturnsAudioChannelsRequiresReencode()
     {
         var settings = new TestOutputSettingsBuilder()
@@ -198,16 +249,24 @@ public class ValidationServiceTests
 
     // ── Subtitle / data validation ──────────────────────────────────────
 
-    [Theory]
-    [InlineData(OutputContainer.Webm)]
-    [InlineData(OutputContainer.Ogg)]
-    public void Validate_WebmOggWithSubtitlesNotRemoved_ReturnsSubtitleCopyIncompatible(OutputContainer container)
+    [Fact]
+    public void Validate_WebmWithTextSubtitles_NoSubtitleError()
     {
-        var builder = container == OutputContainer.Webm
-            ? new TestOutputSettingsBuilder().WithVp9()
-            : new TestOutputSettingsBuilder().WithVp9().WithContainer(OutputContainer.Ogg);
+        var settings = new TestOutputSettingsBuilder().WithVp9().Build();
+        var media = new TestMediaInfoBuilder().WithSubtitles("subrip").Build();
 
-        var settings = builder.Build();
+        var result = _sut.Validate(settings, media);
+
+        HasIssueWithCode(result, "subtitle_copy_incompatible").Should().BeFalse();
+    }
+
+    [Fact]
+    public void Validate_OggWithSubtitlesNotRemoved_ReturnsSubtitleCopyIncompatible()
+    {
+        var settings = new TestOutputSettingsBuilder()
+            .WithVp9()
+            .WithContainer(OutputContainer.Ogg)
+            .Build();
         var media = new TestMediaInfoBuilder().WithSubtitles("subrip").Build();
 
         var result = _sut.Validate(settings, media);
@@ -219,7 +278,7 @@ public class ValidationServiceTests
     public void Validate_Mp4WithUnsupportedSubtitleCodec_ReturnsSubtitleCopyIncompatible()
     {
         var settings = new TestOutputSettingsBuilder().Build();
-        var media = new TestMediaInfoBuilder().WithSubtitles("ass").Build();
+        var media = new TestMediaInfoBuilder().WithSubtitles("hdmv_pgs_subtitle").Build();
 
         var result = _sut.Validate(settings, media);
 
@@ -258,7 +317,9 @@ public class ValidationServiceTests
 
         var result = _sut.Validate(settings, media);
 
-        HasIssueWithCode(result, "data_copy_incompatible").Should().BeTrue();
+        HasIssueWithCode(result, "data_streams_not_preserved").Should().BeTrue();
+        result.Warnings.Should().Contain(i => i.Code == "data_streams_not_preserved");
+        result.HasErrors.Should().BeFalse();
     }
 
     [Fact]
@@ -271,7 +332,7 @@ public class ValidationServiceTests
 
         var result = _sut.Validate(settings, media);
 
-        HasIssueWithCode(result, "data_copy_incompatible").Should().BeFalse();
+        HasIssueWithCode(result, "data_streams_not_preserved").Should().BeFalse();
     }
 
     [Fact]
@@ -284,7 +345,7 @@ public class ValidationServiceTests
 
         var result = _sut.Validate(settings, media);
 
-        HasIssueWithCode(result, "data_copy_incompatible").Should().BeFalse();
+        HasIssueWithCode(result, "data_streams_not_preserved").Should().BeFalse();
     }
 
     // ── Video streams ───────────────────────────────────────────────────

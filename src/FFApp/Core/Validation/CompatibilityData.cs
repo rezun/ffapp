@@ -71,22 +71,6 @@ public static class CompatibilityData
             [ResolutionPreset.P4K] = new(3840, 2160),
         }.ToFrozenDictionary();
 
-    internal static readonly FrozenDictionary<string, AudioCodec> AudioCodecNames =
-        new Dictionary<string, AudioCodec>
-        {
-            ["aac"] = AudioCodec.Aac,
-            ["libfdk_aac"] = AudioCodec.Aac,
-            ["mp3"] = AudioCodec.Mp3,
-            ["libmp3lame"] = AudioCodec.Mp3,
-            ["opus"] = AudioCodec.Opus,
-            ["libopus"] = AudioCodec.Opus,
-            ["vorbis"] = AudioCodec.Vorbis,
-            ["libvorbis"] = AudioCodec.Vorbis,
-        }.ToFrozenDictionary();
-
-    internal static readonly FrozenSet<string> Mp4SubtitleCodecs =
-        FrozenSet.ToFrozenSet(["mov_text", "tx3g"]);
-
     public static bool IsAudioOnlyContainer(OutputContainer container) =>
         AudioOnlyContainers.Contains(container);
 

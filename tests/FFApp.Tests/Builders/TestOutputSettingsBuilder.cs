@@ -14,6 +14,9 @@ public class TestOutputSettingsBuilder
     public TestOutputSettingsBuilder WithVideoCodec(VideoCodec codec) =>
         Apply(s => s with { VideoCodec = codec });
 
+    public TestOutputSettingsBuilder WithVideoMode(VideoMode mode) =>
+        Apply(s => s with { VideoMode = mode });
+
     public TestOutputSettingsBuilder WithStrategy(EncodingStrategy strategy) =>
         Apply(s => s with { EncodingStrategy = strategy });
 

@@ -440,12 +440,41 @@ public class CommandBuilderTests
     // ---------------------------------------------------------------
 
     [Fact]
-    public void Build_SubtitlesPresent_CopiesSubtitles()
+    public void Build_SubripSubtitlesInMp4_ConvertsToMovText()
     {
         var media = new TestMediaInfoBuilder().WithSubtitles().Build();
         var args = JoinArgs(_sut.Build(DefaultJob(), media)[0]);
 
+        args.Should().Contain("-c:s mov_text");
+    }
+
+    [Fact]
+    public void Build_MovTextSubtitlesInMp4_CopiesSubtitles()
+    {
+        var media = new TestMediaInfoBuilder().WithSubtitles("mov_text").Build();
+        var args = JoinArgs(_sut.Build(DefaultJob(), media)[0]);
+
         args.Should().Contain("-c:s copy");
+    }
+
+    [Fact]
+    public void Build_SubripSubtitlesInWebm_ConvertsToWebVtt()
+    {
+        var media = new TestMediaInfoBuilder().WithSubtitles("subrip").Build();
+        var job = JobWith(s => s.WithVp9());
+        var args = JoinArgs(_sut.Build(job, media)[0]);
+
+        args.Should().Contain("-c:s webvtt");
+    }
+
+    [Fact]
+    public void Build_UnsupportedSubtitle_Throws()
+    {
+        var media = new TestMediaInfoBuilder().WithSubtitles("hdmv_pgs_subtitle").Build();
+
+        var act = () => _sut.Build(DefaultJob(), media);
+
+        act.Should().Throw<CommandBuildException>();
     }
 
     [Fact]
@@ -468,10 +497,21 @@ public class CommandBuilderTests
     }
 
     [Fact]
-    public void Build_DataPresent_CopiesData()
+    public void Build_DataPresentInMp4_MapsOutAndNoCopy()
     {
         var media = new TestMediaInfoBuilder().WithDataStreams().Build();
         var args = JoinArgs(_sut.Build(DefaultJob(), media)[0]);
+
+        args.Should().Contain("-map -0:d?");
+        args.Should().NotContain("-c:d copy");
+    }
+
+    [Fact]
+    public void Build_DataPresentInMkv_CopiesData()
+    {
+        var media = new TestMediaInfoBuilder().WithDataStreams().Build();
+        var job = JobWith(s => s.WithContainer(OutputContainer.Mkv));
+        var args = JoinArgs(_sut.Build(job, media)[0]);
 
         args.Should().Contain("-c:d copy");
     }
@@ -769,10 +809,21 @@ public class CommandBuilderTests
     // ---------------------------------------------------------------
 
     [Fact]
-    public void Build_SubtitlesAndData_BothCopied()
+    public void Build_Mp4SubtitlesAndData_ConvertsSubtitlesAndMapsOutData()
     {
         var media = new TestMediaInfoBuilder().WithSubtitles().WithDataStreams().Build();
         var args = JoinArgs(_sut.Build(DefaultJob(), media)[0]);
+
+        args.Should().Contain("-c:s mov_text").And.Contain("-map -0:d?");
+        args.Should().NotContain("-c:d copy");
+    }
+
+    [Fact]
+    public void Build_MkvSubtitlesAndData_BothCopied()
+    {
+        var media = new TestMediaInfoBuilder().WithSubtitles().WithDataStreams().Build();
+        var job = JobWith(s => s.WithContainer(OutputContainer.Mkv));
+        var args = JoinArgs(_sut.Build(job, media)[0]);
 
         args.Should().Contain("-c:s copy").And.Contain("-c:d copy");
     }

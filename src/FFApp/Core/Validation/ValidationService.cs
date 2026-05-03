@@ -56,13 +56,19 @@ public sealed class ValidationService : IValidationService
 
         // Container / codec compatibility (only for video containers with video).
         if (settings.VideoMode != VideoMode.Remove)
-            ValidateContainerCompatibility(settings, mediaInfo, issues);
+            ValidateContainerCompatibility(settings, issues);
 
         // Audio settings (always validated).
         ValidateAudioSettings(settings, issues);
 
         // Audio codec compatibility with container.
         ValidateAudioContainerCompatibility(settings, issues);
+
+        if (settings.AudioOptions.Mode is AudioMode.Copy)
+            ValidateAudioCopyCompatibility(settings, mediaInfo, issues);
+
+        ValidateSubtitleCopyCompatibility(settings, mediaInfo, issues);
+        ValidateDataCopyCompatibility(settings, mediaInfo, issues);
 
         if (settings.VideoMode == VideoMode.Remove)
         {
@@ -102,9 +108,6 @@ public sealed class ValidationService : IValidationService
         // Video copy mode: no encoder/quality/resolution validation needed.
         if (settings.VideoMode == VideoMode.Copy)
         {
-            // Subtitle and data stream compatibility still applies.
-            ValidateSubtitleCopyCompatibility(settings, mediaInfo, issues);
-            ValidateDataCopyCompatibility(settings, mediaInfo, issues);
             return new ValidationResult { Issues = issues.ToImmutable() };
         }
 
@@ -144,7 +147,6 @@ public sealed class ValidationService : IValidationService
 
     private static void ValidateContainerCompatibility(
         OutputSettings settings,
-        SourceMediaInfo mediaInfo,
         ImmutableArray<ValidationIssue>.Builder issues)
     {
         // Video codec (only for video containers).
@@ -159,18 +161,6 @@ public sealed class ValidationService : IValidationService
                 "video_codec"));
         }
 
-        // Audio copy compatibility.
-        var effectiveMode = settings.AudioOptions.Mode;
-        if (effectiveMode is AudioMode.Copy)
-        {
-            ValidateAudioCopyCompatibility(settings, mediaInfo, issues);
-        }
-
-        // Subtitles.
-        ValidateSubtitleCopyCompatibility(settings, mediaInfo, issues);
-
-        // Data streams.
-        ValidateDataCopyCompatibility(settings, mediaInfo, issues);
     }
 
     private static void ValidateAudioContainerCompatibility(
@@ -195,37 +185,31 @@ public sealed class ValidationService : IValidationService
         SourceMediaInfo mediaInfo,
         ImmutableArray<ValidationIssue>.Builder issues)
     {
-        // MKV accepts essentially any audio codec for copy-through.
-        if (settings.Container == OutputContainer.Mkv)
-            return;
-
-        var allowedCodecs = AudioCodecMatrix[settings.Container];
         var containerLabel = settings.Container.ToString().ToUpperInvariant();
 
         foreach (var stream in mediaInfo.AudioStreams)
         {
-            var codecName = (stream.CodecName ?? "").ToLowerInvariant();
-            if (!AudioCodecNames.TryGetValue(codecName, out var codec))
+            if (StreamCompatibilityPolicy.CanCopyAudioCodec(settings.Container, stream.CodecName))
+                continue;
+
+            if (!StreamCompatibilityPolicy.IsKnownAudioCopyCodecName(stream.CodecName))
             {
                 issues.Add(new ValidationIssue(
                     ValidationSeverity.Error,
                     "audio_copy_codec_unknown",
                     $"Audio stream {stream.Index} uses codec "
-                        + $"{stream.CodecName ?? "unknown"}, which the MVP cannot validate for "
+                        + $"{stream.CodecName ?? "unknown"}, which cannot be validated for "
                         + $"{containerLabel} copy mode.",
                     "audio_mode"));
                 continue;
             }
 
-            if (!allowedCodecs.Contains(codec))
-            {
-                issues.Add(new ValidationIssue(
-                    ValidationSeverity.Error,
-                    "audio_copy_incompatible",
-                    $"Audio stream {stream.Index} uses {AudioCodecEnumName(codec)}, "
-                        + $"which is not supported for copy into {containerLabel}.",
-                    "audio_mode"));
-            }
+            issues.Add(new ValidationIssue(
+                ValidationSeverity.Error,
+                "audio_copy_incompatible",
+                $"Audio stream {stream.Index} uses {stream.CodecName}, "
+                    + $"which is not supported for copy into {containerLabel}.",
+                "audio_mode"));
         }
     }
 
@@ -234,38 +218,32 @@ public sealed class ValidationService : IValidationService
         SourceMediaInfo mediaInfo,
         ImmutableArray<ValidationIssue>.Builder issues)
     {
-        if (settings.StreamHandling.RemoveSubtitles)
+        var containerLabel = settings.Container.ToString().ToUpperInvariant();
+        var policy = StreamCompatibilityPolicy.ResolveSubtitlePolicy(
+            settings.Container,
+            mediaInfo.SubtitleStreams,
+            settings.StreamHandling.RemoveSubtitles);
+
+        if (policy.Mode is not SubtitleStreamMode.Unsupported)
             return;
 
-        var containerLabel = settings.Container.ToString().ToUpperInvariant();
-
-        if (settings.Container is OutputContainer.Ogg or OutputContainer.Webm
-            && mediaInfo.SubtitleStreams.Length > 0)
+        if (policy.UnsupportedStream is not { } stream)
         {
             issues.Add(new ValidationIssue(
                 ValidationSeverity.Error,
                 "subtitle_copy_incompatible",
-                $"{containerLabel} output requires subtitle streams to be removed in MVP.",
+                $"{containerLabel} output does not preserve subtitle streams. "
+                    + "Remove subtitle streams to continue.",
                 "remove_subtitles"));
             return;
         }
 
-        if (settings.Container is OutputContainer.Mp4)
-        {
-            foreach (var stream in mediaInfo.SubtitleStreams)
-            {
-                var codecName = (stream.CodecName ?? "").ToLowerInvariant();
-                if (!Mp4SubtitleCodecs.Contains(codecName))
-                {
-                    issues.Add(new ValidationIssue(
-                        ValidationSeverity.Error,
-                        "subtitle_copy_incompatible",
-                        $"Subtitle stream {stream.Index} uses "
-                            + $"{stream.CodecName ?? "unknown"}, which is not safe to copy into MP4.",
-                        "remove_subtitles"));
-                }
-            }
-        }
+        issues.Add(new ValidationIssue(
+            ValidationSeverity.Error,
+            "subtitle_copy_incompatible",
+            $"Subtitle stream {stream.Index} uses {stream.CodecName ?? "unknown"}, "
+                + $"which cannot be copied or converted for {containerLabel} output.",
+            "remove_subtitles"));
     }
 
     private static void ValidateDataCopyCompatibility(
@@ -273,17 +251,19 @@ public sealed class ValidationService : IValidationService
         SourceMediaInfo mediaInfo,
         ImmutableArray<ValidationIssue>.Builder issues)
     {
-        if (settings.StreamHandling.RemoveData || mediaInfo.DataStreams.Length == 0)
+        if (!StreamCompatibilityPolicy.ShouldWarnDataStreamsNotPreserved(
+            settings.Container,
+            mediaInfo.DataStreams,
+            settings.StreamHandling.RemoveData))
+        {
             return;
-
-        if (settings.Container is OutputContainer.Mkv)
-            return;
+        }
 
         issues.Add(new ValidationIssue(
-            ValidationSeverity.Error,
-            "data_copy_incompatible",
-            $"{settings.Container.ToString().ToUpperInvariant()} output requires data streams "
-                + "to be removed in MVP.",
+            ValidationSeverity.Warning,
+            "data_streams_not_preserved",
+            $"{settings.Container.ToString().ToUpperInvariant()} output does not preserve data streams. "
+                + "They will be removed automatically.",
             "remove_data"));
     }
 
@@ -715,13 +695,4 @@ public sealed class ValidationService : IValidationService
     private static string FormatMbps(int bitrate) =>
         $"{bitrate / 1_000_000.0:F2} Mbps";
 
-    private static string AudioCodecEnumName(AudioCodec codec) =>
-        codec switch
-        {
-            AudioCodec.Aac => "aac",
-            AudioCodec.Mp3 => "mp3",
-            AudioCodec.Opus => "opus",
-            AudioCodec.Vorbis => "vorbis",
-            _ => codec.ToString().ToLowerInvariant(),
-        };
 }

@@ -1,5 +1,8 @@
+using System.Text.Json;
+using CommunityToolkit.Mvvm.Messaging;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
+using FFApp.Infrastructure.Serialization;
 using FFApp.Services;
 using FFApp.ViewModels;
 using FluentAssertions;
@@ -240,6 +243,41 @@ public class PresetViewModelTests
 
         // Simulate the workspace echoing the reverted settings back through the message bus.
         _sut.UpdateOutputSettings(original);
+        _sut.IsPresetDirty.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task RevertPresetCommand_LegacyPresetWithoutEncoderOptions_ClearsDirtyAfterOutputSettingsRebuild()
+    {
+        var json = """
+        {
+            "video_codec": "h264",
+            "container": "mp4",
+            "target_quality": { "codec": "h264", "crf": 18, "preset": "slow", "profile": "high" }
+        }
+        """;
+        using var doc = JsonDocument.Parse(json);
+        var legacySettings = SettingsSerializer.DeserializeOutputSettings(doc.RootElement);
+        var preset = new PresetDefinition("Legacy", legacySettings);
+        _presetService.LoadAllAsync(Arg.Any<CancellationToken>())
+            .Returns([preset]);
+
+        var messenger = new WeakReferenceMessenger();
+        var validationService = Substitute.For<IValidationService>();
+        var outputSettings = new OutputSettingsViewModel(validationService, messenger);
+        _sut.PresetApplied += outputSettings.ApplySettings;
+        messenger.Register<OutputSettingsChangedMessage>(
+            this,
+            (_, message) => _sut.UpdateOutputSettings(message.Value));
+
+        await _sut.LoadPresetsAsync();
+        _sut.SelectedPreset = _sut.Presets[0];
+        outputSettings.ApplySettings(legacySettings with { Container = OutputContainer.Mkv });
+
+        _sut.IsPresetDirty.Should().BeTrue();
+
+        _sut.RevertPresetCommand.Execute(null);
+
         _sut.IsPresetDirty.Should().BeFalse();
     }
 

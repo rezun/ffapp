@@ -121,6 +121,10 @@ public static class SettingsSerializer
             VideoBitrate: ReadInt(bitrateEl, "video_bitrate", 3_000_000),
             TwoPass: ReadBool(bitrateEl, "two_pass"));
 
+        // Target quality
+        var qualityEl = GetObjectOrEmpty(element, "target_quality");
+        var targetQuality = DeserializeQualityOptions(videoCodec, qualityEl);
+
         // Video encoder options
         VideoEncoderOptions? videoEncoderOptions = null;
         if (element.TryGetProperty("video_encoder_options", out var encoderEl)
@@ -129,18 +133,7 @@ public static class SettingsSerializer
             videoEncoderOptions = DeserializeVideoEncoderOptions(videoCodec, encoderEl);
         }
 
-        // Target quality
-        var qualityEl = GetObjectOrEmpty(element, "target_quality");
-        var targetQuality = DeserializeQualityOptions(videoCodec, qualityEl);
-
-        // VPx fallback: if no explicit encoder options, derive from quality speed
-        if (videoEncoderOptions is null && videoCodec is VideoCodec.Vp9)
-        {
-            var cpuUsed = ReadInt(qualityEl, "speed", 2);
-            if (cpuUsed < CompatibilityData.VpxSpeedMin || cpuUsed > CompatibilityData.VpxSpeedMax)
-                throw new SettingsDecodeException("Invalid VP9 CPU used setting.");
-            videoEncoderOptions = new VpxEncoderOptions(videoCodec, CpuUsed: cpuUsed);
-        }
+        videoEncoderOptions ??= DefaultVideoEncoderOptions(videoCodec, targetQuality, qualityEl);
 
         // HDR settings
         var hdrMode = ReadEnum<HdrMode>(element, "hdr_mode", HdrMode.Preserve);
@@ -336,6 +329,43 @@ public static class SettingsSerializer
         return new VpxEncoderOptions(
             videoCodec, CpuUsed: cpuUsed, TileColumns: tileColumns, TileRows: tileRows,
             AdditionalOptions: ReadString(element, "additional_options", ""));
+    }
+
+    private static VideoEncoderOptions DefaultVideoEncoderOptions(
+        VideoCodec videoCodec,
+        QualityOptions targetQuality,
+        JsonElement qualityElement)
+    {
+        return videoCodec switch
+        {
+            VideoCodec.H264 or VideoCodec.H265 when targetQuality is H26xQualityOptions h26x =>
+                new H26xEncoderOptions(
+                    Codec: videoCodec,
+                    Preset: h26x.Preset,
+                    Profile: h26x.Profile),
+
+            VideoCodec.Av1 when targetQuality is Av1QualityOptions av1 =>
+                new Av1EncoderOptions(
+                    Preset: av1.Preset,
+                    Tune: av1.Tune,
+                    EnableOverlays: av1.EnableOverlays,
+                    Scm: av1.Scm,
+                    EnableVarianceBoost: av1.EnableVarianceBoost),
+
+            VideoCodec.Vp9 => DefaultVpxEncoderOptions(videoCodec, qualityElement),
+
+            _ => throw new SettingsDecodeException("Unsupported video encoder options."),
+        };
+    }
+
+    private static VpxEncoderOptions DefaultVpxEncoderOptions(
+        VideoCodec videoCodec,
+        JsonElement qualityElement)
+    {
+        var cpuUsed = ReadInt(qualityElement, "speed", 2);
+        if (cpuUsed < CompatibilityData.VpxSpeedMin || cpuUsed > CompatibilityData.VpxSpeedMax)
+            throw new SettingsDecodeException("Invalid VP9 CPU used setting.");
+        return new VpxEncoderOptions(videoCodec, CpuUsed: cpuUsed);
     }
 
     private static QualityOptions DeserializeQualityOptions(

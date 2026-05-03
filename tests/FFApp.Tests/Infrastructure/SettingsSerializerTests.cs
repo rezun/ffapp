@@ -489,6 +489,58 @@ public class SettingsSerializerTests
     }
 
     [Fact]
+    public void Deserialize_MissingH264EncoderOptions_DerivesDefaultsFromQuality()
+    {
+        var json = """
+        {
+            "video_codec": "h264",
+            "container": "mp4",
+            "target_quality": { "codec": "h264", "crf": 18, "preset": "slow", "profile": "high" }
+        }
+        """;
+        var element = JsonDocument.Parse(json).RootElement;
+
+        var result = SettingsSerializer.DeserializeOutputSettings(element);
+
+        var opts = result.VideoEncoderOptions.Should().BeOfType<H26xEncoderOptions>().Subject;
+        opts.Preset.Should().Be("slow");
+        opts.Profile.Should().Be("high");
+        opts.AdditionalOptions.Should().Be("");
+    }
+
+    [Fact]
+    public void Deserialize_NullAv1EncoderOptions_DerivesDefaultsFromQuality()
+    {
+        var json = """
+        {
+            "video_codec": "av1",
+            "container": "mkv",
+            "video_encoder_options": null,
+            "target_quality": {
+                "codec": "av1",
+                "crf": 26,
+                "preset": 4,
+                "tune": 2,
+                "enable_overlays": 0,
+                "scm": 1,
+                "enable_variance_boost": 1
+            }
+        }
+        """;
+        var element = JsonDocument.Parse(json).RootElement;
+
+        var result = SettingsSerializer.DeserializeOutputSettings(element);
+
+        var opts = result.VideoEncoderOptions.Should().BeOfType<Av1EncoderOptions>().Subject;
+        opts.Preset.Should().Be(4);
+        opts.Tune.Should().Be(2);
+        opts.EnableOverlays.Should().Be(0);
+        opts.Scm.Should().Be(1);
+        opts.EnableVarianceBoost.Should().Be(1);
+        opts.AdditionalOptions.Should().Be("");
+    }
+
+    [Fact]
     public void Deserialize_Av1EncoderOptions_MissingNewFields_UsesDefaults()
     {
         var json = """

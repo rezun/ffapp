@@ -203,6 +203,7 @@ public partial class OutputSettingsViewModel : ObservableObject
         var videoMode = Format.SelectedVideoMode;
         var codec = Format.SelectedVideoCodec;
         var quality = Strategy.Quality;
+        var audioMode = Audio.SelectedAudioMode;
 
         return new OutputSettings(
             Container: Format.SelectedContainer,
@@ -214,11 +215,15 @@ public partial class OutputSettingsViewModel : ObservableObject
             VideoEncoderOptions: videoMode == VideoMode.Reencode
                 ? BuildVideoEncoderOptions(codec, quality) : null,
             AudioOptions: new AudioOptions(
-                Mode: Audio.SelectedAudioMode,
-                Codec: Audio.SelectedAudioCodec,
-                Bitrate: Audio.AudioBitrate,
-                AudioChannels: Audio.SelectedAudioChannels == 0 ? null : Audio.SelectedAudioChannels,
-                SampleRate: Audio.SelectedSampleRate == 0 ? null : Audio.SelectedSampleRate),
+                Mode: audioMode,
+                Codec: audioMode == AudioMode.Reencode ? Audio.SelectedAudioCodec : null,
+                Bitrate: audioMode == AudioMode.Reencode ? Audio.AudioBitrate : null,
+                AudioChannels: audioMode == AudioMode.Reencode && Audio.SelectedAudioChannels != 0
+                    ? Audio.SelectedAudioChannels
+                    : null,
+                SampleRate: audioMode == AudioMode.Reencode && Audio.SelectedSampleRate != 0
+                    ? Audio.SelectedSampleRate
+                    : null),
             StreamHandling: new StreamHandlingOptions(
                 RemoveSubtitles: StreamHandling.RemoveSubtitles,
                 RemoveData: StreamHandling.RemoveData),

@@ -32,6 +32,10 @@ public class OutputSettingsViewModelTests
         settings.EncodingStrategy.Should().Be(EncodingStrategy.TargetQuality);
         settings.ResolutionPreset.Should().Be(ResolutionPreset.Original);
         settings.AudioOptions.Mode.Should().Be(AudioMode.Copy);
+        settings.AudioOptions.Codec.Should().BeNull();
+        settings.AudioOptions.Bitrate.Should().BeNull();
+        settings.AudioOptions.AudioChannels.Should().BeNull();
+        settings.AudioOptions.SampleRate.Should().BeNull();
     }
 
     [Fact]

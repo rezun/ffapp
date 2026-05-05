@@ -17,6 +17,7 @@ public sealed class MainWindowViewModelTests
     private readonly ExecutablePathsConfig _config = new();
     private readonly IMessenger _messenger = Substitute.For<IMessenger>();
     private readonly IServiceScopeFactory _scopeFactory = Substitute.For<IServiceScopeFactory>();
+    private readonly IFfmpegCapabilityService _capabilityService = Substitute.For<IFfmpegCapabilityService>();
 
     private MainWindowViewModel CreateSut() => new(
         _settings,
@@ -24,7 +25,8 @@ public sealed class MainWindowViewModelTests
         _config,
         _messenger,
         () => null!,
-        _scopeFactory);
+        _scopeFactory,
+        _capabilityService);
 
     [Fact]
     public async Task OpenFilesAsync_NullPaths_Throws()

@@ -20,6 +20,7 @@ public partial class MainWindowViewModel : ObservableObject,
     private readonly IMessenger _messenger;
     private readonly Func<DependencySetupViewModel> _createSetup;
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IFfmpegCapabilityService _capabilityService;
     private IServiceScope? _workspaceScope;
     private readonly List<string> _pendingFiles = new();
     private readonly Lock _pendingFilesLock = new();
@@ -43,7 +44,8 @@ public partial class MainWindowViewModel : ObservableObject,
         ExecutablePathsConfig config,
         IMessenger messenger,
         Func<DependencySetupViewModel> createSetup,
-        IServiceScopeFactory scopeFactory)
+        IServiceScopeFactory scopeFactory,
+        IFfmpegCapabilityService capabilityService)
     {
         _settingsService = settingsService;
         _dependencyService = dependencyService;
@@ -51,6 +53,7 @@ public partial class MainWindowViewModel : ObservableObject,
         _messenger = messenger;
         _createSetup = createSetup;
         _scopeFactory = scopeFactory;
+        _capabilityService = capabilityService;
 
         _messenger.Register<DependenciesResolvedMessage>(this);
         _messenger.Register<NavigateToDependencySetupMessage>(this);
@@ -105,6 +108,7 @@ public partial class MainWindowViewModel : ObservableObject,
     private async Task SwitchToWorkspaceAsync(DependencyStatus status)
     {
         _config.Configure(status.ExecutablePaths);
+        _capabilityService.IsLibplaceboAvailable = status.IsLibplaceboAvailable;
 
         _workspaceScope?.Dispose();
         _workspaceScope = _scopeFactory.CreateScope();

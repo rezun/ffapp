@@ -24,9 +24,16 @@ public sealed record TargetBitrateOptions(
     bool TwoPass = false);
 
 public sealed record ToneMapSettings(
+    ToneMapEngine Engine = ToneMapEngine.Standard,
     ToneMapAlgorithm Algorithm = ToneMapAlgorithm.Hable,
     double Desaturation = 2.0,
-    int? PeakNits = null);
+    int? PeakNits = null,
+    LibplaceboToneMapAlgorithm LibplaceboAlgorithm = LibplaceboToneMapAlgorithm.Auto,
+    GamutMode GamutMode = GamutMode.Perceptual,
+    double Saturation = 1.0,
+    double ContrastRecovery = 0.3,
+    bool PeakDetect = true,
+    double? TonemappingParam = null);
 
 public sealed record AudioOptions(
     AudioMode Mode = AudioMode.Copy,

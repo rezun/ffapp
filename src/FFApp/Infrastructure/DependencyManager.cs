@@ -29,9 +29,14 @@ public sealed class DependencyManager : IDependencyService
 
         await Task.WhenAll(ffmpegTask, ffprobeTask);
 
+        var ffmpegValidation = await ffmpegTask;
+        var isLibplaceboAvailable = ffmpegValidation.IsValid && paths.Ffmpeg is not null
+            && await DetectLibplaceboAsync(paths.Ffmpeg, ct);
+
         return new DependencyStatus(
-            Ffmpeg: await ffmpegTask,
-            Ffprobe: await ffprobeTask);
+            Ffmpeg: ffmpegValidation,
+            Ffprobe: await ffprobeTask,
+            IsLibplaceboAvailable: isLibplaceboAvailable);
     }
 
     private static string? ResolveCandidate(string name, string? configuredPath)
@@ -119,6 +124,40 @@ public sealed class DependencyManager : IDependencyService
         }
 
         return [];
+    }
+
+    private static async Task<bool> DetectLibplaceboAsync(string ffmpegPath, CancellationToken ct)
+    {
+        try
+        {
+            using var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = ffmpegPath,
+                    Arguments = "-h filter=libplacebo",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                },
+            };
+
+            process.Start();
+
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(ValidationTimeout);
+
+            await process.StandardOutput.ReadToEndAsync(timeoutCts.Token);
+            await process.StandardError.ReadToEndAsync(timeoutCts.Token);
+            await process.WaitForExitAsync(timeoutCts.Token);
+
+            return process.ExitCode == 0;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private static async Task<ExecutableValidation> ValidateExecutableAsync(

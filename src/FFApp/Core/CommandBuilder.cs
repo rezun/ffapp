@@ -768,6 +768,32 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
             return [];
 
         var toneMap = job.ToneMapSettings;
+        var outputFormat = job.VideoCodec == VideoCodec.Av1 ? "yuv420p10le" : "yuv420p";
+
+        if (toneMap.Engine == ToneMapEngine.Libplacebo)
+        {
+            var parts = new List<string>
+            {
+                $"tonemapping={LibplaceboAlgorithmName(toneMap.LibplaceboAlgorithm)}",
+                $"gamut_mode={GamutModeName(toneMap.GamutMode)}",
+                string.Create(CultureInfo.InvariantCulture, $"saturation={toneMap.Saturation:F2}"),
+                string.Create(CultureInfo.InvariantCulture, $"contrast_recovery={toneMap.ContrastRecovery:F2}"),
+                $"peak_detect={(toneMap.PeakDetect ? 1 : 0)}",
+                "color_primaries=bt709",
+                "color_trc=bt709",
+                "colorspace=bt709",
+            };
+
+            if (toneMap.TonemappingParam is > 0)
+                parts.Add(string.Create(CultureInfo.InvariantCulture, $"tonemapping_param={toneMap.TonemappingParam:F2}"));
+
+            return
+            [
+                $"libplacebo={string.Join(":", parts)}",
+                $"format={outputFormat}",
+            ];
+        }
+
         var tonemapParts = new List<string> { ToneMapAlgorithmName(toneMap.Algorithm) };
 
         if (toneMap.Desaturation != 2.0)
@@ -776,7 +802,6 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
             tonemapParts.Add($"peak={peak}");
 
         var tonemapFilter = $"tonemap={string.Join(":", tonemapParts)}";
-        var outputFormat = job.VideoCodec == VideoCodec.Av1 ? "yuv420p10le" : "yuv420p";
 
         return
         [
@@ -797,6 +822,34 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         ToneMapAlgorithm.Bt2390 => "bt2390",
         ToneMapAlgorithm.Clip => "clip",
         _ => "hable",
+    };
+
+    private static string LibplaceboAlgorithmName(LibplaceboToneMapAlgorithm algorithm) => algorithm switch
+    {
+        LibplaceboToneMapAlgorithm.Auto => "auto",
+        LibplaceboToneMapAlgorithm.Clip => "clip",
+        LibplaceboToneMapAlgorithm.Bt2446a => "bt.2446a",
+        LibplaceboToneMapAlgorithm.Bt2446c => "bt.2446c",
+        LibplaceboToneMapAlgorithm.Spline => "spline",
+        LibplaceboToneMapAlgorithm.Reinhard => "reinhard",
+        LibplaceboToneMapAlgorithm.Hable => "hable",
+        LibplaceboToneMapAlgorithm.Mobius => "mobius",
+        LibplaceboToneMapAlgorithm.St2094_40 => "st2094-40",
+        LibplaceboToneMapAlgorithm.St2094_10 => "st2094-10",
+        _ => "auto",
+    };
+
+    private static string GamutModeName(GamutMode mode) => mode switch
+    {
+        GamutMode.Clip => "clip",
+        GamutMode.Perceptual => "perceptual",
+        GamutMode.Relative => "relative",
+        GamutMode.Saturation => "saturation",
+        GamutMode.Absolute => "absolute",
+        GamutMode.Desaturate => "desaturate",
+        GamutMode.Darken => "darken",
+        GamutMode.Linear => "linear",
+        _ => "perceptual",
     };
 
     private static string FormatSeconds(double seconds)

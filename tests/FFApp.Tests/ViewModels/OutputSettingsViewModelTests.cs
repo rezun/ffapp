@@ -12,6 +12,7 @@ public class OutputSettingsViewModelTests
 {
     private readonly IValidationService _validationService = Substitute.For<IValidationService>();
     private readonly IMessenger _messenger = Substitute.For<IMessenger>();
+    private readonly IFfmpegCapabilityService _capabilityService = Substitute.For<IFfmpegCapabilityService>();
     private readonly OutputSettingsViewModel _sut;
 
     public OutputSettingsViewModelTests()
@@ -19,7 +20,7 @@ public class OutputSettingsViewModelTests
         _validationService.Validate(Arg.Any<OutputSettings>(), Arg.Any<SourceMediaInfo>())
             .Returns(new ValidationResult());
 
-        _sut = new OutputSettingsViewModel(_validationService, _messenger);
+        _sut = new OutputSettingsViewModel(_validationService, _messenger, _capabilityService);
     }
 
     [Fact]
@@ -101,7 +102,7 @@ public class OutputSettingsViewModelTests
     {
         // Use a real messenger so extension methods work naturally
         var realMessenger = new WeakReferenceMessenger();
-        var sut = new OutputSettingsViewModel(_validationService, realMessenger);
+        var sut = new OutputSettingsViewModel(_validationService, realMessenger, _capabilityService);
 
         OutputSettings? received = null;
         realMessenger.Register<OutputSettingsChangedMessage>(this, (_, m) => received = m.Value);

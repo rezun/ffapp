@@ -157,4 +157,9 @@ public static class CompatibilityData
 
     public static bool SupportsHdrOutput(VideoCodec codec) =>
         HdrCapableCodecs.Contains(codec);
+
+    public const double LibplaceboSaturationMin = 0.0;
+    public const double LibplaceboSaturationMax = 16.0;
+    public const double LibplaceboContrastRecoveryMin = 0.0;
+    public const double LibplaceboContrastRecoveryMax = 3.0;
 }

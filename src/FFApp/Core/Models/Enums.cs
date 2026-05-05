@@ -114,6 +114,41 @@ public enum ToneMapAlgorithm
     [JsonStringEnumMemberName("clip")] Clip,
 }
 
+[JsonConverter(typeof(JsonStringEnumConverter<ToneMapEngine>))]
+public enum ToneMapEngine
+{
+    [JsonStringEnumMemberName("standard")] Standard,
+    [JsonStringEnumMemberName("libplacebo")] Libplacebo,
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter<LibplaceboToneMapAlgorithm>))]
+public enum LibplaceboToneMapAlgorithm
+{
+    [JsonStringEnumMemberName("auto")] Auto,
+    [JsonStringEnumMemberName("clip")] Clip,
+    [JsonStringEnumMemberName("bt.2446a")] Bt2446a,
+    [JsonStringEnumMemberName("bt.2446c")] Bt2446c,
+    [JsonStringEnumMemberName("spline")] Spline,
+    [JsonStringEnumMemberName("reinhard")] Reinhard,
+    [JsonStringEnumMemberName("hable")] Hable,
+    [JsonStringEnumMemberName("mobius")] Mobius,
+    [JsonStringEnumMemberName("st2094-40")] St2094_40,
+    [JsonStringEnumMemberName("st2094-10")] St2094_10,
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter<GamutMode>))]
+public enum GamutMode
+{
+    [JsonStringEnumMemberName("clip")] Clip,
+    [JsonStringEnumMemberName("perceptual")] Perceptual,
+    [JsonStringEnumMemberName("relative")] Relative,
+    [JsonStringEnumMemberName("saturation")] Saturation,
+    [JsonStringEnumMemberName("absolute")] Absolute,
+    [JsonStringEnumMemberName("desaturate")] Desaturate,
+    [JsonStringEnumMemberName("darken")] Darken,
+    [JsonStringEnumMemberName("linear")] Linear,
+}
+
 [JsonConverter(typeof(JsonStringEnumConverter<KeyframeUnit>))]
 public enum KeyframeUnit
 {

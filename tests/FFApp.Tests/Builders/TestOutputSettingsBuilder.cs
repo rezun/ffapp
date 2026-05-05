@@ -132,7 +132,27 @@ public class TestOutputSettingsBuilder
         Apply(s => s with
         {
             HdrMode = HdrMode.TonemapToSdr,
-            ToneMapSettings = new ToneMapSettings(algorithm, desaturation, peakNits),
+            ToneMapSettings = new ToneMapSettings(Algorithm: algorithm, Desaturation: desaturation, PeakNits: peakNits),
+        });
+
+    public TestOutputSettingsBuilder WithLibplaceboTonemapToSdr(
+        LibplaceboToneMapAlgorithm algorithm = LibplaceboToneMapAlgorithm.Bt2446a,
+        GamutMode gamutMode = GamutMode.Perceptual,
+        double saturation = 1.0,
+        double contrastRecovery = 0.3,
+        bool peakDetect = true,
+        double? tonemappingParam = null) =>
+        Apply(s => s with
+        {
+            HdrMode = HdrMode.TonemapToSdr,
+            ToneMapSettings = new ToneMapSettings(
+                Engine: ToneMapEngine.Libplacebo,
+                LibplaceboAlgorithm: algorithm,
+                GamutMode: gamutMode,
+                Saturation: saturation,
+                ContrastRecovery: contrastRecovery,
+                PeakDetect: peakDetect,
+                TonemappingParam: tonemappingParam),
         });
 
     private TestOutputSettingsBuilder Apply(Func<OutputSettings, OutputSettings> transform)

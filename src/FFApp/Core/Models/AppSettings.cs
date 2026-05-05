@@ -18,7 +18,8 @@ public sealed record ExecutableValidation(
 
 public sealed record DependencyStatus(
     ExecutableValidation Ffmpeg,
-    ExecutableValidation Ffprobe)
+    ExecutableValidation Ffprobe,
+    bool IsLibplaceboAvailable = false)
 {
     public bool IsReady => Ffmpeg.IsValid && Ffprobe.IsValid;
 

@@ -264,7 +264,8 @@ public class PresetViewModelTests
 
         var messenger = new WeakReferenceMessenger();
         var validationService = Substitute.For<IValidationService>();
-        var outputSettings = new OutputSettingsViewModel(validationService, messenger);
+        var capabilityService = Substitute.For<IFfmpegCapabilityService>();
+        var outputSettings = new OutputSettingsViewModel(validationService, messenger, capabilityService);
         _sut.PresetApplied += outputSettings.ApplySettings;
         messenger.Register<OutputSettingsChangedMessage>(
             this,

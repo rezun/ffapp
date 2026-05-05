@@ -80,6 +80,7 @@ public partial class App : Application
             services.AddSingleton<ICommandBuilder, DefaultCommandBuilder>();
             services.AddSingleton<IMediaProbeService, MediaProbeService>();
             services.AddSingleton<IJobExecutionService, DefaultJobExecutionService>();
+            services.AddSingleton<IFfmpegCapabilityService, FfmpegCapabilityService>();
             services.AddSingleton<Func<QueuedJob, IJobExecutionService>>(sp =>
                 _ => sp.GetRequiredService<IJobExecutionService>());
             services.AddSingleton<IQueueService, QueueService>();

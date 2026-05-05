@@ -338,6 +338,38 @@ public class SettingsSerializerTests
         result.ToneMapSettings.Algorithm.Should().Be(ToneMapAlgorithm.Hable);
         result.ToneMapSettings.Desaturation.Should().Be(2.0);
         result.ToneMapSettings.PeakNits.Should().BeNull();
+        result.ToneMapSettings.Engine.Should().Be(ToneMapEngine.Standard);
+        result.ToneMapSettings.LibplaceboAlgorithm.Should().Be(LibplaceboToneMapAlgorithm.Auto);
+        result.ToneMapSettings.GamutMode.Should().Be(GamutMode.Perceptual);
+        result.ToneMapSettings.Saturation.Should().Be(1.0);
+        result.ToneMapSettings.ContrastRecovery.Should().Be(0.3);
+        result.ToneMapSettings.PeakDetect.Should().BeTrue();
+        result.ToneMapSettings.TonemappingParam.Should().BeNull();
+    }
+
+    [Fact]
+    public void RoundTrip_LibplaceboToneMap_PreservesAllFields()
+    {
+        var settings = new TestOutputSettingsBuilder()
+            .WithLibplaceboTonemapToSdr(
+                algorithm: LibplaceboToneMapAlgorithm.Bt2446a,
+                gamutMode: GamutMode.Darken,
+                saturation: 1.2,
+                contrastRecovery: 0.5,
+                peakDetect: false,
+                tonemappingParam: 2.5)
+            .Build();
+
+        var result = RoundTrip(settings);
+
+        result.HdrMode.Should().Be(HdrMode.TonemapToSdr);
+        result.ToneMapSettings.Engine.Should().Be(ToneMapEngine.Libplacebo);
+        result.ToneMapSettings.LibplaceboAlgorithm.Should().Be(LibplaceboToneMapAlgorithm.Bt2446a);
+        result.ToneMapSettings.GamutMode.Should().Be(GamutMode.Darken);
+        result.ToneMapSettings.Saturation.Should().BeApproximately(1.2, 0.0001);
+        result.ToneMapSettings.ContrastRecovery.Should().BeApproximately(0.5, 0.0001);
+        result.ToneMapSettings.PeakDetect.Should().BeFalse();
+        result.ToneMapSettings.TonemappingParam.Should().BeApproximately(2.5, 0.0001);
     }
 
     // --- Keyframe interval ---

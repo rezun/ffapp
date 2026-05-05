@@ -326,6 +326,41 @@ public static class FormatHelpers
         _ => algorithm.ToString(),
     };
 
+    public static string ToneMapEngineLabel(ToneMapEngine engine) => engine switch
+    {
+        ToneMapEngine.Standard => "Standard",
+        ToneMapEngine.Libplacebo => "libplacebo",
+        _ => engine.ToString(),
+    };
+
+    public static string LibplaceboToneMapAlgorithmLabel(LibplaceboToneMapAlgorithm algorithm) => algorithm switch
+    {
+        LibplaceboToneMapAlgorithm.Auto => "Auto",
+        LibplaceboToneMapAlgorithm.Clip => "Clip (hard)",
+        LibplaceboToneMapAlgorithm.Bt2446a => "BT.2446a",
+        LibplaceboToneMapAlgorithm.Bt2446c => "BT.2446c",
+        LibplaceboToneMapAlgorithm.Spline => "Spline",
+        LibplaceboToneMapAlgorithm.Reinhard => "Reinhard",
+        LibplaceboToneMapAlgorithm.Hable => "Hable (filmic)",
+        LibplaceboToneMapAlgorithm.Mobius => "Mobius",
+        LibplaceboToneMapAlgorithm.St2094_40 => "ST 2094-40",
+        LibplaceboToneMapAlgorithm.St2094_10 => "ST 2094-10",
+        _ => algorithm.ToString(),
+    };
+
+    public static string GamutModeLabel(GamutMode mode) => mode switch
+    {
+        GamutMode.Clip => "Clip",
+        GamutMode.Perceptual => "Perceptual",
+        GamutMode.Relative => "Relative",
+        GamutMode.Saturation => "Saturation",
+        GamutMode.Absolute => "Absolute",
+        GamutMode.Desaturate => "Desaturate",
+        GamutMode.Darken => "Darken",
+        GamutMode.Linear => "Linear",
+        _ => mode.ToString(),
+    };
+
     public static string HdrFormatLabel(HdrFormat format) => format switch
     {
         HdrFormat.Hdr10 => "HDR10",

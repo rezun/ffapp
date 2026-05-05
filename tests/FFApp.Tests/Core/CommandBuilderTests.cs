@@ -1183,6 +1183,80 @@ public class CommandBuilderTests
         args.Should().NotContain("tonemap");
     }
 
+    // --- HDR-to-SDR libplacebo tone mapping ---
+
+    [Fact]
+    public void Build_H264Quality_Hdr10LibplaceboTonemap_IncludesLibplaceboFilter()
+    {
+        var job = JobWith(s => s.WithLibplaceboTonemapToSdr());
+        var media = new TestMediaInfoBuilder().WithHdr10().Build();
+        var args = JoinArgs(_sut.Build(job, media)[0]);
+
+        args.Should().Contain("libplacebo=tonemapping=bt.2446a");
+        args.Should().Contain("gamut_mode=perceptual");
+        args.Should().Contain("saturation=1.00");
+        args.Should().Contain("contrast_recovery=0.30");
+        args.Should().Contain("peak_detect=1");
+        args.Should().Contain("color_primaries=bt709");
+        args.Should().Contain("color_trc=bt709");
+        args.Should().Contain("colorspace=bt709");
+        args.Should().Contain("format=yuv420p");
+        args.Should().NotContain("zscale");
+        args.Should().NotContain("tonemap=hable");
+    }
+
+    [Fact]
+    public void Build_H264Quality_Hdr10LibplaceboTonemap_CustomSettings()
+    {
+        var job = JobWith(s => s.WithLibplaceboTonemapToSdr(
+            algorithm: LibplaceboToneMapAlgorithm.Spline,
+            gamutMode: GamutMode.Darken,
+            saturation: 1.2,
+            contrastRecovery: 0.5,
+            peakDetect: false,
+            tonemappingParam: 2.5));
+        var media = new TestMediaInfoBuilder().WithHdr10().Build();
+        var args = JoinArgs(_sut.Build(job, media)[0]);
+
+        args.Should().Contain("libplacebo=tonemapping=spline");
+        args.Should().Contain("gamut_mode=darken");
+        args.Should().Contain("saturation=1.20");
+        args.Should().Contain("contrast_recovery=0.50");
+        args.Should().Contain("peak_detect=0");
+        args.Should().Contain("tonemapping_param=2.50");
+    }
+
+    [Fact]
+    public void Build_Av1Quality_Hdr10LibplaceboTonemap_OutputFormatIs10bit()
+    {
+        var job = JobWith(s => s.WithAv1().WithLibplaceboTonemapToSdr());
+        var media = new TestMediaInfoBuilder().WithHdr10().Build();
+        var args = JoinArgs(_sut.Build(job, media)[0]);
+
+        args.Should().Contain("format=yuv420p10le");
+        args.Should().Contain("libplacebo=");
+    }
+
+    [Fact]
+    public void Build_H264Quality_Hdr10LibplaceboTonemap_WithCrop_LibplaceboComesFirst()
+    {
+        var settings = new TestOutputSettingsBuilder().WithLibplaceboTonemapToSdr().Build();
+        var job = new TestJobDefinitionBuilder()
+            .WithOutputSettings(settings)
+            .Build() with { Crop = new CropRect(100, 100, 1600, 900) };
+        var media = new TestMediaInfoBuilder().WithHdr10().Build();
+        var args = JoinArgs(_sut.Build(job, media)[0]);
+
+        var vfIndex = args.IndexOf("-vf");
+        vfIndex.Should().BeGreaterThan(-1);
+
+        var filterStart = vfIndex + 4;
+        var filterChain = args[filterStart..];
+        var libplaceboPos = filterChain.IndexOf("libplacebo");
+        var cropPos = filterChain.IndexOf("crop=");
+        libplaceboPos.Should().BeLessThan(cropPos, "libplacebo filter should come before crop");
+    }
+
     // ---------------------------------------------------------------
     // Keyframe interval
     // ---------------------------------------------------------------

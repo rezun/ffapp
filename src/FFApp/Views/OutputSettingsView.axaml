@@ -26,6 +26,15 @@
         <DataTemplate x:Key="ToneMapAlgorithmTemplate" x:DataType="models:ToneMapAlgorithm">
             <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.ToneMapAlgorithm}}" />
         </DataTemplate>
+        <DataTemplate x:Key="ToneMapEngineTemplate" x:DataType="models:ToneMapEngine">
+            <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.ToneMapEngine}}" />
+        </DataTemplate>
+        <DataTemplate x:Key="LibplaceboToneMapAlgorithmTemplate" x:DataType="models:LibplaceboToneMapAlgorithm">
+            <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.LibplaceboToneMapAlgorithm}}" />
+        </DataTemplate>
+        <DataTemplate x:Key="GamutModeTemplate" x:DataType="models:GamutMode">
+            <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.GamutMode}}" />
+        </DataTemplate>
         <DataTemplate x:Key="KeyframeUnitTemplate" x:DataType="models:KeyframeUnit">
             <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.KeyframeUnitLabel}}" />
         </DataTemplate>
@@ -278,34 +287,104 @@
                                                IsVisible="{Binding Hdr.HdrModeNote,
                                                    Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                                     <StackPanel Spacing="4" IsVisible="{Binding Hdr.IsToneMapSettingsVisible}">
-                                        <Grid ColumnDefinitions="85,Auto">
-                                            <TextBlock Text="Algorithm" VerticalAlignment="Center" />
+                                        <Grid ColumnDefinitions="85,Auto" IsVisible="{Binding Hdr.IsLibplaceboAvailable}">
+                                            <TextBlock Text="Engine" VerticalAlignment="Center" />
                                             <ctrl:NoWheelComboBox Grid.Column="1"
                                                 MinWidth="160"
-                                                ItemsSource="{Binding Hdr.AvailableAlgorithms}"
-                                                SelectedItem="{Binding Hdr.SelectedAlgorithm}"
-                                                ItemTemplate="{StaticResource ToneMapAlgorithmTemplate}" />
+                                                ItemsSource="{Binding Hdr.AvailableEngines}"
+                                                SelectedItem="{Binding Hdr.SelectedEngine}"
+                                                ItemTemplate="{StaticResource ToneMapEngineTemplate}" />
                                         </Grid>
-                                        <Grid ColumnDefinitions="85,*,Auto">
-                                            <TextBlock Text="Desat" VerticalAlignment="Center" />
-                                            <Slider Grid.Column="1"
-                                                    Value="{Binding Hdr.Desaturation}"
-                                                    Minimum="0" Maximum="10"
-                                                    TickFrequency="0.5" IsSnapToTickEnabled="True"
-                                                    VerticalAlignment="Center"
-                                                    TickPlacement="BottomRight" />
-                                            <TextBlock Grid.Column="2" VerticalAlignment="Center"
-                                                       MinWidth="30" TextAlignment="Right" Margin="8,0,0,0">
-                                                <Run Text="{Binding Hdr.Desaturation, StringFormat={}{0:F1}}" />
-                                            </TextBlock>
-                                        </Grid>
-                                        <Grid ColumnDefinitions="85,Auto,*">
-                                            <TextBlock Text="Peak (nits)" VerticalAlignment="Center" />
-                                            <TextBox Grid.Column="1"
-                                                     MinWidth="80"
-                                                     PlaceholderText="Auto"
-                                                     Text="{Binding Hdr.PeakNitsText}" />
-                                        </Grid>
+
+                                        <!-- Standard engine controls -->
+                                        <StackPanel Spacing="4" IsVisible="{Binding Hdr.IsStandardEngineVisible}">
+                                            <Grid ColumnDefinitions="85,Auto">
+                                                <TextBlock Text="Algorithm" VerticalAlignment="Center" />
+                                                <ctrl:NoWheelComboBox Grid.Column="1"
+                                                    MinWidth="160"
+                                                    ItemsSource="{Binding Hdr.AvailableAlgorithms}"
+                                                    SelectedItem="{Binding Hdr.SelectedAlgorithm}"
+                                                    ItemTemplate="{StaticResource ToneMapAlgorithmTemplate}" />
+                                            </Grid>
+                                            <Grid ColumnDefinitions="85,*,Auto">
+                                                <TextBlock Text="Desat" VerticalAlignment="Center" />
+                                                <Slider Grid.Column="1"
+                                                        Value="{Binding Hdr.Desaturation}"
+                                                        Minimum="0" Maximum="10"
+                                                        TickFrequency="0.5" IsSnapToTickEnabled="True"
+                                                        VerticalAlignment="Center"
+                                                        TickPlacement="BottomRight" />
+                                                <TextBlock Grid.Column="2" VerticalAlignment="Center"
+                                                           MinWidth="30" TextAlignment="Right" Margin="8,0,0,0">
+                                                    <Run Text="{Binding Hdr.Desaturation, StringFormat={}{0:F1}}" />
+                                                </TextBlock>
+                                            </Grid>
+                                            <Grid ColumnDefinitions="85,Auto,*">
+                                                <TextBlock Text="Peak (nits)" VerticalAlignment="Center" />
+                                                <TextBox Grid.Column="1"
+                                                         MinWidth="80"
+                                                         PlaceholderText="Auto"
+                                                         Text="{Binding Hdr.PeakNitsText}" />
+                                            </Grid>
+                                        </StackPanel>
+
+                                        <!-- Libplacebo engine controls -->
+                                        <StackPanel Spacing="4" IsVisible="{Binding Hdr.IsLibplaceboEngineVisible}">
+                                            <Grid ColumnDefinitions="85,Auto">
+                                                <TextBlock Text="Algorithm" VerticalAlignment="Center" />
+                                                <ctrl:NoWheelComboBox Grid.Column="1"
+                                                    MinWidth="160"
+                                                    ItemsSource="{Binding Hdr.AvailableLibplaceboAlgorithms}"
+                                                    SelectedItem="{Binding Hdr.SelectedLibplaceboAlgorithm}"
+                                                    ItemTemplate="{StaticResource LibplaceboToneMapAlgorithmTemplate}" />
+                                            </Grid>
+                                            <Grid ColumnDefinitions="85,Auto">
+                                                <TextBlock Text="Gamut mode" VerticalAlignment="Center" />
+                                                <ctrl:NoWheelComboBox Grid.Column="1"
+                                                    MinWidth="160"
+                                                    ItemsSource="{Binding Hdr.AvailableGamutModes}"
+                                                    SelectedItem="{Binding Hdr.SelectedGamutMode}"
+                                                    ItemTemplate="{StaticResource GamutModeTemplate}" />
+                                            </Grid>
+                                            <Grid ColumnDefinitions="85,*,Auto">
+                                                <TextBlock Text="Saturation" VerticalAlignment="Center" />
+                                                <Slider Grid.Column="1"
+                                                        Value="{Binding Hdr.Saturation}"
+                                                        Minimum="0" Maximum="2.0"
+                                                        TickFrequency="0.1" IsSnapToTickEnabled="True"
+                                                        VerticalAlignment="Center"
+                                                        TickPlacement="BottomRight" />
+                                                <TextBlock Grid.Column="2" VerticalAlignment="Center"
+                                                           MinWidth="30" TextAlignment="Right" Margin="8,0,0,0">
+                                                    <Run Text="{Binding Hdr.Saturation, StringFormat={}{0:F2}}" />
+                                                </TextBlock>
+                                            </Grid>
+                                            <Grid ColumnDefinitions="85,*,Auto">
+                                                <TextBlock Text="Contrast rec." VerticalAlignment="Center" />
+                                                <Slider Grid.Column="1"
+                                                        Value="{Binding Hdr.ContrastRecovery}"
+                                                        Minimum="0" Maximum="1.0"
+                                                        TickFrequency="0.05" IsSnapToTickEnabled="True"
+                                                        VerticalAlignment="Center"
+                                                        TickPlacement="BottomRight" />
+                                                <TextBlock Grid.Column="2" VerticalAlignment="Center"
+                                                           MinWidth="30" TextAlignment="Right" Margin="8,0,0,0">
+                                                    <Run Text="{Binding Hdr.ContrastRecovery, StringFormat={}{0:F2}}" />
+                                                </TextBlock>
+                                            </Grid>
+                                            <Grid ColumnDefinitions="85,*">
+                                                <CheckBox Grid.Column="1" Content="Peak detection"
+                                                          IsChecked="{Binding Hdr.PeakDetect}" />
+                                            </Grid>
+                                            <Grid ColumnDefinitions="85,Auto,*" IsVisible="{Binding !Hdr.PeakDetect}">
+                                                <TextBlock Text="Curve tune" VerticalAlignment="Center" />
+                                                <ctrl:NumericTextBox Grid.Column="1"
+                                                         Classes="numeric-input"
+                                                         MinWidth="80"
+                                                         PlaceholderText="Auto"
+                                                         Text="{Binding Hdr.TonemappingParamText}" />
+                                            </Grid>
+                                        </StackPanel>
                                     </StackPanel>
                                 </StackPanel>
                             </DockPanel>

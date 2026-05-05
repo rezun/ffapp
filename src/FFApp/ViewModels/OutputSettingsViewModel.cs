@@ -11,6 +11,7 @@ public partial class OutputSettingsViewModel : ObservableObject
 {
     private readonly IValidationService _validationService;
     private readonly IMessenger _messenger;
+    private readonly IFfmpegCapabilityService _capabilityService;
     private bool _isSuppressing;
     private SourceMediaInfo? _mediaInfo;
     private string? _resolvedOutputPath;
@@ -79,10 +80,16 @@ public partial class OutputSettingsViewModel : ObservableObject
     public int? KeyframeInterval =>
         int.TryParse(KeyframeIntervalText, out var v) && v > 0 ? v : null;
 
-    public OutputSettingsViewModel(IValidationService validationService, IMessenger messenger)
+    public OutputSettingsViewModel(
+        IValidationService validationService,
+        IMessenger messenger,
+        IFfmpegCapabilityService capabilityService)
     {
         _validationService = validationService;
         _messenger = messenger;
+        _capabilityService = capabilityService;
+
+        Hdr.IsLibplaceboAvailable = capabilityService.IsLibplaceboAvailable;
 
         Format.PropertyChanged += OnChildPropertyChanged;
         Audio.PropertyChanged += OnChildPropertyChanged;
@@ -186,9 +193,16 @@ public partial class OutputSettingsViewModel : ObservableObject
 
             // HDR
             Hdr.SelectedHdrMode = settings.HdrMode;
+            Hdr.SelectedEngine = settings.ToneMapSettings.Engine;
             Hdr.SelectedAlgorithm = settings.ToneMapSettings.Algorithm;
             Hdr.Desaturation = settings.ToneMapSettings.Desaturation;
             Hdr.PeakNitsText = settings.ToneMapSettings.PeakNits?.ToString() ?? "";
+            Hdr.SelectedLibplaceboAlgorithm = settings.ToneMapSettings.LibplaceboAlgorithm;
+            Hdr.SelectedGamutMode = settings.ToneMapSettings.GamutMode;
+            Hdr.Saturation = settings.ToneMapSettings.Saturation;
+            Hdr.ContrastRecovery = settings.ToneMapSettings.ContrastRecovery;
+            Hdr.PeakDetect = settings.ToneMapSettings.PeakDetect;
+            Hdr.TonemappingParamText = settings.ToneMapSettings.TonemappingParam?.ToString() ?? "";
         }
         finally
         {
@@ -239,9 +253,16 @@ public partial class OutputSettingsViewModel : ObservableObject
                 ? BuildQualityOptions(codec, quality) : H26xQualityOptions.ForCodec(VideoCodec.H264),
             HdrMode: Hdr.SelectedHdrMode,
             ToneMapSettings: new ToneMapSettings(
+                Engine: Hdr.SelectedEngine,
                 Algorithm: Hdr.SelectedAlgorithm,
                 Desaturation: Hdr.Desaturation,
-                PeakNits: Hdr.PeakNits),
+                PeakNits: Hdr.PeakNits,
+                LibplaceboAlgorithm: Hdr.SelectedLibplaceboAlgorithm,
+                GamutMode: Hdr.SelectedGamutMode,
+                Saturation: Hdr.Saturation,
+                ContrastRecovery: Hdr.ContrastRecovery,
+                PeakDetect: Hdr.PeakDetect,
+                TonemappingParam: Hdr.TonemappingParam),
             KeyframeInterval: KeyframeInterval,
             KeyframeUnit: SelectedKeyframeUnit);
     }

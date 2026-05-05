@@ -82,4 +82,13 @@ public static class EnumLabelConverters
 
     public static readonly FuncValueConverter<ToneMapAlgorithm, string> ToneMapAlgorithm =
         new(v => FormatHelpers.ToneMapAlgorithmLabel(v));
+
+    public static readonly FuncValueConverter<ToneMapEngine, string> ToneMapEngine =
+        new(v => FormatHelpers.ToneMapEngineLabel(v));
+
+    public static readonly FuncValueConverter<LibplaceboToneMapAlgorithm, string> LibplaceboToneMapAlgorithm =
+        new(v => FormatHelpers.LibplaceboToneMapAlgorithmLabel(v));
+
+    public static readonly FuncValueConverter<GamutMode, string> GamutMode =
+        new(v => FormatHelpers.GamutModeLabel(v));
 }

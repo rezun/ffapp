@@ -59,9 +59,16 @@ public static class SettingsSerializer
             ["hdr_mode"] = EnumToString(settings.HdrMode),
             ["tone_map_settings"] = new JsonObject
             {
+                ["engine"] = EnumToString(settings.ToneMapSettings.Engine),
                 ["algorithm"] = EnumToString(settings.ToneMapSettings.Algorithm),
                 ["desaturation"] = settings.ToneMapSettings.Desaturation,
                 ["peak_nits"] = settings.ToneMapSettings.PeakNits,
+                ["libplacebo_algorithm"] = EnumToString(settings.ToneMapSettings.LibplaceboAlgorithm),
+                ["gamut_mode"] = EnumToString(settings.ToneMapSettings.GamutMode),
+                ["saturation"] = settings.ToneMapSettings.Saturation,
+                ["contrast_recovery"] = settings.ToneMapSettings.ContrastRecovery,
+                ["peak_detect"] = settings.ToneMapSettings.PeakDetect,
+                ["tonemapping_param"] = settings.ToneMapSettings.TonemappingParam,
             },
             ["keyframe_interval"] = settings.KeyframeInterval,
             ["keyframe_unit"] = EnumToString(settings.KeyframeUnit),
@@ -139,9 +146,16 @@ public static class SettingsSerializer
         var hdrMode = ReadEnum<HdrMode>(element, "hdr_mode", HdrMode.Preserve);
         var toneMapEl = GetObjectOrEmpty(element, "tone_map_settings");
         var toneMapSettings = new ToneMapSettings(
+            Engine: ReadEnum<ToneMapEngine>(toneMapEl, "engine", ToneMapEngine.Standard),
             Algorithm: ReadEnum<ToneMapAlgorithm>(toneMapEl, "algorithm", ToneMapAlgorithm.Hable),
             Desaturation: ReadDouble(toneMapEl, "desaturation", 2.0),
-            PeakNits: ReadOptionalInt(toneMapEl, "peak_nits"));
+            PeakNits: ReadOptionalInt(toneMapEl, "peak_nits"),
+            LibplaceboAlgorithm: ReadEnum<LibplaceboToneMapAlgorithm>(toneMapEl, "libplacebo_algorithm", LibplaceboToneMapAlgorithm.Auto),
+            GamutMode: ReadEnum<GamutMode>(toneMapEl, "gamut_mode", GamutMode.Perceptual),
+            Saturation: ReadDouble(toneMapEl, "saturation", 1.0),
+            ContrastRecovery: ReadDouble(toneMapEl, "contrast_recovery", 0.3),
+            PeakDetect: ReadBool(toneMapEl, "peak_detect", true),
+            TonemappingParam: ReadOptionalDouble(toneMapEl, "tonemapping_param"));
 
         // Keyframe interval
         var keyframeInterval = ReadOptionalInt(element, "keyframe_interval");
@@ -480,6 +494,19 @@ public static class SettingsSerializer
             return null;
         if (prop.ValueKind == JsonValueKind.Number && prop.TryGetInt32(out var intValue))
             return intValue;
+        return null;
+    }
+
+    internal static double? ReadOptionalDouble(JsonElement element, string property)
+    {
+        if (element.ValueKind != JsonValueKind.Object)
+            return null;
+        if (!element.TryGetProperty(property, out var prop))
+            return null;
+        if (prop.ValueKind == JsonValueKind.Null)
+            return null;
+        if (prop.ValueKind == JsonValueKind.Number && prop.TryGetDouble(out var dblValue))
+            return dblValue;
         return null;
     }
 

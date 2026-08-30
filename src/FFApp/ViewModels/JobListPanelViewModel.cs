@@ -56,6 +56,32 @@ public partial class JobListPanelViewModel : ObservableObject
     [ObservableProperty]
     private bool _hasValidationErrors;
 
+    public bool HasJobs => Jobs.Count > 0;
+
+    public bool HasQueueableSelection => _sourceList.SelectedReadySourceCount > 0;
+
+    public string AddSelectionLabel => _sourceList.SelectedReadySourceCount switch
+    {
+        0 => "Add selected",
+        1 => "Add selected file",
+        var count => $"Add {count} selected files",
+    };
+
+    public string AddAllLabel => _sourceList.ReadySourceCount switch
+    {
+        0 or 1 => "Add all files",
+        var count => $"Add all {count} files",
+    };
+
+    public string EmptyQueueHint => _sourceList.SelectedReadySourceCount switch
+    {
+        0 when _sourceList.ReadySourceCount == 0 =>
+            "Add source files and configure their output settings first.",
+        0 => "Select source files to add them with the current output settings.",
+        1 => "The selected source will use the current output settings.",
+        _ => "The selected sources will use the current output settings.",
+    };
+
     public JobItemDetailsViewModel Details { get; } = new();
 
     public JobListPanelViewModel(
@@ -74,6 +100,23 @@ public partial class JobListPanelViewModel : ObservableObject
         _sourceList = sourceList;
         _videoPreview = videoPreview;
         _outputPath = outputPath;
+
+        Jobs.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasJobs));
+        _sourceList.PropertyChanged += OnSourceListPropertyChanged;
+    }
+
+    private void OnSourceListPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(SourceListPanelViewModel.ReadySourceCount)
+            or nameof(SourceListPanelViewModel.SelectedReadySourceCount))
+        {
+            OnPropertyChanged(nameof(HasQueueableSelection));
+            OnPropertyChanged(nameof(AddSelectionLabel));
+            OnPropertyChanged(nameof(AddAllLabel));
+            OnPropertyChanged(nameof(EmptyQueueHint));
+            CreateJobFromSelectionCommand.NotifyCanExecuteChanged();
+            CreateJobsForAllCommand.NotifyCanExecuteChanged();
+        }
     }
 
     public void UpdateJobContext(JobContext? context)
@@ -110,7 +153,7 @@ public partial class JobListPanelViewModel : ObservableObject
     private bool CanCreateJobFromSelection =>
         !HasValidationErrors
         && _currentContext is not null
-        && (_sourceList.SelectedSources.Count > 0 || _sourceList.SelectedSource is not null);
+        && _sourceList.SelectedReadySourceCount > 0;
 
     [RelayCommand(CanExecute = nameof(CanCreateJobFromSelection))]
     private async Task CreateJobFromSelectionAsync()
@@ -185,8 +228,8 @@ public partial class JobListPanelViewModel : ObservableObject
 
     private bool CanCreateJobsForAll =>
         !HasValidationErrors
-        && _sourceList.Sources.Count > 0
-        && _sourceList.Sources.Any(s => s.MediaInfo is not null);
+        && _currentContext is not null
+        && _sourceList.ReadySourceCount > 0;
 
     [RelayCommand(CanExecute = nameof(CanCreateJobsForAll))]
     private async Task CreateJobsForAllAsync()

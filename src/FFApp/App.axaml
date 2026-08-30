@@ -32,6 +32,10 @@
             <Setter Property="MinHeight" Value="26" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
+        <Style Selector="SplitButton">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="MinHeight" Value="26" />
+        </Style>
         <Style Selector="ComboBox">
             <Setter Property="Height" Value="26" />
             <Setter Property="MinHeight" Value="26" />
@@ -222,6 +226,29 @@
         <Style Selector="Button.sm">
             <Setter Property="FontSize" Value="11" />
             <Setter Property="Padding" Value="8,2" />
+        </Style>
+        <Style Selector="SplitButton.sm">
+            <Setter Property="FontSize" Value="11" />
+        </Style>
+        <Style Selector="SplitButton.accent">
+            <Setter Property="Background" Value="{DynamicResource AccentButtonBackground}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentButtonBorderBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource AccentButtonForeground}" />
+        </Style>
+        <Style Selector="SplitButton.accent /template/ Button:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AccentButtonBackgroundPointerOver}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentButtonBorderBrushPointerOver}" />
+            <Setter Property="Foreground" Value="{DynamicResource AccentButtonForegroundPointerOver}" />
+        </Style>
+        <Style Selector="SplitButton.accent /template/ Button:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AccentButtonBackgroundPressed}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentButtonBorderBrushPressed}" />
+            <Setter Property="Foreground" Value="{DynamicResource AccentButtonForegroundPressed}" />
+        </Style>
+        <Style Selector="SplitButton.accent /template/ Button:disabled /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AccentButtonBackgroundDisabled}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentButtonBorderBrushDisabled}" />
+            <Setter Property="Foreground" Value="{DynamicResource AccentButtonForegroundDisabled}" />
         </Style>
         <Style Selector="Button.xs">
             <Setter Property="FontSize" Value="11" />

@@ -44,20 +44,6 @@
                     <TextBlock Classes="caption secondary"
                                Text="{Binding StatusText}"
                                TextWrapping="Wrap" />
-
-                    <!-- Add to queue buttons -->
-                    <WrapPanel Orientation="Horizontal" ItemSpacing="4" LineSpacing="4"
-                               x:DataType="vm:WorkspaceViewModel"
-                               DataContext="{Binding $parent[UserControl;1].DataContext}">
-                        <Button Classes="accent sm"
-                                Content="Queue selected"
-                                Command="{Binding JobList.CreateJobFromSelectionCommand}"
-                                ToolTip.Tip="Add selected source files to the encode queue" />
-                        <Button Classes="accent sm"
-                                Content="Queue all"
-                                Command="{Binding JobList.CreateJobsForAllCommand}"
-                                ToolTip.Tip="Add all source files to the encode queue" />
-                    </WrapPanel>
                 </StackPanel>
 
                 <!-- File list -->

@@ -17,18 +17,30 @@
         <Border Grid.Row="0" Classes="card" MinHeight="200">
             <DockPanel>
                 <!-- Header + execution controls -->
-                <DockPanel DockPanel.Dock="Top" Margin="8,6,8,4">
+                <StackPanel DockPanel.Dock="Top" Margin="8,6,8,6" Spacing="6">
                     <TextBlock Text="Encode Queue"
                                Classes="card-header" Margin="0"
                                VerticalAlignment="Center" />
-                    <WrapPanel Orientation="Horizontal"
-                               HorizontalAlignment="Right"
-                               ItemSpacing="4" LineSpacing="4">
-                        <Button Classes="accent sm"
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
+                        <SplitButton Grid.Column="0"
+                                     Classes="accent sm"
+                                     Content="{Binding AddSelectionLabel}"
+                                     Command="{Binding CreateJobFromSelectionCommand}"
+                                     ToolTip.Tip="Add the selected source files using the current output settings">
+                            <SplitButton.Flyout>
+                                <MenuFlyout>
+                                    <MenuItem Header="{Binding AddAllLabel}"
+                                              Command="{Binding CreateJobsForAllCommand}" />
+                                </MenuFlyout>
+                            </SplitButton.Flyout>
+                        </SplitButton>
+                        <Button Grid.Column="1"
+                                Classes="accent sm"
                                 Content="Start"
                                 Command="{Binding StartCommand}"
                                 IsVisible="{Binding !IsRunning}" />
-                        <Button Classes="warning sm"
+                        <Button Grid.Column="1"
+                                Classes="warning sm"
                                 Command="{Binding PauseResumeCommand}"
                                 IsVisible="{Binding IsRunning}">
                             <Panel>
@@ -36,22 +48,25 @@
                                 <TextBlock Text="Resume" IsVisible="{Binding IsPaused}" />
                             </Panel>
                         </Button>
-                        <Button Classes="danger sm"
+                        <Button Grid.Column="2"
+                                Classes="danger sm"
                                 Content="Stop"
                                 Command="{Binding StopCommand}"
                                 IsVisible="{Binding IsRunning}" />
-                    </WrapPanel>
-                </DockPanel>
+                    </Grid>
+                </StackPanel>
 
                 <!-- Summary text -->
                 <TextBlock DockPanel.Dock="Top"
                            Classes="secondary"
                            Text="{Binding SummaryText}"
+                           IsVisible="{Binding HasJobs}"
                            Margin="8,0,8,4" />
 
                 <!-- Bottom actions -->
                 <WrapPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
-                           ItemSpacing="4" LineSpacing="4" Margin="8,4,8,6">
+                           ItemSpacing="4" LineSpacing="4" Margin="8,4,8,6"
+                           IsVisible="{Binding HasJobs}">
                     <Button Classes="sm"
                             Content="Remove"
                             Command="{Binding RemoveSelectedCommand}" />
@@ -63,40 +78,64 @@
                             Command="{Binding ClearAllCommand}" />
                 </WrapPanel>
 
-                <!-- Job list -->
-                <ListBox x:Name="JobList"
-                         ItemsSource="{Binding Jobs}"
-                         SelectedItem="{Binding SelectedJob}"
-                         SelectionMode="Multiple"
-                         Background="{DynamicResource SurfaceCardBrush}"
-                         MinHeight="60"
-                         Margin="4,0,4,0">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate x:DataType="vm:JobItemViewModel">
-                            <StackPanel Spacing="2">
-                                <DockPanel>
-                                    <TextBlock DockPanel.Dock="Right"
-                                               Text="{Binding State}"
-                                               Foreground="{Binding State, Converter={StaticResource StateToColor}}"
-                                               Margin="8,0,0,0" />
-                                    <TextBlock Text="{Binding DisplayLabel}"
-                                               TextTrimming="CharacterEllipsis" />
-                                </DockPanel>
-                                <StackPanel Spacing="2"
-                                            IsVisible="{Binding ProgressText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                                    <TextBlock Classes="caption secondary"
-                                               Text="{Binding ProgressText}" />
-                                    <ProgressBar Value="{Binding Percentage}"
-                                                 Minimum="0"
-                                                 Maximum="100"
-                                                 Height="4"
-                                                 Foreground="{DynamicResource SystemAccentColor}"
-                                                 Opacity="0.9" />
+                <Grid>
+                    <!-- Job list -->
+                    <ListBox x:Name="JobList"
+                             ItemsSource="{Binding Jobs}"
+                             SelectedItem="{Binding SelectedJob}"
+                             SelectionMode="Multiple"
+                             Background="{DynamicResource SurfaceCardBrush}"
+                             MinHeight="60"
+                             Margin="4,0,4,0"
+                             IsVisible="{Binding HasJobs}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:JobItemViewModel">
+                                <StackPanel Spacing="2">
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Right"
+                                                   Text="{Binding State}"
+                                                   Foreground="{Binding State, Converter={StaticResource StateToColor}}"
+                                                   Margin="8,0,0,0" />
+                                        <TextBlock Text="{Binding DisplayLabel}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </DockPanel>
+                                    <StackPanel Spacing="2"
+                                                IsVisible="{Binding ProgressText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                        <TextBlock Classes="caption secondary"
+                                                   Text="{Binding ProgressText}" />
+                                        <ProgressBar Value="{Binding Percentage}"
+                                                     Minimum="0"
+                                                     Maximum="100"
+                                                     Height="4"
+                                                     Foreground="{DynamicResource SystemAccentColor}"
+                                                     Opacity="0.9" />
+                                    </StackPanel>
                                 </StackPanel>
-                            </StackPanel>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <!-- Empty queue guidance -->
+                    <StackPanel IsVisible="{Binding !HasJobs}"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Spacing="8"
+                                Margin="20">
+                        <TextBlock Text="No jobs in queue."
+                                   FontWeight="SemiBold"
+                                   HorizontalAlignment="Center" />
+                        <TextBlock Text="{Binding EmptyQueueHint}"
+                                   Classes="caption secondary"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap"
+                                   MaxWidth="240" />
+                        <Button Content="{Binding AddSelectionLabel}"
+                                Classes="accent sm"
+                                Command="{Binding CreateJobFromSelectionCommand}"
+                                IsVisible="{Binding HasQueueableSelection}"
+                                HorizontalAlignment="Center" />
+                    </StackPanel>
+                </Grid>
             </DockPanel>
         </Border>
 

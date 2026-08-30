@@ -33,6 +33,19 @@ public partial class SourceListPanelViewModel : ObservableObject
     /// <summary>All currently selected sources (driven by the view's SelectionChanged).</summary>
     public IReadOnlyList<SourceFileViewModel> SelectedSources { get; private set; } = [];
 
+    public int ReadySourceCount => Sources.Count(source => source.MediaInfo is not null);
+
+    public int SelectedReadySourceCount
+    {
+        get
+        {
+            var selectedCount = SelectedSources.Count(source => source.MediaInfo is not null);
+            return selectedCount > 0
+                ? selectedCount
+                : SelectedSource?.MediaInfo is not null ? 1 : 0;
+        }
+    }
+
     public string MediaSummaryText =>
         SelectedSource?.MediaInfo is { } info ? FormatHelpers.BuildMediaSummaryText(info) : "";
 
@@ -52,12 +65,14 @@ public partial class SourceListPanelViewModel : ObservableObject
     public void UpdateSelection(IReadOnlyList<SourceFileViewModel> selectedItems)
     {
         SelectedSources = selectedItems;
+        OnPropertyChanged(nameof(SelectedReadySourceCount));
         RemoveSelectedCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnSelectedSourceChanged(SourceFileViewModel? value)
     {
         OnPropertyChanged(nameof(MediaSummaryText));
+        OnPropertyChanged(nameof(SelectedReadySourceCount));
         RemoveSelectedCommand.NotifyCanExecuteChanged();
 
         if (value?.MediaInfo is { } mediaInfo)
@@ -177,6 +192,9 @@ public partial class SourceListPanelViewModel : ObservableObject
 
     private void UpdateStatus()
     {
+        OnPropertyChanged(nameof(ReadySourceCount));
+        OnPropertyChanged(nameof(SelectedReadySourceCount));
+
         if (Sources.Count == 0)
             StatusText = "No source files loaded.";
         else

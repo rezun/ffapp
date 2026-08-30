@@ -262,6 +262,9 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
     {
         var arguments = new List<string> { "-c:v", VideoEncoderName(job.VideoCodec) };
 
+        if (job is { VideoCodec: VideoCodec.H265, Container: OutputContainer.Mp4 })
+            arguments.AddRange(["-tag:v", "hvc1"]);
+
         arguments.AddRange(PixelFormatArguments(job, mediaInfo));
         arguments.AddRange(HdrPreserveArguments(job, mediaInfo));
 

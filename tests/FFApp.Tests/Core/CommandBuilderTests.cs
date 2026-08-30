@@ -102,8 +102,17 @@ public class CommandBuilderTests
         var job = JobWith(s => s.WithH265());
         var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
 
-        args.Should().Contain("-c:v libx265")
+        args.Should().Contain("-c:v libx265 -tag:v hvc1")
             .And.Contain("-crf 28 -preset medium -profile:v main");
+    }
+
+    [Fact]
+    public void Build_H265QualityWithMkv_DoesNotSetMp4CodecTag()
+    {
+        var job = JobWith(s => s.WithH265().WithContainer(OutputContainer.Mkv));
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        args.Should().NotContain("-tag:v hvc1");
     }
 
     [Fact]

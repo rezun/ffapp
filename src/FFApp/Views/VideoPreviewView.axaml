@@ -169,12 +169,22 @@
                                                  Text="{Binding CropH}"
                                                  Margin="0,4,0,0" />
                                     </Grid>
+                                    <TextBlock Classes="caption secondary"
+                                               Text="{Binding CropDetectionStatus}"
+                                               TextWrapping="Wrap" />
                                     <DockPanel>
-                                        <Button DockPanel.Dock="Left"
-                                                Classes="xs"
-                                                Content="Reset"
-                                                Command="{Binding ResetCropCommand}"
-                                                IsEnabled="{Binding HasMedia}" />
+                                        <StackPanel DockPanel.Dock="Left"
+                                                    Orientation="Horizontal"
+                                                    Spacing="4">
+                                            <Button Classes="xs"
+                                                    Content="Reset"
+                                                    Command="{Binding ResetCropCommand}"
+                                                    IsEnabled="{Binding HasMedia}" />
+                                            <Button Classes="xs"
+                                                    Content="Detect"
+                                                    ToolTip.Tip="Detect crop from the current preview frame"
+                                                    Command="{Binding DetectCropCommand}" />
+                                        </StackPanel>
                                         <CheckBox DockPanel.Dock="Right"
                                                   Classes="compact"
                                                   Content="Apply to all"

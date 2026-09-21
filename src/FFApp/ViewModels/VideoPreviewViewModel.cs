@@ -3,6 +3,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using FFApp.Core.Models;
+using FFApp.Core.Services;
 using LibVLCSharp.Shared;
 
 namespace FFApp.ViewModels;
@@ -13,8 +14,10 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
         new(expanded => expanded ? "\u25BC Collapse" : "\u25B6 Expand");
 
     private readonly LibVLC? _libVlc;
+    private readonly ICropDetectionService? _cropDetectionService;
     private MediaPlayer? _mediaPlayer;
     private Media? _currentMedia;
+    private SourceMediaInfo? _currentMediaInfo;
     private const long DefaultFrameDurationMs = 33; // ~30 fps fallback
     private double _frameRate = 30.0;
     private bool _disposed;
@@ -74,6 +77,12 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private int _sourceHeight;
 
+    [ObservableProperty]
+    private bool _isDetectingCrop;
+
+    [ObservableProperty]
+    private string _cropDetectionStatus = "";
+
     /// <summary>Explicitly set when the user modifies trim values.</summary>
     [ObservableProperty]
     private bool _isTrimDirty;
@@ -89,6 +98,8 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
     partial void OnCropYChanged(int value) { if (!_suppressDirtyTracking) IsCropDirty = true; }
     partial void OnCropWChanged(int value) { if (!_suppressDirtyTracking) IsCropDirty = true; }
     partial void OnCropHChanged(int value) { if (!_suppressDirtyTracking) IsCropDirty = true; }
+    partial void OnHasMediaChanged(bool value) => DetectCropCommand.NotifyCanExecuteChanged();
+    partial void OnIsDetectingCropChanged(bool value) => DetectCropCommand.NotifyCanExecuteChanged();
 
     [ObservableProperty]
     private string _statusText = "No media loaded";
@@ -112,9 +123,12 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
     /// </summary>
     public event EventHandler<MediaPlayer?>? MediaPlayerChanged;
 
-    public VideoPreviewViewModel(LibVLC? libVlc)
+    public VideoPreviewViewModel(
+        LibVLC? libVlc,
+        ICropDetectionService? cropDetectionService = null)
     {
         _libVlc = libVlc;
+        _cropDetectionService = cropDetectionService;
         IsAvailable = libVlc is not null;
         if (!IsAvailable)
             StatusText = "VLC not installed";
@@ -122,6 +136,10 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
 
     public void LoadMedia(SourceMediaInfo mediaInfo)
     {
+        _currentMediaInfo = mediaInfo;
+        CropDetectionStatus = "";
+        DetectCropCommand.NotifyCanExecuteChanged();
+
         if (_libVlc is null) return;
 
         DisposePlayer();
@@ -332,6 +350,43 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
         CropH = SourceHeight;
         _suppressDirtyTracking = false;
         IsCropDirty = false;
+        CropDetectionStatus = "";
+    }
+
+    private bool CanDetectCrop() =>
+        HasMedia && !IsDetectingCrop && _currentMediaInfo is not null && _cropDetectionService is not null;
+
+    [RelayCommand(CanExecute = nameof(CanDetectCrop))]
+    private async Task DetectCropAsync(CancellationToken ct)
+    {
+        if (_currentMediaInfo is not { } mediaInfo || _cropDetectionService is null)
+            return;
+
+        var position = TimeSpan.FromMilliseconds(TimeMs);
+        IsDetectingCrop = true;
+        CropDetectionStatus = "Detecting crop...";
+
+        try
+        {
+            var crop = await _cropDetectionService.DetectAsync(mediaInfo, position, ct);
+            if (!ReferenceEquals(mediaInfo, _currentMediaInfo))
+                return;
+
+            CropX = crop.X;
+            CropY = crop.Y;
+            CropW = crop.Width;
+            CropH = crop.Height;
+            CropDetectionStatus = $"Detected {crop.Width} x {crop.Height} at {crop.X}, {crop.Y}";
+        }
+        catch (CropDetectionException ex)
+        {
+            if (ReferenceEquals(mediaInfo, _currentMediaInfo))
+                CropDetectionStatus = ex.Message;
+        }
+        finally
+        {
+            IsDetectingCrop = false;
+        }
     }
 
     [RelayCommand]

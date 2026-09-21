@@ -79,6 +79,7 @@ public partial class App : Application
             services.AddSingleton<IDialogService>(_ => new DialogService(() => mainWindow));
             services.AddSingleton<ICommandBuilder, DefaultCommandBuilder>();
             services.AddSingleton<IMediaProbeService, MediaProbeService>();
+            services.AddSingleton<ICropDetectionService, CropDetectionService>();
             services.AddSingleton<IJobExecutionService, DefaultJobExecutionService>();
             services.AddSingleton<IFfmpegCapabilityService, FfmpegCapabilityService>();
             services.AddSingleton<Func<QueuedJob, IJobExecutionService>>(sp =>
@@ -104,7 +105,9 @@ public partial class App : Application
             services.AddScoped<CommandPreviewViewModel>();
             services.AddScoped<JobListPanelViewModel>();
             services.AddScoped<VideoPreviewViewModel>(sp =>
-                new VideoPreviewViewModel(sp.GetService<LibVLC>()));
+                new VideoPreviewViewModel(
+                    sp.GetService<LibVLC>(),
+                    sp.GetRequiredService<ICropDetectionService>()));
 
             // Factory delegate for on-demand DependencySetupViewModel creation
             services.AddSingleton<Func<DependencySetupViewModel>>(sp =>

@@ -207,7 +207,7 @@ public partial class JobListPanelViewModel : ObservableObject
             return;
         }
 
-        var job = FormatHelpers.BuildJobDefinition(_currentContext);
+        var job = FormatHelpers.BuildJobDefinition(_currentContext, ReservedOutputPaths());
 
         IReadOnlyList<GeneratedCommand> commands;
         try
@@ -254,6 +254,7 @@ public partial class JobListPanelViewModel : ObservableObject
         string? outputDirectory)
     {
         var errorMessages = new List<string>();
+        var reservedOutputPaths = ReservedOutputPaths();
 
         foreach (var source in sources)
         {
@@ -265,7 +266,8 @@ public partial class JobListPanelViewModel : ObservableObject
             // Auto-name output (isAutoName: true enables collision avoidance)
             var outputPath = DefaultCommandBuilder.SuggestOutputPath(
                 source.SourcePath, settings.Container, outputDirectory,
-                outputFilename: null, isAutoName: true);
+                outputFilename: null, isAutoName: true,
+                reservedOutputPaths: reservedOutputPaths);
 
             var job = FormatHelpers.BuildJobDefinition(
                 source.SourcePath, outputPath, settings, trimIn, trimOut, crop);
@@ -290,6 +292,7 @@ public partial class JobListPanelViewModel : ObservableObject
 
             var queuedJob = new QueuedJob(job, mediaInfo, [.. commands], validation);
             var id = $"job-{++_nextJobId}";
+            reservedOutputPaths.Add(outputPath);
             AddJob(new JobItemViewModel(id, mediaInfo, queuedJob, source.DisplayLabel), queuedJob);
         }
 
@@ -499,6 +502,9 @@ public partial class JobListPanelViewModel : ObservableObject
 
     private JobItemViewModel? FindJobById(string id) =>
         Jobs.FirstOrDefault(j => j.Id == id);
+
+    private HashSet<string> ReservedOutputPaths() =>
+        [.. Jobs.Select(job => job.QueuedJob.Job.OutputPath)];
 
     /// <summary>
     /// Adds a job to the visible list AND enqueues it in the queue service so that jobs added

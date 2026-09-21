@@ -179,11 +179,14 @@ public static class FormatHelpers
         return string.Join('\n', lines);
     }
 
-    public static JobDefinition BuildJobDefinition(JobContext context)
+    public static JobDefinition BuildJobDefinition(
+        JobContext context,
+        IReadOnlyCollection<string>? reservedOutputPaths = null)
     {
         var outputPath = DefaultCommandBuilder.SuggestOutputPath(
             context.MediaInfo.SourcePath, context.Settings.Container,
-            context.OutputDirectory, context.OutputFilename, context.IsAutoName);
+            context.OutputDirectory, context.OutputFilename, context.IsAutoName,
+            reservedOutputPaths);
 
         return BuildJobDefinition(
             context.MediaInfo.SourcePath, outputPath, context.Settings,
@@ -222,26 +225,15 @@ public static class FormatHelpers
             KeyframeInterval: settings.KeyframeInterval,
             KeyframeUnit: settings.KeyframeUnit);
 
-    public static string SuggestQueueOutputPath(string sourcePath, OutputContainer container, HashSet<string> reservedOutputs)
-    {
-        var ext = DefaultCommandBuilder.ContainerExtension(container);
-        var candidate = Path.ChangeExtension(sourcePath, ext);
-        if (!File.Exists(candidate) && !reservedOutputs.Contains(Path.GetFullPath(candidate)))
-            return candidate;
-
-        var dir = Path.GetDirectoryName(candidate) ?? ".";
-        var stem = Path.GetFileNameWithoutExtension(candidate);
-        var suffix = Path.GetExtension(candidate);
-        for (int counter = 1; counter <= 10_000; counter++)
-        {
-            var numbered = Path.Combine(dir, $"{stem}-{counter}{suffix}");
-            if (!File.Exists(numbered) && !reservedOutputs.Contains(Path.GetFullPath(numbered)))
-                return numbered;
-        }
-
-        throw new InvalidOperationException(
-            $"Could not find an available output filename after 10,000 attempts for '{stem}{suffix}'.");
-    }
+    public static string SuggestQueueOutputPath(
+        string sourcePath,
+        OutputContainer container,
+        HashSet<string> reservedOutputs) =>
+        DefaultCommandBuilder.SuggestOutputPath(
+            sourcePath,
+            container,
+            isAutoName: true,
+            reservedOutputPaths: reservedOutputs);
 
     public static string VideoCodecLabel(VideoCodec codec) =>
         CompatibilityData.VideoCodecLabel(codec);

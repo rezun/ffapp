@@ -890,6 +890,39 @@ public class CommandBuilderTests
         args.Should().Contain("-i /my/video.avi");
     }
 
+    [Fact]
+    public void SuggestOutputPath_AutoNameSkipsReservedQueuePath()
+    {
+        var stem = $"ffapp-{Guid.NewGuid():N}";
+        var sourcePath = Path.Combine(Path.GetTempPath(), $"{stem}.mp4");
+        var reservedPath = Path.Combine(Path.GetTempPath(), $"{stem}.mkv");
+
+        var result = DefaultCommandBuilder.SuggestOutputPath(
+            sourcePath,
+            OutputContainer.Mkv,
+            isAutoName: true,
+            reservedOutputPaths: [reservedPath]);
+
+        result.Should().Be(Path.Combine(Path.GetTempPath(), $"{stem}-1.mkv"));
+    }
+
+    [Fact]
+    public void SuggestOutputPath_ExplicitNameDoesNotSkipReservedQueuePath()
+    {
+        var stem = $"ffapp-{Guid.NewGuid():N}";
+        var sourcePath = Path.Combine(Path.GetTempPath(), $"{stem}.mp4");
+        var reservedPath = Path.Combine(Path.GetTempPath(), $"{stem}-chosen.mkv");
+
+        var result = DefaultCommandBuilder.SuggestOutputPath(
+            sourcePath,
+            OutputContainer.Mkv,
+            outputFilename: $"{stem}-chosen",
+            isAutoName: false,
+            reservedOutputPaths: [reservedPath]);
+
+        result.Should().Be(reservedPath);
+    }
+
     // ---------------------------------------------------------------
     // MP4 faststart
     // ---------------------------------------------------------------

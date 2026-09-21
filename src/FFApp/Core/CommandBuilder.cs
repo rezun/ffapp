@@ -106,7 +106,8 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
     public static string SuggestOutputPath(
         string sourcePath, OutputContainer container,
         string? outputDirectory = null, string? outputFilename = null,
-        bool isAutoName = false)
+        bool isAutoName = false,
+        IReadOnlyCollection<string>? reservedOutputPaths = null)
     {
         var extension = ContainerExtension(container);
         var directory = outputDirectory ?? Path.GetDirectoryName(sourcePath) ?? string.Empty;
@@ -117,19 +118,29 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         if (!isAutoName)
             return candidate;
 
-        if (!File.Exists(candidate))
+        var reservedPaths = reservedOutputPaths is null
+            ? null
+            : new HashSet<string>(
+                reservedOutputPaths.Select(Path.GetFullPath),
+                OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+
+        if (IsOutputPathAvailable(candidate, reservedPaths))
             return candidate;
 
         for (var counter = 1; counter <= 10_000; counter++)
         {
             var numbered = Path.Combine(directory, $"{stem}-{counter}{extension}");
-            if (!File.Exists(numbered))
+            if (IsOutputPathAvailable(numbered, reservedPaths))
                 return numbered;
         }
 
         throw new CommandBuildException(
             "Could not find an available output filename after 10,000 attempts.");
     }
+
+    private static bool IsOutputPathAvailable(string path, IReadOnlySet<string>? reservedPaths) =>
+        !File.Exists(path)
+        && (reservedPaths is null || !reservedPaths.Contains(Path.GetFullPath(path)));
 
     // --- Private helpers ---
 

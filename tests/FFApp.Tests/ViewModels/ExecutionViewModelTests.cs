@@ -30,6 +30,18 @@ public class JobListPanelViewModelTests
         _sut = new JobListPanelViewModel(
             _queueService, _commandBuilder, _validationService, _dialogService,
             _sourceList, videoPreview, outputPath);
+
+        _validationService.Validate(
+                Arg.Any<OutputSettings>(),
+                Arg.Any<SourceMediaInfo>(),
+                Arg.Any<double?>())
+            .Returns(new ValidationResult());
+        _commandBuilder.Build(Arg.Any<JobDefinition>(), Arg.Any<SourceMediaInfo>())
+            .Returns(callInfo =>
+            {
+                var outputPath = callInfo.Arg<JobDefinition>().OutputPath;
+                return [new GeneratedCommand("ffmpeg", [outputPath], $"ffmpeg {outputPath}")];
+            });
     }
 
     private static JobContext MakeContext() =>
@@ -123,6 +135,32 @@ public class JobListPanelViewModelTests
         _sut.AddSelectionLabel.Should().Be("Add 2 selected files");
         _sut.AddAllLabel.Should().Be("Add all 3 files");
         _sut.EmptyQueueHint.Should().Be("The selected sources will use the current output settings.");
+    }
+
+    [Fact]
+    public async Task CreateJobFromSelection_AutoNameSkipsOutputAlreadyReservedByQueue()
+    {
+        var sourcePath = Path.Combine(Path.GetTempPath(), $"ffapp-{Guid.NewGuid():N}.mp4");
+        var source = AddReadySource(sourcePath);
+        _sourceList.SelectedSource = source;
+        _sourceList.UpdateSelection([source]);
+        _sut.UpdateJobContext(new JobContext(
+            source.MediaInfo!,
+            new OutputSettings { Container = OutputContainer.Mkv },
+            OutputDirectory: Path.GetTempPath(),
+            IsAutoName: true));
+
+        await _sut.CreateJobFromSelectionCommand.ExecuteAsync(null);
+        await _sut.CreateJobFromSelectionCommand.ExecuteAsync(null);
+
+        _sut.Jobs.Should().HaveCount(2);
+        _sut.Jobs.Select(job => job.QueuedJob.Job.OutputPath).Should().Equal(
+            Path.ChangeExtension(sourcePath, ".mkv"),
+            Path.Combine(
+                Path.GetDirectoryName(sourcePath)!,
+                $"{Path.GetFileNameWithoutExtension(sourcePath)}-1.mkv"));
+        _sut.Jobs.Select(job => job.QueuedJob.Commands[0].Arguments[^1])
+            .Should().Equal(_sut.Jobs.Select(job => job.QueuedJob.Job.OutputPath));
     }
 
     private SourceFileViewModel AddReadySource(string path)

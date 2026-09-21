@@ -16,18 +16,25 @@ public sealed class DependencyManager : IDependencyService
         var configured = settings.ExecutablePaths;
         var ffmpegPath = ResolveCandidate("ffmpeg", configured.Ffmpeg);
         var ffprobePath = ResolveCandidate("ffprobe", configured.Ffprobe);
+        var mkvpropeditPath = ResolveCandidate("mkvpropedit", configured.Mkvpropedit);
 
         return await ValidatePathsAsync(
-            new ExecutablePaths(Ffmpeg: ffmpegPath, Ffprobe: ffprobePath), ct);
+            new ExecutablePaths(
+                Ffmpeg: ffmpegPath,
+                Ffprobe: ffprobePath,
+                Mkvpropedit: mkvpropeditPath), ct);
     }
 
     public async Task<DependencyStatus> ValidatePathsAsync(
         ExecutablePaths paths, CancellationToken ct = default)
     {
-        var ffmpegTask = ValidateExecutableAsync("ffmpeg", paths.Ffmpeg, ct);
-        var ffprobeTask = ValidateExecutableAsync("ffprobe", paths.Ffprobe, ct);
+        var ffmpegTask = ValidateExecutableAsync("ffmpeg", paths.Ffmpeg, "-version", ct);
+        var ffprobeTask = ValidateExecutableAsync("ffprobe", paths.Ffprobe, "-version", ct);
+        var mkvpropeditPath = ResolveCandidate("mkvpropedit", paths.Mkvpropedit);
+        var mkvpropeditTask = ValidateExecutableAsync(
+            "mkvpropedit", mkvpropeditPath, "--version", ct);
 
-        await Task.WhenAll(ffmpegTask, ffprobeTask);
+        await Task.WhenAll(ffmpegTask, ffprobeTask, mkvpropeditTask);
 
         var ffmpegValidation = await ffmpegTask;
         var isLibplaceboAvailable = ffmpegValidation.IsValid && paths.Ffmpeg is not null
@@ -36,6 +43,7 @@ public sealed class DependencyManager : IDependencyService
         return new DependencyStatus(
             Ffmpeg: ffmpegValidation,
             Ffprobe: await ffprobeTask,
+            Mkvpropedit: await mkvpropeditTask,
             IsLibplaceboAvailable: isLibplaceboAvailable);
     }
 
@@ -161,7 +169,7 @@ public sealed class DependencyManager : IDependencyService
     }
 
     private static async Task<ExecutableValidation> ValidateExecutableAsync(
-        string name, string? path, CancellationToken ct)
+        string name, string? path, string versionArgument, CancellationToken ct)
     {
         if (path is null)
             return new ExecutableValidation(name, null, IsValid: false, Error: $"{name} was not found.");
@@ -181,7 +189,7 @@ public sealed class DependencyManager : IDependencyService
                 StartInfo = new ProcessStartInfo
                 {
                     FileName = path,
-                    Arguments = "-version",
+                    Arguments = versionArgument,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,

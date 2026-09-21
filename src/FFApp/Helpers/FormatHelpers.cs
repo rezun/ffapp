@@ -70,7 +70,9 @@ public static class FormatHelpers
 
     public static string FormatDependencyStatus(DependencyStatus status)
     {
-        return $"{FormatSingleDependency(status.Ffmpeg)}\n{FormatSingleDependency(status.Ffprobe)}";
+        return $"{FormatSingleDependency(status.Ffmpeg)}\n" +
+               $"{FormatSingleDependency(status.Ffprobe)}\n" +
+               $"{FormatSingleDependency(status.Mkvpropedit)}";
     }
 
     public static string FormatValidationResult(ValidationResult result)
@@ -223,7 +225,8 @@ public static class FormatHelpers
             HdrMode: settings.HdrMode,
             ToneMapSettings: settings.ToneMapSettings,
             KeyframeInterval: settings.KeyframeInterval,
-            KeyframeUnit: settings.KeyframeUnit);
+            KeyframeUnit: settings.KeyframeUnit,
+            PostProcessing: settings.PostProcessing);
 
     public static string SuggestQueueOutputPath(
         string sourcePath,

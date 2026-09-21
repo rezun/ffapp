@@ -466,6 +466,25 @@
             </DockPanel>
         </Border>
 
+        <!-- Post-processing -->
+        <Border Classes="card" Margin="0,0,0,8"
+                IsVisible="{Binding IsMatroskaPostProcessingVisible}">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Text="Post-processing"
+                           Classes="card-header" />
+                <Separator DockPanel.Dock="Top" />
+                <StackPanel Spacing="4" Margin="8,4,8,6">
+                    <CheckBox Content="Recalculate Matroska track statistics"
+                              IsChecked="{Binding RecalculateMatroskaStatistics}"
+                              IsEnabled="{Binding IsMatroskaPostProcessingAvailable}" />
+                    <TextBlock Classes="secondary"
+                               Text="Requires mkvpropedit from MKVToolNix. Rewrites BPS, duration, frame and byte statistics after encoding."
+                               TextWrapping="Wrap"
+                               IsVisible="{Binding !IsMatroskaPostProcessingAvailable}" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
         <!-- Validation (normal card, warning left border only when issues exist) -->
         <Border Classes="card" Margin="0,0,0,8"
                 Classes.warning="{Binding HasValidationIssues}">

@@ -72,6 +72,11 @@ public static class SettingsSerializer
             },
             ["keyframe_interval"] = settings.KeyframeInterval,
             ["keyframe_unit"] = EnumToString(settings.KeyframeUnit),
+            ["post_processing"] = new JsonObject
+            {
+                ["recalculate_matroska_statistics"] =
+                    settings.PostProcessing.RecalculateMatroskaStatistics,
+            },
         };
     }
 
@@ -161,6 +166,11 @@ public static class SettingsSerializer
         var keyframeInterval = ReadOptionalInt(element, "keyframe_interval");
         var keyframeUnit = ReadEnum<KeyframeUnit>(element, "keyframe_unit", KeyframeUnit.Frames);
 
+        var postProcessingEl = GetObjectOrEmpty(element, "post_processing");
+        var postProcessing = new PostProcessingOptions(
+            RecalculateMatroskaStatistics: ReadBool(
+                postProcessingEl, "recalculate_matroska_statistics"));
+
         return new OutputSettings(
             Container: container,
             VideoCodec: videoCodec,
@@ -181,7 +191,8 @@ public static class SettingsSerializer
             HdrMode: hdrMode,
             ToneMapSettings: toneMapSettings,
             KeyframeInterval: keyframeInterval,
-            KeyframeUnit: keyframeUnit);
+            KeyframeUnit: keyframeUnit,
+            PostProcessing: postProcessing);
     }
 
     // --- Preset serialization ---

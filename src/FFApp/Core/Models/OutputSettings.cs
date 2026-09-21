@@ -46,6 +46,9 @@ public sealed record StreamHandlingOptions(
     bool RemoveSubtitles = false,
     bool RemoveData = false);
 
+public sealed record PostProcessingOptions(
+    bool RecalculateMatroskaStatistics = false);
+
 public sealed record OutputSettings(
     OutputContainer Container = OutputContainer.Mp4,
     VideoMode VideoMode = VideoMode.Reencode,
@@ -62,7 +65,8 @@ public sealed record OutputSettings(
     HdrMode HdrMode = HdrMode.Preserve,
     ToneMapSettings? ToneMapSettings = null,
     int? KeyframeInterval = null,
-    KeyframeUnit KeyframeUnit = KeyframeUnit.Frames)
+    KeyframeUnit KeyframeUnit = KeyframeUnit.Frames,
+    PostProcessingOptions? PostProcessing = null)
 {
     public AudioOptions AudioOptions { get; init; } = AudioOptions ?? new AudioOptions();
     public StreamHandlingOptions StreamHandling { get; init; } = StreamHandling ?? new StreamHandlingOptions();
@@ -70,4 +74,5 @@ public sealed record OutputSettings(
     public TargetBitrateOptions TargetBitrate { get; init; } = TargetBitrate ?? new TargetBitrateOptions(3_000_000);
     public QualityOptions TargetQuality { get; init; } = TargetQuality ?? H26xQualityOptions.ForCodec(VideoCodec.H264);
     public ToneMapSettings ToneMapSettings { get; init; } = ToneMapSettings ?? new ToneMapSettings();
+    public PostProcessingOptions PostProcessing { get; init; } = PostProcessing ?? new PostProcessingOptions();
 }

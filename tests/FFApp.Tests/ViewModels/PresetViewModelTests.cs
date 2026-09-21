@@ -1,5 +1,6 @@
 using System.Text.Json;
 using CommunityToolkit.Mvvm.Messaging;
+using FFApp.Core;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
 using FFApp.Infrastructure.Serialization;
@@ -265,7 +266,8 @@ public class PresetViewModelTests
         var messenger = new WeakReferenceMessenger();
         var validationService = Substitute.For<IValidationService>();
         var capabilityService = Substitute.For<IFfmpegCapabilityService>();
-        var outputSettings = new OutputSettingsViewModel(validationService, messenger, capabilityService);
+        var outputSettings = new OutputSettingsViewModel(
+            validationService, messenger, capabilityService, new ExecutablePathsConfig());
         _sut.PresetApplied += outputSettings.ApplySettings;
         messenger.Register<OutputSettingsChangedMessage>(
             this,

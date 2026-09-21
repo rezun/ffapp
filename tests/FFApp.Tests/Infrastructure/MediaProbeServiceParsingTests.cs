@@ -78,6 +78,36 @@ public class MediaProbeServiceParsingTests
     }
 
     [Fact]
+    public void ParseMediaInfo_MetadataKeys_CapturesFormatVideoAndAudioTags()
+    {
+        var json = """
+        {
+            "format": {
+                "tags": { "title": "Movie", "encoding_tool": "old encoder" }
+            },
+            "streams": [
+                {
+                    "index": 0,
+                    "codec_type": "video",
+                    "tags": { "language": "eng", "BPS-eng": "50000000" }
+                },
+                {
+                    "index": 1,
+                    "codec_type": "audio",
+                    "tags": { "language": "deu", "NUMBER_OF_BYTES-deu": "123" }
+                }
+            ]
+        }
+        """;
+
+        var result = MediaProbeService.ParseMediaInfo("/test/video.mkv", json);
+
+        result.MetadataKeys.Should().BeEquivalentTo("title", "encoding_tool");
+        result.VideoStreams[0].MetadataKeys.Should().BeEquivalentTo("language", "BPS-eng");
+        result.AudioStreams[0].MetadataKeys.Should().BeEquivalentTo("language", "NUMBER_OF_BYTES-deu");
+    }
+
+    [Fact]
     public void ParseMediaInfo_AttachmentStream_TreatedAsData()
     {
         var json = """

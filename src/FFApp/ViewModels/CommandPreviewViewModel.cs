@@ -15,6 +15,7 @@ public partial class CommandPreviewViewModel : ObservableObject
         new(expanded => expanded ? "\u25BC Collapse" : "\u25B6 Expand");
 
     private readonly ICommandBuilder _commandBuilder;
+    private readonly IMatroskaPostProcessor? _matroskaPostProcessor;
     private readonly IDialogService? _dialogService;
     private JobContext? _context;
 
@@ -35,10 +36,12 @@ public partial class CommandPreviewViewModel : ObservableObject
 
     public CommandPreviewViewModel(
         ICommandBuilder commandBuilder,
-        IDialogService? dialogService = null)
+        IDialogService? dialogService = null,
+        IMatroskaPostProcessor? matroskaPostProcessor = null)
     {
         _commandBuilder = commandBuilder;
         _dialogService = dialogService;
+        _matroskaPostProcessor = matroskaPostProcessor;
     }
 
     public void UpdateJobContext(JobContext? context)
@@ -101,7 +104,8 @@ public partial class CommandPreviewViewModel : ObservableObject
     {
         // The display string shell-quotes paths with single quotes when they
         // contain special characters, or leaves them bare. Replace both forms.
-        var result = ReplacePath(displayString, executablePath, "ffmpeg");
+        var executableName = Path.GetFileNameWithoutExtension(executablePath);
+        var result = ReplacePath(displayString, executablePath, executableName);
 
         var inputPlaceholder = "\"$input\"";
         result = ReplacePath(result, sourcePath, inputPlaceholder);
@@ -133,7 +137,10 @@ public partial class CommandPreviewViewModel : ObservableObject
         try
         {
             var job = FormatHelpers.BuildJobDefinition(_context);
-            _commands = _commandBuilder.Build(job, _context.MediaInfo);
+            var commands = _commandBuilder.Build(job, _context.MediaInfo).ToList();
+            if (_matroskaPostProcessor?.BuildCommand(job) is { } postProcessCommand)
+                commands.Add(postProcessCommand);
+            _commands = commands;
             CommandText = string.Join(
                 Environment.NewLine + Environment.NewLine,
                 _commands.Select(c => c.DisplayString));

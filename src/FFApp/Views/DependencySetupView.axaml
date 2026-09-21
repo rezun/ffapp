@@ -19,7 +19,7 @@
                    HorizontalAlignment="Center"
                    Margin="0,0,0,8" />
 
-        <TextBlock Text="Configure paths to ffmpeg and ffprobe executables."
+        <TextBlock Text="Configure ffmpeg and ffprobe. mkvpropedit is optional."
                    HorizontalAlignment="Center"
                    Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
 
@@ -46,6 +46,19 @@
                         Command="{Binding BrowseFfprobeCommand}" />
                 <TextBox Text="{Binding FfprobePath, Mode=TwoWay}"
                          PlaceholderText="/usr/bin/ffprobe" />
+            </DockPanel>
+        </StackPanel>
+
+        <!-- optional mkvpropedit path -->
+        <StackPanel Spacing="4">
+            <TextBlock Text="mkvpropedit Path (optional)" FontWeight="SemiBold" />
+            <DockPanel>
+                <Button Content="Browse..."
+                        DockPanel.Dock="Right"
+                        Margin="8,0,0,0"
+                        Command="{Binding BrowseMkvpropeditCommand}" />
+                <TextBox Text="{Binding MkvpropeditPath, Mode=TwoWay}"
+                         PlaceholderText="Auto-detect from PATH" />
             </DockPanel>
         </StackPanel>
 

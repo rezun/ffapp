@@ -14,6 +14,31 @@ public sealed class CommandBuildException(string message)
 
 public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : ICommandBuilder
 {
+    private const string EncoderSettingsMetadataKey = "ENCODER_SETTINGS";
+
+    // FFmpeg master filters most of these automatically when re-encoding. Explicit
+    // deletion is harmless there and keeps stable FFmpeg 9.x and older correct.
+    private static readonly string[] AlwaysInvalidMetadataFamilies =
+        ["major_brand", "minor_version", "compatible_brands"];
+
+    private static readonly string[] ReencodedMetadataFamilies =
+    [
+        "encoded_by",
+        "encoding_tool",
+        "vendor_id",
+        "BPS",
+        "DURATION",
+        "NUMBER_OF_BYTES",
+        "NUMBER_OF_FRAMES",
+        "_STATISTICS_TAGS",
+        "_STATISTICS_WRITING_APP",
+        "_STATISTICS_WRITING_DATE_UTC",
+        EncoderSettingsMetadataKey,
+    ];
+
+    private static readonly string[] ReencodedAudioMetadataFamilies =
+        ["iTunPGAP", "iTunSMPB", "gapless_playback", "iTunNORM"];
+
     private static readonly string NullOutputPath =
         RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "NUL" : "/dev/null";
 
@@ -35,6 +60,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         }
         var mappingArgs = BuildMappingArguments(job, mediaInfo);
         var streamArgs = BuildStreamArguments(job, mediaInfo);
+        var metadataCleanupArgs = BuildMetadataCleanupArguments(job, mediaInfo);
 
         // Audio-only: no video encoding, no two-pass
         if (job.VideoMode == VideoMode.Remove)
@@ -42,6 +68,8 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
             var arguments = new List<string>(inputArgs);
             arguments.AddRange(mappingArgs);
             arguments.AddRange(streamArgs);
+            arguments.AddRange(metadataCleanupArgs);
+            arguments.AddRange(BuildEncodingSettingsMetadataArguments(job, mediaInfo));
             arguments.AddRange(["-vn"]);
             if (job.Container is OutputContainer.Mp4 or OutputContainer.M4a)
                 arguments.AddRange(["-movflags", "+faststart"]);
@@ -55,6 +83,8 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
             var arguments = new List<string>(inputArgs);
             arguments.AddRange(mappingArgs);
             arguments.AddRange(streamArgs);
+            arguments.AddRange(metadataCleanupArgs);
+            arguments.AddRange(BuildEncodingSettingsMetadataArguments(job, mediaInfo));
             arguments.AddRange(["-c:v", "copy"]);
             if (job.Container is OutputContainer.Mp4 or OutputContainer.M4a)
                 arguments.AddRange(["-movflags", "+faststart"]);
@@ -79,7 +109,11 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
             var secondPassArgs = new List<string>(inputArgs);
             secondPassArgs.AddRange(mappingArgs);
             secondPassArgs.AddRange(streamArgs);
-            secondPassArgs.AddRange(BuildVideoCodecArguments(job, mediaInfo, bitrate: bitrate, passIndex: 2));
+            secondPassArgs.AddRange(metadataCleanupArgs);
+            var secondPassVideoArgs = BuildVideoCodecArguments(job, mediaInfo, bitrate: bitrate, passIndex: 2);
+            secondPassArgs.AddRange(secondPassVideoArgs);
+            secondPassArgs.AddRange(BuildEncodingSettingsMetadataArguments(
+                job, mediaInfo, secondPassVideoArgs, isTwoPass: true));
             secondPassArgs.AddRange(["-pass", "2", "-passlogfile", passLogPath]);
             if (job.Container == OutputContainer.Mp4)
                 secondPassArgs.AddRange(["-movflags", "+faststart"]);
@@ -95,7 +129,10 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         var reencodeArgs = new List<string>(inputArgs);
         reencodeArgs.AddRange(mappingArgs);
         reencodeArgs.AddRange(streamArgs);
-        reencodeArgs.AddRange(BuildVideoCodecArguments(job, mediaInfo));
+        reencodeArgs.AddRange(metadataCleanupArgs);
+        var videoCodecArgs = BuildVideoCodecArguments(job, mediaInfo);
+        reencodeArgs.AddRange(videoCodecArgs);
+        reencodeArgs.AddRange(BuildEncodingSettingsMetadataArguments(job, mediaInfo, videoCodecArgs));
         if (job.Container == OutputContainer.Mp4)
             reencodeArgs.AddRange(["-movflags", "+faststart"]);
         reencodeArgs.Add(job.OutputPath);
@@ -144,7 +181,10 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
 
     // --- Private helpers ---
 
-    private static GeneratedCommand CreateGeneratedCommand(string executable, List<string> arguments)
+    internal static GeneratedCommand CreateGeneratedCommand(
+        string executable,
+        IReadOnlyList<string> arguments,
+        ProcessProtocol protocol = ProcessProtocol.Ffmpeg)
     {
         var displayParts = new List<string>(arguments.Count + 1) { QuoteArgument(executable) };
         foreach (var arg in arguments)
@@ -153,7 +193,8 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         return new GeneratedCommand(
             ExecutablePath: executable,
             Arguments: [.. arguments],
-            DisplayString: string.Join(' ', displayParts));
+            DisplayString: string.Join(' ', displayParts),
+            Protocol: protocol);
     }
 
     private static readonly SearchValues<char> ShellMetaCharacters =
@@ -240,6 +281,133 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         }
 
         return arguments;
+    }
+
+    private static List<string> BuildMetadataCleanupArguments(
+        JobDefinition job, SourceMediaInfo mediaInfo)
+    {
+        var arguments = new List<string>();
+        var videoReencoded = job.VideoMode == VideoMode.Reencode;
+        var audioReencoded = job.AudioOptions.Mode == AudioMode.Reencode;
+
+        AddMetadataDeletions(
+            arguments,
+            metadataSpecifier: null,
+            mediaInfo.MetadataKeys,
+            reencoded: videoReencoded || audioReencoded,
+            audioReencoded);
+
+        if (job.VideoMode != VideoMode.Remove && mediaInfo.PrimaryVideoStream is { } video)
+        {
+            AddMetadataDeletions(
+                arguments,
+                "s:v:0",
+                video.MetadataKeys,
+                videoReencoded,
+                audioReencoded: false);
+        }
+
+        if (job.AudioOptions.Mode != AudioMode.Remove)
+        {
+            for (var index = 0; index < mediaInfo.AudioStreams.Length; index++)
+            {
+                AddMetadataDeletions(
+                    arguments,
+                    $"s:a:{index}",
+                    mediaInfo.AudioStreams[index].MetadataKeys,
+                    audioReencoded,
+                    audioReencoded);
+            }
+        }
+
+        return arguments;
+    }
+
+    private static void AddMetadataDeletions(
+        List<string> arguments,
+        string? metadataSpecifier,
+        ImmutableArray<string> metadataKeys,
+        bool reencoded,
+        bool audioReencoded)
+    {
+        foreach (var key in metadataKeys)
+        {
+            if (!MatchesAnyMetadataFamily(key, AlwaysInvalidMetadataFamilies)
+                && !(reencoded && MatchesAnyMetadataFamily(key, ReencodedMetadataFamilies))
+                && !(audioReencoded && MatchesAnyMetadataFamily(key, ReencodedAudioMetadataFamilies)))
+            {
+                continue;
+            }
+
+            arguments.Add(metadataSpecifier is null ? "-metadata" : $"-metadata:{metadataSpecifier}");
+            arguments.Add($"{key}=");
+        }
+    }
+
+    private static bool MatchesAnyMetadataFamily(string key, IReadOnlyList<string> families)
+    {
+        foreach (var family in families)
+        {
+            if (key.Equals(family, StringComparison.OrdinalIgnoreCase)
+                || key.StartsWith(family + "-", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static List<string> BuildEncodingSettingsMetadataArguments(
+        JobDefinition job,
+        SourceMediaInfo mediaInfo,
+        IReadOnlyList<string>? videoCodecArguments = null,
+        bool isTwoPass = false)
+    {
+        if (!SupportsEncodingSettingsMetadata(job.Container))
+            return [];
+
+        var arguments = new List<string>();
+
+        if (job.VideoMode == VideoMode.Reencode
+            && mediaInfo.PrimaryVideoStream is not null
+            && videoCodecArguments is not null)
+        {
+            var settings = FormatEncodingSettings(videoCodecArguments);
+            if (isTwoPass)
+                settings += "; passes=2";
+            arguments.AddRange(["-metadata:s:v:0", $"{EncoderSettingsMetadataKey}={settings}"]);
+        }
+
+        if (job.AudioOptions.Mode == AudioMode.Reencode && mediaInfo.AudioStreams.Length > 0)
+        {
+            var settings = FormatEncodingSettings(BuildAudioReencodeArguments(job));
+            arguments.AddRange(["-metadata:s:a", $"{EncoderSettingsMetadataKey}={settings}"]);
+        }
+
+        return arguments;
+    }
+
+    private static bool SupportsEncodingSettingsMetadata(OutputContainer container) => container switch
+    {
+        OutputContainer.Mkv or OutputContainer.Mka or OutputContainer.Webm
+            or OutputContainer.Ogg or OutputContainer.OpusFile => true,
+        OutputContainer.Mp4 or OutputContainer.M4a => false,
+        _ => throw new CommandBuildException($"Unsupported container: {container}"),
+    };
+
+    private static string FormatEncodingSettings(IReadOnlyList<string> codecArguments)
+    {
+        var settings = new List<string>(codecArguments.Count / 2);
+        for (var index = 0; index < codecArguments.Count; index += 2)
+        {
+            if (index + 1 >= codecArguments.Count)
+                throw new CommandBuildException("Encoder argument is missing its value.");
+
+            settings.Add($"{codecArguments[index].TrimStart('-')}={codecArguments[index + 1]}");
+        }
+
+        return string.Join("; ", settings);
     }
 
     private static List<string> BuildAudioReencodeArguments(JobDefinition job)

@@ -16,11 +16,7 @@ public sealed class ProcessRunner : IProcessRunner
         Action<string>? logCallback = null,
         CancellationToken ct = default)
     {
-        var arguments = new List<string>(command.Arguments.Length + 3)
-        {
-            "-progress", "pipe:1", "-nostats",
-        };
-        arguments.AddRange(command.Arguments);
+        var arguments = BuildArguments(command);
 
         using var process = new Process
         {
@@ -39,6 +35,7 @@ public sealed class ProcessRunner : IProcessRunner
             process.StartInfo.ArgumentList.Add(arg);
 
         var stderrLines = new List<string>();
+        var stdoutLines = new List<string>();
         var progressPacket = new Dictionary<string, string>();
         var stopwatch = Stopwatch.StartNew();
 
@@ -54,6 +51,13 @@ public sealed class ProcessRunner : IProcessRunner
         {
             while (await process.StandardOutput.ReadLineAsync().ConfigureAwait(false) is { } line)
             {
+                if (command.Protocol == ProcessProtocol.Plain)
+                {
+                    stdoutLines.Add(line);
+                    logCallback?.Invoke(line);
+                    continue;
+                }
+
                 var separatorIndex = line.IndexOf('=');
                 if (separatorIndex < 0)
                     continue;
@@ -92,15 +96,28 @@ public sealed class ProcessRunner : IProcessRunner
             ? JobState.Canceled
             : process.ExitCode == 0 ? JobState.Completed : JobState.Failed;
 
+        var outputLines = command.Protocol == ProcessProtocol.Plain
+            ? stdoutLines.Concat(stderrLines)
+            : stderrLines;
+
         return new ProcessExecutionResult(
             Command: command,
             State: state,
             ReturnCode: process.ExitCode,
             ElapsedSeconds: stopwatch.Elapsed.TotalSeconds,
-            StderrOutput: string.Join(Environment.NewLine, stderrLines));
+            StderrOutput: string.Join(Environment.NewLine, outputLines));
     }
 
     // --- Static helpers ---
+
+    internal static IReadOnlyList<string> BuildArguments(GeneratedCommand command)
+    {
+        var arguments = new List<string>(command.Arguments.Length + 3);
+        if (command.Protocol == ProcessProtocol.Ffmpeg)
+            arguments.AddRange(["-progress", "pipe:1", "-nostats"]);
+        arguments.AddRange(command.Arguments);
+        return arguments;
+    }
 
     internal static ProcessProgress ParseProgressUpdate(
         Dictionary<string, string> packet,

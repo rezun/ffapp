@@ -98,12 +98,14 @@ public sealed class MediaProbeService(ExecutablePathsConfig pathsConfig) : IMedi
             string? containerFormat = null;
             double? durationSeconds = null;
             int? bitRate = null;
+            ImmutableArray<string> metadataKeys = [];
 
             if (root.TryGetProperty("format", out var format))
             {
                 containerFormat = GetString(format, "format_name");
                 durationSeconds = GetDouble(format, "duration");
                 bitRate = GetInt(format, "bit_rate");
+                metadataKeys = ParseMetadataKeys(format);
             }
 
             var videoStreams = ImmutableArray.CreateBuilder<VideoStreamInfo>();
@@ -141,6 +143,7 @@ public sealed class MediaProbeService(ExecutablePathsConfig pathsConfig) : IMedi
                 ContainerFormat = containerFormat,
                 DurationSeconds = durationSeconds,
                 BitRate = bitRate,
+                MetadataKeys = metadataKeys,
                 VideoStreams = videoStreams.ToImmutable(),
                 AudioStreams = audioStreams.ToImmutable(),
                 SubtitleStreams = subtitleStreams.ToImmutable(),
@@ -166,7 +169,10 @@ public sealed class MediaProbeService(ExecutablePathsConfig pathsConfig) : IMedi
             ColorSpace: GetString(stream, "color_space"),
             ColorRange: GetString(stream, "color_range"),
             BitsPerRawSample: GetInt(stream, "bits_per_raw_sample"),
-            HdrMetadata: ParseHdrMetadata(stream));
+            HdrMetadata: ParseHdrMetadata(stream))
+        {
+            MetadataKeys = ParseMetadataKeys(stream),
+        };
     }
 
     private static int? ParseRotation(JsonElement stream)
@@ -243,7 +249,10 @@ public sealed class MediaProbeService(ExecutablePathsConfig pathsConfig) : IMedi
             BitRate: GetInt(stream, "bit_rate"),
             Channels: GetInt(stream, "channels"),
             SampleRate: GetInt(stream, "sample_rate"),
-            Language: GetTag(stream, "language"));
+            Language: GetTag(stream, "language"))
+        {
+            MetadataKeys = ParseMetadataKeys(stream),
+        };
     }
 
     private static SubtitleStreamInfo ParseSubtitleStream(JsonElement stream)
@@ -319,5 +328,16 @@ public sealed class MediaProbeService(ExecutablePathsConfig pathsConfig) : IMedi
         if (stream.TryGetProperty("tags", out var tags))
             return GetString(tags, tagName);
         return null;
+    }
+
+    private static ImmutableArray<string> ParseMetadataKeys(JsonElement element)
+    {
+        if (!element.TryGetProperty("tags", out var tags)
+            || tags.ValueKind != JsonValueKind.Object)
+        {
+            return [];
+        }
+
+        return [.. tags.EnumerateObject().Select(tag => tag.Name)];
     }
 }

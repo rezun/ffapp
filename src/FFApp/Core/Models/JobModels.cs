@@ -23,11 +23,13 @@ public sealed record JobDefinition(
     HdrMode HdrMode = HdrMode.Preserve,
     ToneMapSettings? ToneMapSettings = null,
     int? KeyframeInterval = null,
-    KeyframeUnit KeyframeUnit = KeyframeUnit.Frames)
+    KeyframeUnit KeyframeUnit = KeyframeUnit.Frames,
+    PostProcessingOptions? PostProcessing = null)
 {
     public AudioOptions AudioOptions { get; init; } = AudioOptions ?? new AudioOptions();
     public StreamHandlingOptions StreamHandling { get; init; } = StreamHandling ?? new StreamHandlingOptions();
     public ToneMapSettings ToneMapSettings { get; init; } = ToneMapSettings ?? new ToneMapSettings();
+    public PostProcessingOptions PostProcessing { get; init; } = PostProcessing ?? new PostProcessingOptions();
 }
 
 public sealed record CropRect(int X, int Y, int Width, int Height);
@@ -35,7 +37,8 @@ public sealed record CropRect(int X, int Y, int Width, int Height);
 public sealed record GeneratedCommand(
     string ExecutablePath,
     ImmutableArray<string> Arguments,
-    string DisplayString);
+    string DisplayString,
+    ProcessProtocol Protocol = ProcessProtocol.Ffmpeg);
 
 public sealed record ProcessProgress(
     double ElapsedSeconds,

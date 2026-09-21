@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
+using FFApp.Core;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
 using FFApp.Core.Validation;
@@ -12,6 +13,7 @@ public partial class OutputSettingsViewModel : ObservableObject
     private readonly IValidationService _validationService;
     private readonly IMessenger _messenger;
     private readonly IFfmpegCapabilityService _capabilityService;
+    private readonly ExecutablePathsConfig _pathsConfig;
     private bool _isSuppressing;
     private SourceMediaInfo? _mediaInfo;
     private string? _resolvedOutputPath;
@@ -37,6 +39,17 @@ public partial class OutputSettingsViewModel : ObservableObject
 
     [ObservableProperty]
     private IReadOnlyList<KeyframeUnit> _availableKeyframeUnits = [KeyframeUnit.Frames];
+
+    [ObservableProperty]
+    private bool _recalculateMatroskaStatistics;
+
+    public bool IsMatroskaPostProcessingVisible =>
+        Format.SelectedContainer is OutputContainer.Mkv
+            or OutputContainer.Mka
+            or OutputContainer.Webm;
+
+    public bool IsMatroskaPostProcessingAvailable =>
+        IsMatroskaPostProcessingVisible && _pathsConfig.MkvpropeditPath is not null;
 
     public IReadOnlyList<ResolutionPreset> AvailableResolutions { get; } =
         Enum.GetValues<ResolutionPreset>();
@@ -77,17 +90,25 @@ public partial class OutputSettingsViewModel : ObservableObject
             RebuildAndNotify();
     }
 
+    partial void OnRecalculateMatroskaStatisticsChanged(bool value)
+    {
+        if (!_isSuppressing)
+            RebuildAndNotify();
+    }
+
     public int? KeyframeInterval =>
         int.TryParse(KeyframeIntervalText, out var v) && v > 0 ? v : null;
 
     public OutputSettingsViewModel(
         IValidationService validationService,
         IMessenger messenger,
-        IFfmpegCapabilityService capabilityService)
+        IFfmpegCapabilityService capabilityService,
+        ExecutablePathsConfig pathsConfig)
     {
         _validationService = validationService;
         _messenger = messenger;
         _capabilityService = capabilityService;
+        _pathsConfig = pathsConfig;
 
         Hdr.IsLibplaceboAvailable = capabilityService.IsLibplaceboAvailable;
 
@@ -168,6 +189,8 @@ public partial class OutputSettingsViewModel : ObservableObject
             // Stream handling
             StreamHandling.RemoveSubtitles = settings.StreamHandling.RemoveSubtitles;
             StreamHandling.RemoveData = settings.StreamHandling.RemoveData;
+            RecalculateMatroskaStatistics =
+                settings.PostProcessing.RecalculateMatroskaStatistics;
 
             // File size
             Strategy.FileSize.TargetSizeMb = settings.TargetFileSize.TargetSizeMb;
@@ -264,7 +287,11 @@ public partial class OutputSettingsViewModel : ObservableObject
                 PeakDetect: Hdr.PeakDetect,
                 TonemappingParam: Hdr.TonemappingParam),
             KeyframeInterval: KeyframeInterval,
-            KeyframeUnit: SelectedKeyframeUnit);
+            KeyframeUnit: SelectedKeyframeUnit,
+            PostProcessing: new PostProcessingOptions(
+                RecalculateMatroskaStatistics:
+                    IsMatroskaPostProcessingAvailable
+                    && RecalculateMatroskaStatistics));
     }
 
     private void OnChildPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -299,6 +326,12 @@ public partial class OutputSettingsViewModel : ObservableObject
             Audio.AvailableAudioCodecs = Format.AvailableAudioCodecs;
             if (Audio.SelectedAudioCodec is null || !Audio.AvailableAudioCodecs.Contains(Audio.SelectedAudioCodec.Value))
                 Audio.SelectedAudioCodec = Audio.AvailableAudioCodecs.Count > 0 ? Audio.AvailableAudioCodecs[0] : null;
+        }
+
+        if (e.PropertyName == nameof(FormatViewModel.SelectedContainer))
+        {
+            OnPropertyChanged(nameof(IsMatroskaPostProcessingVisible));
+            OnPropertyChanged(nameof(IsMatroskaPostProcessingAvailable));
         }
     }
 

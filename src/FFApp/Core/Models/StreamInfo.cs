@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 namespace FFApp.Core.Models;
 
 public sealed record VideoStreamInfo(
@@ -17,6 +19,8 @@ public sealed record VideoStreamInfo(
     int? BitsPerRawSample = null,
     HdrMetadata? HdrMetadata = null)
 {
+    public ImmutableArray<string> MetadataKeys { get; init; } = [];
+
     public int? DisplayWidth => IsRotated90Or270 ? Height : Width;
     public int? DisplayHeight => IsRotated90Or270 ? Width : Height;
 
@@ -51,7 +55,10 @@ public sealed record AudioStreamInfo(
     int? BitRate = null,
     int? Channels = null,
     int? SampleRate = null,
-    string? Language = null);
+    string? Language = null)
+{
+    public ImmutableArray<string> MetadataKeys { get; init; } = [];
+}
 
 public sealed record SubtitleStreamInfo(
     int Index,

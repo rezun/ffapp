@@ -152,6 +152,19 @@ public class SettingsSerializerTests
     }
 
     [Fact]
+    public void RoundTrip_MatroskaPostProcessing_PreservesFlag()
+    {
+        var original = new TestOutputSettingsBuilder()
+            .WithContainer(OutputContainer.Mkv)
+            .WithMatroskaStatistics()
+            .Build();
+
+        var result = RoundTrip(original);
+
+        result.PostProcessing.RecalculateMatroskaStatistics.Should().BeTrue();
+    }
+
+    [Fact]
     public void RoundTrip_VpxEncoderOptions_PreservesCpuUsed()
     {
         var original = new TestOutputSettingsBuilder()
@@ -228,6 +241,7 @@ public class SettingsSerializerTests
         result.VideoCodec.Should().Be(VideoCodec.H264);
         result.TargetFileSize.TargetSizeMb.Should().Be(50);
         result.TargetBitrate.VideoBitrate.Should().Be(3_000_000);
+        result.PostProcessing.RecalculateMatroskaStatistics.Should().BeFalse();
     }
 
     [Fact]

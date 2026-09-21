@@ -90,6 +90,12 @@ public enum JobState
     [JsonStringEnumMemberName("canceled")] Canceled,
 }
 
+public enum ProcessProtocol
+{
+    Ffmpeg,
+    Plain,
+}
+
 [JsonConverter(typeof(JsonStringEnumConverter<ValidationSeverity>))]
 public enum ValidationSeverity
 {

@@ -69,6 +69,15 @@ public class TestOutputSettingsBuilder
     public TestOutputSettingsBuilder WithRemoveData() =>
         Apply(s => s with { StreamHandling = s.StreamHandling with { RemoveData = true } });
 
+    public TestOutputSettingsBuilder WithMatroskaStatistics(bool enabled = true) =>
+        Apply(s => s with
+        {
+            PostProcessing = s.PostProcessing with
+            {
+                RecalculateMatroskaStatistics = enabled,
+            },
+        });
+
     public TestOutputSettingsBuilder WithH265() =>
         Apply(s => s with
         {

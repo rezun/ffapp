@@ -9,7 +9,8 @@ namespace FFApp.Infrastructure;
 
 public sealed class DefaultJobExecutionService(
     ICommandBuilder commandBuilder,
-    IProcessRunner processRunner) : IJobExecutionService
+    IProcessRunner processRunner,
+    IMatroskaPostProcessor matroskaPostProcessor) : IJobExecutionService
 {
     public async Task<JobResult> ExecuteAsync(
         JobDefinition job,
@@ -18,8 +19,12 @@ public sealed class DefaultJobExecutionService(
         Action<string>? logCallback = null,
         CancellationToken ct = default)
     {
-        var commands = commandBuilder.Build(job, mediaInfo);
-        var passCount = commands.Count;
+        var encodingCommands = commandBuilder.Build(job, mediaInfo);
+        var postProcessCommand = matroskaPostProcessor.BuildCommand(job);
+        var plannedCommands = postProcessCommand is null
+            ? encodingCommands
+            : [.. encodingCommands, postProcessCommand];
+        var passCount = encodingCommands.Count;
         var expectedDuration = EffectiveOutputDuration(job, mediaInfo);
         var expectedFrameCount = EstimateOutputFrameCount(job, mediaInfo);
         var processResults = new List<ProcessExecutionResult>(passCount);
@@ -51,14 +56,14 @@ public sealed class DefaultJobExecutionService(
                             Percentage: progress.Percentage,
                             Speed: progress.Speed));
                     }
-                    : null;
+                : null;
 
                 Action<string>? wrappedLog = logCallback is not null && passCount > 1
                     ? line => logCallback($"[Pass {passIndex}] {line}")
                     : logCallback;
 
                 var result = await processRunner.RunAsync(
-                    commands[i],
+                    encodingCommands[i],
                     expectedDuration,
                     expectedFrameCount,
                     wrappedProgress,
@@ -69,6 +74,17 @@ public sealed class DefaultJobExecutionService(
 
                 if (result.State != JobState.Completed)
                     break;
+            }
+
+            if (ResolveJobState(processResults) == JobState.Completed
+                && postProcessCommand is not null)
+            {
+                logCallback?.Invoke("[Post-processing] Recalculating Matroska track statistics...");
+                var result = await processRunner.RunAsync(
+                    postProcessCommand,
+                    logCallback: logCallback,
+                    ct: ct).ConfigureAwait(false);
+                processResults.Add(result);
             }
         }
         finally
@@ -90,7 +106,7 @@ public sealed class DefaultJobExecutionService(
         return new JobResult(
             Job: job,
             State: finalState,
-            Commands: [.. commands],
+            Commands: [.. plannedCommands],
             ProcessResults: [.. processResults],
             ElapsedSeconds: stopwatch.Elapsed.TotalSeconds,
             LogOutput: CombineProcessLogs(processResults));
@@ -143,11 +159,22 @@ public sealed class DefaultJobExecutionService(
             return processResults[0].StderrOutput;
 
         var parts = new List<string>(processResults.Count);
+        var passIndex = 0;
         for (var i = 0; i < processResults.Count; i++)
         {
-            var output = processResults[i].StderrOutput;
+            var result = processResults[i];
+            var output = result.StderrOutput;
             if (!string.IsNullOrEmpty(output))
-                parts.Add($"[Pass {i + 1}]{Environment.NewLine}{output}");
+            {
+                var label = result.Command.Protocol == ProcessProtocol.Plain
+                    ? "Post-processing"
+                    : $"Pass {++passIndex}";
+                parts.Add($"[{label}]{Environment.NewLine}{output}");
+            }
+            else if (result.Command.Protocol == ProcessProtocol.Ffmpeg)
+            {
+                passIndex++;
+            }
         }
 
         return string.Join(Environment.NewLine + Environment.NewLine, parts);

@@ -91,6 +91,7 @@ public sealed class SettingsService(string? path = null) : ISettingsService
             {
                 ["ffmpeg"] = settings.ExecutablePaths.Ffmpeg,
                 ["ffprobe"] = settings.ExecutablePaths.Ffprobe,
+                ["mkvpropedit"] = settings.ExecutablePaths.Mkvpropedit,
             },
             ["last_used_settings"] = SettingsSerializer.SerializeOutputSettings(
                 settings.LastUsedSettings),
@@ -129,7 +130,11 @@ public sealed class SettingsService(string? path = null) : ISettingsService
 
         var ffmpeg = ReadOptionalString(pathsEl, "ffmpeg");
         var ffprobe = ReadOptionalString(pathsEl, "ffprobe");
-        return new ExecutablePaths(Ffmpeg: ffmpeg, Ffprobe: ffprobe);
+        var mkvpropedit = ReadOptionalString(pathsEl, "mkvpropedit");
+        return new ExecutablePaths(
+            Ffmpeg: ffmpeg,
+            Ffprobe: ffprobe,
+            Mkvpropedit: mkvpropedit);
     }
 
     private static SplitterLayout DeserializeSplitterLayout(JsonElement root)

@@ -84,6 +84,105 @@ public class CommandBuilderTests
     }
 
     // ---------------------------------------------------------------
+    // Metadata handling
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public void Build_Reencode_RemovesOnlyInvalidatedMetadataUsingExactSourceKeys()
+    {
+        var media = new TestMediaInfoBuilder()
+            .WithMetadataKeys("title", "encoding_tool")
+            .WithVideoMetadataKeys("language", "BPS-eng", "NUMBER_OF_FRAMES-deu")
+            .WithAudioMetadataKeys("title", "DURATION-eng", "iTunSMPB")
+            .Build();
+        var job = JobWith(s => s
+            .WithContainer(OutputContainer.Mkv)
+            .WithAudioReencode(AudioCodec.Opus, 96_000));
+
+        var args = _sut.Build(job, media)[0].Arguments;
+
+        args[args.IndexOf("encoding_tool=") - 1].Should().Be("-metadata");
+        args[args.IndexOf("BPS-eng=") - 1].Should().Be("-metadata:s:v:0");
+        args[args.IndexOf("NUMBER_OF_FRAMES-deu=") - 1].Should().Be("-metadata:s:v:0");
+        args[args.IndexOf("DURATION-eng=") - 1].Should().Be("-metadata:s:a:0");
+        args[args.IndexOf("iTunSMPB=") - 1].Should().Be("-metadata:s:a:0");
+        args.Should().NotContain("title=");
+        args.Should().NotContain("language=");
+    }
+
+    [Fact]
+    public void Build_StreamCopy_PreservesTrackStatistics()
+    {
+        var media = new TestMediaInfoBuilder()
+            .WithVideoMetadataKeys("BPS-eng", "NUMBER_OF_FRAMES-eng")
+            .WithAudioMetadataKeys("BPS-eng", "NUMBER_OF_BYTES-eng")
+            .Build();
+        var job = JobWith(s => s
+            .WithContainer(OutputContainer.Mkv)
+            .WithVideoMode(VideoMode.Copy)
+            .WithAudioCopy());
+
+        var args = _sut.Build(job, media)[0].Arguments;
+
+        args.Should().NotContain("BPS-eng=");
+        args.Should().NotContain("NUMBER_OF_FRAMES-eng=");
+        args.Should().NotContain("NUMBER_OF_BYTES-eng=");
+    }
+
+    [Fact]
+    public void Build_ReencodeInMkv_WritesVideoEncoderSettingsWithoutFilePaths()
+    {
+        var job = JobWith(s => s.WithAv1());
+
+        var args = _sut.Build(job, DefaultMedia())[0].Arguments;
+        var settings = args.Single(argument => argument.StartsWith(
+            "ENCODER_SETTINGS=c:v=", StringComparison.Ordinal));
+
+        settings.Should().Contain("c:v=libsvtav1")
+            .And.Contain("pix_fmt=yuv420p10le")
+            .And.Contain("svtav1-params=")
+            .And.NotContain(job.SourcePath)
+            .And.NotContain(job.OutputPath);
+    }
+
+    [Fact]
+    public void Build_AudioReencodeInMkv_WritesAudioEncoderSettings()
+    {
+        var job = JobWith(s => s
+            .WithAv1()
+            .WithAudioReencode(AudioCodec.Opus, 96_000, channels: 2));
+
+        var args = _sut.Build(job, DefaultMedia())[0].Arguments;
+        var settings = args.Single(argument => argument.StartsWith(
+            "ENCODER_SETTINGS=c:a=", StringComparison.Ordinal));
+
+        settings.Should().Be("ENCODER_SETTINGS=c:a=libopus; b:a=96000; ac=2");
+    }
+
+    [Fact]
+    public void Build_ReencodeInMp4_DoesNotWriteUnsupportedEncoderSettingsTag()
+    {
+        var args = _sut.Build(DefaultJob(), DefaultMedia())[0].Arguments;
+
+        args.Should().NotContain(argument => argument.StartsWith(
+            "ENCODER_SETTINGS=", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Build_TwoPass_WritesEncoderSettingsOnlyToFinalOutput()
+    {
+        var job = JobWith(s => s.WithVp9(twoPass: true));
+
+        var commands = _sut.Build(job, DefaultMedia());
+
+        commands[0].Arguments.Should().NotContain(argument => argument.StartsWith(
+            "ENCODER_SETTINGS=", StringComparison.Ordinal));
+        commands[1].Arguments.Should().Contain(argument =>
+            argument.StartsWith("ENCODER_SETTINGS=c:v=", StringComparison.Ordinal)
+            && argument.EndsWith("passes=2", StringComparison.Ordinal));
+    }
+
+    // ---------------------------------------------------------------
     // Quality encoding per codec
     // ---------------------------------------------------------------
 
@@ -1188,7 +1287,8 @@ public class CommandBuilderTests
         var settings = new TestOutputSettingsBuilder().WithToneMapToSdr().Build();
         var job = new TestJobDefinitionBuilder()
             .WithOutputSettings(settings)
-            .Build() with { Crop = new CropRect(100, 100, 1600, 900) };
+            .Build() with
+        { Crop = new CropRect(100, 100, 1600, 900) };
         var media = new TestMediaInfoBuilder().WithHdr10().Build();
         var args = JoinArgs(_sut.Build(job, media)[0]);
 
@@ -1285,7 +1385,8 @@ public class CommandBuilderTests
         var settings = new TestOutputSettingsBuilder().WithLibplaceboTonemapToSdr().Build();
         var job = new TestJobDefinitionBuilder()
             .WithOutputSettings(settings)
-            .Build() with { Crop = new CropRect(100, 100, 1600, 900) };
+            .Build() with
+        { Crop = new CropRect(100, 100, 1600, 900) };
         var media = new TestMediaInfoBuilder().WithHdr10().Build();
         var args = JoinArgs(_sut.Build(job, media)[0]);
 

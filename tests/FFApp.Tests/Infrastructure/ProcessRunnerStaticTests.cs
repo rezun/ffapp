@@ -1,3 +1,4 @@
+using FFApp.Core.Models;
 using FFApp.Infrastructure;
 using FluentAssertions;
 
@@ -5,6 +6,33 @@ namespace FFApp.Tests.Infrastructure;
 
 public class ProcessRunnerStaticTests
 {
+    [Fact]
+    public void BuildArguments_Ffmpeg_AddsProgressArguments()
+    {
+        var command = new GeneratedCommand(
+            "ffmpeg", ["-i", "input.mkv", "output.mkv"], "ffmpeg ...");
+
+        var arguments = ProcessRunner.BuildArguments(command);
+
+        arguments.Should().Equal(
+            "-progress", "pipe:1", "-nostats",
+            "-i", "input.mkv", "output.mkv");
+    }
+
+    [Fact]
+    public void BuildArguments_Plain_DoesNotAddFfmpegArguments()
+    {
+        var command = new GeneratedCommand(
+            "mkvpropedit",
+            ["output.mkv", "--add-track-statistics-tags"],
+            "mkvpropedit ...",
+            ProcessProtocol.Plain);
+
+        var arguments = ProcessRunner.BuildArguments(command);
+
+        arguments.Should().Equal("output.mkv", "--add-track-statistics-tags");
+    }
+
     // --- ParseTimestamp ---
 
     [Fact]

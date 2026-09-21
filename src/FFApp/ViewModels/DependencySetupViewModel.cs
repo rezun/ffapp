@@ -21,6 +21,9 @@ public partial class DependencySetupViewModel : ObservableObject
     private string _ffprobePath = "";
 
     [ObservableProperty]
+    private string _mkvpropeditPath = "";
+
+    [ObservableProperty]
     private string _statusText = "";
 
     [ObservableProperty]
@@ -42,6 +45,7 @@ public partial class DependencySetupViewModel : ObservableObject
     {
         FfmpegPath = settings.ExecutablePaths.Ffmpeg ?? "";
         FfprobePath = settings.ExecutablePaths.Ffprobe ?? "";
+        MkvpropeditPath = settings.ExecutablePaths.Mkvpropedit ?? "";
     }
 
     [RelayCommand]
@@ -60,6 +64,14 @@ public partial class DependencySetupViewModel : ObservableObject
             FfprobePath = path;
     }
 
+    [RelayCommand]
+    private async Task BrowseMkvpropeditAsync()
+    {
+        var path = await _dialogService.OpenFileAsync("Select mkvpropedit executable");
+        if (path is not null)
+            MkvpropeditPath = path;
+    }
+
     private bool CanValidate() => !IsValidating;
 
     [RelayCommand(CanExecute = nameof(CanValidate))]
@@ -72,7 +84,10 @@ public partial class DependencySetupViewModel : ObservableObject
         {
             StatusText = "Validating paths...";
 
-            var paths = new ExecutablePaths(FfmpegPath, FfprobePath);
+            var paths = new ExecutablePaths(
+                FfmpegPath,
+                FfprobePath,
+                string.IsNullOrWhiteSpace(MkvpropeditPath) ? null : MkvpropeditPath);
             var status = await _dependencyService.ValidatePathsAsync(paths);
 
             if (!status.IsReady)
@@ -88,7 +103,7 @@ public partial class DependencySetupViewModel : ObservableObject
             }
 
             var settings = await _settingsService.LoadAsync();
-            settings = settings with { ExecutablePaths = paths };
+            settings = settings with { ExecutablePaths = status.ExecutablePaths };
             await _settingsService.SaveAsync(settings);
 
             StatusText = "Dependencies validated successfully.";

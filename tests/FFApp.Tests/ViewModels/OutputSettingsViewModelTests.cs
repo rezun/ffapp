@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.Messaging;
+using FFApp.Core;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
 using FFApp.Tests.Builders;
@@ -13,6 +14,7 @@ public class OutputSettingsViewModelTests
     private readonly IValidationService _validationService = Substitute.For<IValidationService>();
     private readonly IMessenger _messenger = Substitute.For<IMessenger>();
     private readonly IFfmpegCapabilityService _capabilityService = Substitute.For<IFfmpegCapabilityService>();
+    private readonly ExecutablePathsConfig _pathsConfig = new();
     private readonly OutputSettingsViewModel _sut;
 
     public OutputSettingsViewModelTests()
@@ -20,7 +22,8 @@ public class OutputSettingsViewModelTests
         _validationService.Validate(Arg.Any<OutputSettings>(), Arg.Any<SourceMediaInfo>())
             .Returns(new ValidationResult());
 
-        _sut = new OutputSettingsViewModel(_validationService, _messenger, _capabilityService);
+        _sut = new OutputSettingsViewModel(
+            _validationService, _messenger, _capabilityService, _pathsConfig);
     }
 
     [Fact]
@@ -102,7 +105,8 @@ public class OutputSettingsViewModelTests
     {
         // Use a real messenger so extension methods work naturally
         var realMessenger = new WeakReferenceMessenger();
-        var sut = new OutputSettingsViewModel(_validationService, realMessenger, _capabilityService);
+        var sut = new OutputSettingsViewModel(
+            _validationService, realMessenger, _capabilityService, _pathsConfig);
 
         OutputSettings? received = null;
         realMessenger.Register<OutputSettingsChangedMessage>(this, (_, m) => received = m.Value);
@@ -120,5 +124,43 @@ public class OutputSettingsViewModelTests
 
         _sut.Audio.AvailableAudioCodecs.Should().Contain(AudioCodec.Opus);
         _sut.Audio.AvailableAudioCodecs.Should().NotContain(AudioCodec.Aac);
+    }
+
+    [Fact]
+    public void BuildSettings_MkvpropeditAvailableAndEnabled_PreservesPostProcessing()
+    {
+        _pathsConfig.Configure(new ExecutablePaths(Mkvpropedit: "/tools/mkvpropedit"));
+        var sut = new OutputSettingsViewModel(
+            _validationService, _messenger, _capabilityService, _pathsConfig);
+        sut.Format.SelectedContainer = OutputContainer.Mkv;
+        sut.RecalculateMatroskaStatistics = true;
+
+        var settings = sut.BuildSettings();
+
+        sut.IsMatroskaPostProcessingAvailable.Should().BeTrue();
+        settings.PostProcessing.RecalculateMatroskaStatistics.Should().BeTrue();
+    }
+
+    [Fact]
+    public void BuildSettings_MkvpropeditUnavailable_DisablesPostProcessing()
+    {
+        _sut.Format.SelectedContainer = OutputContainer.Mkv;
+        _sut.RecalculateMatroskaStatistics = true;
+
+        var settings = _sut.BuildSettings();
+
+        _sut.IsMatroskaPostProcessingAvailable.Should().BeFalse();
+        settings.PostProcessing.RecalculateMatroskaStatistics.Should().BeFalse();
+    }
+
+    [Fact]
+    public void MatroskaPostProcessing_Mp4_IsNotVisibleOrAvailable()
+    {
+        _pathsConfig.Configure(new ExecutablePaths(Mkvpropedit: "/tools/mkvpropedit"));
+        var sut = new OutputSettingsViewModel(
+            _validationService, _messenger, _capabilityService, _pathsConfig);
+
+        sut.IsMatroskaPostProcessingVisible.Should().BeFalse();
+        sut.IsMatroskaPostProcessingAvailable.Should().BeFalse();
     }
 }

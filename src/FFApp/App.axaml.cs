@@ -78,6 +78,7 @@ public partial class App : Application
             services.AddSingleton<IProcessRunner, ProcessRunner>();
             services.AddSingleton<IDialogService>(_ => new DialogService(() => mainWindow));
             services.AddSingleton<ICommandBuilder, DefaultCommandBuilder>();
+            services.AddSingleton<IMatroskaPostProcessor, MatroskaPostProcessor>();
             services.AddSingleton<IMediaProbeService, MediaProbeService>();
             services.AddSingleton<ICropDetectionService, CropDetectionService>();
             services.AddSingleton<IJobExecutionService, DefaultJobExecutionService>();

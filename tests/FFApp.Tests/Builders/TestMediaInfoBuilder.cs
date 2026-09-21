@@ -9,6 +9,7 @@ public class TestMediaInfoBuilder
     private string? _containerFormat = "mov,mp4,m4a,3gp,3g2,mj2";
     private double? _durationSeconds = 60.0;
     private int? _bitRate = 5_000_000;
+    private ImmutableArray<string> _metadataKeys = [];
     private ImmutableArray<VideoStreamInfo> _videoStreams = [new(0, "h264", 4_500_000, 1920, 1080, 23.976, 1439)];
     private ImmutableArray<AudioStreamInfo> _audioStreams = [new(1, "aac", 128_000, 2, 48000, "eng")];
     private ImmutableArray<SubtitleStreamInfo> _subtitleStreams = [];
@@ -20,6 +21,7 @@ public class TestMediaInfoBuilder
         ContainerFormat = _containerFormat,
         DurationSeconds = _durationSeconds,
         BitRate = _bitRate,
+        MetadataKeys = _metadataKeys,
         VideoStreams = _videoStreams,
         AudioStreams = _audioStreams,
         SubtitleStreams = _subtitleStreams,
@@ -31,10 +33,11 @@ public class TestMediaInfoBuilder
     public TestMediaInfoBuilder WithNoDuration() => WithDuration(null);
     public TestMediaInfoBuilder WithBitRate(int? bitRate) { _bitRate = bitRate; return this; }
     public TestMediaInfoBuilder WithContainerFormat(string? format) { _containerFormat = format; return this; }
+    public TestMediaInfoBuilder WithMetadataKeys(params string[] keys) { _metadataKeys = [.. keys]; return this; }
 
     public TestMediaInfoBuilder WithVideoStreams(params VideoStreamInfo[] streams)
     {
-        _videoStreams = [..streams];
+        _videoStreams = [.. streams];
         return this;
     }
 
@@ -69,6 +72,13 @@ public class TestMediaInfoBuilder
         return this;
     }
 
+    public TestMediaInfoBuilder WithVideoMetadataKeys(params string[] keys)
+    {
+        var video = _videoStreams.Length > 0 ? _videoStreams[0] : new VideoStreamInfo(0);
+        _videoStreams = [video with { MetadataKeys = [.. keys] }];
+        return this;
+    }
+
     public TestMediaInfoBuilder WithVideoResolution(int width, int height)
     {
         var v = _videoStreams.Length > 0 ? _videoStreams[0] : new VideoStreamInfo(0);
@@ -88,6 +98,13 @@ public class TestMediaInfoBuilder
     {
         var a = _audioStreams.Length > 0 ? _audioStreams[0] : new AudioStreamInfo(1, "aac");
         _audioStreams = [a with { BitRate = bitrate }];
+        return this;
+    }
+
+    public TestMediaInfoBuilder WithAudioMetadataKeys(params string[] keys)
+    {
+        var audio = _audioStreams.Length > 0 ? _audioStreams[0] : new AudioStreamInfo(1, "aac");
+        _audioStreams = [audio with { MetadataKeys = [.. keys] }];
         return this;
     }
 

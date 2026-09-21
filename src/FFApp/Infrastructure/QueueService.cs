@@ -158,7 +158,7 @@ public sealed class QueueService(
                         if (updated is not null)
                             itemProgress(updated);
                     }
-                    : null;
+                : null;
 
                 Action<string>? logCb = logCallback is not null
                     ? line =>
@@ -167,7 +167,7 @@ public sealed class QueueService(
                         if (current is not null)
                             logCallback(current, line);
                     }
-                    : null;
+                : null;
 
                 CancellationToken linkedToken;
                 lock (_lock)
@@ -318,10 +318,14 @@ public sealed class QueueService(
         if (result is null)
             return null;
 
+        var passCount = result.Commands.Count(command => command.Protocol == ProcessProtocol.Ffmpeg);
+        var completedPasses = result.ProcessResults.Count(
+            processResult => processResult.Command.Protocol == ProcessProtocol.Ffmpeg);
+
         return new JobProgress(
             State: result.State,
-            PassIndex: result.ProcessResults.Length > 0 ? result.ProcessResults.Length : 1,
-            PassCount: result.Commands.Length,
+            PassIndex: completedPasses > 0 ? completedPasses : 1,
+            PassCount: passCount,
             ElapsedSeconds: result.ElapsedSeconds,
             Percentage: result.State == JobState.Completed ? 100.0 : null);
     }

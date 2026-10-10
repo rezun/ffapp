@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using CommunityToolkit.Mvvm.ComponentModel;
 using FFApp.Core.Models;
 
@@ -25,6 +26,8 @@ public partial class SourceFileViewModel : ObservableObject
 
     [ObservableProperty]
     private string? _errorMessage;
+
+    public ImmutableArray<int>? SelectedAudioStreamIndices { get; set; }
 
     // Per-file trim/crop settings (saved/restored on selection switch)
     [ObservableProperty]

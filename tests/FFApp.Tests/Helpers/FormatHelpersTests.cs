@@ -8,6 +8,17 @@ namespace FFApp.Tests.Helpers;
 
 public class FormatHelpersTests
 {
+
+    [Fact]
+    public void BuildJobDefinition_PassesAudioSelectionFromContext()
+    {
+        var context = new JobContext(new TestMediaInfoBuilder().Build(), new OutputSettings(), SelectedAudioStreamIndices: [1, 5]);
+        var job = FormatHelpers.BuildJobDefinition(context);
+        job.SelectedAudioStreamIndices.GetValueOrDefault().Should().Equal(1, 5);
+        FormatHelpers.BuildJobDefinition(context with { SelectedAudioStreamIndices = null })
+            .SelectedAudioStreamIndices.Should().BeNull();
+    }
+
     // --- BuildMediaSummaryText ---
 
     [Fact]

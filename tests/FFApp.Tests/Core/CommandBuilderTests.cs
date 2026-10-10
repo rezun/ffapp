@@ -9,6 +9,85 @@ namespace FFApp.Tests.Core;
 
 public class CommandBuilderTests
 {
+
+    [Theory]
+    [InlineData(AudioMode.Copy, "copy")]
+    [InlineData(AudioMode.Reencode, "aac")]
+    public void Build_SelectedAudioTracks_ExcludesOnlyUnselectedAudio(AudioMode mode, string codec)
+    {
+        var media = new TestMediaInfoBuilder().WithAudioStreams(
+            new AudioStreamInfo(2, "aac"), new AudioStreamInfo(5, "aac"), new AudioStreamInfo(8, "aac")).Build();
+        var job = new TestJobDefinitionBuilder().WithAudioTracks(8, 2, 2)
+            .WithOutputSettings(s => s.WithAudio(new AudioOptions(mode, AudioCodec.Aac, 128_000))).Build();
+
+        var args = JoinArgs(_sut.Build(job, media)[0]);
+
+        args.Should().Contain("-map 0").And.Contain("-map -0:5").And.Contain($"-c:a {codec}");
+        args.Should().NotContain("-map -0:2").And.NotContain("-map -0:8");
+    }
+
+    [Fact]
+    public void Build_AllAudioTracks_DoesNotExcludeAnyAudio()
+    {
+        var media = new TestMediaInfoBuilder().WithAudioStreams(new AudioStreamInfo(2, "aac"), new AudioStreamInfo(5, "aac")).Build();
+        var args = JoinArgs(_sut.Build(DefaultJob(), media)[0]);
+        args.Should().NotContain("-map -0:2").And.NotContain("-map -0:5");
+    }
+
+    [Fact]
+    public void Build_EmptyAudioSelection_ExcludesEveryAudioTrack()
+    {
+        var job = new TestJobDefinitionBuilder().WithAudioTracks().Build();
+        JoinArgs(_sut.Build(job, DefaultMedia())[0]).Should().Contain("-map -0:1");
+    }
+
+    [Fact]
+    public void Build_AudioRemove_IgnoresTrackSelection()
+    {
+        var job = new TestJobDefinitionBuilder().WithAudioTracks(99)
+            .WithOutputSettings(s => s.WithAudioRemove()).Build();
+        JoinArgs(_sut.Build(job, DefaultMedia())[0]).Should().Contain("-map -0:a?");
+    }
+
+    [Fact]
+    public void Build_UnknownAudioTrack_Throws()
+    {
+        var job = new TestJobDefinitionBuilder().WithAudioTracks(99).Build();
+        var act = () => _sut.Build(job, DefaultMedia());
+        act.Should().Throw<CommandBuildException>();
+    }
+
+    [Fact]
+    public void Build_SelectedAudio_MetadataCleanupUsesOutputAudioIndex()
+    {
+        var media = new TestMediaInfoBuilder().WithAudioStreams(
+            new AudioStreamInfo(2, "aac") { MetadataKeys = ["BPS"] },
+            new AudioStreamInfo(5, "aac") { MetadataKeys = ["NUMBER_OF_BYTES"] }).Build();
+        var job = new TestJobDefinitionBuilder().WithAudioTracks(5)
+            .WithOutputSettings(s => s.WithAudioReencode(AudioCodec.Aac, 128_000)).Build();
+        var args = JoinArgs(_sut.Build(job, media)[0]);
+        args.Should().Contain("-metadata:s:a:0 NUMBER_OF_BYTES=").And.NotContain("-metadata:s:a:1").And.NotContain("BPS=");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Build_TargetSize_SelectionIgnoresUnselectedTrackWithUnknownBitrate(bool twoPass)
+    {
+        var media = new TestMediaInfoBuilder().WithAudioStreams(
+            new AudioStreamInfo(2, "aac", 128_000), new AudioStreamInfo(5, "aac")).Build();
+        var job = new TestJobDefinitionBuilder().WithAudioTracks(2)
+            .WithOutputSettings(s => s.WithTargetFileSize(50, twoPass: twoPass)).Build();
+        var commands = _sut.Build(job, media);
+        var reference = _sut.Build(job with { SelectedAudioStreamIndices = null },
+            media with { AudioStreams = [media.AudioStreams[0]] });
+        commands.Should().HaveCount(twoPass ? 2 : 1);
+        commands.Last().Arguments.SkipWhile(a => a != "-b:v").Take(2)
+            .Should().Equal(reference.Last().Arguments.SkipWhile(a => a != "-b:v").Take(2));
+        foreach (var command in commands)
+            JoinArgs(command).Should().Contain("-map -0:5");
+    }
+
     private static readonly string NullOutput =
         RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "NUL" : "/dev/null";
 

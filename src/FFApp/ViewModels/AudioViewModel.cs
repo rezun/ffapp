@@ -1,10 +1,63 @@
+using System.Collections.Immutable;
+using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using FFApp.Core.Models;
 
 namespace FFApp.ViewModels;
 
 public partial class AudioViewModel : ObservableObject
 {
+    [ObservableProperty]
+    private bool _allAudioTracks = true;
+
+    [ObservableProperty]
+    private IReadOnlyList<AudioTrackViewModel> _audioTracks = [];
+
+    public bool IsTrackSelectionVisible => SelectedAudioMode != AudioMode.Remove && AudioTracks.Count > 0;
+    public bool IsCustomTrackSelection => !AllAudioTracks;
+    public ImmutableArray<int>? SelectedAudioStreamIndices => AllAudioTracks
+        ? null
+        : [.. AudioTracks.Where(t => t.IsSelected).Select(t => t.StreamIndex)];
+
+    public void UpdateTracks(SourceMediaInfo mediaInfo, ImmutableArray<int>? selectedIndices = null)
+    {
+        foreach (var track in AudioTracks)
+            track.PropertyChanged -= OnTrackPropertyChanged;
+        AudioTracks = mediaInfo.AudioStreams.Select((stream, index) =>
+            new AudioTrackViewModel(stream, index + 1, selectedIndices is null || selectedIndices.Value.Contains(stream.Index))).ToArray();
+        foreach (var track in AudioTracks)
+            track.PropertyChanged += OnTrackPropertyChanged;
+        AllAudioTracks = selectedIndices is null;
+        OnPropertyChanged(nameof(IsTrackSelectionVisible));
+        OnPropertyChanged(nameof(SelectedAudioStreamIndices));
+    }
+
+    [RelayCommand]
+    private void SelectAllTracks() => SetAllTracksSelected(true);
+
+    [RelayCommand]
+    private void DeselectAllTracks() => SetAllTracksSelected(false);
+
+    private void SetAllTracksSelected(bool isSelected)
+    {
+        foreach (var track in AudioTracks)
+            track.IsSelected = isSelected;
+        AllAudioTracks = false;
+    }
+
+    private void OnTrackPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(AudioTrackViewModel.IsSelected))
+            OnPropertyChanged(nameof(SelectedAudioStreamIndices));
+    }
+
+    partial void OnAllAudioTracksChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsCustomTrackSelection));
+        OnPropertyChanged(nameof(SelectedAudioStreamIndices));
+    }
+
     [ObservableProperty]
     private AudioMode _selectedAudioMode = AudioMode.Copy;
 
@@ -136,6 +189,7 @@ public partial class AudioViewModel : ObservableObject
     partial void OnSelectedAudioModeChanged(AudioMode value)
     {
         OnPropertyChanged(nameof(IsReencodeMode));
+        OnPropertyChanged(nameof(IsTrackSelectionVisible));
 
         if (value == AudioMode.Reencode
             && SelectedAudioCodec is null

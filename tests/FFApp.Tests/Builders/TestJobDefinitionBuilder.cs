@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using FFApp.Core.Models;
 using FFApp.Helpers;
 
@@ -9,8 +10,16 @@ public class TestJobDefinitionBuilder
     private string _outputPath = "/test/output.mp4";
     private OutputSettings _settings = new();
 
+    private ImmutableArray<int>? _selectedAudioStreamIndices;
+
+    public TestJobDefinitionBuilder WithAudioTracks(params int[] indices)
+    {
+        _selectedAudioStreamIndices = [.. indices];
+        return this;
+    }
+
     public JobDefinition Build() =>
-        FormatHelpers.BuildJobDefinition(_sourcePath, _outputPath, _settings);
+        FormatHelpers.BuildJobDefinition(_sourcePath, _outputPath, _settings, selectedAudioStreamIndices: _selectedAudioStreamIndices);
 
     public TestJobDefinitionBuilder WithSourcePath(string path) { _sourcePath = path; return this; }
     public TestJobDefinitionBuilder WithOutputPath(string path) { _outputPath = path; return this; }

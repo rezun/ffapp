@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Text;
 using FFApp.Core;
 using FFApp.Core.Models;
@@ -192,7 +193,8 @@ public static class FormatHelpers
 
         return BuildJobDefinition(
             context.MediaInfo.SourcePath, outputPath, context.Settings,
-            context.TrimStartSeconds, context.TrimEndSeconds, context.Crop);
+            context.TrimStartSeconds, context.TrimEndSeconds, context.Crop,
+            context.SelectedAudioStreamIndices);
     }
 
     public static string ResolveOutputPath(JobContext context) =>
@@ -203,7 +205,7 @@ public static class FormatHelpers
     public static JobDefinition BuildJobDefinition(
         string sourcePath, string outputPath, OutputSettings settings,
         double? trimStartSeconds = null, double? trimEndSeconds = null,
-        CropRect? crop = null) =>
+        CropRect? crop = null, ImmutableArray<int>? selectedAudioStreamIndices = null) =>
         new(
             SourcePath: sourcePath,
             OutputPath: outputPath,
@@ -226,7 +228,8 @@ public static class FormatHelpers
             ToneMapSettings: settings.ToneMapSettings,
             KeyframeInterval: settings.KeyframeInterval,
             KeyframeUnit: settings.KeyframeUnit,
-            PostProcessing: settings.PostProcessing);
+            PostProcessing: settings.PostProcessing,
+            SelectedAudioStreamIndices: selectedAudioStreamIndices);
 
     public static string SuggestQueueOutputPath(
         string sourcePath,

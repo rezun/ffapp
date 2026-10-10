@@ -11,6 +11,32 @@ namespace FFApp.Tests.ViewModels;
 
 public class OutputSettingsViewModelTests
 {
+
+    [Fact]
+    public void AudioTrackSelection_IsExcludedFromSettingsAndPresets_AndSurvivesApplyingSettings()
+    {
+        _sut.UpdateSourceInfo(new TestMediaInfoBuilder().Build());
+        var settings = _sut.BuildSettings();
+        var presetBefore = FFApp.Infrastructure.Serialization.SettingsSerializer.SerializeOutputSettings(settings).ToJsonString();
+        _sut.Audio.AllAudioTracks = false;
+        _sut.Audio.AudioTracks[0].IsSelected = false;
+        _sut.BuildSettings().Should().Be(settings);
+        FFApp.Infrastructure.Serialization.SettingsSerializer.SerializeOutputSettings(_sut.BuildSettings()).ToJsonString()
+            .Should().Be(presetBefore);
+        _sut.ApplySettings(settings);
+        _sut.Audio.SelectedAudioStreamIndices.GetValueOrDefault().Should().BeEmpty();
+        _sut.Audio.AllAudioTracks.Should().BeFalse();
+    }
+
+    [Fact]
+    public void AudioTrackSelection_ValidationReceivesOnlySelectedTracks()
+    {
+        var media = new TestMediaInfoBuilder().WithAudioStreams(new AudioStreamInfo(2), new AudioStreamInfo(5)).Build();
+        _sut.UpdateSourceInfo(media, [5]);
+        _validationService.Received().Validate(Arg.Any<OutputSettings>(),
+            Arg.Is<SourceMediaInfo>(m => m.AudioStreams.Length == 1 && m.AudioStreams[0].Index == 5), Arg.Any<double?>());
+    }
+
     private readonly IValidationService _validationService = Substitute.For<IValidationService>();
     private readonly IMessenger _messenger = Substitute.For<IMessenger>();
     private readonly IFfmpegCapabilityService _capabilityService = Substitute.For<IFfmpegCapabilityService>();

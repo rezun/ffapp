@@ -24,7 +24,8 @@ public sealed record JobDefinition(
     ToneMapSettings? ToneMapSettings = null,
     int? KeyframeInterval = null,
     KeyframeUnit KeyframeUnit = KeyframeUnit.Frames,
-    PostProcessingOptions? PostProcessing = null)
+    PostProcessingOptions? PostProcessing = null,
+    ImmutableArray<int>? SelectedAudioStreamIndices = null)
 {
     public AudioOptions AudioOptions { get; init; } = AudioOptions ?? new AudioOptions();
     public StreamHandlingOptions StreamHandling { get; init; } = StreamHandling ?? new StreamHandlingOptions();

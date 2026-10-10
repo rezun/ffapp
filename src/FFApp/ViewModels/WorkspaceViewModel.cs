@@ -47,6 +47,7 @@ public partial class WorkspaceViewModel : ObservableObject,
         OutputPath.PropertyChanged += OnOutputPathPropertyChanged;
         VideoPreview.PropertyChanged += OnVideoPreviewPropertyChanged;
         OutputSettings.PropertyChanged += OnOutputSettingsPropertyChanged;
+        OutputSettings.Audio.PropertyChanged += OnAudioPropertyChanged;
         OutputPath.PropertyChanged += OnOutputPathContainerChanged;
         Preset.PropertyChanged += OnPresetPropertyChanged;
 
@@ -79,11 +80,21 @@ public partial class WorkspaceViewModel : ObservableObject,
             trimStart, trimEnd, crop,
             OutputPath.GetEffectiveDirectory(),
             OutputPath.GetEffectiveFilename(),
-            OutputPath.IsAutoName);
+            OutputPath.IsAutoName, OutputSettings.Audio.SelectedAudioStreamIndices);
 
         CommandPreview.UpdateJobContext(context);
         JobList.UpdateJobContext(context);
         OutputSettings.UpdateEffectiveDuration(context.EffectiveDurationSeconds);
+    }
+
+    private void OnAudioPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(AudioViewModel.SelectedAudioStreamIndices))
+        {
+            if (SourceList.SelectedSource is { } source)
+                source.SelectedAudioStreamIndices = OutputSettings.Audio.SelectedAudioStreamIndices;
+            RebuildAndPushJobContext();
+        }
     }
 
     private void OnPresetPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -176,7 +187,7 @@ public partial class WorkspaceViewModel : ObservableObject,
         // 3. Load new media (resets trim/crop to source defaults)
         _currentMediaInfo = message.Value;
         OutputPath.UpdateFromSource(_currentMediaInfo);
-        OutputSettings.UpdateSourceInfo(_currentMediaInfo);
+        OutputSettings.UpdateSourceInfo(_currentMediaInfo, SourceList.SelectedSource?.SelectedAudioStreamIndices);
         VideoPreview.LoadMedia(_currentMediaInfo);
 
         // 4. Restore per-file or global trim/crop values

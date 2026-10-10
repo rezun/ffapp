@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
@@ -141,9 +142,11 @@ public partial class OutputSettingsViewModel : ObservableObject
         UpdateBitrateFileSizeDisplay(settings);
     }
 
-    public void UpdateSourceInfo(SourceMediaInfo mediaInfo)
+    public void UpdateSourceInfo(
+        SourceMediaInfo mediaInfo, ImmutableArray<int>? selectedAudioStreamIndices = null)
     {
         _mediaInfo = mediaInfo;
+        Audio.UpdateTracks(mediaInfo, selectedAudioStreamIndices);
         Format.SourceHasVideo = mediaInfo.VideoStreams.Length > 0;
         Audio.AvailableAudioCodecs = Format.AvailableAudioCodecs;
         Audio.MaxSourceChannels = mediaInfo.AudioStreams
@@ -351,7 +354,9 @@ public partial class OutputSettingsViewModel : ObservableObject
         if (_mediaInfo is null)
             return;
 
-        var result = _validationService.Validate(settings, _mediaInfo, _trimmedDurationSeconds);
+        var result = _validationService.Validate(
+            settings, AudioTrackSelection.Apply(_mediaInfo, Audio.SelectedAudioStreamIndices),
+            _trimmedDurationSeconds);
         var allIssues = result.Issues;
 
         if (!string.IsNullOrEmpty(_resolvedOutputPath)
@@ -397,7 +402,7 @@ public partial class OutputSettingsViewModel : ObservableObject
         var audioBits = CompatibilityData.EstimateAudioBits(
             settings.AudioOptions.Mode,
             settings.AudioOptions.Bitrate,
-            _mediaInfo.AudioStreams,
+            AudioTrackSelection.Apply(_mediaInfo, Audio.SelectedAudioStreamIndices).AudioStreams,
             effectiveDuration);
 
         if (audioBits is null)
@@ -441,7 +446,7 @@ public partial class OutputSettingsViewModel : ObservableObject
         var audioBits = CompatibilityData.EstimateAudioBits(
             settings.AudioOptions.Mode,
             settings.AudioOptions.Bitrate,
-            _mediaInfo.AudioStreams,
+            AudioTrackSelection.Apply(_mediaInfo, Audio.SelectedAudioStreamIndices).AudioStreams,
             effectiveDuration);
 
         if (audioBits is null)

@@ -34,6 +34,28 @@
             </StackPanel>
         </Grid>
 
+        <Grid ColumnDefinitions="85,*" IsVisible="{Binding IsTrackSelectionVisible}">
+            <TextBlock Text="Tracks" VerticalAlignment="Top" Margin="0,6,0,0" />
+            <StackPanel Grid.Column="1" Spacing="4">
+                <CheckBox Content="All" IsChecked="{Binding AllAudioTracks}" />
+                <StackPanel Orientation="Horizontal" Spacing="6"
+                            IsVisible="{Binding IsCustomTrackSelection}">
+                    <Button Content="Select all" Command="{Binding SelectAllTracksCommand}" />
+                    <Button Content="Deselect all" Command="{Binding DeselectAllTracksCommand}" />
+                </StackPanel>
+                <ScrollViewer MaxHeight="180" IsVisible="{Binding IsCustomTrackSelection}"
+                              IsScrollChainingEnabled="False">
+                    <ItemsControl ItemsSource="{Binding AudioTracks}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:AudioTrackViewModel">
+                                <CheckBox Content="{Binding Label}" IsChecked="{Binding IsSelected}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </StackPanel>
+        </Grid>
+
         <!-- Re-encode controls (visible only in Reencode mode) -->
         <StackPanel Spacing="4" IsVisible="{Binding IsReencodeMode}">
             <Grid ColumnDefinitions="85,Auto,16,75,*">

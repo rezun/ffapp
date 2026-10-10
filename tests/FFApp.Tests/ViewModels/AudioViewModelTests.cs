@@ -6,6 +6,95 @@ namespace FFApp.Tests.ViewModels;
 
 public class AudioViewModelTests
 {
+
+    [Fact]
+    public void UpdateTracks_DefaultSelectsAll_AndCustomSelectionUsesSourceIndices()
+    {
+        var media = new FFApp.Tests.Builders.TestMediaInfoBuilder().WithAudioStreams(
+            new AudioStreamInfo(2, "aac", Channels: 2, Language: "eng"), new AudioStreamInfo(5, "ac3")).Build();
+        _sut.UpdateTracks(media);
+        _sut.AllAudioTracks.Should().BeTrue();
+        _sut.SelectedAudioStreamIndices.Should().BeNull();
+        _sut.AudioTracks[0].Label.Should().Contain("Track 1").And.Contain("eng").And.Contain("aac").And.Contain("2 channels");
+
+        _sut.AllAudioTracks = false;
+        _sut.AudioTracks[0].IsSelected = false;
+        _sut.SelectedAudioStreamIndices.Should().NotBeNull();
+        _sut.SelectedAudioStreamIndices.GetValueOrDefault().Should().Equal(5);
+        _sut.AllAudioTracks = true;
+        _sut.SelectedAudioStreamIndices.Should().BeNull();
+    }
+
+    [Fact]
+    public void UpdateTracks_RestoresSelection_AndNewSourceDefaultsToAll()
+    {
+        var media = new FFApp.Tests.Builders.TestMediaInfoBuilder().WithAudioStreams(new AudioStreamInfo(2), new AudioStreamInfo(5)).Build();
+        _sut.UpdateTracks(media, [5]);
+        _sut.AllAudioTracks.Should().BeFalse();
+        _sut.AudioTracks.Select(t => t.IsSelected).Should().Equal(false, true);
+        _sut.UpdateTracks(media, []);
+        _sut.SelectedAudioStreamIndices.GetValueOrDefault().Should().BeEmpty();
+        _sut.UpdateTracks(media);
+        _sut.SelectedAudioStreamIndices.Should().BeNull();
+    }
+
+    [Fact]
+    public void TrackSelection_NotifiesChanges_AndHidesWhenRemovingAudio()
+    {
+        var media = new FFApp.Tests.Builders.TestMediaInfoBuilder().Build();
+        _sut.UpdateTracks(media);
+        using var monitor = _sut.Monitor();
+        _sut.AllAudioTracks = false;
+        _sut.AudioTracks[0].IsSelected = false;
+        monitor.Should().RaisePropertyChangeFor(s => s.SelectedAudioStreamIndices);
+        _sut.SelectedAudioMode = AudioMode.Remove;
+        _sut.IsTrackSelectionVisible.Should().BeFalse();
+        _sut.SelectedAudioMode = AudioMode.Copy;
+        _sut.IsTrackSelectionVisible.Should().BeTrue();
+        _sut.UpdateTracks(media with { AudioStreams = [] });
+        _sut.IsTrackSelectionVisible.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void SelectAllTracks_SelectsEveryTrack_AndKeepsIndividualSelectionVisible(bool allMode)
+    {
+        var media = new FFApp.Tests.Builders.TestMediaInfoBuilder().WithAudioStreams(
+            new AudioStreamInfo(2), new AudioStreamInfo(5)).Build();
+        _sut.UpdateTracks(media, [5]);
+        _sut.AllAudioTracks = allMode;
+
+        _sut.SelectAllTracksCommand.Execute(null);
+
+        _sut.AudioTracks.Should().OnlyContain(t => t.IsSelected);
+        _sut.SelectedAudioStreamIndices.GetValueOrDefault().Should().Equal(2, 5);
+        _sut.IsCustomTrackSelection.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void DeselectAllTracks_ClearsEveryTrack_AndKeepsIndividualSelectionVisible(bool allMode)
+    {
+        var media = new FFApp.Tests.Builders.TestMediaInfoBuilder().WithAudioStreams(
+            new AudioStreamInfo(2), new AudioStreamInfo(5)).Build();
+        _sut.UpdateTracks(media);
+        _sut.AllAudioTracks = allMode;
+        using var monitor = _sut.Monitor();
+
+        _sut.DeselectAllTracksCommand.Execute(null);
+
+        _sut.AudioTracks.Should().OnlyContain(t => !t.IsSelected);
+        _sut.SelectedAudioStreamIndices.Should().NotBeNull();
+        _sut.SelectedAudioStreamIndices.GetValueOrDefault().Should().BeEmpty();
+        _sut.IsCustomTrackSelection.Should().BeTrue();
+        monitor.Should().RaisePropertyChangeFor(s => s.SelectedAudioStreamIndices);
+
+        _sut.SelectAllTracksCommand.Execute(null);
+        _sut.SelectedAudioStreamIndices.GetValueOrDefault().Should().Equal(2, 5);
+    }
+
     private readonly AudioViewModel _sut = new();
 
     [Fact]

@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 namespace FFApp.Core.Models;
 
 /// <summary>
@@ -12,7 +14,8 @@ public sealed record JobContext(
     CropRect? Crop = null,
     string? OutputDirectory = null,
     string? OutputFilename = null,
-    bool IsAutoName = false)
+    bool IsAutoName = false,
+    ImmutableArray<int>? SelectedAudioStreamIndices = null)
 {
     /// <summary>
     /// Effective duration in seconds accounting for trim points.

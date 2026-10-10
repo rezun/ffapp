@@ -59,6 +59,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
                 inputArgs.AddRange(["-t", FormatSeconds(duration)]);
         }
         var mappingArgs = BuildMappingArguments(job, mediaInfo);
+        mediaInfo = AudioTrackSelection.Apply(mediaInfo, job.SelectedAudioStreamIndices);
         var streamArgs = BuildStreamArguments(job, mediaInfo);
         var metadataCleanupArgs = BuildMetadataCleanupArguments(job, mediaInfo);
 
@@ -225,6 +226,13 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
 
         if (job.AudioOptions.Mode == AudioMode.Remove)
             arguments.AddRange(["-map", "-0:a?"]);
+        else if (job.SelectedAudioStreamIndices is { } selected)
+        {
+            if (selected.Any(index => !mediaInfo.AudioStreams.Any(stream => stream.Index == index)))
+                throw new CommandBuildException("Selected audio track does not exist in the source.");
+            foreach (var stream in mediaInfo.AudioStreams.Where(stream => !selected.Contains(stream.Index)))
+                arguments.AddRange(["-map", $"-0:{stream.Index}"]);
+        }
         var subtitlePolicy = StreamCompatibilityPolicy.ResolveSubtitlePolicy(
             job.Container,
             mediaInfo.SubtitleStreams,

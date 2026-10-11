@@ -11,6 +11,23 @@
         <conv:JobStateToColorConverter x:Key="StateToColor" />
     </UserControl.Resources>
 
+    <UserControl.Styles>
+        <Style Selector="ListBox#JobList TextBlock.queue-state" x:DataType="vm:JobItemViewModel">
+            <Setter Property="Foreground" Value="{Binding State, Converter={StaticResource StateToColor}}" />
+        </Style>
+        <Style Selector="ListBox#JobList ProgressBar">
+            <Setter Property="Foreground" Value="{DynamicResource SystemAccentColor}" />
+        </Style>
+        <!-- Use the theme's selection text color for every label and the progress fill. -->
+        <Style Selector="ListBox#JobList ListBoxItem:selected TextBlock" x:CompileBindings="False">
+            <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource FindAncestor, AncestorType=ContentPresenter, Tree=Visual}}" />
+        </Style>
+        <Style Selector="ListBox#JobList ListBoxItem:selected ProgressBar" x:CompileBindings="False">
+            <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource FindAncestor, AncestorType=ContentPresenter, Tree=Visual}}" />
+            <Setter Property="Background" Value="{Binding Background, RelativeSource={RelativeSource FindAncestor, AncestorType=ContentPresenter, Tree=Visual}}" />
+        </Style>
+    </UserControl.Styles>
+
     <Grid x:Name="QueueDetailGrid" RowDefinitions="3*,6,1*,Auto" Margin="4,8,8,8">
 
         <!-- Panel 1: Encode Queue -->
@@ -93,8 +110,8 @@
                                 <StackPanel Spacing="2">
                                     <DockPanel>
                                         <TextBlock DockPanel.Dock="Right"
+                                                   Classes="queue-state"
                                                    Text="{Binding State}"
-                                                   Foreground="{Binding State, Converter={StaticResource StateToColor}}"
                                                    Margin="8,0,0,0" />
                                         <TextBlock Text="{Binding DisplayLabel}"
                                                    TextTrimming="CharacterEllipsis" />
@@ -106,9 +123,7 @@
                                         <ProgressBar Value="{Binding Percentage}"
                                                      Minimum="0"
                                                      Maximum="100"
-                                                     Height="4"
-                                                     Foreground="{DynamicResource SystemAccentColor}"
-                                                     Opacity="0.9" />
+                                                     Height="4" />
                                     </StackPanel>
                                 </StackPanel>
                             </DataTemplate>

@@ -8,24 +8,57 @@
              x:CompileBindings="True"
              x:DataType="vm:JobItemDetailsViewModel">
 
-    <DockPanel IsVisible="{Binding SummaryText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+    <ScrollViewer IsVisible="{Binding SummaryText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                  HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="6">
 
-        <!-- Summary: "file.mp4 -> file_out.mkv (Pending)" -->
-        <TextBlock DockPanel.Dock="Top"
-                   Text="{Binding SummaryText}"
-                   FontWeight="SemiBold"
-                   TextWrapping="Wrap"
-                   Margin="0,0,0,4" />
+            <!-- Summary: "file.mp4 -> file_out.mkv (Pending)" -->
+            <TextBlock Text="{Binding SummaryText}"
+                       FontWeight="SemiBold"
+                       TextWrapping="Wrap"
+                       Margin="0,0,0,4" />
 
-        <!-- Command preview (fills remaining space, grows with splitter) -->
-        <TextBox Classes="mono caption"
-                 Text="{Binding CommandText, Mode=OneWay}"
-                 IsReadOnly="True"
-                 AcceptsReturn="True"
-                 TextWrapping="Wrap"
-                 MinHeight="40"
-                 PlaceholderText="Commands will appear here."
-                 BorderThickness="1" />
+            <Border x:Name="FailurePanel"
+                    IsVisible="{Binding HasFailure}"
+                    BorderBrush="{DynamicResource ValidationErrorBrush}"
+                    BorderThickness="3,0,0,0"
+                    Padding="8,4">
+                <StackPanel Spacing="6">
+                    <TextBlock x:Name="FailureTitle" Text="{Binding Failure.Title}"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource ValidationErrorBrush}"
+                               TextWrapping="Wrap" />
+                    <SelectableTextBlock x:Name="FailureMessage" Text="{Binding Failure.Message}"
+                                         TextWrapping="Wrap" />
+                    <SelectableTextBlock x:Name="FailureSuggestion" Text="{Binding Failure.Suggestion}"
+                                         TextWrapping="Wrap" />
+                    <TextBlock Classes="caption secondary" Text="{Binding Failure.Context}"
+                               IsVisible="{Binding Failure.Context, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                               TextWrapping="Wrap" />
+                    <Expander Header="Error details"
+                              IsVisible="{Binding Failure.TechnicalDetails, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                              HorizontalAlignment="Stretch">
+                        <TextBox Classes="mono caption"
+                                 Text="{Binding Failure.TechnicalDetails, Mode=OneWay}"
+                                 IsReadOnly="True" AcceptsReturn="True"
+                                 TextWrapping="Wrap" MaxHeight="140" />
+                    </Expander>
+                </StackPanel>
+            </Border>
 
-    </DockPanel>
+            <Expander x:Name="CommandExpander" Header="Command"
+                      IsExpanded="{Binding IsCommandExpanded, Mode=TwoWay}"
+                      HorizontalAlignment="Stretch">
+                <TextBox Classes="mono caption"
+                         Text="{Binding CommandText, Mode=OneWay}"
+                         IsReadOnly="True"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap"
+                         MinHeight="40"
+                         MaxHeight="160"
+                         PlaceholderText="Commands will appear here."
+                         BorderThickness="1" />
+            </Expander>
+        </StackPanel>
+    </ScrollViewer>
 </UserControl>

@@ -7,7 +7,7 @@ using FFApp.Helpers;
 
 namespace FFApp.ViewModels;
 
-public partial class JobItemViewModel : ObservableObject
+public sealed partial class JobItemViewModel : ObservableObject
 {
     private readonly StringBuilder _logBuilder = new();
 
@@ -34,6 +34,12 @@ public partial class JobItemViewModel : ObservableObject
     [ObservableProperty]
     private JobResult? _result;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasFailure))]
+    private JobFailure? _failure;
+
+    public bool HasFailure => Failure is not null;
+
     public JobItemViewModel(string id, SourceMediaInfo mediaInfo, QueuedJob queuedJob, string displayLabel)
     {
         Id = id;
@@ -51,6 +57,7 @@ public partial class JobItemViewModel : ObservableObject
         _logBuilder.Clear();
         LogText = "";
         Result = null;
+        Failure = null;
     }
 
     public void UpdateProgress(JobProgress progress)
@@ -76,9 +83,16 @@ public partial class JobItemViewModel : ObservableObject
     {
         State = result.State;
         Result = result;
+        Failure = result.State == JobState.Failed ? JobFailureAnalyzer.Analyze(result) : null;
 
         if (result.State == JobState.Completed)
             Percentage = 100;
+    }
+
+    public void UpdateFailure(string? message)
+    {
+        State = JobState.Failed;
+        Failure = JobFailureAnalyzer.Analyze(null, message);
     }
 
     public void AppendLog(string line)
@@ -88,7 +102,7 @@ public partial class JobItemViewModel : ObservableObject
     }
 }
 
-public partial class JobItemDetailsViewModel : ObservableObject
+public sealed partial class JobItemDetailsViewModel : ObservableObject
 {
     public static readonly FuncValueConverter<bool, string> ExpandCollapseConverter =
         new(expanded => expanded ? "\u25BC Collapse" : "\u25B6 Expand");
@@ -107,6 +121,15 @@ public partial class JobItemDetailsViewModel : ObservableObject
     [ObservableProperty]
     private bool _isLogExpanded;
 
+    [ObservableProperty]
+    private bool _isCommandExpanded = true;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasFailure))]
+    private JobFailure? _failure;
+
+    public bool HasFailure => Failure is not null;
+
     [RelayCommand]
     private void ToggleLogExpanded() => IsLogExpanded = !IsLogExpanded;
 
@@ -116,6 +139,7 @@ public partial class JobItemDetailsViewModel : ObservableObject
             _trackedItem.PropertyChanged -= OnTrackedItemPropertyChanged;
 
         _trackedItem = item;
+        IsCommandExpanded = item?.HasFailure != true;
 
         if (_trackedItem is not null)
             _trackedItem.PropertyChanged += OnTrackedItemPropertyChanged;
@@ -127,6 +151,8 @@ public partial class JobItemDetailsViewModel : ObservableObject
     {
         if (e.PropertyName is nameof(JobItemViewModel.LogText)
             or nameof(JobItemViewModel.State)
+            or nameof(JobItemViewModel.Failure)
+            or nameof(JobItemViewModel.Result)
             or nameof(JobItemViewModel.ProgressText))
         {
             Refresh();
@@ -141,15 +167,19 @@ public partial class JobItemDetailsViewModel : ObservableObject
             SummaryText = "";
             CommandText = "";
             LogText = "";
+            Failure = null;
             return;
         }
 
         var job = item.QueuedJob.Job;
+        if (!HasFailure && item.HasFailure)
+            IsCommandExpanded = false;
+        Failure = item.Failure;
         SummaryText = $"{Path.GetFileName(job.SourcePath)} -> {Path.GetFileName(job.OutputPath)} ({item.State})";
         CommandText = string.Join(
             Environment.NewLine + Environment.NewLine,
             item.QueuedJob.Commands.Select(c => c.DisplayString));
 
-        LogText = item.LogText;
+        LogText = string.IsNullOrEmpty(item.LogText) ? item.Result?.LogOutput ?? "" : item.LogText;
     }
 }

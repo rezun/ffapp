@@ -28,7 +28,7 @@
         </Style>
     </UserControl.Styles>
 
-    <Grid x:Name="QueueDetailGrid" RowDefinitions="3*,6,1*,Auto" Margin="4,8,8,8">
+    <Grid x:Name="QueueDetailGrid" RowDefinitions="2*,6,1*,Auto" Margin="4,8,8,8">
 
         <!-- Panel 1: Encode Queue -->
         <Border Grid.Row="0" Classes="card" MinHeight="200">
@@ -116,6 +116,13 @@
                                         <TextBlock Text="{Binding DisplayLabel}"
                                                    TextTrimming="CharacterEllipsis" />
                                     </DockPanel>
+                                    <TextBlock Classes="caption queue-state"
+                                               Text="{Binding Failure.Message}"
+                                               IsVisible="{Binding HasFailure}"
+                                               TextWrapping="Wrap"
+                                               MaxLines="2"
+                                               TextTrimming="CharacterEllipsis"
+                                               ToolTip.Tip="{Binding Failure.Message}" />
                                     <StackPanel Spacing="2"
                                                 IsVisible="{Binding ProgressText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                                         <TextBlock Classes="caption secondary"

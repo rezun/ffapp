@@ -373,11 +373,14 @@ public partial class JobListPanelViewModel : ObservableObject
                             vm.State = queueItem.State;
                             if (queueItem.Result is { } result)
                                 vm.UpdateResult(result);
+                            else if (queueItem.State == JobState.Failed)
+                                vm.UpdateFailure(queueItem.FailureMessage);
                         }
                         // Track next running job for status bar
                         var nextRunning = Jobs.FirstOrDefault(j => j.State == JobState.Running);
                         if (nextRunning is not null)
                             UpdateStatusFromRunningJob(nextRunning);
+                        UpdateSummary();
                     });
                 },
                 logCallback: (queueItem, line) =>

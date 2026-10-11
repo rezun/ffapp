@@ -27,7 +27,11 @@ public sealed class QueueTestSession : IDisposable
     public void Dispose() => Session.Dispose();
 }
 
-public sealed class QueueSelectionStyleTests(QueueTestSession fixture) : IClassFixture<QueueTestSession>
+[CollectionDefinition("Queue UI")]
+public sealed class QueueTestCollection : ICollectionFixture<QueueTestSession>;
+
+[Collection("Queue UI")]
+public sealed class QueueSelectionStyleTests(QueueTestSession fixture)
 {
     // Fluent's default blue with white text yields approximately 4.499:1.
     private static readonly double MinimumThemeTextContrast = 4.49;
@@ -59,6 +63,8 @@ public sealed class QueueSelectionStyleTests(QueueTestSession fixture) : IClassF
             Percentage = 28.8,
             ProgressText = "28.8% | 2.1x | 16:35 | ~41:01 left",
         };
+        if (state == JobState.Failed)
+            item.UpdateFailure("libopus cannot encode audio at 44.1 kHz.");
         var view = new JobListPanelView();
         var list = view.FindControl<ListBox>("JobList")
             ?? throw new InvalidOperationException("Queue list is missing.");
@@ -85,9 +91,10 @@ public sealed class QueueSelectionStyleTests(QueueTestSession fixture) : IClassF
             var texts = row.GetVisualDescendants().OfType<TextBlock>()
                 .Where(text => string.Equals(text.Text, item.DisplayLabel, StringComparison.Ordinal)
                     || string.Equals(text.Text, item.State.ToString(), StringComparison.Ordinal)
-                    || string.Equals(text.Text, item.ProgressText, StringComparison.Ordinal))
+                    || string.Equals(text.Text, item.ProgressText, StringComparison.Ordinal)
+                    || (item.HasFailure && string.Equals(text.Text, item.Failure?.Message, StringComparison.Ordinal)))
                 .ToArray();
-            texts.Should().HaveCount(3);
+            texts.Should().HaveCount(item.HasFailure ? 4 : 3);
             var progress = row.GetVisualDescendants().OfType<ProgressBar>().Single();
             var originalTextColors = texts.Select(text => ColorOf(text.Foreground)).ToArray();
             var originalProgressColor = ColorOf(progress.Foreground);

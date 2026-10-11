@@ -17,6 +17,33 @@ public class SettingsSerializerTests
 
     // --- Round-trip tests ---
 
+    [Theory]
+    [InlineData(AudioCodec.Opus, 12000)]
+    [InlineData(AudioCodec.Opus, 24000)]
+    [InlineData(AudioCodec.Opus, 48000)]
+    [InlineData(AudioCodec.Mp3, 44100)]
+    [InlineData(AudioCodec.Aac, 96000)]
+    [InlineData(AudioCodec.Opus, null)]
+    public void RoundTrip_AudioSampleRate_PreservesExplicitOrAutoValue(AudioCodec codec, int? rate)
+    {
+        var original = new TestOutputSettingsBuilder().WithAudioReencode(codec, 128_000, sampleRate: rate).Build();
+
+        RoundTrip(original).AudioOptions.SampleRate.Should().Be(rate);
+    }
+
+    [Fact]
+    public void Deserialize_MissingAudioSampleRate_DefaultsToAuto()
+    {
+        var json = SettingsSerializer.SerializeOutputSettings(
+            new TestOutputSettingsBuilder().WithAudioReencode(AudioCodec.Opus, 128_000).Build());
+        var audio = json["audio_options"] as System.Text.Json.Nodes.JsonObject
+            ?? throw new InvalidOperationException("Audio settings missing.");
+        audio.Remove("sample_rate");
+        using var document = JsonDocument.Parse(json.ToJsonString());
+
+        SettingsSerializer.DeserializeOutputSettings(document.RootElement).AudioOptions.SampleRate.Should().BeNull();
+    }
+
     [Fact]
     public void RoundTrip_DefaultOutputSettings_Identical()
     {

@@ -86,6 +86,61 @@ public class ValidationServiceTests
 
     // ── Audio validation ────────────────────────────────────────────────
 
+    [Theory]
+    [InlineData(AudioCodec.Opus, 44100)]
+    [InlineData(AudioCodec.Opus, 22050)]
+    [InlineData(AudioCodec.Opus, 96000)]
+    [InlineData(AudioCodec.Mp3, 96000)]
+    [InlineData(AudioCodec.Aac, 12345)]
+    [InlineData(AudioCodec.Aac, 0)]
+    [InlineData(AudioCodec.Vorbis, -1)]
+    [InlineData(AudioCodec.Vorbis, 200001)]
+    public void Validate_UnsupportedAudioSampleRate_ReturnsFieldError(AudioCodec codec, int rate)
+    {
+        var settings = new TestOutputSettingsBuilder().WithContainer(OutputContainer.Mkv)
+            .WithAudioReencode(codec, 128_000, sampleRate: rate).Build();
+
+        var result = _sut.Validate(settings, new TestMediaInfoBuilder().Build());
+
+        var issue = result.Errors.Should().ContainSingle(issue => issue.Code == "audio_sample_rate_unsupported").Subject;
+        issue.FieldName.Should().Be("audio_sample_rate");
+        issue.Message.Should().Contain(rate.ToString()).And.Contain(codec.ToString()).And.Contain("Auto");
+    }
+
+    [Theory]
+    [InlineData(AudioCodec.Opus, 8000)]
+    [InlineData(AudioCodec.Opus, 12000)]
+    [InlineData(AudioCodec.Opus, 16000)]
+    [InlineData(AudioCodec.Opus, 24000)]
+    [InlineData(AudioCodec.Opus, 48000)]
+    [InlineData(AudioCodec.Mp3, 44100)]
+    [InlineData(AudioCodec.Aac, 96000)]
+    [InlineData(AudioCodec.Vorbis, 12345)]
+    [InlineData(AudioCodec.Vorbis, 200000)]
+    [InlineData(AudioCodec.Opus, null)]
+    public void Validate_SupportedOrAutomaticAudioSampleRate_NoRateError(AudioCodec codec, int? rate)
+    {
+        var settings = new TestOutputSettingsBuilder().WithContainer(OutputContainer.Mkv)
+            .WithAudioReencode(codec, 128_000, sampleRate: rate).Build();
+
+        var result = _sut.Validate(settings, new TestMediaInfoBuilder().Build());
+
+        HasIssueWithCode(result, "audio_sample_rate_unsupported").Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(AudioMode.Copy)]
+    [InlineData(AudioMode.Remove)]
+    public void Validate_NonReencodeMode_DoesNotCheckEncoderSampleRates(AudioMode mode)
+    {
+        var settings = new TestOutputSettingsBuilder()
+            .WithAudio(new AudioOptions(mode, AudioCodec.Opus, SampleRate: 44100)).Build();
+
+        var result = _sut.Validate(settings, new TestMediaInfoBuilder().Build());
+
+        HasIssueWithCode(result, "audio_sample_rate_unsupported").Should().BeFalse();
+    }
+
     [Fact]
     public void Validate_ReencodeModeMissingCodec_ReturnsAudioCodecRequired()
     {

@@ -33,7 +33,7 @@ public static class EnumLabelConverters
     public static readonly FuncValueConverter<int, string> AudioSampleRateOption =
         new(v => v switch
         {
-            0 => "Source",
+            0 => "Auto",
             _ => $"{v / 1000.0:G} kHz",
         });
 

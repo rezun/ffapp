@@ -3,10 +3,11 @@ using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using FFApp.Core.Models;
+using FFApp.Core.Validation;
 
 namespace FFApp.ViewModels;
 
-public partial class AudioViewModel : ObservableObject
+public sealed partial class AudioViewModel : ObservableObject
 {
     [ObservableProperty]
     private bool _allAudioTracks = true;
@@ -82,9 +83,7 @@ public partial class AudioViewModel : ObservableObject
     private int _selectedSampleRate;
 
     [ObservableProperty]
-    private IReadOnlyList<int> _availableSampleRateOptions = [0, 8000, 22050, 44100, 48000];
-
-    private static readonly int[] AllSampleRateOptions = [0, 8000, 22050, 44100, 48000, 96000];
+    private IReadOnlyList<int> _availableSampleRateOptions = [0, .. CompatibilityData.AudioSampleRateOptions[AudioCodec.Aac]];
 
     [ObservableProperty]
     private IReadOnlyList<AudioCodec> _availableAudioCodecs = [];
@@ -172,13 +171,28 @@ public partial class AudioViewModel : ObservableObject
             if (!SetProperty(ref _maxSourceSampleRate, value))
                 return;
 
-            AvailableSampleRateOptions = AllSampleRateOptions
-                .Where(r => r == 0 || r <= value)
-                .ToArray();
-
-            if (!AvailableSampleRateOptions.Contains(SelectedSampleRate))
-                SelectedSampleRate = 0;
+            UpdateSampleRateOptions();
         }
+    }
+
+    partial void OnSelectedAudioCodecChanged(AudioCodec? value) => UpdateSampleRateOptions();
+
+    partial void OnSelectedSampleRateChanged(int value)
+    {
+        // Presets and session restore also assign through this property.
+        if (!AvailableSampleRateOptions.Contains(value))
+            SelectedSampleRate = 0;
+    }
+
+    private void UpdateSampleRateOptions()
+    {
+        var selectedRate = SelectedSampleRate;
+        var codecRates = SelectedAudioCodec is { } codec
+            ? CompatibilityData.AudioSampleRateOptions[codec]
+            : [];
+        AvailableSampleRateOptions = [0, .. codecRates
+            .Where(rate => MaxSourceSampleRate <= 0 || rate <= MaxSourceSampleRate)];
+        SelectedSampleRate = AvailableSampleRateOptions.Contains(selectedRate) ? selectedRate : 0;
     }
 
     [ObservableProperty]

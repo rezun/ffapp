@@ -68,6 +68,37 @@ public class OutputSettingsViewModelTests
         settings.AudioOptions.SampleRate.Should().BeNull();
     }
 
+    [Theory]
+    [InlineData(AudioCodec.Opus, 44100)]
+    [InlineData(AudioCodec.Mp3, 96000)]
+    public void ApplySettings_LegacyInvalidSampleRate_BuildsAutoInstead(AudioCodec codec, int rate)
+    {
+        _sut.UpdateSourceInfo(new TestMediaInfoBuilder().WithAudioStreams(new AudioStreamInfo(1, "aac", SampleRate: 96000)).Build());
+        var preset = new TestOutputSettingsBuilder().WithContainer(OutputContainer.Mkv)
+            .WithAudioReencode(codec, 128_000, sampleRate: rate).Build();
+        var json = FFApp.Infrastructure.Serialization.SettingsSerializer.SerializeOutputSettings(preset);
+        using var document = System.Text.Json.JsonDocument.Parse(json.ToJsonString());
+        var restored = FFApp.Infrastructure.Serialization.SettingsSerializer.DeserializeOutputSettings(document.RootElement);
+
+        _sut.ApplySettings(restored);
+
+        _sut.Audio.SelectedSampleRate.Should().Be(0);
+        _sut.Audio.AvailableSampleRateOptions.Should().NotContain(rate);
+        _sut.BuildSettings().AudioOptions.SampleRate.Should().BeNull();
+    }
+
+    [Fact]
+    public void ApplySettings_ValidOpusRate_PreservesSelectionAndOutputSettings()
+    {
+        _sut.UpdateSourceInfo(new TestMediaInfoBuilder().Build());
+        var settings = new TestOutputSettingsBuilder().WithAudioReencode(AudioCodec.Opus, 128_000, sampleRate: 24000).Build();
+
+        _sut.ApplySettings(settings);
+
+        _sut.Audio.SelectedSampleRate.Should().Be(24000);
+        _sut.BuildSettings().AudioOptions.SampleRate.Should().Be(24000);
+    }
+
     [Fact]
     public void BuildSettings_AfterContainerChange_ReflectsNewContainer()
     {

@@ -563,6 +563,39 @@ public class CommandBuilderTests
         args.Should().Contain("-c:a libopus -b:a 96000");
     }
 
+    [Theory]
+    [InlineData(AudioCodec.Opus, 12000)]
+    [InlineData(AudioCodec.Opus, 48000)]
+    [InlineData(AudioCodec.Mp3, 44100)]
+    [InlineData(AudioCodec.Aac, 96000)]
+    public void Build_SupportedAudioSampleRate_EmitsAr(AudioCodec codec, int rate)
+    {
+        var job = JobWith(s => s.WithAudioReencode(codec, 128_000, sampleRate: rate));
+
+        JoinArgs(_sut.Build(job, DefaultMedia())[0]).Should().Contain($"-ar {rate}");
+    }
+
+    [Theory]
+    [InlineData(AudioCodec.Opus, 44100)]
+    [InlineData(AudioCodec.Mp3, 96000)]
+    [InlineData(AudioCodec.Aac, -1)]
+    public void Build_UnsupportedAudioSampleRate_ThrowsBeforeExecution(AudioCodec codec, int rate)
+    {
+        var job = JobWith(s => s.WithAudioReencode(codec, 128_000, sampleRate: rate));
+        var act = () => _sut.Build(job, DefaultMedia());
+
+        act.Should().Throw<CommandBuildException>().WithMessage($"*{rate} Hz*{codec}*");
+    }
+
+    [Fact]
+    public void Build_AutoOpusSampleRate_OmitsArEvenWhenSourceIs44100()
+    {
+        var job = JobWith(s => s.WithAudioReencode(AudioCodec.Opus, 128_000));
+        var media = new TestMediaInfoBuilder().WithAudioStreams(new AudioStreamInfo(1, "aac", SampleRate: 44100)).Build();
+
+        _sut.Build(job, media)[0].Arguments.Should().NotContain("-ar");
+    }
+
     [Fact]
     public void Build_AudioReencode_WithChannels_AddsAcFlag()
     {

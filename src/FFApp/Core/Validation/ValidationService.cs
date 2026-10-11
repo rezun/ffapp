@@ -414,6 +414,16 @@ public sealed class ValidationService : IValidationService
 
         if (mode is AudioMode.Reencode)
         {
+            if (settings.AudioOptions.Codec is { } codec
+                && settings.AudioOptions.SampleRate is { } sampleRate
+                && !IsAudioSampleRateSupported(codec, sampleRate))
+            {
+                issues.Add(new ValidationIssue(
+                    ValidationSeverity.Error,
+                    "audio_sample_rate_unsupported",
+                    $"Sample rate {sampleRate} Hz is not supported by {codec}. Choose Auto or a supported sample rate.",
+                    "audio_sample_rate"));
+            }
             if (settings.AudioOptions.Codec is null)
             {
                 issues.Add(new ValidationIssue(

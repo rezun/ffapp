@@ -108,9 +108,10 @@
                     </ctrl:NoWheelComboBox.ItemTemplate>
                 </ctrl:NoWheelComboBox>
                 <TextBlock Grid.Column="3" Text="Sample Rate" VerticalAlignment="Center" />
-                <ctrl:NoWheelComboBox Grid.Column="4"
+                <ctrl:NoWheelComboBox x:Name="SampleRateComboBox" Grid.Column="4"
                     Width="104"
                     HorizontalAlignment="Left"
+                    ToolTip.Tip="Auto lets the encoder choose a supported sample rate. Only rates supported by the codec are listed."
                     ItemsSource="{Binding AvailableSampleRateOptions}"
                     SelectedItem="{Binding SelectedSampleRate}">
                     <ctrl:NoWheelComboBox.ItemTemplate>

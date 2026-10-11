@@ -53,6 +53,26 @@ public static class CompatibilityData
             [OutputContainer.OpusFile] = [AudioCodec.Opus],
         }.ToFrozenDictionary();
 
+    // Rates advertised by FFmpeg's aac, libmp3lame and libopus encoders.
+    // libvorbis supports a continuous range; offer common rates in the UI.
+    public static readonly FrozenDictionary<AudioCodec, IReadOnlyList<int>> AudioSampleRateOptions =
+        new Dictionary<AudioCodec, IReadOnlyList<int>>
+        {
+            [AudioCodec.Aac] = [7350, 8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000, 64000, 88200, 96000],
+            [AudioCodec.Mp3] = [8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000],
+            [AudioCodec.Opus] = [8000, 12000, 16000, 24000, 48000],
+            [AudioCodec.Vorbis] = [8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000, 64000, 88200, 96000],
+        }.ToFrozenDictionary();
+
+    public static readonly int VorbisSampleRateMax = 200_000;
+
+    public static bool IsAudioSampleRateSupported(AudioCodec codec, int sampleRate) => codec switch
+    {
+        AudioCodec.Aac or AudioCodec.Mp3 or AudioCodec.Opus => AudioSampleRateOptions[codec].Contains(sampleRate),
+        AudioCodec.Vorbis => sampleRate > 0 && sampleRate <= VorbisSampleRateMax,
+        _ => throw new ArgumentOutOfRangeException(nameof(codec), codec, "Unsupported audio codec."),
+    };
+
     public static readonly FrozenSet<OutputContainer> AudioOnlyContainers =
         FrozenSet.ToFrozenSet([OutputContainer.M4a, OutputContainer.Mka, OutputContainer.OpusFile]);
 

@@ -436,7 +436,11 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
             arguments.AddRange(["-ac", channels.ToString()]);
 
         if (job.AudioOptions.SampleRate is { } sampleRate)
-            arguments.AddRange(["-ar", sampleRate.ToString()]);
+        {
+            if (!CompatibilityData.IsAudioSampleRateSupported(codec.Value, sampleRate))
+                throw new CommandBuildException($"Sample rate {sampleRate} Hz is not supported by {codec.Value}.");
+            arguments.AddRange(["-ar", sampleRate.ToString(CultureInfo.InvariantCulture)]);
+        }
 
         return arguments;
     }

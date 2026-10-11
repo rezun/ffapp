@@ -97,6 +97,111 @@ public class AudioViewModelTests
 
     private readonly AudioViewModel _sut = new();
 
+    [Theory]
+    [InlineData(AudioCodec.Aac)]
+    [InlineData(AudioCodec.Mp3)]
+    [InlineData(AudioCodec.Opus)]
+    [InlineData(AudioCodec.Vorbis)]
+    public void SampleRateOptions_AreSupportedBySelectedCodec(AudioCodec codec)
+    {
+        _sut.MaxSourceSampleRate = 96000;
+        _sut.SelectedAudioCodec = codec;
+
+        _sut.AvailableSampleRateOptions.Should().StartWith(0);
+        _sut.AvailableSampleRateOptions.Skip(1).Should().OnlyContain(rate =>
+            FFApp.Core.Validation.CompatibilityData.IsAudioSampleRateSupported(codec, rate));
+    }
+
+    [Fact]
+    public void SampleRateOptions_Opus_ContainAllSupportedRatesAndAuto()
+    {
+        _sut.MaxSourceSampleRate = 96000;
+        _sut.SelectedAudioCodec = AudioCodec.Opus;
+
+        _sut.AvailableSampleRateOptions.Should().Equal(0, 8000, 12000, 16000, 24000, 48000);
+    }
+
+    [Fact]
+    public void SampleRateOptions_Mp3_DoNotOffer96Khz()
+    {
+        _sut.MaxSourceSampleRate = 96000;
+        _sut.SelectedAudioCodec = AudioCodec.Mp3;
+
+        _sut.AvailableSampleRateOptions.Should().Contain(44100).And.Contain(48000).And.NotContain(96000);
+    }
+
+    [Fact]
+    public void CodecChange_ResetsUnsupportedSampleRateToAutoAndNotifiesOptions()
+    {
+        _sut.MaxSourceSampleRate = 48000;
+        _sut.SelectedSampleRate = 44100;
+        using var monitor = _sut.Monitor();
+
+        _sut.SelectedAudioCodec = AudioCodec.Opus;
+
+        _sut.SelectedSampleRate.Should().Be(0);
+        _sut.AvailableSampleRateOptions.Should().NotContain(44100).And.NotContain(22050);
+        monitor.Should().RaisePropertyChangeFor(vm => vm.AvailableSampleRateOptions);
+        monitor.Should().RaisePropertyChangeFor(vm => vm.SelectedSampleRate);
+    }
+
+    [Fact]
+    public void CodecChange_PreservesSupportedSampleRate()
+    {
+        _sut.MaxSourceSampleRate = 48000;
+        _sut.SelectedSampleRate = 48000;
+
+        _sut.SelectedAudioCodec = AudioCodec.Opus;
+
+        _sut.SelectedSampleRate.Should().Be(48000);
+    }
+
+    [Theory]
+    [InlineData(44100)]
+    [InlineData(22050)]
+    [InlineData(96000)]
+    [InlineData(-1)]
+    public void AssigningUnsupportedOpusRate_ResetsToAuto(int rate)
+    {
+        _sut.SelectedAudioCodec = AudioCodec.Opus;
+        _sut.SelectedSampleRate = rate;
+
+        _sut.SelectedSampleRate.Should().Be(0);
+    }
+
+    [Fact]
+    public void SourceRateChange_CombinesSourceLimitWithCodecSupport()
+    {
+        _sut.SelectedAudioCodec = AudioCodec.Opus;
+        _sut.MaxSourceSampleRate = 48000;
+        _sut.SelectedSampleRate = 48000;
+
+        _sut.MaxSourceSampleRate = 44100;
+
+        _sut.AvailableSampleRateOptions.Should().Equal(0, 8000, 12000, 16000, 24000);
+        _sut.SelectedSampleRate.Should().Be(0);
+    }
+
+    [Fact]
+    public void UnknownSourceRate_StillOffersCodecSupportedRates()
+    {
+        _sut.MaxSourceSampleRate = 48000;
+        _sut.SelectedAudioCodec = AudioCodec.Opus;
+        _sut.MaxSourceSampleRate = 0;
+
+        _sut.AvailableSampleRateOptions.Should().Equal(0, 8000, 12000, 16000, 24000, 48000);
+    }
+
+    [Fact]
+    public void NoCodec_OffersOnlyAutoAndClearsExplicitRate()
+    {
+        _sut.SelectedSampleRate = 44100;
+        _sut.SelectedAudioCodec = null;
+
+        _sut.AvailableSampleRateOptions.Should().Equal(0);
+        _sut.SelectedSampleRate.Should().Be(0);
+    }
+
     [Fact]
     public void Default_ModeIsCopy()
     {

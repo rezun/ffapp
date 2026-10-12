@@ -897,16 +897,13 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
             parts.Add($"mbr={q.MaxBitrateKbps}k");
         }
 
-        // Always enable scene change detection
-        parts.Add("scd=1");
-
         if (job.VideoEncoderOptions is Av1EncoderOptions avEnc
             && !string.IsNullOrWhiteSpace(avEnc.AdditionalOptions))
         {
             parts.Add(avEnc.AdditionalOptions.Trim());
         }
 
-        return ["-svtav1-params", string.Join(":", parts)];
+        return parts.Count > 0 ? ["-svtav1-params", string.Join(":", parts)] : [];
     }
 
     private static List<string> BuildX265HdrParts(VideoStreamInfo video)

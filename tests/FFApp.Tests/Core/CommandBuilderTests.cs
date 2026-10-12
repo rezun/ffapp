@@ -1589,14 +1589,15 @@ public class CommandBuilderTests
     }
 
     [Fact]
-    public void Build_Av1Quality_EncoderDefaults_OnlyEmitsScd()
+    public void Build_Av1Quality_EncoderDefaults_OmitsSvtAv1Params()
     {
-        // When tuning values match SVT-AV1 encoder defaults, only scd is emitted
+        // When tuning values match SVT-AV1 encoder defaults, no parameter overrides are emitted
         var job = JobWith(s => s.WithAv1()
             .WithQuality(new Av1QualityOptions(Tune: 1, EnableOverlays: 0, Scm: 2)));
         var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
 
-        args.Should().Contain("scd=1");
+        args.Should().NotContain("scd=");
+        args.Should().NotContain("-svtav1-params");
         args.Should().NotContain("enable-qm=");
         args.Should().NotContain("qm-min=");
         args.Should().NotContain("qm-max=");

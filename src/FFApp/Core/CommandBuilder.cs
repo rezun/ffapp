@@ -900,13 +900,6 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         // Always enable scene change detection
         parts.Add("scd=1");
 
-        // Quantization matrices for perceptual quality improvement
-        parts.Add("enable-qm=1");
-        parts.Add("qm-min=2");
-        parts.Add("qm-max=15");
-
-        parts.Add("luminance-qp-bias=10");
-
         if (job.VideoEncoderOptions is Av1EncoderOptions avEnc
             && !string.IsNullOrWhiteSpace(avEnc.AdditionalOptions))
         {

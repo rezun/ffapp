@@ -22,6 +22,16 @@
     <Application.Styles>
         <FluentTheme />
 
+        <Style Selector=":is(Control)">
+            <Setter Property="ToolTip.ShowOnDisabled" Value="True" />
+        </Style>
+        <Style Selector="ToolTip">
+            <Setter Property="MaxWidth" Value="420" />
+        </Style>
+        <Style Selector="ToolTip /template/ ContentPresenter">
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
         <!-- Compact global defaults -->
         <Style Selector="TextBlock">
             <Setter Property="FontSize" Value="12" />

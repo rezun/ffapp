@@ -12,6 +12,7 @@
             <Grid ColumnDefinitions="85,*,Auto">
                 <TextBlock Text="CRF" VerticalAlignment="Center" />
                 <Slider Grid.Column="1"
+                        ToolTip.Tip="Constant Rate Factor: lower values retain more detail and produce larger files; higher values compress more. File size varies with the source."
                         Value="{Binding Crf}"
                         Minimum="0" Maximum="51"
                         TickFrequency="1" IsSnapToTickEnabled="True"
@@ -29,6 +30,7 @@
             <Grid ColumnDefinitions="85,*,Auto">
                 <TextBlock Text="CRF" VerticalAlignment="Center" />
                 <Slider Grid.Column="1"
+                        ToolTip.Tip="Constant Rate Factor: lower values retain more detail and produce larger files; higher values compress more. File size varies with the source."
                         Value="{Binding Crf}"
                         Minimum="0" Maximum="63"
                         TickFrequency="1" IsSnapToTickEnabled="True"
@@ -47,6 +49,7 @@
                 <Grid ColumnDefinitions="85,*,Auto">
                     <TextBlock Text="Quality" VerticalAlignment="Center" />
                     <Slider Grid.Column="1"
+                            ToolTip.Tip="VP9 quality value: lower values retain more detail and produce larger files; higher values compress more. File size varies with the source."
                             Value="{Binding Quality}"
                             Minimum="0" Maximum="63"
                             TickFrequency="1" IsSnapToTickEnabled="True"
@@ -58,6 +61,7 @@
                     </TextBlock>
                 </Grid>
                 <CheckBox Content="Use 2-pass encode"
+                          ToolTip.Tip="Analyze the video in a first pass, then encode it in a second pass. This improves bitrate allocation across scenes but takes longer."
                           IsChecked="{Binding TwoPass}"
                           Margin="85,0,0,0" />
             </StackPanel>

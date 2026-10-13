@@ -34,6 +34,7 @@
                         ToolTip.Tip="Copy command with $input placeholder instead of actual paths"
                         Margin="0,0,4,0" />
                 <Button Grid.Column="4"
+                        ToolTip.Tip="Show or hide the generated FFmpeg command."
                         Classes="sm"
                         Content="{Binding IsExpanded, Converter={x:Static vm:CommandPreviewViewModel.ExpandCollapseConverter}}"
                         Command="{Binding ToggleExpandedCommand}" />
@@ -42,6 +43,7 @@
 
             <!-- Expandable content -->
             <TextBox IsVisible="{Binding IsExpanded}"
+                     ToolTip.Tip="Generated command for the selected job or current settings. Read-only; select text to copy it."
                      Classes="mono"
                      Text="{Binding CommandText, Mode=OneWay}"
                      IsReadOnly="True"

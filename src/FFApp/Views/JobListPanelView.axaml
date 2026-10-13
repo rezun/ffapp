@@ -52,11 +52,13 @@
                             </SplitButton.Flyout>
                         </SplitButton>
                         <Button Grid.Column="1"
+                                ToolTip.Tip="Start encoding the pending jobs in the queue."
                                 Classes="accent sm"
                                 Content="Start"
                                 Command="{Binding StartCommand}"
                                 IsVisible="{Binding !IsRunning}" />
                         <Button Grid.Column="1"
+                                ToolTip.Tip="Pause before the next job or resume the queue. The active encode continues until it finishes."
                                 Classes="warning sm"
                                 Command="{Binding PauseResumeCommand}"
                                 IsVisible="{Binding IsRunning}">
@@ -66,6 +68,7 @@
                             </Panel>
                         </Button>
                         <Button Grid.Column="2"
+                                ToolTip.Tip="Stop queue processing and cancel the active encode."
                                 Classes="danger sm"
                                 Content="Stop"
                                 Command="{Binding StopCommand}"
@@ -85,12 +88,15 @@
                            ItemSpacing="4" LineSpacing="4" Margin="8,4,8,6"
                            IsVisible="{Binding HasJobs}">
                     <Button Classes="sm"
+                            ToolTip.Tip="Remove selected jobs from the queue. Source and output files are kept."
                             Content="Remove"
                             Command="{Binding RemoveSelectedCommand}" />
                     <Button Classes="sm"
+                            ToolTip.Tip="Remove finished jobs from the queue. Output files are kept."
                             Content="Remove finished"
                             Command="{Binding ClearFinishedCommand}" />
                     <Button Classes="sm"
+                            ToolTip.Tip="Clear the job queue. Source and output files are kept."
                             Content="Remove all"
                             Command="{Binding ClearAllCommand}" />
                 </WrapPanel>
@@ -152,6 +158,7 @@
                                    TextWrapping="Wrap"
                                    MaxWidth="240" />
                         <Button Content="{Binding AddSelectionLabel}"
+                                ToolTip.Tip="Add selected sources to the queue using the current output settings."
                                 Classes="accent sm"
                                 Command="{Binding CreateJobFromSelectionCommand}"
                                 IsVisible="{Binding HasQueueableSelection}"
@@ -182,6 +189,7 @@
                                Classes="card-header" Margin="0"
                                VerticalAlignment="Center" />
                     <Button Grid.Column="1"
+                            ToolTip.Tip="Show or hide the encoding log for the selected job."
                             Classes="sm"
                             Content="{Binding Details.IsLogExpanded, Converter={x:Static vm:JobItemDetailsViewModel.ExpandCollapseConverter}}"
                             Command="{Binding Details.ToggleLogExpandedCommand}" />
@@ -189,6 +197,7 @@
                 <Separator DockPanel.Dock="Top" IsVisible="{Binding Details.IsLogExpanded}" />
 
                 <TextBox IsVisible="{Binding Details.IsLogExpanded}"
+                         ToolTip.Tip="Encoding log for the selected job. Read-only; select text to copy diagnostic details."
                          Classes="mono caption"
                          Text="{Binding Details.LogText, Mode=OneWay}"
                          IsReadOnly="True"

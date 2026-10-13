@@ -19,6 +19,7 @@
                            VerticalAlignment="Center"
                            Margin="8,0,0,0" />
                 <Button Grid.Column="2"
+                        ToolTip.Tip="Show or hide the source preview and trim/crop controls."
                         Classes="sm"
                         Content="{Binding IsExpanded, Converter={x:Static vm:VideoPreviewViewModel.ExpandCollapseConverter}}"
                         Command="{Binding ToggleExpandedCommand}"
@@ -40,6 +41,7 @@
 
                     <!-- Timeline slider -->
                     <Slider x:Name="TimelineSlider"
+                            ToolTip.Tip="Seek to a position in the source video preview. This does not change the trim range."
                             Minimum="0" Maximum="1"
                             Value="{Binding Position}"
                             SmallChange="0.001"
@@ -93,10 +95,12 @@
                                     <Grid ColumnDefinitions="30,*,Auto" RowDefinitions="Auto,Auto">
                                         <TextBlock Text="In" VerticalAlignment="Center" />
                                         <TextBox x:Name="TrimInTextBox"
+                                                 ToolTip.Tip="Start time to keep, in HH:MM:SS.mmm format. Earlier content is excluded from the output."
                                                  Grid.Column="1"
                                                  Classes="compact mono"
                                                  Text="{Binding TrimInDisplay}" />
                                         <Button Grid.Column="2"
+                                                ToolTip.Tip="Set the trim start to the current preview position."
                                                 Classes="xs"
                                                 Content="Set"
                                                 Command="{Binding SetTrimInCommand}"
@@ -106,11 +110,13 @@
                                                    VerticalAlignment="Center"
                                                    Margin="0,2,0,0" />
                                         <TextBox x:Name="TrimOutTextBox"
+                                                 ToolTip.Tip="End time to keep, in HH:MM:SS.mmm format. Later content is excluded from the output."
                                                  Grid.Row="1" Grid.Column="1"
                                                  Classes="compact mono"
                                                  Text="{Binding TrimOutDisplay}"
                                                  Margin="0,2,0,0" />
                                         <Button Grid.Row="1" Grid.Column="2"
+                                                ToolTip.Tip="Set the trim end to the current preview position."
                                                 Classes="xs"
                                                 Content="Set"
                                                 Command="{Binding SetTrimOutCommand}"
@@ -119,6 +125,7 @@
                                     </Grid>
                                     <DockPanel>
                                         <Button DockPanel.Dock="Left"
+                                                ToolTip.Tip="Clear the trim range and keep the full source duration."
                                                 Classes="xs"
                                                 Content="Clear"
                                                 Command="{Binding ClearTrimCommand}"
@@ -147,10 +154,12 @@
                                           RowDefinitions="Auto,Auto">
                                         <TextBlock Classes="caption" Text="X" VerticalAlignment="Center" />
                                         <TextBox Grid.Column="1"
+                                                 ToolTip.Tip="Horizontal offset of the crop rectangle from the left edge, in source pixels."
                                                  Classes="compact caption"
                                                  Text="{Binding CropX}" />
                                         <TextBlock Grid.Column="3" Classes="caption" Text="Y" VerticalAlignment="Center" />
                                         <TextBox Grid.Column="4"
+                                                 ToolTip.Tip="Vertical offset of the crop rectangle from the top edge, in source pixels."
                                                  Classes="compact caption"
                                                  Text="{Binding CropY}" />
 
@@ -158,6 +167,7 @@
                                                    VerticalAlignment="Center"
                                                    Margin="0,4,0,0" />
                                         <TextBox Grid.Row="1" Grid.Column="1"
+                                                 ToolTip.Tip="Width of the area to keep, in source pixels. Content outside the crop rectangle is removed."
                                                  Classes="compact caption"
                                                  Text="{Binding CropW}"
                                                  Margin="0,4,0,0" />
@@ -165,6 +175,7 @@
                                                    VerticalAlignment="Center"
                                                    Margin="0,4,0,0" />
                                         <TextBox Grid.Row="1" Grid.Column="4"
+                                                 ToolTip.Tip="Height of the area to keep, in source pixels. Content outside the crop rectangle is removed."
                                                  Classes="compact caption"
                                                  Text="{Binding CropH}"
                                                  Margin="0,4,0,0" />
@@ -177,6 +188,7 @@
                                                     Orientation="Horizontal"
                                                     Spacing="4">
                                             <Button Classes="xs"
+                                                    ToolTip.Tip="Clear the crop and keep the full source frame."
                                                     Content="Reset"
                                                     Command="{Binding ResetCropCommand}"
                                                     IsEnabled="{Binding HasMedia}" />

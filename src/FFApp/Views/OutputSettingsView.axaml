@@ -61,11 +61,13 @@
                         <Grid ColumnDefinitions="80,Auto,16,55,Auto,*">
                             <TextBlock Text="Preset" VerticalAlignment="Center" />
                             <ctrl:NoWheelComboBox Grid.Column="1"
+                                ToolTip.Tip="Trade encoding time for compression efficiency. Slower presets usually produce smaller files at similar visual quality."
                                 MinWidth="92"
                                 ItemsSource="{Binding AvailablePresets}"
                                 SelectedItem="{Binding Preset}" />
                             <TextBlock Grid.Column="3" Text="Profile" VerticalAlignment="Center" />
                             <ctrl:NoWheelComboBox Grid.Column="4"
+                                ToolTip.Tip="Choose the codec feature set required by the playback device. More restrictive profiles may limit compression or bit depth."
                                 MinWidth="92"
                                 ItemsSource="{Binding AvailableProfiles}"
                                 SelectedItem="{Binding Profile}" />
@@ -73,6 +75,7 @@
                         <Grid ColumnDefinitions="80,*">
                             <TextBlock Text="Additional" VerticalAlignment="Center" />
                             <TextBox Grid.Column="1"
+                                     ToolTip.Tip="Extra encoder options as colon-separated key=value pairs. Passed directly to the selected encoder; supported keys depend on its version."
                                      Text="{Binding AdditionalOptions}"
                                      PlaceholderText="{Binding AdditionalOptionsPlaceholder}" />
                         </Grid>
@@ -91,6 +94,7 @@
                         <Grid ColumnDefinitions="80,*,Auto">
                             <TextBlock Text="Preset" VerticalAlignment="Center" />
                             <Slider Grid.Column="1"
+                                    ToolTip.Tip="AV1 speed preset: lower numbers encode more slowly with better compression; higher numbers are faster. Compare results at the same CRF."
                                     Value="{Binding Preset}"
                                     Minimum="0" Maximum="13"
                                     TickFrequency="1" IsSnapToTickEnabled="True"
@@ -104,6 +108,7 @@
                         <Grid ColumnDefinitions="80,Auto,8,Auto,*">
                             <TextBlock Text="Max Bitrate" VerticalAlignment="Center" />
                             <ctrl:NumericTextBox Grid.Column="1"
+                                     ToolTip.Tip="Limit AV1 video bitrate in quality (CRF) mode, in kbps. Leave empty for no cap. A tight cap may reduce quality in complex scenes."
                                      Classes="numeric-input"
                                      MinWidth="120"
                                      PlaceholderText="Off"
@@ -117,12 +122,14 @@
                         <Grid ColumnDefinitions="80,Auto,16,Auto,Auto,*">
                             <TextBlock Text="Tune" VerticalAlignment="Center" />
                             <ctrl:NoWheelComboBox Grid.Column="1"
+                                ToolTip.Tip="Choose the optimization goal: VQ for perceived video quality; PSNR and SSIM for objective metrics; IQ for image quality; MS-SSIM for multi-scale similarity."
                                 MinWidth="120"
                                 ItemsSource="{Binding AvailableTunes}"
                                 SelectedItem="{Binding Tune}"
                                 ItemTemplate="{StaticResource Av1TuneTemplate}" />
                             <TextBlock Grid.Column="3" Text="SCM" VerticalAlignment="Center" />
                             <ctrl:NoWheelComboBox Grid.Column="4"
+                                ToolTip.Tip="Screen-content tools help with text, graphics and repeated patterns. Adaptive modes detect suitable areas; AA mode also accounts for anti-aliased edges."
                                 MinWidth="160" Margin="8,0,0,0"
                                 ItemsSource="{Binding AvailableScm}"
                                 SelectedItem="{Binding Scm}"
@@ -130,10 +137,12 @@
                         </Grid>
                         <Grid ColumnDefinitions="80,Auto,16,Auto,16,Auto,*">
                             <CheckBox Grid.Column="1"
+                                      ToolTip.Tip="Add overlay frames alongside temporally filtered reference frames. This can preserve detail and improve visual quality, with extra encoding work."
                                       Content="Overlays"
                                       VerticalAlignment="Center"
                                       IsChecked="{Binding EnableOverlaysChecked}" />
                             <CheckBox Grid.Column="3"
+                                      ToolTip.Tip="Allocate more quality to low-contrast areas to preserve subtle textures. This can increase bitrate in quality mode."
                                       Content="Variance Boost"
                                       VerticalAlignment="Center"
                                       IsChecked="{Binding EnableVarianceBoostChecked}" />
@@ -166,6 +175,7 @@
                         <Grid ColumnDefinitions="80,*">
                             <TextBlock Text="Additional" VerticalAlignment="Center" />
                             <TextBox Grid.Column="1"
+                                     ToolTip.Tip="Extra encoder options as colon-separated key=value pairs. Passed directly to the selected encoder; supported keys depend on its version."
                                      PlaceholderText="e.g. sharpness=1:tf-strength=1"
                                      Text="{Binding AdditionalOptions}" />
                         </Grid>
@@ -184,6 +194,7 @@
                         <Grid ColumnDefinitions="80,*,Auto">
                             <TextBlock Text="CPU Used" VerticalAlignment="Center" />
                             <Slider Grid.Column="1"
+                                    ToolTip.Tip="VP9 speed setting: lower values spend more time on compression; higher values encode faster with a quality or file-size tradeoff."
                                     Value="{Binding CpuUsed}"
                                     Minimum="0" Maximum="8"
                                     TickFrequency="1" IsSnapToTickEnabled="True"
@@ -197,11 +208,13 @@
                         <Grid ColumnDefinitions="80,Auto,16,80,Auto,*">
                             <TextBlock Text="Tile Cols" VerticalAlignment="Center" />
                             <ctrl:NoWheelComboBox Grid.Column="1"
+                                ToolTip.Tip="VP9 tile columns, expressed as powers of two: 1 = 2 columns, 2 = 4. More tiles allow parallel work but may reduce compression efficiency. 0 leaves the encoder default."
                                 MinWidth="64"
                                 ItemsSource="{Binding AvailableTileColumns}"
                                 SelectedItem="{Binding TileColumns}" />
                             <TextBlock Grid.Column="3" Text="Tile Rows" VerticalAlignment="Center" />
                             <ctrl:NoWheelComboBox Grid.Column="4"
+                                ToolTip.Tip="VP9 tile rows, expressed as powers of two: 1 = 2 rows, 2 = 4. More tiles allow parallel work but may reduce compression efficiency. 0 leaves the encoder default."
                                 MinWidth="64"
                                 ItemsSource="{Binding AvailableTileRows}"
                                 SelectedItem="{Binding TileRows}" />
@@ -209,6 +222,7 @@
                         <Grid ColumnDefinitions="80,*">
                             <TextBlock Text="Additional" VerticalAlignment="Center" />
                             <TextBox Grid.Column="1"
+                                     ToolTip.Tip="Extra VP9 options as colon-separated key=value pairs, such as lag-in-frames=25:tune-content=screen. Passed to FFmpeg as individual encoder options."
                                      PlaceholderText="e.g. lag-in-frames=25:tune-content=screen"
                                      Text="{Binding AdditionalOptions}" />
                         </Grid>
@@ -234,16 +248,19 @@
                         <TextBlock Text="Video Mode" VerticalAlignment="Center" />
                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
                             <RadioButton Content="Copy" GroupName="VideoMode"
+                                ToolTip.Tip="Copy video without re-encoding. Preserves its quality; resolution, frame rate, crop and encoder settings do not apply."
                                 IsEnabled="{Binding Format.SourceHasVideo}"
                                 IsChecked="{Binding Format.SelectedVideoMode,
                                     Converter={StaticResource EnumToBool},
                                     ConverterParameter={x:Static models:VideoMode.Copy}}" />
                             <RadioButton Content="Re-encode" GroupName="VideoMode"
+                                ToolTip.Tip="Encode the video with the selected codec and settings. Allows resizing, frame-rate conversion, crop and HDR-to-SDR conversion."
                                 IsEnabled="{Binding Format.SourceHasVideo}"
                                 IsChecked="{Binding Format.SelectedVideoMode,
                                     Converter={StaticResource EnumToBool},
                                     ConverterParameter={x:Static models:VideoMode.Reencode}}" />
                             <RadioButton Content="Remove" GroupName="VideoMode"
+                                ToolTip.Tip="Exclude video streams to create audio-only output."
                                 IsChecked="{Binding Format.SelectedVideoMode,
                                     Converter={StaticResource EnumToBool},
                                     ConverterParameter={x:Static models:VideoMode.Remove}}" />
@@ -269,18 +286,21 @@
                         <Grid ColumnDefinitions="85,Auto,16,Auto,8,Auto,16,Auto,8,Auto,*">
                             <TextBlock Text="Video Codec" VerticalAlignment="Center" />
                             <ctrl:NoWheelComboBox Grid.Column="1"
+                                ToolTip.Tip="Choose how the video is compressed. Codec support varies by container and playback device."
                                 MinWidth="108"
                                 ItemsSource="{Binding Format.AvailableVideoCodecs}"
                                 SelectedItem="{Binding Format.SelectedVideoCodec}"
                                 ItemTemplate="{StaticResource VideoCodecTemplate}" />
                             <TextBlock Grid.Column="3" Text="Resolution" VerticalAlignment="Center" />
                             <ctrl:NoWheelComboBox Grid.Column="5"
+                                ToolTip.Tip="Set the output resolution while preserving aspect ratio. Original skips resizing to a preset; enlarging does not recover missing detail."
                                 MinWidth="108"
                                 ItemsSource="{Binding AvailableResolutions}"
                                 SelectedItem="{Binding SelectedResolution}"
                                 ItemTemplate="{StaticResource ResolutionTemplate}" />
                             <TextBlock Grid.Column="7" Text="Frame Rate" VerticalAlignment="Center" />
                             <ctrl:NoWheelComboBox Grid.Column="9"
+                                ToolTip.Tip="Set output frames per second. Conversion may duplicate or drop frames. Original avoids requesting a frame-rate conversion."
                                 MinWidth="108"
                                 ItemsSource="{Binding AvailableFrameRates}"
                                 SelectedItem="{Binding SelectedFrameRate}"
@@ -299,11 +319,13 @@
                                         <TextBlock Text="HDR Mode" VerticalAlignment="Center" />
                                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
                                             <RadioButton Content="Preserve HDR" GroupName="HdrMode"
+                                                ToolTip.Tip="Keep HDR color information when encoding with a supported codec. Playback requires a suitable HDR display and player."
                                                 IsEnabled="{Binding Hdr.IsPreserveAllowed}"
                                                 IsChecked="{Binding Hdr.SelectedHdrMode,
                                                     Converter={StaticResource EnumToBool},
                                                     ConverterParameter={x:Static models:HdrMode.Preserve}}" />
                                             <RadioButton Content="Convert to SDR" GroupName="HdrMode"
+                                                ToolTip.Tip="Map HDR brightness and colors to SDR for standard displays. The tone-mapping controls below adjust the conversion."
                                                 IsChecked="{Binding Hdr.SelectedHdrMode,
                                                     Converter={StaticResource EnumToBool},
                                                     ConverterParameter={x:Static models:HdrMode.TonemapToSdr}}" />
@@ -318,6 +340,7 @@
                                         <Grid ColumnDefinitions="85,Auto" IsVisible="{Binding Hdr.IsLibplaceboAvailable}">
                                             <TextBlock Text="Engine" VerticalAlignment="Center" />
                                             <ctrl:NoWheelComboBox Grid.Column="1"
+                                                ToolTip.Tip="Choose the HDR-to-SDR processing engine. Standard uses FFmpeg tone mapping; libplacebo requires an FFmpeg build with that filter."
                                                 MinWidth="160"
                                                 ItemsSource="{Binding Hdr.AvailableEngines}"
                                                 SelectedItem="{Binding Hdr.SelectedEngine}"
@@ -329,6 +352,7 @@
                                             <Grid ColumnDefinitions="85,Auto">
                                                 <TextBlock Text="Algorithm" VerticalAlignment="Center" />
                                                 <ctrl:NoWheelComboBox Grid.Column="1"
+                                                    ToolTip.Tip="Choose how HDR highlights fit into SDR. Hable, Reinhard and Mobius use different curves; Clip can discard detail in bright areas."
                                                     MinWidth="160"
                                                     ItemsSource="{Binding Hdr.AvailableAlgorithms}"
                                                     SelectedItem="{Binding Hdr.SelectedAlgorithm}"
@@ -337,6 +361,7 @@
                                             <Grid ColumnDefinitions="85,*,Auto">
                                                 <TextBlock Text="Desat" VerticalAlignment="Center" />
                                                 <Slider Grid.Column="1"
+                                                        ToolTip.Tip="Brightness threshold for reducing color in very bright highlights. Higher values retain more highlight color; 0 disables desaturation."
                                                         Value="{Binding Hdr.Desaturation}"
                                                         Minimum="0" Maximum="10"
                                                         TickFrequency="0.5" IsSnapToTickEnabled="True"
@@ -350,6 +375,7 @@
                                             <Grid ColumnDefinitions="85,Auto,*">
                                                 <TextBlock Text="Peak (nits)" VerticalAlignment="Center" />
                                                 <TextBox Grid.Column="1"
+                                                         ToolTip.Tip="Override the source peak used for HDR-to-SDR mapping. Leave empty to use source metadata or filter defaults."
                                                          MinWidth="80"
                                                          PlaceholderText="Auto"
                                                          Text="{Binding Hdr.PeakNitsText}" />
@@ -361,6 +387,7 @@
                                             <Grid ColumnDefinitions="85,Auto">
                                                 <TextBlock Text="Algorithm" VerticalAlignment="Center" />
                                                 <ctrl:NoWheelComboBox Grid.Column="1"
+                                                    ToolTip.Tip="Choose the HDR-to-SDR tone-mapping curve. Auto lets libplacebo select a curve; Clip may discard bright highlight detail."
                                                     MinWidth="160"
                                                     ItemsSource="{Binding Hdr.AvailableLibplaceboAlgorithms}"
                                                     SelectedItem="{Binding Hdr.SelectedLibplaceboAlgorithm}"
@@ -369,6 +396,7 @@
                                             <Grid ColumnDefinitions="85,Auto">
                                                 <TextBlock Text="Gamut mode" VerticalAlignment="Center" />
                                                 <ctrl:NoWheelComboBox Grid.Column="1"
+                                                    ToolTip.Tip="Choose how colors outside the SDR color range are mapped. The modes trade color accuracy against detail and contrast preservation."
                                                     MinWidth="160"
                                                     ItemsSource="{Binding Hdr.AvailableGamutModes}"
                                                     SelectedItem="{Binding Hdr.SelectedGamutMode}"
@@ -377,6 +405,7 @@
                                             <Grid ColumnDefinitions="85,*,Auto">
                                                 <TextBlock Text="Saturation" VerticalAlignment="Center" />
                                                 <Slider Grid.Column="1"
+                                                        ToolTip.Tip="Adjust color intensity: 1 keeps the normal level, 0 removes color, and higher values make colors stronger."
                                                         Value="{Binding Hdr.Saturation}"
                                                         Minimum="0" Maximum="2.0"
                                                         TickFrequency="0.1" IsSnapToTickEnabled="True"
@@ -390,6 +419,7 @@
                                             <Grid ColumnDefinitions="85,*,Auto">
                                                 <TextBlock Text="Contrast rec." VerticalAlignment="Center" />
                                                 <Slider Grid.Column="1"
+                                                        ToolTip.Tip="Restore local contrast and fine detail after tone mapping. 0 disables recovery; strong settings may create halos or ringing."
                                                         Value="{Binding Hdr.ContrastRecovery}"
                                                         Minimum="0" Maximum="1.0"
                                                         TickFrequency="0.05" IsSnapToTickEnabled="True"
@@ -402,11 +432,13 @@
                                             </Grid>
                                             <Grid ColumnDefinitions="85,*">
                                                 <CheckBox Grid.Column="1" Content="Peak detection"
+                                                          ToolTip.Tip="Analyze frame brightness to adapt tone mapping to the video rather than relying only on its HDR metadata."
                                                           IsChecked="{Binding Hdr.PeakDetect}" />
                                             </Grid>
                                             <Grid ColumnDefinitions="85,Auto,*" IsVisible="{Binding !Hdr.PeakDetect}">
                                                 <TextBlock Text="Curve tune" VerticalAlignment="Center" />
                                                 <ctrl:NumericTextBox Grid.Column="1"
+                                                         ToolTip.Tip="Fine-tune the selected tone-mapping curve. Meaning and useful values depend on the algorithm. Leave empty for its default."
                                                          Classes="numeric-input"
                                                          MinWidth="80"
                                                          PlaceholderText="Auto"
@@ -422,11 +454,13 @@
                         <Grid ColumnDefinitions="85,Auto,8,Auto,*" Margin="0,4,0,0">
                             <TextBlock Text="Keyframes" VerticalAlignment="Center" />
                             <ctrl:NumericTextBox Grid.Column="1"
+                                     ToolTip.Tip="Maximum keyframe interval in the selected unit. Shorter intervals improve seeking; longer ones may compress better. Empty uses the encoder default."
                                      Classes="numeric-input"
                                      MinWidth="72"
                                      PlaceholderText="Auto"
                                      Text="{Binding KeyframeIntervalText}" />
                             <ctrl:NoWheelComboBox Grid.Column="3"
+                                ToolTip.Tip="Choose frames or, for AV1, seconds for the keyframe interval."
                                 MinWidth="88"
                                 ItemsSource="{Binding AvailableKeyframeUnits}"
                                 SelectedItem="{Binding SelectedKeyframeUnit}"
@@ -441,14 +475,17 @@
                             <TextBlock Text="Strategy" VerticalAlignment="Center" />
                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
                                 <RadioButton Content="Quality" GroupName="Strategy"
+                                    ToolTip.Tip="Target visual quality while letting bitrate and file size vary with the complexity of the video."
                                     IsChecked="{Binding Strategy.SelectedStrategy,
                                         Converter={StaticResource EnumToBool},
                                         ConverterParameter={x:Static models:EncodingStrategy.TargetQuality}}" />
                                 <RadioButton Content="File size" GroupName="Strategy"
+                                    ToolTip.Tip="Calculate a video bitrate to aim for a total output size, accounting for audio and container overhead."
                                     IsChecked="{Binding Strategy.SelectedStrategy,
                                         Converter={StaticResource EnumToBool},
                                         ConverterParameter={x:Static models:EncodingStrategy.TargetFileSize}}" />
                                 <RadioButton Content="Bitrate" GroupName="Strategy"
+                                    ToolTip.Tip="Target an average video bitrate. Quality varies with scene complexity; audio adds to the total file size."
                                     IsChecked="{Binding Strategy.SelectedStrategy,
                                         Converter={StaticResource EnumToBool},
                                         ConverterParameter={x:Static models:EncodingStrategy.TargetBitrate}}" />
@@ -487,8 +524,10 @@
                 <Separator DockPanel.Dock="Top" />
                 <StackPanel Orientation="Horizontal" Spacing="16" Margin="8,4,8,6">
                     <CheckBox Content="Remove subtitle streams"
+                              ToolTip.Tip="Exclude all subtitle streams. When unchecked, supported subtitles are copied or converted as needed for the output container."
                               IsChecked="{Binding StreamHandling.RemoveSubtitles}" />
                     <CheckBox Content="Remove data streams"
+                              ToolTip.Tip="Exclude data streams such as timecode or auxiliary tracks. Only compatible containers can preserve these streams."
                               IsChecked="{Binding StreamHandling.RemoveData}" />
                 </StackPanel>
             </DockPanel>
@@ -503,6 +542,7 @@
                 <Separator DockPanel.Dock="Top" />
                 <StackPanel Spacing="4" Margin="8,4,8,6">
                     <CheckBox Content="Recalculate Matroska track statistics"
+                              ToolTip.Tip="Update Matroska track statistics, such as bitrate and duration, after encoding. Requires mkvpropedit and applies to Matroska output."
                               IsChecked="{Binding RecalculateMatroskaStatistics}"
                               IsEnabled="{Binding IsMatroskaPostProcessingAvailable}" />
                     <TextBlock Classes="secondary"

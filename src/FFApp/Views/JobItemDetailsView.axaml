@@ -39,6 +39,7 @@
                               IsVisible="{Binding Failure.TechnicalDetails, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                               HorizontalAlignment="Stretch">
                         <TextBox Classes="mono caption"
+                                 ToolTip.Tip="Technical failure details for diagnosis. Read-only; select text to copy it."
                                  Text="{Binding Failure.TechnicalDetails, Mode=OneWay}"
                                  IsReadOnly="True" AcceptsReturn="True"
                                  TextWrapping="Wrap" MaxHeight="140" />
@@ -50,6 +51,7 @@
                       IsExpanded="{Binding IsCommandExpanded, Mode=TwoWay}"
                       HorizontalAlignment="Stretch">
                 <TextBox Classes="mono caption"
+                         ToolTip.Tip="Generated command for the selected job or current settings. Read-only; select text to copy it."
                          Text="{Binding CommandText, Mode=OneWay}"
                          IsReadOnly="True"
                          AcceptsReturn="True"

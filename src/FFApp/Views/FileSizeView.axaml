@@ -9,11 +9,13 @@
     <Grid ColumnDefinitions="85,Auto,*" RowDefinitions="Auto,Auto">
         <TextBlock Text="Target (MiB)" VerticalAlignment="Center" />
         <ctrl:NumericTextBox Grid.Column="1"
+            ToolTip.Tip="Target total file size in MiB (1 MiB = 1,048,576 bytes). The video bitrate is calculated after reserving space for audio and container overhead; the final size is approximate."
             Classes="numeric-input"
             Text="{Binding TargetSizeMbText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
             Width="120"
             Margin="0,0,12,0" />
         <CheckBox Grid.Column="2"
+                  ToolTip.Tip="Analyze the video in a first pass, then encode it in a second pass. This improves bitrate allocation across scenes but takes longer."
                   Content="Use 2-pass encode"
                   IsChecked="{Binding TwoPass}"
                   VerticalAlignment="Center" />

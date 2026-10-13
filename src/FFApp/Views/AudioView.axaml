@@ -19,14 +19,17 @@
             <TextBlock Text="Audio Mode" VerticalAlignment="Center" />
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
                 <RadioButton Content="Copy" GroupName="AudioMode"
+                    ToolTip.Tip="Copy selected audio tracks without re-encoding. Preserves their quality and requires a compatible output container."
                     IsChecked="{Binding SelectedAudioMode,
                         Converter={StaticResource EnumToBool},
                         ConverterParameter={x:Static models:AudioMode.Copy}}" />
                 <RadioButton Content="Re-encode" GroupName="AudioMode"
+                    ToolTip.Tip="Encode selected audio tracks with the codec, bitrate, channel count and sample rate chosen below."
                     IsChecked="{Binding SelectedAudioMode,
                         Converter={StaticResource EnumToBool},
                         ConverterParameter={x:Static models:AudioMode.Reencode}}" />
                 <RadioButton Content="Remove" GroupName="AudioMode"
+                    ToolTip.Tip="Exclude all audio tracks from the output."
                     IsEnabled="{Binding IsRemoveAllowed}"
                     IsChecked="{Binding SelectedAudioMode,
                         Converter={StaticResource EnumToBool},
@@ -37,18 +40,22 @@
         <Grid ColumnDefinitions="85,*" IsVisible="{Binding IsTrackSelectionVisible}">
             <TextBlock Text="Tracks" VerticalAlignment="Top" Margin="0,6,0,0" />
             <StackPanel Grid.Column="1" Spacing="4">
-                <CheckBox Content="All" IsChecked="{Binding AllAudioTracks}" />
+                <CheckBox Content="All" IsChecked="{Binding AllAudioTracks}"
+                    ToolTip.Tip="Include every audio track. Turn off to choose individual tracks; this selection applies to the current source rather than the preset." />
                 <StackPanel Orientation="Horizontal" Spacing="6"
                             IsVisible="{Binding IsCustomTrackSelection}">
-                    <Button Content="Select all" Command="{Binding SelectAllTracksCommand}" />
-                    <Button Content="Deselect all" Command="{Binding DeselectAllTracksCommand}" />
+                    <Button Content="Select all" Command="{Binding SelectAllTracksCommand}"
+                        ToolTip.Tip="Include all listed audio tracks in the current custom selection." />
+                    <Button Content="Deselect all" Command="{Binding DeselectAllTracksCommand}"
+                        ToolTip.Tip="Exclude all listed audio tracks from the current custom selection." />
                 </StackPanel>
                 <ScrollViewer MaxHeight="180" IsVisible="{Binding IsCustomTrackSelection}"
                               IsScrollChainingEnabled="False">
                     <ItemsControl ItemsSource="{Binding AudioTracks}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="vm:AudioTrackViewModel">
-                                <CheckBox Content="{Binding Label}" IsChecked="{Binding IsSelected}" />
+                                <CheckBox Content="{Binding Label}" IsChecked="{Binding IsSelected}"
+                                    ToolTip.Tip="Include this audio track in the output. Unchecked tracks are excluded when copying or re-encoding audio." />
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
@@ -61,6 +68,7 @@
             <Grid ColumnDefinitions="85,Auto,16,75,*">
                 <TextBlock Text="Audio Codec" VerticalAlignment="Center" />
                 <ctrl:NoWheelComboBox Grid.Column="1"
+                    ToolTip.Tip="Choose the audio compression format. Available codecs depend on the output container and playback support."
                     Width="104"
                     ItemsSource="{Binding AvailableAudioCodecs}"
                     SelectedItem="{Binding SelectedAudioCodec}">
@@ -76,7 +84,7 @@
                             Spacing="6"
                             HorizontalAlignment="Left">
                     <ctrl:NoWheelComboBox
-                        Width="104"
+ ToolTip.Tip="Target audio bitrate per track, in kbps. Higher values usually retain more detail and increase file size. Custom lets you enter a value."                        Width="104"
                         ItemsSource="{Binding AvailableBitrateOptions}"
                         SelectedItem="{Binding SelectedBitrateOption}">
                         <ctrl:NoWheelComboBox.ItemTemplate>
@@ -86,6 +94,7 @@
                         </ctrl:NoWheelComboBox.ItemTemplate>
                     </ctrl:NoWheelComboBox>
                     <ctrl:NumericTextBox x:Name="CustomBitrateBox"
+                                         ToolTip.Tip="Enter the target audio bitrate per track in kbps. The chosen audio codec determines the supported range."
                                          Classes="numeric-input"
                                          Text="{Binding CustomBitrateText}"
                                          PlaceholderText="kbps"
@@ -98,6 +107,7 @@
             <Grid ColumnDefinitions="85,Auto,16,75,*">
                 <TextBlock Text="Channels" VerticalAlignment="Center" />
                 <ctrl:NoWheelComboBox Grid.Column="1"
+                    ToolTip.Tip="Choose the output channel count. Auto keeps the source channel count; fewer channels downmix the audio."
                     Width="104"
                     ItemsSource="{Binding AvailableAudioChannelOptions}"
                     SelectedItem="{Binding SelectedAudioChannels}">
@@ -111,7 +121,7 @@
                 <ctrl:NoWheelComboBox x:Name="SampleRateComboBox" Grid.Column="4"
                     Width="104"
                     HorizontalAlignment="Left"
-                    ToolTip.Tip="Auto lets the encoder choose a supported sample rate. Only rates supported by the codec are listed."
+                    ToolTip.Tip="Output samples per second, in Hz. Auto lets the encoder choose a supported rate; the listed rates are supported by the selected codec."
                     ItemsSource="{Binding AvailableSampleRateOptions}"
                     SelectedItem="{Binding SelectedSampleRate}">
                     <ctrl:NoWheelComboBox.ItemTemplate>

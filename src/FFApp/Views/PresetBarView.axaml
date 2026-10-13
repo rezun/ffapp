@@ -12,7 +12,7 @@
         <TextBlock Text="Preset" VerticalAlignment="Center"
                    FontWeight="SemiBold" />
         <ctrl:NoWheelComboBox
-            ItemsSource="{Binding Presets}"
+ ToolTip.Tip="Load saved output settings. Source-specific audio-track selection, trim and crop are handled separately."            ItemsSource="{Binding Presets}"
             SelectedItem="{Binding SelectedPreset}"
             PlaceholderText="(No preset)"
             MinWidth="160">
@@ -37,8 +37,10 @@
         <Button Content="Revert" Command="{Binding RevertPresetCommand}"
                 ToolTip.Tip="Discard changes and restore the preset's saved values" />
         <Button Content="Rename" Command="{Binding RenamePresetCommand}"
+                ToolTip.Tip="Rename the selected user preset."
                 IsEnabled="{Binding IsUserPresetSelected}" />
         <Button Content="Delete" Command="{Binding DeletePresetCommand}"
+                ToolTip.Tip="Delete the selected user preset from the preset list."
                 IsEnabled="{Binding IsUserPresetSelected}" />
     </StackPanel>
 </UserControl>

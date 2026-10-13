@@ -25,6 +25,7 @@
                 <Grid ColumnDefinitions="85,Auto,*">
                     <TextBlock Text="Container" VerticalAlignment="Center" />
                     <ctrl:NoWheelComboBox Grid.Column="1"
+                        ToolTip.Tip="Choose the output file container. It determines which video, audio and subtitle formats can be stored together."
                         MinWidth="108"
                         ItemsSource="{Binding AvailableContainers}"
                         SelectedItem="{Binding SelectedContainer}"
@@ -35,9 +36,11 @@
                 <Grid ColumnDefinitions="85,*,Auto">
                     <TextBlock Text="Folder" VerticalAlignment="Center" />
                     <TextBox Grid.Column="1"
+                             ToolTip.Tip="Folder for encoded files. Leave empty to use each source file's folder."
                              Text="{Binding OutputDirectory}"
                              PlaceholderText="Output folder" />
                     <Button Grid.Column="2"
+                            ToolTip.Tip="Choose the folder for encoded output files."
                             Content="Browse"
                             Command="{Binding BrowseDirectoryCommand}"
                             Margin="4,0,0,0"
@@ -46,6 +49,7 @@
 
                 <!-- Auto-name checkbox -->
                 <CheckBox Content="Auto-name from source filename"
+                          ToolTip.Tip="Generate the output name from the source filename, with the selected preset name when available."
                           IsChecked="{Binding IsAutoName}"
                           Margin="85,0,0,0" />
 
@@ -54,6 +58,7 @@
                       IsVisible="{Binding !IsAutoName}">
                     <TextBlock Text="Filename" VerticalAlignment="Center" />
                     <TextBox Grid.Column="1"
+                             ToolTip.Tip="Set the output filename without its extension. The extension is added from the selected container."
                              Text="{Binding OutputFilename}"
                              PlaceholderText="Enter filename" />
                     <TextBlock Grid.Column="2"

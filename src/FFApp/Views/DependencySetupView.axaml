@@ -28,10 +28,12 @@
             <TextBlock Text="ffmpeg Path" FontWeight="SemiBold" />
             <DockPanel>
                 <Button Content="Browse..."
+                        ToolTip.Tip="Select the installed FFmpeg executable."
                         DockPanel.Dock="Right"
                         Margin="8,0,0,0"
                         Command="{Binding BrowseFfmpegCommand}" />
                 <TextBox Text="{Binding FfmpegPath, Mode=TwoWay}"
+                         ToolTip.Tip="Path to the FFmpeg executable used to encode media. Required. Use Browse to select your installed executable."
                          PlaceholderText="/usr/bin/ffmpeg" />
             </DockPanel>
         </StackPanel>
@@ -41,10 +43,12 @@
             <TextBlock Text="ffprobe Path" FontWeight="SemiBold" />
             <DockPanel>
                 <Button Content="Browse..."
+                        ToolTip.Tip="Select the installed ffprobe executable."
                         DockPanel.Dock="Right"
                         Margin="8,0,0,0"
                         Command="{Binding BrowseFfprobeCommand}" />
                 <TextBox Text="{Binding FfprobePath, Mode=TwoWay}"
+                         ToolTip.Tip="Path to the ffprobe executable used to read stream information and duration. Required."
                          PlaceholderText="/usr/bin/ffprobe" />
             </DockPanel>
         </StackPanel>
@@ -54,10 +58,12 @@
             <TextBlock Text="mkvpropedit Path (optional)" FontWeight="SemiBold" />
             <DockPanel>
                 <Button Content="Browse..."
+                        ToolTip.Tip="Select the optional mkvpropedit executable from MKVToolNix."
                         DockPanel.Dock="Right"
                         Margin="8,0,0,0"
                         Command="{Binding BrowseMkvpropeditCommand}" />
                 <TextBox Text="{Binding MkvpropeditPath, Mode=TwoWay}"
+                         ToolTip.Tip="Path to mkvpropedit from MKVToolNix. Optional; used to recalculate Matroska track statistics."
                          PlaceholderText="Auto-detect from PATH" />
             </DockPanel>
         </StackPanel>
@@ -70,6 +76,7 @@
 
         <!-- Validate button -->
         <Button Content="Validate and save"
+                ToolTip.Tip="Check the executable paths and save the dependency configuration."
                 HorizontalAlignment="Center"
                 Classes="accent"
                 Command="{Binding ValidateAndSaveCommand}" />

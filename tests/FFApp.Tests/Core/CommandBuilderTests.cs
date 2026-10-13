@@ -1729,6 +1729,84 @@ public class CommandBuilderTests
     }
 
     // ---------------------------------------------------------------
+    // Film grain
+    // ---------------------------------------------------------------
+
+    [Theory]
+    [InlineData(EncodingStrategy.TargetQuality, 1, 0, 1)]
+    [InlineData(EncodingStrategy.TargetQuality, 50, 1, 0)]
+    [InlineData(EncodingStrategy.TargetBitrate, 8, 0, 0)]
+    [InlineData(EncodingStrategy.TargetBitrate, 15, 1, 1)]
+    [InlineData(EncodingStrategy.TargetFileSize, 8, 1, 0)]
+    public void Build_Av1FilmGrain_EmitsSelectedSettings(
+        EncodingStrategy strategy, int strength, int denoise, int adaptive)
+    {
+        var job = JobWith(s => s.WithAv1().WithAv1FilmGrain(strength, denoise, adaptive)
+            .WithStrategy(strategy));
+        var command = _sut.Build(job, DefaultMedia())[0];
+        var args = JoinArgs(command);
+
+        args.Should().Contain($"film-grain={strength}");
+        args.Should().Contain($"film-grain-denoise={denoise}");
+        if (adaptive == 0)
+            args.Should().Contain("adaptive-film-grain=0");
+        else
+            args.Should().NotContain("adaptive-film-grain=");
+        command.Arguments.Count(a => a == "-svtav1-params").Should().Be(1);
+    }
+
+    [Theory]
+    [InlineData(EncodingStrategy.TargetQuality)]
+    [InlineData(EncodingStrategy.TargetBitrate)]
+    [InlineData(EncodingStrategy.TargetFileSize)]
+    public void Build_Av1FilmGrainOff_OmitsDependentSettings(EncodingStrategy strategy)
+    {
+        var job = JobWith(s => s.WithAv1().WithAv1FilmGrain(0, denoise: 1, adaptive: 0)
+            .WithStrategy(strategy));
+
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        args.Should().NotContain("film-grain=");
+        args.Should().NotContain("film-grain-denoise=");
+        args.Should().NotContain("adaptive-film-grain=");
+    }
+
+    [Theory]
+    [InlineData(EncodingStrategy.TargetQuality, 8, 0, 1)]
+    [InlineData(EncodingStrategy.TargetBitrate, 20, 1, 0)]
+    [InlineData(EncodingStrategy.TargetFileSize, 20, 1, 0)]
+    public void Build_Av1FilmGrain_UsesOptionsForActiveStrategy(
+        EncodingStrategy strategy, int strength, int denoise, int adaptive)
+    {
+        var job = JobWith(s => s.WithAv1()
+            .WithQuality(new Av1QualityOptions(FilmGrain: 8, FilmGrainDenoise: 0, AdaptiveFilmGrain: 1))
+            .WithEncoderOptions(new Av1EncoderOptions(FilmGrain: 20, FilmGrainDenoise: 1, AdaptiveFilmGrain: 0))
+            .WithStrategy(strategy));
+
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        args.Should().Contain($"film-grain={strength}");
+        args.Should().Contain($"film-grain-denoise={denoise}");
+        if (adaptive == 0)
+            args.Should().Contain("adaptive-film-grain=0");
+        else
+            args.Should().NotContain("adaptive-film-grain=");
+    }
+
+    [Fact]
+    public void Build_Av1FilmGrain_MergesWithHdrKeyframesAndAdditionalOptions()
+    {
+        var job = JobWith(s => s.WithAv1().WithAv1FilmGrain(8)
+            .WithHdrPreserve().WithKeyframeIntervalSeconds(5).WithAdditionalOptions("sharpness=1"));
+        var command = _sut.Build(job, new TestMediaInfoBuilder().WithHdr10().Build())[0];
+        var args = JoinArgs(command);
+
+        args.Should().Contain("film-grain=8").And.Contain("film-grain-denoise=0")
+            .And.Contain("enable-hdr=1").And.Contain("keyint=5s").And.Contain("sharpness=1");
+        command.Arguments.Count(a => a == "-svtav1-params").Should().Be(1);
+    }
+
+    // ---------------------------------------------------------------
     // Additional options (pass-through escape hatch)
     // ---------------------------------------------------------------
 

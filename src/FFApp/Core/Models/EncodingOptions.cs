@@ -31,7 +31,10 @@ public sealed record Av1EncoderOptions(
     int EnableOverlays = 1,
     int Scm = 2,
     int EnableVarianceBoost = 0,
-    string AdditionalOptions = "") : VideoEncoderOptions(VideoCodec.Av1);
+    string AdditionalOptions = "",
+    int FilmGrain = 0,
+    int FilmGrainDenoise = 0,
+    int AdaptiveFilmGrain = 1) : VideoEncoderOptions(VideoCodec.Av1);
 
 // --- Quality Options (discriminated union via abstract record) ---
 
@@ -62,4 +65,7 @@ public sealed record Av1QualityOptions(
     int EnableOverlays = 1,
     int Scm = 2,
     int MaxBitrateKbps = 0,
-    int EnableVarianceBoost = 0) : QualityOptions(VideoCodec.Av1);
+    int EnableVarianceBoost = 0,
+    int FilmGrain = 0,
+    int FilmGrainDenoise = 0,
+    int AdaptiveFilmGrain = 1) : QualityOptions(VideoCodec.Av1);

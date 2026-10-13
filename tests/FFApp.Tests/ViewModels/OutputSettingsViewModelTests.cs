@@ -11,6 +11,36 @@ namespace FFApp.Tests.ViewModels;
 
 public class OutputSettingsViewModelTests
 {
+    [Theory]
+    [InlineData(EncodingStrategy.TargetQuality)]
+    [InlineData(EncodingStrategy.TargetBitrate)]
+    [InlineData(EncodingStrategy.TargetFileSize)]
+    public void ApplyAndBuildSettings_Av1FilmGrain_PreservesSettingsAndControlEdits(EncodingStrategy strategy)
+    {
+        var settings = new TestOutputSettingsBuilder().WithAv1()
+            .WithAv1FilmGrain(15, denoise: 1, adaptive: 0).WithStrategy(strategy).Build();
+
+        _sut.ApplySettings(settings);
+
+        var vm = _sut.Strategy.Quality.Av1;
+        vm.FilmGrain.Should().Be(15);
+        vm.FilmGrainDenoiseChecked.Should().BeTrue();
+        vm.AdaptiveFilmGrainChecked.Should().BeFalse();
+
+        vm.FilmGrain = 8;
+        vm.FilmGrainDenoiseChecked = false;
+        vm.AdaptiveFilmGrainChecked = true;
+        var rebuilt = _sut.BuildSettings();
+
+        var encoder = rebuilt.VideoEncoderOptions.Should().BeOfType<Av1EncoderOptions>().Subject;
+        encoder.FilmGrain.Should().Be(8);
+        encoder.FilmGrainDenoise.Should().Be(0);
+        encoder.AdaptiveFilmGrain.Should().Be(1);
+        var quality = rebuilt.TargetQuality.Should().BeOfType<Av1QualityOptions>().Subject;
+        quality.FilmGrain.Should().Be(8);
+        quality.FilmGrainDenoise.Should().Be(0);
+        quality.AdaptiveFilmGrain.Should().Be(1);
+    }
 
     [Fact]
     public void AudioTrackSelection_IsExcludedFromSettingsAndPresets_AndSurvivesApplyingSettings()

@@ -269,6 +269,9 @@ public static class SettingsSerializer
                 ["enable_overlays"] = av1.EnableOverlays,
                 ["scm"] = av1.Scm,
                 ["enable_variance_boost"] = av1.EnableVarianceBoost,
+                ["film_grain"] = av1.FilmGrain,
+                ["film_grain_denoise"] = av1.FilmGrainDenoise,
+                ["adaptive_film_grain"] = av1.AdaptiveFilmGrain,
                 ["additional_options"] = av1.AdditionalOptions,
             },
             _ => throw new InvalidOperationException(
@@ -303,6 +306,9 @@ public static class SettingsSerializer
                 ["scm"] = av1.Scm,
                 ["max_bitrate_kbps"] = av1.MaxBitrateKbps,
                 ["enable_variance_boost"] = av1.EnableVarianceBoost,
+                ["film_grain"] = av1.FilmGrain,
+                ["film_grain_denoise"] = av1.FilmGrainDenoise,
+                ["adaptive_film_grain"] = av1.AdaptiveFilmGrain,
             },
             _ => throw new InvalidOperationException(
                 $"Unknown QualityOptions type: {options.GetType().Name}"),
@@ -338,7 +344,10 @@ public static class SettingsSerializer
                 Preset: preset, Tune: tune,
                 EnableOverlays: enableOverlays, Scm: scm,
                 EnableVarianceBoost: enableVarianceBoost,
-                AdditionalOptions: ReadString(element, "additional_options", ""));
+                AdditionalOptions: ReadString(element, "additional_options", ""),
+                FilmGrain: ReadAv1FilmGrain(element),
+                FilmGrainDenoise: ReadAv1FilmGrainToggle(element, "film_grain_denoise", 0),
+                AdaptiveFilmGrain: ReadAv1FilmGrainToggle(element, "adaptive_film_grain", 1));
         }
 
         // VP9
@@ -375,7 +384,10 @@ public static class SettingsSerializer
                     Tune: av1.Tune,
                     EnableOverlays: av1.EnableOverlays,
                     Scm: av1.Scm,
-                    EnableVarianceBoost: av1.EnableVarianceBoost),
+                    EnableVarianceBoost: av1.EnableVarianceBoost,
+                    FilmGrain: av1.FilmGrain,
+                    FilmGrainDenoise: av1.FilmGrainDenoise,
+                    AdaptiveFilmGrain: av1.AdaptiveFilmGrain),
 
             VideoCodec.Vp9 => DefaultVpxEncoderOptions(videoCodec, qualityElement),
 
@@ -422,7 +434,10 @@ public static class SettingsSerializer
                 EnableOverlays: ReadInt(element, "enable_overlays", 1),
                 Scm: ReadInt(element, "scm", 2),
                 MaxBitrateKbps: ReadInt(element, "max_bitrate_kbps", 0),
-                EnableVarianceBoost: ReadInt(element, "enable_variance_boost", 0));
+                EnableVarianceBoost: ReadInt(element, "enable_variance_boost", 0),
+                FilmGrain: ReadAv1FilmGrain(element),
+                FilmGrainDenoise: ReadAv1FilmGrainToggle(element, "film_grain_denoise", 0),
+                AdaptiveFilmGrain: ReadAv1FilmGrainToggle(element, "adaptive_film_grain", 1));
         }
 
         return new Vp9QualityOptions(
@@ -431,6 +446,22 @@ public static class SettingsSerializer
     }
 
     // --- Validation helpers ---
+
+    private static int ReadAv1FilmGrain(JsonElement element)
+    {
+        var value = ReadInt(element, "film_grain", 0);
+        if (value < CompatibilityData.Av1FilmGrainMin || value > CompatibilityData.Av1FilmGrainMax)
+            throw new SettingsDecodeException("Invalid AV1 film grain setting.");
+        return value;
+    }
+
+    private static int ReadAv1FilmGrainToggle(JsonElement element, string property, int defaultValue)
+    {
+        var value = ReadInt(element, property, defaultValue);
+        if (!CompatibilityData.Av1FilmGrainToggleOptions.Contains(value))
+            throw new SettingsDecodeException($"Invalid AV1 {property} setting.");
+        return value;
+    }
 
     private static void ValidateContainerCodecs(
         OutputContainer container, VideoCodec videoCodec)

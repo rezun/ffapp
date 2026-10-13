@@ -889,6 +889,27 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         if (enableVarianceBoost != 0)
             parts.Add($"enable-variance-boost={enableVarianceBoost}");
 
+        var (filmGrain, filmGrainDenoise, adaptiveFilmGrain) = job.TargetQuality switch
+        {
+            Av1QualityOptions av1 when job.EncodingStrategy == EncodingStrategy.TargetQuality
+                => (av1.FilmGrain, av1.FilmGrainDenoise, av1.AdaptiveFilmGrain),
+            _ => job.VideoEncoderOptions switch
+            {
+                Av1EncoderOptions enc => (enc.FilmGrain, enc.FilmGrainDenoise, enc.AdaptiveFilmGrain),
+                _ => (0, 0, 1),
+            },
+        };
+        if (filmGrain > 0)
+        {
+            parts.Add($"film-grain={filmGrain}");
+            // Set this explicitly: older SVT-AV1 versions enable denoising by default.
+            parts.Add($"film-grain-denoise={filmGrainDenoise}");
+            // Leave the default to the encoder for compatibility with older versions
+            // that do not expose the adaptive-film-grain switch.
+            if (adaptiveFilmGrain != 1)
+                parts.Add($"adaptive-film-grain={adaptiveFilmGrain}");
+        }
+
         // Capped CRF: max bit rate is only meaningful in TargetQuality mode.
         if (job.TargetQuality is Av1QualityOptions q
             && job.EncodingStrategy == EncodingStrategy.TargetQuality

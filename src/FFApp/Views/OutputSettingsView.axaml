@@ -44,6 +44,9 @@
         <DataTemplate x:Key="Av1ScmTemplate" x:DataType="sys:Int32">
             <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.Av1Scm}}" />
         </DataTemplate>
+        <DataTemplate x:Key="Av1FilmGrainTemplate" x:DataType="sys:Int32">
+            <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.Av1FilmGrain}}" />
+        </DataTemplate>
     </UserControl.Resources>
 
     <UserControl.DataTemplates>
@@ -125,7 +128,7 @@
                                 SelectedItem="{Binding Scm}"
                                 ItemTemplate="{StaticResource Av1ScmTemplate}" />
                         </Grid>
-                        <Grid ColumnDefinitions="80,Auto,16,Auto,*">
+                        <Grid ColumnDefinitions="80,Auto,16,Auto,16,Auto,*">
                             <CheckBox Grid.Column="1"
                                       Content="Overlays"
                                       VerticalAlignment="Center"
@@ -134,11 +137,36 @@
                                       Content="Variance Boost"
                                       VerticalAlignment="Center"
                                       IsChecked="{Binding EnableVarianceBoostChecked}" />
+                            <CheckBox x:Name="FilmGrainEnabledCheckBox" Grid.Column="5"
+                                      Content="Film Grain"
+                                      VerticalAlignment="Center"
+                                      IsChecked="{Binding IsFilmGrainEnabled}"
+                                      ToolTip.Tip="Enable film grain synthesis and show its settings." />
+                        </Grid>
+                        <Grid x:Name="FilmGrainOptionsPanel" ColumnDefinitions="80,Auto,16,Auto,16,Auto,*"
+                              IsVisible="{Binding IsFilmGrainEnabled}">
+                            <TextBlock Text="Strength" VerticalAlignment="Center" />
+                            <ctrl:NoWheelComboBox x:Name="FilmGrainComboBox" Grid.Column="1"
+                                MinWidth="64"
+                                ItemsSource="{Binding AvailableFilmGrainStrengths}"
+                                SelectedItem="{Binding FilmGrain}"
+                                ItemTemplate="{StaticResource Av1FilmGrainTemplate}"
+                                ToolTip.Tip="1–50 controls denoising used to estimate the grain model, not a grain percentage." />
+                            <CheckBox x:Name="FilmGrainDenoiseCheckBox" Grid.Column="3"
+                                      Content="Denoise"
+                                      VerticalAlignment="Center"
+                                      IsChecked="{Binding FilmGrainDenoiseChecked}"
+                                      ToolTip.Tip="Encode the denoised source and restore modeled grain during playback. May reduce bitrate, but can remove fine detail. Off still allows grain synthesis." />
+                            <CheckBox x:Name="AdaptiveFilmGrainCheckBox" Grid.Column="5"
+                                      Content="Adaptive"
+                                      VerticalAlignment="Center"
+                                      IsChecked="{Binding AdaptiveFilmGrainChecked}"
+                                      ToolTip.Tip="Adapt grain modeling block sizes to the video resolution for more consistent grain and fewer visible patterns." />
                         </Grid>
                         <Grid ColumnDefinitions="80,*">
                             <TextBlock Text="Additional" VerticalAlignment="Center" />
                             <TextBox Grid.Column="1"
-                                     PlaceholderText="e.g. film-grain=8:sharpness=1"
+                                     PlaceholderText="e.g. sharpness=1:tf-strength=1"
                                      Text="{Binding AdditionalOptions}" />
                         </Grid>
                     </StackPanel>

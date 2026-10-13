@@ -29,6 +29,11 @@ public static class CompatibilityData
     public const int Av1MaxBitrateKbpsMin = 0;
     public const int Av1MaxBitrateKbpsMax = 1_000_000;
 
+    public static readonly int Av1FilmGrainMin = 0;
+    public static readonly int Av1FilmGrainMax = 50;
+    public static readonly int Av1FilmGrainDefaultStrength = 8;
+    public static readonly IReadOnlyList<int> Av1FilmGrainToggleOptions = [0, 1];
+
     public static readonly IReadOnlyList<int> Av1TuneOptions = [0, 1, 2, 3, 4];
     public static readonly IReadOnlyList<int> Av1ScmOptions = [0, 1, 2, 3];
 

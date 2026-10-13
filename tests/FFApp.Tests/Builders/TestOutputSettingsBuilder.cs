@@ -112,6 +112,18 @@ public class TestOutputSettingsBuilder
             ? s with { TargetQuality = av1 with { MaxBitrateKbps = kbps } }
             : s);
 
+    public TestOutputSettingsBuilder WithAv1FilmGrain(
+        int strength, int denoise = 0, int adaptive = 1) =>
+        Apply(s => s with
+        {
+            TargetQuality = s.TargetQuality is Av1QualityOptions quality
+                ? quality with { FilmGrain = strength, FilmGrainDenoise = denoise, AdaptiveFilmGrain = adaptive }
+                : s.TargetQuality,
+            VideoEncoderOptions = s.VideoEncoderOptions is Av1EncoderOptions encoder
+                ? encoder with { FilmGrain = strength, FilmGrainDenoise = denoise, AdaptiveFilmGrain = adaptive }
+                : s.VideoEncoderOptions,
+        });
+
     public TestOutputSettingsBuilder WithAdditionalOptions(string options) =>
         Apply(s => s with
         {

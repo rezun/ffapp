@@ -6,6 +6,9 @@ namespace FFApp.Converters;
 
 public static class EnumLabelConverters
 {
+    public static readonly FuncValueConverter<int, string> Av1FilmGrain =
+        new(v => v == 0 ? "Off" : v.ToString(System.Globalization.CultureInfo.InvariantCulture));
+
     public static readonly FuncValueConverter<OutputContainer, string> Container =
         new(v => FormatHelpers.ContainerLabel(v));
 

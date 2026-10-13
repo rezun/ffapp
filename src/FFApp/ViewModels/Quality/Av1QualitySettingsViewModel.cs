@@ -10,6 +10,11 @@ public sealed partial class Av1QualitySettingsViewModel : CodecQualitySettingsVi
 
     public IReadOnlyList<int> AvailableTunes { get; } = CompatibilityData.Av1TuneOptions.ToList();
     public IReadOnlyList<int> AvailableScm { get; } = CompatibilityData.Av1ScmOptions.ToList();
+    public IReadOnlyList<int> AvailableFilmGrainStrengths { get; } = Enumerable.Range(
+        CompatibilityData.Av1FilmGrainMin + 1,
+        CompatibilityData.Av1FilmGrainMax - CompatibilityData.Av1FilmGrainMin).ToList();
+
+    private int _lastFilmGrainStrength = CompatibilityData.Av1FilmGrainDefaultStrength;
 
     [ObservableProperty]
     private int _crf = 30;
@@ -28,6 +33,18 @@ public sealed partial class Av1QualitySettingsViewModel : CodecQualitySettingsVi
 
     [ObservableProperty]
     private int _enableVarianceBoost;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsFilmGrainEnabled))]
+    private int _filmGrain;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FilmGrainDenoiseChecked))]
+    private int _filmGrainDenoise;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AdaptiveFilmGrainChecked))]
+    private int _adaptiveFilmGrain = 1;
 
     [ObservableProperty]
     private string _maxBitrateKbpsText = "";
@@ -53,6 +70,35 @@ public sealed partial class Av1QualitySettingsViewModel : CodecQualitySettingsVi
     partial void OnEnableVarianceBoostChanged(int value) =>
         OnPropertyChanged(nameof(EnableVarianceBoostChecked));
 
+    public bool IsFilmGrainEnabled
+    {
+        get => FilmGrain > 0;
+        set
+        {
+            if (value == IsFilmGrainEnabled)
+                return;
+            FilmGrain = value ? _lastFilmGrainStrength : 0;
+        }
+    }
+
+    partial void OnFilmGrainChanged(int value)
+    {
+        if (value > 0)
+            _lastFilmGrainStrength = value;
+    }
+
+    public bool FilmGrainDenoiseChecked
+    {
+        get => FilmGrainDenoise != 0;
+        set => FilmGrainDenoise = value ? 1 : 0;
+    }
+
+    public bool AdaptiveFilmGrainChecked
+    {
+        get => AdaptiveFilmGrain != 0;
+        set => AdaptiveFilmGrain = value ? 1 : 0;
+    }
+
     public int MaxBitrateKbps =>
         int.TryParse(MaxBitrateKbpsText, out var v) && v > 0 ? v : 0;
 
@@ -64,15 +110,21 @@ public sealed partial class Av1QualitySettingsViewModel : CodecQualitySettingsVi
         EnableOverlays = 1;
         Scm = 2;
         EnableVarianceBoost = 0;
+        _lastFilmGrainStrength = CompatibilityData.Av1FilmGrainDefaultStrength;
+        FilmGrain = 0;
+        FilmGrainDenoise = 0;
+        AdaptiveFilmGrain = 1;
         MaxBitrateKbpsText = "";
         AdditionalOptions = "";
     }
 
     public override QualityOptions BuildQualityOptions() =>
-        new Av1QualityOptions(Crf, Preset, Tune, EnableOverlays, Scm, MaxBitrateKbps, EnableVarianceBoost);
+        new Av1QualityOptions(Crf, Preset, Tune, EnableOverlays, Scm, MaxBitrateKbps,
+            EnableVarianceBoost, FilmGrain, FilmGrainDenoise, AdaptiveFilmGrain);
 
     public override VideoEncoderOptions BuildEncoderOptions() =>
-        new Av1EncoderOptions(Preset, Tune, EnableOverlays, Scm, EnableVarianceBoost, AdditionalOptions);
+        new Av1EncoderOptions(Preset, Tune, EnableOverlays, Scm, EnableVarianceBoost,
+            AdditionalOptions, FilmGrain, FilmGrainDenoise, AdaptiveFilmGrain);
 
     public override void ApplyQuality(QualityOptions options)
     {
@@ -84,6 +136,9 @@ public sealed partial class Av1QualitySettingsViewModel : CodecQualitySettingsVi
         EnableOverlays = av1.EnableOverlays;
         Scm = av1.Scm;
         EnableVarianceBoost = av1.EnableVarianceBoost;
+        FilmGrain = av1.FilmGrain;
+        FilmGrainDenoise = av1.FilmGrainDenoise;
+        AdaptiveFilmGrain = av1.AdaptiveFilmGrain;
         MaxBitrateKbpsText = av1.MaxBitrateKbps > 0 ? av1.MaxBitrateKbps.ToString() : "";
     }
 
@@ -96,6 +151,9 @@ public sealed partial class Av1QualitySettingsViewModel : CodecQualitySettingsVi
         EnableOverlays = av1.EnableOverlays;
         Scm = av1.Scm;
         EnableVarianceBoost = av1.EnableVarianceBoost;
+        FilmGrain = av1.FilmGrain;
+        FilmGrainDenoise = av1.FilmGrainDenoise;
+        AdaptiveFilmGrain = av1.AdaptiveFilmGrain;
         AdditionalOptions = av1.AdditionalOptions;
     }
 }

@@ -316,6 +316,9 @@ public sealed class ValidationService : IValidationService
                         $"AV1 preset must be between {CompatibilityData.Av1PresetMin} and {CompatibilityData.Av1PresetMax}.",
                         "video_encoder"));
                 }
+                ValidateAv1FilmGrain(
+                    av1.FilmGrain, av1.FilmGrainDenoise, av1.AdaptiveFilmGrain,
+                    "video_encoder", issues);
                 break;
             }
             default: // VP9
@@ -580,7 +583,43 @@ public sealed class ValidationService : IValidationService
                         $"AV1 preset must be between {Av1PresetMin} and {Av1PresetMax}.",
                         "target_quality"));
                 }
+                ValidateAv1FilmGrain(
+                    av1.FilmGrain, av1.FilmGrainDenoise, av1.AdaptiveFilmGrain,
+                    "target_quality", issues);
                 break;
+        }
+    }
+
+    private static void ValidateAv1FilmGrain(
+        int filmGrain,
+        int filmGrainDenoise,
+        int adaptiveFilmGrain,
+        string field,
+        ImmutableArray<ValidationIssue>.Builder issues)
+    {
+        if (filmGrain < Av1FilmGrainMin || filmGrain > Av1FilmGrainMax)
+        {
+            issues.Add(new ValidationIssue(
+                ValidationSeverity.Error,
+                "av1_film_grain_invalid",
+                $"AV1 film grain must be between {Av1FilmGrainMin} and {Av1FilmGrainMax}.",
+                field));
+        }
+        if (!Av1FilmGrainToggleOptions.Contains(filmGrainDenoise))
+        {
+            issues.Add(new ValidationIssue(
+                ValidationSeverity.Error,
+                "av1_film_grain_denoise_invalid",
+                "AV1 film grain denoise must be off (0) or on (1).",
+                field));
+        }
+        if (!Av1FilmGrainToggleOptions.Contains(adaptiveFilmGrain))
+        {
+            issues.Add(new ValidationIssue(
+                ValidationSeverity.Error,
+                "av1_adaptive_film_grain_invalid",
+                "AV1 adaptive film grain must be off (0) or on (1).",
+                field));
         }
     }
 

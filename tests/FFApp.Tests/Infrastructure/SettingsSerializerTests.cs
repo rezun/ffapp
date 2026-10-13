@@ -463,7 +463,8 @@ public class SettingsSerializerTests
             .WithAv1()
             .WithQuality(new Av1QualityOptions(
                 Crf: 25, Preset: 4, Tune: 2, EnableOverlays: 0, Scm: 3,
-                MaxBitrateKbps: 4500, EnableVarianceBoost: 1))
+                MaxBitrateKbps: 4500, EnableVarianceBoost: 1,
+                FilmGrain: 15, FilmGrainDenoise: 1, AdaptiveFilmGrain: 0))
             .Build();
 
         var result = RoundTrip(original);
@@ -477,6 +478,9 @@ public class SettingsSerializerTests
         q.Scm.Should().Be(3);
         q.MaxBitrateKbps.Should().Be(4500);
         q.EnableVarianceBoost.Should().Be(1);
+        q.FilmGrain.Should().Be(15);
+        q.FilmGrainDenoise.Should().Be(1);
+        q.AdaptiveFilmGrain.Should().Be(0);
     }
 
     [Fact]
@@ -485,7 +489,8 @@ public class SettingsSerializerTests
         var original = new TestOutputSettingsBuilder()
             .WithAv1()
             .WithEncoderOptions(new Av1EncoderOptions(
-                Preset: 8, Tune: 4, EnableOverlays: 1, Scm: 1, EnableVarianceBoost: 1))
+                Preset: 8, Tune: 4, EnableOverlays: 1, Scm: 1, EnableVarianceBoost: 1,
+                FilmGrain: 50, FilmGrainDenoise: 1, AdaptiveFilmGrain: 0))
             .Build();
 
         var result = RoundTrip(original);
@@ -497,6 +502,9 @@ public class SettingsSerializerTests
         opts.EnableOverlays.Should().Be(1);
         opts.Scm.Should().Be(1);
         opts.EnableVarianceBoost.Should().Be(1);
+        opts.FilmGrain.Should().Be(50);
+        opts.FilmGrainDenoise.Should().Be(1);
+        opts.AdaptiveFilmGrain.Should().Be(0);
     }
 
     [Fact]
@@ -519,6 +527,9 @@ public class SettingsSerializerTests
         q.Scm.Should().Be(2);
         q.MaxBitrateKbps.Should().Be(0);
         q.EnableVarianceBoost.Should().Be(0);
+        q.FilmGrain.Should().Be(0);
+        q.FilmGrainDenoise.Should().Be(0);
+        q.AdaptiveFilmGrain.Should().Be(1);
     }
 
     [Fact]
@@ -632,5 +643,51 @@ public class SettingsSerializerTests
         opts.EnableOverlays.Should().Be(1);
         opts.Scm.Should().Be(2);
         opts.EnableVarianceBoost.Should().Be(0);
+        opts.FilmGrain.Should().Be(0);
+        opts.FilmGrainDenoise.Should().Be(0);
+        opts.AdaptiveFilmGrain.Should().Be(1);
+    }
+
+    [Fact]
+    public void Deserialize_Av1FilmGrain_MissingEncoderOptions_DerivesFromQuality()
+    {
+        using var document = JsonDocument.Parse("""
+        {
+            "video_codec": "av1", "container": "mkv",
+            "target_quality": {
+                "film_grain": 12, "film_grain_denoise": 1, "adaptive_film_grain": 0
+            }
+        }
+        """);
+
+        var result = SettingsSerializer.DeserializeOutputSettings(document.RootElement);
+
+        var encoder = result.VideoEncoderOptions.Should().BeOfType<Av1EncoderOptions>().Subject;
+        encoder.FilmGrain.Should().Be(12);
+        encoder.FilmGrainDenoise.Should().Be(1);
+        encoder.AdaptiveFilmGrain.Should().Be(0);
+    }
+
+    [Theory]
+    [InlineData("target_quality", "film_grain", -1)]
+    [InlineData("target_quality", "film_grain", 51)]
+    [InlineData("target_quality", "film_grain_denoise", 2)]
+    [InlineData("target_quality", "adaptive_film_grain", -1)]
+    [InlineData("video_encoder_options", "film_grain", -1)]
+    [InlineData("video_encoder_options", "film_grain", 51)]
+    [InlineData("video_encoder_options", "film_grain_denoise", 2)]
+    [InlineData("video_encoder_options", "adaptive_film_grain", -1)]
+    public void Deserialize_InvalidAv1FilmGrain_RejectsSettings(string section, string field, int value)
+    {
+        using var document = JsonDocument.Parse($$"""
+        {
+            "video_codec": "av1", "container": "mkv",
+            "{{section}}": { "{{field}}": {{value}} }
+        }
+        """);
+
+        var act = () => SettingsSerializer.DeserializeOutputSettings(document.RootElement);
+
+        act.Should().Throw<SettingsDecodeException>();
     }
 }

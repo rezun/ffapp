@@ -12,6 +12,47 @@ public class ValidationServiceTests
     private static bool HasIssueWithCode(ValidationResult result, string code) =>
         result.Issues.Any(i => i.Code == code);
 
+    [Theory]
+    [InlineData(EncodingStrategy.TargetQuality, -1, 0, 1, "av1_film_grain_invalid")]
+    [InlineData(EncodingStrategy.TargetQuality, 51, 0, 1, "av1_film_grain_invalid")]
+    [InlineData(EncodingStrategy.TargetQuality, 8, 2, 1, "av1_film_grain_denoise_invalid")]
+    [InlineData(EncodingStrategy.TargetQuality, 8, 0, -1, "av1_adaptive_film_grain_invalid")]
+    [InlineData(EncodingStrategy.TargetBitrate, -1, 0, 1, "av1_film_grain_invalid")]
+    [InlineData(EncodingStrategy.TargetBitrate, 51, 0, 1, "av1_film_grain_invalid")]
+    [InlineData(EncodingStrategy.TargetBitrate, 8, 2, 1, "av1_film_grain_denoise_invalid")]
+    [InlineData(EncodingStrategy.TargetBitrate, 8, 0, -1, "av1_adaptive_film_grain_invalid")]
+    public void Validate_InvalidAv1FilmGrain_ReturnsError(
+        EncodingStrategy strategy, int strength, int denoise, int adaptive, string code)
+    {
+        var builder = new TestOutputSettingsBuilder().WithAv1();
+        if (strategy == EncodingStrategy.TargetQuality)
+            builder.WithQuality(new Av1QualityOptions(
+                FilmGrain: strength, FilmGrainDenoise: denoise, AdaptiveFilmGrain: adaptive));
+        else
+            builder.WithEncoderOptions(new Av1EncoderOptions(
+                FilmGrain: strength, FilmGrainDenoise: denoise, AdaptiveFilmGrain: adaptive));
+        var settings = builder.WithStrategy(strategy).Build();
+
+        var result = _sut.Validate(settings, new TestMediaInfoBuilder().Build());
+
+        HasIssueWithCode(result, code).Should().BeTrue();
+        result.HasErrors.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(0, 0, 1)]
+    [InlineData(1, 1, 0)]
+    [InlineData(50, 1, 1)]
+    public void Validate_ValidAv1FilmGrain_AcceptsBoundaries(int strength, int denoise, int adaptive)
+    {
+        var settings = new TestOutputSettingsBuilder().WithAv1()
+            .WithAv1FilmGrain(strength, denoise, adaptive).Build();
+
+        var result = _sut.Validate(settings, new TestMediaInfoBuilder().Build());
+
+        result.HasErrors.Should().BeFalse();
+    }
+
     // ── Container / codec compatibility ─────────────────────────────────
 
     [Fact]

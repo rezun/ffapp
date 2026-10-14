@@ -10,6 +10,11 @@ namespace FFApp.ViewModels;
 public sealed partial class AudioViewModel : ObservableObject
 {
     [ObservableProperty]
+    private bool _removeTrackTitles;
+
+    public bool IsAudioIncluded => SelectedAudioMode != AudioMode.Remove;
+
+    [ObservableProperty]
     private bool _allAudioTracks = true;
 
     [ObservableProperty]
@@ -202,6 +207,7 @@ public sealed partial class AudioViewModel : ObservableObject
 
     partial void OnSelectedAudioModeChanged(AudioMode value)
     {
+        OnPropertyChanged(nameof(IsAudioIncluded));
         OnPropertyChanged(nameof(IsReencodeMode));
         OnPropertyChanged(nameof(IsTrackSelectionVisible));
 

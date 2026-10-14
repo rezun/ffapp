@@ -9,6 +9,67 @@ namespace FFApp.Tests.Core;
 
 public class CommandBuilderTests
 {
+    [Theory]
+    [InlineData(AudioMode.Copy, VideoMode.Copy)]
+    [InlineData(AudioMode.Reencode, VideoMode.Reencode)]
+    [InlineData(AudioMode.Reencode, VideoMode.Remove)]
+    public void Build_RemoveAudioTrackTitles_TargetsOnlyIncludedAudio(AudioMode audioMode, VideoMode videoMode)
+    {
+        var media = new TestMediaInfoBuilder().WithAudioStreams(
+            new AudioStreamInfo(2, "aac") { MetadataKeys = ["title", "language"] },
+            new AudioStreamInfo(5, "aac") { MetadataKeys = ["TITLE", "language"] }).Build();
+        var job = new TestJobDefinitionBuilder().WithAudioTracks(5)
+            .WithOutputSettings(s => s.WithVideoMode(videoMode)
+                .WithAudio(new AudioOptions(audioMode, AudioCodec.Aac, 128_000))
+                .WithRemoveAudioTrackTitles()).Build();
+
+        var args = JoinArgs(_sut.Build(job, media)[0]);
+
+        args.Should().Contain("-metadata:s:a title=").And.Contain("-map -0:2");
+        args.Should().NotContain("language=").And.NotContain("-map_metadata")
+            .And.NotContain("-metadata title=").And.NotContain("-metadata:s:v:0 title=");
+    }
+
+    [Theory]
+    [InlineData(AudioMode.Copy)]
+    [InlineData(AudioMode.Reencode)]
+    public void Build_DefaultAudioOptions_PreserveTrackTitles(AudioMode mode)
+    {
+        var media = new TestMediaInfoBuilder().WithAudioMetadataKeys("title", "language").Build();
+        var job = new TestJobDefinitionBuilder().WithOutputSettings(s =>
+            s.WithAudio(new AudioOptions(mode, AudioCodec.Aac, 128_000))).Build();
+
+        JoinArgs(_sut.Build(job, media)[0]).Should().NotContain("title=");
+    }
+
+    [Fact]
+    public void Build_RemoveAudioTrackTitles_TwoPassOnlyClearsFinalOutput()
+    {
+        var job = new TestJobDefinitionBuilder().WithOutputSettings(s =>
+            s.WithTargetBitrate(3_000_000, twoPass: true).WithRemoveAudioTrackTitles()).Build();
+
+        var commands = _sut.Build(job, DefaultMedia());
+
+        commands.Should().HaveCount(2);
+        JoinArgs(commands[0]).Should().NotContain("title=");
+        JoinArgs(commands[1]).Should().Contain("-metadata:s:a title=");
+    }
+
+    [Fact]
+    public void Build_RemoveAudioTrackTitles_NoIncludedAudioOmitsDeletion()
+    {
+        var removed = new TestJobDefinitionBuilder().WithOutputSettings(s =>
+            s.WithAudioRemove().WithRemoveAudioTrackTitles()).Build();
+        var deselected = new TestJobDefinitionBuilder().WithAudioTracks()
+            .WithOutputSettings(s => s.WithRemoveAudioTrackTitles()).Build();
+        var noAudio = new TestMediaInfoBuilder().WithAudioStreams().Build();
+        var enabled = new TestJobDefinitionBuilder().WithOutputSettings(s =>
+            s.WithRemoveAudioTrackTitles()).Build();
+
+        JoinArgs(_sut.Build(removed, DefaultMedia())[0]).Should().NotContain("title=");
+        JoinArgs(_sut.Build(deselected, DefaultMedia())[0]).Should().NotContain("title=");
+        JoinArgs(_sut.Build(enabled, noAudio)[0]).Should().NotContain("title=");
+    }
 
     [Theory]
     [InlineData(AudioMode.Copy, "copy")]

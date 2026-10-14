@@ -96,6 +96,26 @@ public class OutputSettingsViewModelTests
         settings.AudioOptions.Bitrate.Should().BeNull();
         settings.AudioOptions.AudioChannels.Should().BeNull();
         settings.AudioOptions.SampleRate.Should().BeNull();
+        settings.AudioOptions.RemoveTrackTitles.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(AudioMode.Copy)]
+    [InlineData(AudioMode.Reencode)]
+    [InlineData(AudioMode.Remove)]
+    public void RemoveAudioTrackTitles_BuildAndApplyPreserveAndResetChoice(AudioMode mode)
+    {
+        _sut.Audio.SelectedAudioMode = mode;
+        _sut.Audio.RemoveTrackTitles = true;
+        var settings = _sut.BuildSettings();
+        settings.AudioOptions.RemoveTrackTitles.Should().BeTrue();
+
+        _sut.Audio.RemoveTrackTitles = false;
+        _sut.ApplySettings(settings);
+        _sut.Audio.RemoveTrackTitles.Should().BeTrue();
+
+        _sut.ApplySettings(new OutputSettings());
+        _sut.Audio.RemoveTrackTitles.Should().BeFalse();
     }
 
     [Theory]

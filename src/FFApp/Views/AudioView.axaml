@@ -63,6 +63,12 @@
             </StackPanel>
         </Grid>
 
+        <CheckBox x:Name="RemoveTrackTitlesCheckBox"
+                  Content="Remove track titles" Margin="85,0,0,0"
+                  IsVisible="{Binding IsAudioIncluded}"
+                  IsChecked="{Binding RemoveTrackTitles}"
+                  ToolTip.Tip="Remove titles from all included audio tracks when copying or re-encoding. Keeps language tags and other audio metadata." />
+
         <!-- Re-encode controls (visible only in Reencode mode) -->
         <StackPanel Spacing="4" IsVisible="{Binding IsReencodeMode}">
             <Grid ColumnDefinitions="85,Auto,16,75,*">

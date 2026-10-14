@@ -317,6 +317,9 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
 
         if (job.AudioOptions.Mode != AudioMode.Remove)
         {
+            if (job.AudioOptions.RemoveTrackTitles && mediaInfo.AudioStreams.Length > 0)
+                arguments.AddRange(["-metadata:s:a", "title="]);
+
             for (var index = 0; index < mediaInfo.AudioStreams.Length; index++)
             {
                 AddMetadataDeletions(

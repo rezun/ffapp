@@ -37,6 +37,7 @@ public static class SettingsSerializer
                 ["bitrate"] = settings.AudioOptions.Bitrate,
                 ["audio_channels"] = settings.AudioOptions.AudioChannels,
                 ["sample_rate"] = settings.AudioOptions.SampleRate,
+                ["remove_track_titles"] = settings.AudioOptions.RemoveTrackTitles,
             },
             ["stream_handling"] = new JsonObject
             {
@@ -183,7 +184,8 @@ public static class SettingsSerializer
                 Codec: audioCodec,
                 Bitrate: audioBitrate,
                 AudioChannels: audioChannels,
-                SampleRate: sampleRate),
+                SampleRate: sampleRate,
+                RemoveTrackTitles: ReadBool(audioEl, "remove_track_titles")),
             StreamHandling: streamHandling,
             TargetFileSize: targetFileSize,
             TargetBitrate: targetBitrate,

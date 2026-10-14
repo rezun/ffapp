@@ -18,6 +18,34 @@ public class SettingsSerializerTests
     // --- Round-trip tests ---
 
     [Theory]
+    [InlineData(AudioMode.Copy, true)]
+    [InlineData(AudioMode.Reencode, true)]
+    [InlineData(AudioMode.Remove, true)]
+    [InlineData(AudioMode.Copy, false)]
+    public void RoundTrip_RemoveAudioTrackTitles_PreservesChoice(AudioMode mode, bool enabled)
+    {
+        var original = new TestOutputSettingsBuilder()
+            .WithAudio(new AudioOptions(mode, AudioCodec.Aac, 128_000))
+            .WithRemoveAudioTrackTitles(enabled).Build();
+
+        RoundTrip(original).AudioOptions.RemoveTrackTitles.Should().Be(enabled);
+    }
+
+    [Fact]
+    public void Deserialize_MissingRemoveAudioTrackTitles_PreservesTitles()
+    {
+        var json = SettingsSerializer.SerializeOutputSettings(
+            new TestOutputSettingsBuilder().WithRemoveAudioTrackTitles().Build());
+        var audio = json["audio_options"] as System.Text.Json.Nodes.JsonObject
+            ?? throw new InvalidOperationException("Audio settings missing.");
+        audio.Remove("remove_track_titles");
+        using var document = JsonDocument.Parse(json.ToJsonString());
+
+        SettingsSerializer.DeserializeOutputSettings(document.RootElement)
+            .AudioOptions.RemoveTrackTitles.Should().BeFalse();
+    }
+
+    [Theory]
     [InlineData(AudioCodec.Opus, 12000)]
     [InlineData(AudioCodec.Opus, 24000)]
     [InlineData(AudioCodec.Opus, 48000)]

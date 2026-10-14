@@ -53,6 +53,9 @@ public class TestOutputSettingsBuilder
     public TestOutputSettingsBuilder WithAudioCopy() =>
         WithAudio(new AudioOptions(AudioMode.Copy));
 
+    public TestOutputSettingsBuilder WithRemoveAudioTrackTitles(bool enabled = true) =>
+        Apply(s => s with { AudioOptions = s.AudioOptions with { RemoveTrackTitles = enabled } });
+
     public TestOutputSettingsBuilder WithAudioReencode(
         AudioCodec codec, int bitrate, int? channels = null, int? sampleRate = null) =>
         WithAudio(new AudioOptions(AudioMode.Reencode, codec, bitrate, channels, sampleRate));

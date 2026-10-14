@@ -40,7 +40,8 @@ public sealed record AudioOptions(
     AudioCodec? Codec = null,
     int? Bitrate = null,
     int? AudioChannels = null,
-    int? SampleRate = null);
+    int? SampleRate = null,
+    bool RemoveTrackTitles = false);
 
 public sealed record StreamHandlingOptions(
     bool RemoveSubtitles = false,

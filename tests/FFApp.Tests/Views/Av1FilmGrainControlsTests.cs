@@ -16,6 +16,57 @@ namespace FFApp.Tests.Views;
 public sealed class Av1FilmGrainControlsTests(QueueTestSession fixture)
 {
     [Fact]
+    public async Task VarianceBoostControls_ShowWhenEnabledAndRememberSelections()
+    {
+        await fixture.Session.Dispatch(() =>
+        {
+            var validation = Substitute.For<IValidationService>();
+            var vm = new OutputSettingsViewModel(validation, Substitute.For<IMessenger>(),
+                Substitute.For<IFfmpegCapabilityService>(), new ExecutablePathsConfig());
+            vm.ApplySettings(new TestOutputSettingsBuilder().WithAv1().Build());
+            var view = new OutputSettingsView { DataContext = vm };
+            var window = new Window { Content = view, Width = 800, Height = 1000 };
+            window.Show();
+            try
+            {
+                window.UpdateLayout();
+                var enabled = view.GetVisualDescendants().OfType<CheckBox>()
+                    .Single(c => c.Name == "VarianceBoostEnabledCheckBox");
+                var options = view.GetVisualDescendants().OfType<Grid>()
+                    .Single(c => c.Name == "VarianceBoostOptionsPanel");
+                var strength = view.GetVisualDescendants().OfType<ComboBox>()
+                    .Single(c => c.Name == "VarianceBoostStrengthComboBox");
+                var octile = view.GetVisualDescendants().OfType<ComboBox>()
+                    .Single(c => c.Name == "VarianceOctileComboBox");
+
+                options.IsVisible.Should().BeFalse();
+                strength.Items.Cast<int>().Should().Equal(Enumerable.Range(1, 4));
+                octile.Items.Cast<int>().Should().Equal(Enumerable.Range(1, 8));
+                enabled.IsChecked = true;
+                window.UpdateLayout();
+                strength.IsEffectivelyVisible.Should().BeTrue();
+                octile.IsEffectivelyVisible.Should().BeTrue();
+                strength.SelectedItem.Should().Be(2);
+                octile.SelectedItem.Should().Be(5);
+                strength.SelectedItem = 4;
+                octile.SelectedItem = 8;
+                var encoder = vm.BuildSettings().VideoEncoderOptions.Should().BeOfType<Av1EncoderOptions>().Subject;
+                encoder.VarianceBoostStrength.Should().Be(4);
+                encoder.VarianceOctile.Should().Be(8);
+                enabled.IsChecked = false;
+                options.IsVisible.Should().BeFalse();
+                enabled.IsChecked = true;
+                strength.SelectedItem.Should().Be(4);
+                octile.SelectedItem.Should().Be(8);
+            }
+            finally
+            {
+                window.Close();
+            }
+        }, CancellationToken.None);
+    }
+
+    [Fact]
     public async Task FilmGrainControls_CollapseWhenOffAndRestoreDropdownSelectionWhenReenabled()
     {
         await fixture.Session.Dispatch(() =>

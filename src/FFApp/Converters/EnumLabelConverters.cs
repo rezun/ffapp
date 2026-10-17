@@ -6,6 +6,25 @@ namespace FFApp.Converters;
 
 public static class EnumLabelConverters
 {
+    public static readonly FuncValueConverter<int, string> Av1VarianceBoostStrength =
+        new(v => v switch
+        {
+            1 => "1 — Mild",
+            2 => "2 — Gentle (default)",
+            3 => "3 — Medium",
+            4 => "4 — Aggressive",
+            _ => v.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        });
+
+    public static readonly FuncValueConverter<int, string> Av1VarianceOctile =
+        new(v => v switch
+        {
+            4 => "4 — Median",
+            5 => "5 — Default",
+            8 => "8 — Maximum",
+            _ => v.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        });
+
     public static readonly FuncValueConverter<int, string> Av1FilmGrain =
         new(v => v == 0 ? "Off" : v.ToString(System.Globalization.CultureInfo.InvariantCulture));
 

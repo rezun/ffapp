@@ -15,6 +15,31 @@ public class OutputSettingsViewModelTests
     [InlineData(EncodingStrategy.TargetQuality)]
     [InlineData(EncodingStrategy.TargetBitrate)]
     [InlineData(EncodingStrategy.TargetFileSize)]
+    public void ApplyAndBuildSettings_Av1VarianceBoost_PreservesSettingsAndEdits(EncodingStrategy strategy)
+    {
+        var settings = new TestOutputSettingsBuilder().WithAv1()
+            .WithAv1VarianceBoost(strength: 4, octile: 8).WithStrategy(strategy).Build();
+        _sut.ApplySettings(settings);
+        var vm = _sut.Strategy.Quality.Av1;
+        vm.EnableVarianceBoostChecked.Should().BeTrue();
+        vm.VarianceBoostStrength.Should().Be(4);
+        vm.VarianceOctile.Should().Be(8);
+
+        vm.VarianceBoostStrength = 1;
+        vm.VarianceOctile = 3;
+        var rebuilt = _sut.BuildSettings();
+        var encoder = rebuilt.VideoEncoderOptions.Should().BeOfType<Av1EncoderOptions>().Subject;
+        var quality = rebuilt.TargetQuality.Should().BeOfType<Av1QualityOptions>().Subject;
+        encoder.VarianceBoostStrength.Should().Be(1);
+        encoder.VarianceOctile.Should().Be(3);
+        quality.VarianceBoostStrength.Should().Be(1);
+        quality.VarianceOctile.Should().Be(3);
+    }
+
+    [Theory]
+    [InlineData(EncodingStrategy.TargetQuality)]
+    [InlineData(EncodingStrategy.TargetBitrate)]
+    [InlineData(EncodingStrategy.TargetFileSize)]
     public void ApplyAndBuildSettings_Av1FilmGrain_PreservesSettingsAndControlEdits(EncodingStrategy strategy)
     {
         var settings = new TestOutputSettingsBuilder().WithAv1()

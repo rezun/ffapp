@@ -34,6 +34,9 @@ public static class CompatibilityData
     public static readonly int Av1FilmGrainDefaultStrength = 8;
     public static readonly IReadOnlyList<int> Av1FilmGrainToggleOptions = [0, 1];
 
+    public static readonly IReadOnlyList<int> Av1VarianceBoostStrengthOptions = [1, 2, 3, 4];
+    public static readonly IReadOnlyList<int> Av1VarianceOctileOptions = [1, 2, 3, 4, 5, 6, 7, 8];
+
     public static readonly IReadOnlyList<int> Av1TuneOptions = [0, 1, 2, 3, 4];
     public static readonly IReadOnlyList<int> Av1ScmOptions = [0, 1, 2, 3];
 

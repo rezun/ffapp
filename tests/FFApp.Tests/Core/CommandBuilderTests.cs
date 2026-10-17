@@ -1715,6 +1715,31 @@ public class CommandBuilderTests
         args.Should().Contain("scm=3");
     }
 
+    [Theory]
+    [InlineData(EncodingStrategy.TargetQuality, 1, 1, 1)]
+    [InlineData(EncodingStrategy.TargetBitrate, 1, 4, 8)]
+    [InlineData(EncodingStrategy.TargetFileSize, 1, 2, 5)]
+    [InlineData(EncodingStrategy.TargetQuality, 0, 4, 8)]
+    [InlineData(EncodingStrategy.TargetBitrate, 0, 1, 1)]
+    public void Build_Av1VarianceBoost_EmitsSelectedOptionsOnlyWhenEnabled(
+        EncodingStrategy strategy, int enabled, int strength, int octile)
+    {
+        var job = JobWith(s => s.WithAv1().WithAv1VarianceBoost(enabled, strength, octile)
+            .WithStrategy(strategy));
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        if (enabled == 1)
+        {
+            args.Should().Contain($"variance-boost-strength={strength}");
+            args.Should().Contain($"variance-octile={octile}");
+        }
+        else
+        {
+            args.Should().NotContain("variance-boost-strength=");
+            args.Should().NotContain("variance-octile=");
+        }
+    }
+
     [Fact]
     public void Build_Av1Quality_VarianceBoostDefault_Omitted()
     {

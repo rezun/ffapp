@@ -14,6 +14,15 @@ public sealed partial class Av1QualitySettingsViewModel : CodecQualitySettingsVi
         CompatibilityData.Av1FilmGrainMin + 1,
         CompatibilityData.Av1FilmGrainMax - CompatibilityData.Av1FilmGrainMin).ToList();
 
+    public IReadOnlyList<int> AvailableVarianceBoostStrengths { get; } = CompatibilityData.Av1VarianceBoostStrengthOptions;
+    public IReadOnlyList<int> AvailableVarianceOctiles { get; } = CompatibilityData.Av1VarianceOctileOptions;
+
+    [ObservableProperty]
+    private int _varianceBoostStrength = 2;
+
+    [ObservableProperty]
+    private int _varianceOctile = 5;
+
     private int _lastFilmGrainStrength = CompatibilityData.Av1FilmGrainDefaultStrength;
 
     [ObservableProperty]
@@ -110,6 +119,8 @@ public sealed partial class Av1QualitySettingsViewModel : CodecQualitySettingsVi
         EnableOverlays = 1;
         Scm = 2;
         EnableVarianceBoost = 0;
+        VarianceBoostStrength = 2;
+        VarianceOctile = 5;
         _lastFilmGrainStrength = CompatibilityData.Av1FilmGrainDefaultStrength;
         FilmGrain = 0;
         FilmGrainDenoise = 0;
@@ -120,11 +131,11 @@ public sealed partial class Av1QualitySettingsViewModel : CodecQualitySettingsVi
 
     public override QualityOptions BuildQualityOptions() =>
         new Av1QualityOptions(Crf, Preset, Tune, EnableOverlays, Scm, MaxBitrateKbps,
-            EnableVarianceBoost, FilmGrain, FilmGrainDenoise, AdaptiveFilmGrain);
+            EnableVarianceBoost, FilmGrain, FilmGrainDenoise, AdaptiveFilmGrain, VarianceBoostStrength, VarianceOctile);
 
     public override VideoEncoderOptions BuildEncoderOptions() =>
         new Av1EncoderOptions(Preset, Tune, EnableOverlays, Scm, EnableVarianceBoost,
-            AdditionalOptions, FilmGrain, FilmGrainDenoise, AdaptiveFilmGrain);
+            AdditionalOptions, FilmGrain, FilmGrainDenoise, AdaptiveFilmGrain, VarianceBoostStrength, VarianceOctile);
 
     public override void ApplyQuality(QualityOptions options)
     {
@@ -136,6 +147,8 @@ public sealed partial class Av1QualitySettingsViewModel : CodecQualitySettingsVi
         EnableOverlays = av1.EnableOverlays;
         Scm = av1.Scm;
         EnableVarianceBoost = av1.EnableVarianceBoost;
+        VarianceBoostStrength = av1.VarianceBoostStrength;
+        VarianceOctile = av1.VarianceOctile;
         FilmGrain = av1.FilmGrain;
         FilmGrainDenoise = av1.FilmGrainDenoise;
         AdaptiveFilmGrain = av1.AdaptiveFilmGrain;
@@ -151,6 +164,8 @@ public sealed partial class Av1QualitySettingsViewModel : CodecQualitySettingsVi
         EnableOverlays = av1.EnableOverlays;
         Scm = av1.Scm;
         EnableVarianceBoost = av1.EnableVarianceBoost;
+        VarianceBoostStrength = av1.VarianceBoostStrength;
+        VarianceOctile = av1.VarianceOctile;
         FilmGrain = av1.FilmGrain;
         FilmGrainDenoise = av1.FilmGrainDenoise;
         AdaptiveFilmGrain = av1.AdaptiveFilmGrain;

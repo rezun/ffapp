@@ -271,6 +271,8 @@ public static class SettingsSerializer
                 ["enable_overlays"] = av1.EnableOverlays,
                 ["scm"] = av1.Scm,
                 ["enable_variance_boost"] = av1.EnableVarianceBoost,
+                ["variance_boost_strength"] = av1.VarianceBoostStrength,
+                ["variance_octile"] = av1.VarianceOctile,
                 ["film_grain"] = av1.FilmGrain,
                 ["film_grain_denoise"] = av1.FilmGrainDenoise,
                 ["adaptive_film_grain"] = av1.AdaptiveFilmGrain,
@@ -308,6 +310,8 @@ public static class SettingsSerializer
                 ["scm"] = av1.Scm,
                 ["max_bitrate_kbps"] = av1.MaxBitrateKbps,
                 ["enable_variance_boost"] = av1.EnableVarianceBoost,
+                ["variance_boost_strength"] = av1.VarianceBoostStrength,
+                ["variance_octile"] = av1.VarianceOctile,
                 ["film_grain"] = av1.FilmGrain,
                 ["film_grain_denoise"] = av1.FilmGrainDenoise,
                 ["adaptive_film_grain"] = av1.AdaptiveFilmGrain,
@@ -346,6 +350,8 @@ public static class SettingsSerializer
                 Preset: preset, Tune: tune,
                 EnableOverlays: enableOverlays, Scm: scm,
                 EnableVarianceBoost: enableVarianceBoost,
+                VarianceBoostStrength: ReadAv1VarianceOption(element, "variance_boost_strength", 2, CompatibilityData.Av1VarianceBoostStrengthOptions),
+                VarianceOctile: ReadAv1VarianceOption(element, "variance_octile", 5, CompatibilityData.Av1VarianceOctileOptions),
                 AdditionalOptions: ReadString(element, "additional_options", ""),
                 FilmGrain: ReadAv1FilmGrain(element),
                 FilmGrainDenoise: ReadAv1FilmGrainToggle(element, "film_grain_denoise", 0),
@@ -387,6 +393,8 @@ public static class SettingsSerializer
                     EnableOverlays: av1.EnableOverlays,
                     Scm: av1.Scm,
                     EnableVarianceBoost: av1.EnableVarianceBoost,
+                    VarianceBoostStrength: av1.VarianceBoostStrength,
+                    VarianceOctile: av1.VarianceOctile,
                     FilmGrain: av1.FilmGrain,
                     FilmGrainDenoise: av1.FilmGrainDenoise,
                     AdaptiveFilmGrain: av1.AdaptiveFilmGrain),
@@ -437,6 +445,8 @@ public static class SettingsSerializer
                 Scm: ReadInt(element, "scm", 2),
                 MaxBitrateKbps: ReadInt(element, "max_bitrate_kbps", 0),
                 EnableVarianceBoost: ReadInt(element, "enable_variance_boost", 0),
+                VarianceBoostStrength: ReadAv1VarianceOption(element, "variance_boost_strength", 2, CompatibilityData.Av1VarianceBoostStrengthOptions),
+                VarianceOctile: ReadAv1VarianceOption(element, "variance_octile", 5, CompatibilityData.Av1VarianceOctileOptions),
                 FilmGrain: ReadAv1FilmGrain(element),
                 FilmGrainDenoise: ReadAv1FilmGrainToggle(element, "film_grain_denoise", 0),
                 AdaptiveFilmGrain: ReadAv1FilmGrainToggle(element, "adaptive_film_grain", 1));
@@ -448,6 +458,15 @@ public static class SettingsSerializer
     }
 
     // --- Validation helpers ---
+
+    private static int ReadAv1VarianceOption(
+        JsonElement element, string property, int defaultValue, IReadOnlyList<int> allowedValues)
+    {
+        var value = ReadInt(element, property, defaultValue);
+        if (!allowedValues.Contains(value))
+            throw new SettingsDecodeException($"Invalid AV1 {property} setting.");
+        return value;
+    }
 
     private static int ReadAv1FilmGrain(JsonElement element)
     {

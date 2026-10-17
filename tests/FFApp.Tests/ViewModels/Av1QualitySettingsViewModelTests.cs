@@ -8,6 +8,23 @@ namespace FFApp.Tests.ViewModels;
 public sealed class Av1QualitySettingsViewModelTests
 {
     [Fact]
+    public void Reset_RestoresVarianceBoostDefaults()
+    {
+        var quality = new QualityViewModel();
+        quality.UpdateForCodec(VideoCodec.Av1);
+        quality.Av1.EnableVarianceBoostChecked = true;
+        quality.Av1.VarianceBoostStrength = 4;
+        quality.Av1.VarianceOctile = 8;
+
+        quality.UpdateForCodec(VideoCodec.H264);
+        quality.UpdateForCodec(VideoCodec.Av1);
+
+        quality.Av1.EnableVarianceBoostChecked.Should().BeFalse();
+        quality.Av1.VarianceBoostStrength.Should().Be(2);
+        quality.Av1.VarianceOctile.Should().Be(5);
+    }
+
+    [Fact]
     public void Reset_RestoresFilmGrainDefaults()
     {
         var quality = new QualityViewModel();

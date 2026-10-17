@@ -870,14 +870,14 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
             parts.Add("enable-hdr=1");
 
         // Resolve AV1-specific tuning from either quality or encoder options
-        var (tune, enableOverlays, scm, enableVarianceBoost) = job.TargetQuality switch
+        var (tune, enableOverlays, scm, enableVarianceBoost, varianceBoostStrength, varianceOctile) = job.TargetQuality switch
         {
             Av1QualityOptions av1 when job.EncodingStrategy == EncodingStrategy.TargetQuality
-                => (av1.Tune, av1.EnableOverlays, av1.Scm, av1.EnableVarianceBoost),
+                => (av1.Tune, av1.EnableOverlays, av1.Scm, av1.EnableVarianceBoost, av1.VarianceBoostStrength, av1.VarianceOctile),
             _ => job.VideoEncoderOptions switch
             {
-                Av1EncoderOptions enc => (enc.Tune, enc.EnableOverlays, enc.Scm, enc.EnableVarianceBoost),
-                _ => (0, 1, 2, 0),
+                Av1EncoderOptions enc => (enc.Tune, enc.EnableOverlays, enc.Scm, enc.EnableVarianceBoost, enc.VarianceBoostStrength, enc.VarianceOctile),
+                _ => (0, 1, 2, 0, 2, 5),
             },
         };
 
@@ -890,7 +890,11 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         if (scm != 2)
             parts.Add($"scm={scm}");
         if (enableVarianceBoost != 0)
+        {
             parts.Add($"enable-variance-boost={enableVarianceBoost}");
+            parts.Add($"variance-boost-strength={varianceBoostStrength}");
+            parts.Add($"variance-octile={varianceOctile}");
+        }
 
         var (filmGrain, filmGrainDenoise, adaptiveFilmGrain) = job.TargetQuality switch
         {

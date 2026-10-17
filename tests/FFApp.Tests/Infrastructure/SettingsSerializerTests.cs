@@ -482,6 +482,41 @@ public class SettingsSerializerTests
         result.KeyframeUnit.Should().Be(KeyframeUnit.Frames);
     }
 
+    [Theory]
+    [InlineData("target_quality", "variance_boost_strength", 0)]
+    [InlineData("target_quality", "variance_boost_strength", 5)]
+    [InlineData("target_quality", "variance_octile", 0)]
+    [InlineData("target_quality", "variance_octile", 9)]
+    [InlineData("video_encoder_options", "variance_boost_strength", 0)]
+    [InlineData("video_encoder_options", "variance_boost_strength", 5)]
+    [InlineData("video_encoder_options", "variance_octile", 0)]
+    [InlineData("video_encoder_options", "variance_octile", 9)]
+    public void Deserialize_InvalidVarianceBoostOptions_Throws(string section, string property, int value)
+    {
+        var json = $$"""
+        { "video_codec": "av1", "container": "mkv", "{{section}}": { "{{property}}": {{value}} } }
+        """;
+        var element = JsonDocument.Parse(json).RootElement;
+
+        var act = () => SettingsSerializer.DeserializeOutputSettings(element);
+
+        act.Should().Throw<SettingsDecodeException>();
+    }
+
+    [Fact]
+    public void Deserialize_WithoutEncoderOptions_CopiesVarianceBoostFromQuality()
+    {
+        var json = """
+        { "video_codec": "av1", "container": "mkv",
+          "target_quality": { "variance_boost_strength": 4, "variance_octile": 8 } }
+        """;
+        var result = SettingsSerializer.DeserializeOutputSettings(JsonDocument.Parse(json).RootElement);
+
+        var encoder = result.VideoEncoderOptions.Should().BeOfType<Av1EncoderOptions>().Subject;
+        encoder.VarianceBoostStrength.Should().Be(4);
+        encoder.VarianceOctile.Should().Be(8);
+    }
+
     // --- AV1 encoder options ---
 
     [Fact]
@@ -491,7 +526,7 @@ public class SettingsSerializerTests
             .WithAv1()
             .WithQuality(new Av1QualityOptions(
                 Crf: 25, Preset: 4, Tune: 2, EnableOverlays: 0, Scm: 3,
-                MaxBitrateKbps: 4500, EnableVarianceBoost: 1,
+                MaxBitrateKbps: 4500, EnableVarianceBoost: 1, VarianceBoostStrength: 4, VarianceOctile: 8,
                 FilmGrain: 15, FilmGrainDenoise: 1, AdaptiveFilmGrain: 0))
             .Build();
 
@@ -506,6 +541,8 @@ public class SettingsSerializerTests
         q.Scm.Should().Be(3);
         q.MaxBitrateKbps.Should().Be(4500);
         q.EnableVarianceBoost.Should().Be(1);
+        q.VarianceBoostStrength.Should().Be(4);
+        q.VarianceOctile.Should().Be(8);
         q.FilmGrain.Should().Be(15);
         q.FilmGrainDenoise.Should().Be(1);
         q.AdaptiveFilmGrain.Should().Be(0);
@@ -517,7 +554,7 @@ public class SettingsSerializerTests
         var original = new TestOutputSettingsBuilder()
             .WithAv1()
             .WithEncoderOptions(new Av1EncoderOptions(
-                Preset: 8, Tune: 4, EnableOverlays: 1, Scm: 1, EnableVarianceBoost: 1,
+                Preset: 8, Tune: 4, EnableOverlays: 1, Scm: 1, EnableVarianceBoost: 1, VarianceBoostStrength: 3, VarianceOctile: 1,
                 FilmGrain: 50, FilmGrainDenoise: 1, AdaptiveFilmGrain: 0))
             .Build();
 
@@ -530,6 +567,8 @@ public class SettingsSerializerTests
         opts.EnableOverlays.Should().Be(1);
         opts.Scm.Should().Be(1);
         opts.EnableVarianceBoost.Should().Be(1);
+        opts.VarianceBoostStrength.Should().Be(3);
+        opts.VarianceOctile.Should().Be(1);
         opts.FilmGrain.Should().Be(50);
         opts.FilmGrainDenoise.Should().Be(1);
         opts.AdaptiveFilmGrain.Should().Be(0);
@@ -555,6 +594,8 @@ public class SettingsSerializerTests
         q.Scm.Should().Be(2);
         q.MaxBitrateKbps.Should().Be(0);
         q.EnableVarianceBoost.Should().Be(0);
+        q.VarianceBoostStrength.Should().Be(2);
+        q.VarianceOctile.Should().Be(5);
         q.FilmGrain.Should().Be(0);
         q.FilmGrainDenoise.Should().Be(0);
         q.AdaptiveFilmGrain.Should().Be(1);
@@ -671,6 +712,8 @@ public class SettingsSerializerTests
         opts.EnableOverlays.Should().Be(1);
         opts.Scm.Should().Be(2);
         opts.EnableVarianceBoost.Should().Be(0);
+        opts.VarianceBoostStrength.Should().Be(2);
+        opts.VarianceOctile.Should().Be(5);
         opts.FilmGrain.Should().Be(0);
         opts.FilmGrainDenoise.Should().Be(0);
         opts.AdaptiveFilmGrain.Should().Be(1);

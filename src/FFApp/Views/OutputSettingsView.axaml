@@ -44,6 +44,12 @@
         <DataTemplate x:Key="Av1ScmTemplate" x:DataType="sys:Int32">
             <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.Av1Scm}}" />
         </DataTemplate>
+        <DataTemplate x:Key="Av1VarianceBoostStrengthTemplate" x:DataType="sys:Int32">
+            <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.Av1VarianceBoostStrength}}" />
+        </DataTemplate>
+        <DataTemplate x:Key="Av1VarianceOctileTemplate" x:DataType="sys:Int32">
+            <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.Av1VarianceOctile}}" />
+        </DataTemplate>
         <DataTemplate x:Key="Av1FilmGrainTemplate" x:DataType="sys:Int32">
             <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.Av1FilmGrain}}" />
         </DataTemplate>
@@ -91,7 +97,7 @@
                                Classes="nested-card-header" />
                     <Separator DockPanel.Dock="Top" />
                     <StackPanel Spacing="4" Margin="6,4,6,6">
-                        <Grid ColumnDefinitions="80,*,Auto">
+                        <Grid ColumnDefinitions="112,*,Auto">
                             <TextBlock Text="Preset" VerticalAlignment="Center" />
                             <Slider Grid.Column="1"
                                     ToolTip.Tip="AV1 speed preset: lower numbers encode more slowly with better compression; higher numbers are faster. Compare results at the same CRF."
@@ -105,7 +111,7 @@
                                 <Run Text="{Binding Preset}" />
                             </TextBlock>
                         </Grid>
-                        <Grid ColumnDefinitions="80,Auto,8,Auto,*">
+                        <Grid ColumnDefinitions="112,Auto,8,Auto,*">
                             <TextBlock Text="Max Bitrate" VerticalAlignment="Center" />
                             <ctrl:NumericTextBox Grid.Column="1"
                                      ToolTip.Tip="Limit AV1 video bitrate in quality (CRF) mode, in kbps. Leave empty for no cap. A tight cap may reduce quality in complex scenes."
@@ -119,7 +125,7 @@
                                        Text="caps CRF (empty = uncapped)"
                                        VerticalAlignment="Center" Margin="12,0,0,0" />
                         </Grid>
-                        <Grid ColumnDefinitions="80,Auto,16,Auto,Auto,*">
+                        <Grid ColumnDefinitions="112,Auto,16,Auto,Auto,*">
                             <TextBlock Text="Tune" VerticalAlignment="Center" />
                             <ctrl:NoWheelComboBox Grid.Column="1"
                                 ToolTip.Tip="Choose the optimization goal: VQ for perceived video quality; PSNR and SSIM for objective metrics; IQ for image quality; MS-SSIM for multi-scale similarity."
@@ -135,13 +141,13 @@
                                 SelectedItem="{Binding Scm}"
                                 ItemTemplate="{StaticResource Av1ScmTemplate}" />
                         </Grid>
-                        <Grid ColumnDefinitions="80,Auto,16,Auto,16,Auto,*">
+                        <Grid ColumnDefinitions="112,Auto,16,Auto,16,Auto,*">
                             <CheckBox Grid.Column="1"
                                       ToolTip.Tip="Add overlay frames alongside temporally filtered reference frames. This can preserve detail and improve visual quality, with extra encoding work."
                                       Content="Overlays"
                                       VerticalAlignment="Center"
                                       IsChecked="{Binding EnableOverlaysChecked}" />
-                            <CheckBox Grid.Column="3"
+                            <CheckBox x:Name="VarianceBoostEnabledCheckBox" Grid.Column="3"
                                       ToolTip.Tip="Allocate more quality to low-contrast areas to preserve subtle textures. This can increase bitrate in quality mode."
                                       Content="Variance Boost"
                                       VerticalAlignment="Center"
@@ -152,9 +158,26 @@
                                       IsChecked="{Binding IsFilmGrainEnabled}"
                                       ToolTip.Tip="Enable film grain synthesis and show its settings." />
                         </Grid>
-                        <Grid x:Name="FilmGrainOptionsPanel" ColumnDefinitions="80,Auto,16,Auto,16,Auto,*"
+                        <Grid x:Name="VarianceBoostOptionsPanel" ColumnDefinitions="112,Auto,16,Auto,Auto,*"
+                              IsVisible="{Binding EnableVarianceBoostChecked}">
+                            <TextBlock Text="Boost Strength" VerticalAlignment="Center" />
+                            <ctrl:NoWheelComboBox x:Name="VarianceBoostStrengthComboBox" Grid.Column="1"
+                                MinWidth="160"
+                                ItemsSource="{Binding AvailableVarianceBoostStrengths}"
+                                SelectedItem="{Binding VarianceBoostStrength}"
+                                ItemTemplate="{StaticResource Av1VarianceBoostStrengthTemplate}"
+                                ToolTip.Tip="Variance boost strength: 1 is mild, 4 is aggressive. Default: 2 (gentle)." />
+                            <TextBlock Grid.Column="3" Text="Octile" VerticalAlignment="Center" />
+                            <ctrl:NoWheelComboBox x:Name="VarianceOctileComboBox" Grid.Column="4"
+                                MinWidth="120" Margin="8,0,0,0"
+                                ItemsSource="{Binding AvailableVarianceOctiles}"
+                                SelectedItem="{Binding VarianceOctile}"
+                                ItemTemplate="{StaticResource Av1VarianceOctileTemplate}"
+                                ToolTip.Tip="Select the variance octile for 8×8 blocks: 4 is the median, 8 is the maximum. Default: 5." />
+                        </Grid>
+                        <Grid x:Name="FilmGrainOptionsPanel" ColumnDefinitions="112,Auto,16,Auto,16,Auto,*"
                               IsVisible="{Binding IsFilmGrainEnabled}">
-                            <TextBlock Text="Strength" VerticalAlignment="Center" />
+                            <TextBlock Text="Grain Strength" VerticalAlignment="Center" />
                             <ctrl:NoWheelComboBox x:Name="FilmGrainComboBox" Grid.Column="1"
                                 MinWidth="64"
                                 ItemsSource="{Binding AvailableFilmGrainStrengths}"
@@ -172,7 +195,7 @@
                                       IsChecked="{Binding AdaptiveFilmGrainChecked}"
                                       ToolTip.Tip="Adapt grain modeling block sizes to the video resolution for more consistent grain and fewer visible patterns." />
                         </Grid>
-                        <Grid ColumnDefinitions="80,*">
+                        <Grid ColumnDefinitions="112,*">
                             <TextBlock Text="Additional" VerticalAlignment="Center" />
                             <TextBox Grid.Column="1"
                                      ToolTip.Tip="Extra encoder options as colon-separated key=value pairs. Passed directly to the selected encoder; supported keys depend on its version."

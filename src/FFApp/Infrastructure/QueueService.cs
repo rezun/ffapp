@@ -4,42 +4,30 @@ using FFApp.Core.Services;
 namespace FFApp.Infrastructure;
 
 public sealed class QueueService(
-    Func<QueuedJob, IJobExecutionService> executionServiceFactory) : IQueueService, IDisposable
+    Func<QueuedJob, IJobExecutionService> executionServiceFactory,
+    TimeProvider timeProvider) : IQueueService, IDisposable
 {
     private readonly Lock _lock = new();
     private readonly List<QueueItem> _items = [];
     private CancellationTokenSource? _activeCts;
     private bool _running;
-    private volatile bool _paused;
-    private readonly SemaphoreSlim _pauseGate = new(1, 1);
+    private ExecutionPauseState? _pauseState;
 
     public bool IsPaused
     {
-        get
-        {
-            lock (_lock)
-                return _paused;
-        }
+        get { lock (_lock) return _pauseState?.IsPaused ?? false; }
     }
 
     public void Pause()
     {
         lock (_lock)
-        {
-            if (_paused) return;
-            _paused = true;
-        }
-        _pauseGate.Wait(); // Acquire outside lock so the execution loop blocks
+            _pauseState?.Pause();
     }
 
     public void Resume()
     {
         lock (_lock)
-        {
-            if (!_paused) return;
-            _paused = false;
-        }
-        _pauseGate.Release();
+            _pauseState?.Resume();
     }
 
     public IReadOnlyList<QueueItem> Enqueue(IEnumerable<(string Id, QueuedJob Job)> jobs)
@@ -122,21 +110,23 @@ public sealed class QueueService(
         Action<QueueItem, string>? logCallback = null,
         CancellationToken ct = default)
     {
+        ExecutionPauseState pauseState;
+        CancellationToken linkedToken;
         lock (_lock)
         {
             if (_running)
                 throw new InvalidOperationException("Queue execution is already in progress.");
             _running = true;
+            _pauseState = pauseState = new ExecutionPauseState(timeProvider);
             _activeCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            linkedToken = _activeCts.Token;
         }
 
         try
         {
             while (true)
             {
-                // If paused, wait until resumed before picking up the next job
-                await _pauseGate.WaitAsync(ct).ConfigureAwait(false);
-                _pauseGate.Release();
+                await pauseState.WaitWhilePausedAsync(linkedToken).ConfigureAwait(false);
 
                 var item = StartNextItem();
                 if (item is null)
@@ -169,10 +159,6 @@ public sealed class QueueService(
                     }
                 : null;
 
-                CancellationToken linkedToken;
-                lock (_lock)
-                    linkedToken = _activeCts!.Token;
-
                 try
                 {
                     var result = await executionService.ExecuteAsync(
@@ -180,6 +166,7 @@ public sealed class QueueService(
                         item.QueuedJob.MediaInfo,
                         progressCb,
                         logCb,
+                        pauseState,
                         linkedToken).ConfigureAwait(false);
 
                     var finished = FinalizeItem(itemId, result.State, result);
@@ -200,24 +187,15 @@ public sealed class QueueService(
                     throw;
                 }
 
-                bool shouldStop;
-                lock (_lock)
-                    shouldStop = _activeCts!.IsCancellationRequested;
-
-                if (shouldStop)
+                if (linkedToken.IsCancellationRequested)
                     break;
             }
         }
         finally
         {
-            // Ensure pause gate is released so it's clean for the next run
             lock (_lock)
             {
-                if (_paused)
-                {
-                    _paused = false;
-                    _pauseGate.Release();
-                }
+                _pauseState = null;
                 _activeCts?.Dispose();
                 _activeCts = null;
                 _running = false;
@@ -330,5 +308,8 @@ public sealed class QueueService(
             Percentage: result.State == JobState.Completed ? 100.0 : null);
     }
 
-    public void Dispose() => _pauseGate.Dispose();
+    public void Dispose()
+    {
+        CancelActive();
+    }
 }

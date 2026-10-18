@@ -420,19 +420,24 @@ public partial class JobListPanelViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void PauseResume()
+    private async Task PauseResume()
     {
         if (!IsRunning) return;
 
-        if (IsPaused)
+        try
         {
-            _queueService.Resume();
-            IsPaused = false;
+            if (IsPaused)
+                _queueService.Resume();
+            else
+                _queueService.Pause();
+            IsPaused = _queueService.IsPaused;
+            var activeJob = Jobs.FirstOrDefault(job => job.State == JobState.Running);
+            if (activeJob is not null)
+                UpdateStatusFromRunningJob(activeJob);
         }
-        else
+        catch (Exception ex)
         {
-            _queueService.Pause();
-            IsPaused = true;
+            await _dialogService.ShowErrorAsync("Pause / Resume Error", ex.Message);
         }
     }
 
@@ -541,9 +546,10 @@ public partial class JobListPanelViewModel : ObservableObject
     {
         var filename = Path.GetFileName(job.SourcePath);
         var progress = job.ProgressText;
+        var activity = IsPaused ? "Paused" : "Processing";
         StatusText = string.IsNullOrEmpty(progress)
-            ? $"Processing: {filename}"
-            : $"Processing: {filename}  |  {progress}";
+            ? $"{activity}: {filename}"
+            : $"{activity}: {filename}  |  {progress}";
         StatusPercentage = job.Percentage;
     }
 

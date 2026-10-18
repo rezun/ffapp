@@ -6,7 +6,7 @@ using FFApp.Core.Services;
 
 namespace FFApp.Infrastructure;
 
-public sealed class ProcessRunner : IProcessRunner
+public sealed class ProcessRunner(TimeProvider timeProvider) : IProcessRunner
 {
     public async Task<ProcessExecutionResult> RunAsync(
         GeneratedCommand command,
@@ -14,8 +14,13 @@ public sealed class ProcessRunner : IProcessRunner
         int? expectedFrameCount = null,
         Action<ProcessProgress>? progressCallback = null,
         Action<string>? logCallback = null,
+        ExecutionPauseState? pauseState = null,
         CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
+        if (pauseState is not null)
+            await pauseState.WaitWhilePausedAsync(ct).ConfigureAwait(false);
+
         var arguments = BuildArguments(command);
 
         using var process = new Process
@@ -37,75 +42,93 @@ public sealed class ProcessRunner : IProcessRunner
         var stderrLines = new List<string>();
         var stdoutLines = new List<string>();
         var progressPacket = new Dictionary<string, string>();
-        var stopwatch = Stopwatch.StartNew();
+        var startedAt = timeProvider.GetTimestamp();
+        var initialPausedTime = pauseState?.TotalPausedTime ?? TimeSpan.Zero;
+        double ActiveElapsedSeconds() => Math.Max(0, (timeProvider.GetElapsedTime(startedAt)
+            - ((pauseState?.TotalPausedTime ?? TimeSpan.Zero) - initialPausedTime)).TotalSeconds);
 
-        using var registration = ct.Register(() =>
+        try
         {
-            try { process.Kill(entireProcessTree: true); }
-            catch (InvalidOperationException) { /* process already exited */ }
-        });
+            if (pauseState is null)
+                process.Start();
+            else
+                pauseState.StartProcess(
+                    () => process.Start(),
+                    () => ProcessSuspension.SetPaused(process, true),
+                    () => ProcessSuspension.SetPaused(process, false));
 
-        process.Start();
-
-        var stdoutTask = Task.Run(async () =>
-        {
-            while (await process.StandardOutput.ReadLineAsync().ConfigureAwait(false) is { } line)
+            using var registration = ct.Register(() =>
             {
-                if (command.Protocol == ProcessProtocol.Plain)
+                try { process.Kill(entireProcessTree: true); }
+                catch (InvalidOperationException) { /* process already exited */ }
+            });
+
+            var stdoutTask = Task.Run(async () =>
+            {
+                while (await process.StandardOutput.ReadLineAsync().ConfigureAwait(false) is { } line)
                 {
-                    stdoutLines.Add(line);
+                    if (command.Protocol == ProcessProtocol.Plain)
+                    {
+                        stdoutLines.Add(line);
+                        logCallback?.Invoke(line);
+                        continue;
+                    }
+
+                    var separatorIndex = line.IndexOf('=');
+                    if (separatorIndex < 0)
+                        continue;
+
+                    var key = line[..separatorIndex].Trim();
+                    var value = line[(separatorIndex + 1)..].Trim();
+                    progressPacket[key] = value;
+
+                    if (key == "progress")
+                    {
+                        var progress = ParseProgressUpdate(
+                            progressPacket,
+                            ActiveElapsedSeconds(),
+                            expectedDurationSeconds,
+                            expectedFrameCount);
+                        progressCallback?.Invoke(progress);
+                        progressPacket.Clear();
+                    }
+                }
+            }, CancellationToken.None);
+
+            var stderrTask = Task.Run(async () =>
+            {
+                while (await process.StandardError.ReadLineAsync().ConfigureAwait(false) is { } line)
+                {
+                    stderrLines.Add(line);
                     logCallback?.Invoke(line);
-                    continue;
                 }
+            }, CancellationToken.None);
 
-                var separatorIndex = line.IndexOf('=');
-                if (separatorIndex < 0)
-                    continue;
+            await Task.WhenAll(stdoutTask, stderrTask).ConfigureAwait(false);
+            await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
 
-                var key = line[..separatorIndex].Trim();
-                var value = line[(separatorIndex + 1)..].Trim();
-                progressPacket[key] = value;
+            var state = ct.IsCancellationRequested
+                ? JobState.Canceled
+                : process.ExitCode == 0 ? JobState.Completed : JobState.Failed;
 
-                if (key == "progress")
-                {
-                    var progress = ParseProgressUpdate(
-                        progressPacket,
-                        stopwatch.Elapsed.TotalSeconds,
-                        expectedDurationSeconds,
-                        expectedFrameCount);
-                    progressCallback?.Invoke(progress);
-                    progressPacket.Clear();
-                }
-            }
-        }, CancellationToken.None);
+            var outputLines = command.Protocol == ProcessProtocol.Plain
+                ? stdoutLines.Concat(stderrLines)
+                : stderrLines;
 
-        var stderrTask = Task.Run(async () =>
+            return new ProcessExecutionResult(
+                Command: command,
+                State: state,
+                ReturnCode: process.ExitCode,
+                ElapsedSeconds: ActiveElapsedSeconds(),
+                StderrOutput: string.Join(Environment.NewLine, outputLines));
+        }
+        finally
         {
-            while (await process.StandardError.ReadLineAsync().ConfigureAwait(false) is { } line)
-            {
-                stderrLines.Add(line);
-                logCallback?.Invoke(line);
-            }
-        }, CancellationToken.None);
-
-        await Task.WhenAll(stdoutTask, stderrTask).ConfigureAwait(false);
-        await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
-        stopwatch.Stop();
-
-        var state = ct.IsCancellationRequested
-            ? JobState.Canceled
-            : process.ExitCode == 0 ? JobState.Completed : JobState.Failed;
-
-        var outputLines = command.Protocol == ProcessProtocol.Plain
-            ? stdoutLines.Concat(stderrLines)
-            : stderrLines;
-
-        return new ProcessExecutionResult(
-            Command: command,
-            State: state,
-            ReturnCode: process.ExitCode,
-            ElapsedSeconds: stopwatch.Elapsed.TotalSeconds,
-            StderrOutput: string.Join(Environment.NewLine, outputLines));
+            pauseState?.DetachProcess();
+            // Startup or callback errors must not leave a suspended encoder behind.
+            try { if (!process.HasExited) process.Kill(entireProcessTree: true); }
+            catch (InvalidOperationException) { /* process never started or already exited */ }
+        }
     }
 
     // --- Static helpers ---

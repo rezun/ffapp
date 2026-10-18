@@ -15,7 +15,7 @@ public class QueueServiceTests
 
     public QueueServiceTests()
     {
-        _sut = new QueueService(_ => _mockExecution);
+        _sut = new QueueService(_ => _mockExecution, TimeProvider.System);
         SetupDefaultExecution();
     }
 
@@ -26,6 +26,7 @@ public class QueueServiceTests
             Arg.Any<SourceMediaInfo>(),
             Arg.Any<Action<JobProgress>?>(),
             Arg.Any<Action<string>?>(),
+            Arg.Any<ExecutionPauseState?>(),
             Arg.Any<CancellationToken>())
         .Returns(call =>
         {
@@ -153,6 +154,7 @@ public class QueueServiceTests
             Arg.Any<SourceMediaInfo>(),
             Arg.Any<Action<JobProgress>?>(),
             Arg.Any<Action<string>?>(),
+            Arg.Any<ExecutionPauseState?>(),
             Arg.Any<CancellationToken>())
         .Returns(tcs.Task);
 
@@ -180,6 +182,7 @@ public class QueueServiceTests
             Arg.Any<SourceMediaInfo>(),
             Arg.Any<Action<JobProgress>?>(),
             Arg.Any<Action<string>?>(),
+            Arg.Any<ExecutionPauseState?>(),
             Arg.Any<CancellationToken>())
         .Returns(call =>
         {
@@ -259,6 +262,7 @@ public class QueueServiceTests
             Arg.Any<SourceMediaInfo>(),
             Arg.Any<Action<JobProgress>?>(),
             Arg.Any<Action<string>?>(),
+            Arg.Any<ExecutionPauseState?>(),
             Arg.Any<CancellationToken>())
         .Returns(call =>
         {
@@ -299,6 +303,7 @@ public class QueueServiceTests
             Arg.Any<SourceMediaInfo>(),
             Arg.Any<Action<JobProgress>?>(),
             Arg.Any<Action<string>?>(),
+            Arg.Any<ExecutionPauseState?>(),
             Arg.Any<CancellationToken>())
         .Returns<Task<JobResult>>(_ => throw new InvalidOperationException("boom"));
 
@@ -325,6 +330,7 @@ public class QueueServiceTests
             Arg.Any<SourceMediaInfo>(),
             Arg.Any<Action<JobProgress>?>(),
             Arg.Any<Action<string>?>(),
+            Arg.Any<ExecutionPauseState?>(),
             Arg.Any<CancellationToken>())
         .Returns(tcs.Task);
 
@@ -356,6 +362,76 @@ public class QueueServiceTests
     }
 
     // --- Empty queue ---
+
+    [Fact]
+    public async Task Pause_ControlsActiveExecutionAndBlocksNextJobUntilResume()
+    {
+        var first = new TaskCompletionSource<JobResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var finished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var calls = 0;
+        var pauses = 0;
+        var resumes = 0;
+        _mockExecution.ExecuteAsync(Arg.Any<JobDefinition>(), Arg.Any<SourceMediaInfo>(),
+                Arg.Any<Action<JobProgress>?>(), Arg.Any<Action<string>?>(),
+                Arg.Any<ExecutionPauseState?>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                calls++;
+                if (calls == 1)
+                {
+                    call.Arg<ExecutionPauseState>().StartProcess(() => { }, () => pauses++, () => resumes++);
+                    return first.Task;
+                }
+                return Task.FromResult(new JobResult(call.Arg<JobDefinition>(), JobState.Completed, [], [], 0, ""));
+            });
+        var entry = MakeQueueEntry("a");
+        _sut.Enqueue([entry, MakeQueueEntry("b")]);
+        var run = _sut.ExecuteAllAsync(itemFinished: _ => finished.TrySetResult());
+        _sut.Pause();
+        _sut.IsPaused.Should().BeTrue();
+        pauses.Should().Be(1);
+        first.SetResult(new JobResult(entry.Job.Job, JobState.Completed, [], [], 0, ""));
+        await finished.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        calls.Should().Be(1);
+        _sut.Items[1].State.Should().Be(JobState.Pending);
+
+        _sut.Resume();
+        await run.WaitAsync(TimeSpan.FromSeconds(5));
+        resumes.Should().Be(1);
+        calls.Should().Be(2);
+        _sut.IsPaused.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CancelActive_WhilePausedBetweenJobs_UnblocksQueueAndAllowsNextRun()
+    {
+        _sut.Enqueue([MakeQueueEntry("a"), MakeQueueEntry("b")]);
+        var finished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var run = _sut.ExecuteAllAsync(itemFinished: _ =>
+        {
+            _sut.Pause();
+            finished.TrySetResult();
+        });
+        await finished.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        _sut.CancelActive();
+        Func<Task> wait = () => run.WaitAsync(TimeSpan.FromSeconds(5));
+        await wait.Should().ThrowAsync<OperationCanceledException>();
+        _sut.IsPaused.Should().BeFalse();
+        _sut.Items[1].State.Should().Be(JobState.Canceled);
+
+        _sut.Enqueue([MakeQueueEntry("c")]);
+        var result = await _sut.ExecuteAllAsync();
+        result.Should().Contain(item => item.Id == "c" && item.State == JobState.Completed);
+    }
+
+    [Fact]
+    public void PauseAndResume_WhenIdle_DoNotAffectNextRun()
+    {
+        _sut.Pause();
+        _sut.IsPaused.Should().BeFalse();
+        _sut.Resume();
+        _sut.IsPaused.Should().BeFalse();
+    }
 
     [Fact]
     public async Task ExecuteAllAsync_EmptyQueue_ReturnsEmpty()

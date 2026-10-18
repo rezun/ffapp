@@ -1,5 +1,4 @@
 using System.Collections.Immutable;
-using System.Diagnostics;
 
 using FFApp.Core;
 using FFApp.Core.Models;
@@ -10,13 +9,15 @@ namespace FFApp.Infrastructure;
 public sealed class DefaultJobExecutionService(
     ICommandBuilder commandBuilder,
     IProcessRunner processRunner,
-    IMatroskaPostProcessor matroskaPostProcessor) : IJobExecutionService
+    IMatroskaPostProcessor matroskaPostProcessor,
+    TimeProvider timeProvider) : IJobExecutionService
 {
     public async Task<JobResult> ExecuteAsync(
         JobDefinition job,
         SourceMediaInfo mediaInfo,
         Action<JobProgress>? progressCallback = null,
         Action<string>? logCallback = null,
+        ExecutionPauseState? pauseState = null,
         CancellationToken ct = default)
     {
         var encodingCommands = commandBuilder.Build(job, mediaInfo);
@@ -28,7 +29,10 @@ public sealed class DefaultJobExecutionService(
         var expectedDuration = EffectiveOutputDuration(job, mediaInfo);
         var expectedFrameCount = EstimateOutputFrameCount(job, mediaInfo);
         var processResults = new List<ProcessExecutionResult>(passCount);
-        var stopwatch = Stopwatch.StartNew();
+        var startedAt = timeProvider.GetTimestamp();
+        var initialPausedTime = pauseState?.TotalPausedTime ?? TimeSpan.Zero;
+        double ActiveElapsedSeconds() => Math.Max(0, (timeProvider.GetElapsedTime(startedAt)
+            - ((pauseState?.TotalPausedTime ?? TimeSpan.Zero) - initialPausedTime)).TotalSeconds);
 
         // Emit initial progress
         progressCallback?.Invoke(new JobProgress(
@@ -51,7 +55,7 @@ public sealed class DefaultJobExecutionService(
                             State: JobState.Running,
                             PassIndex: passIndex,
                             PassCount: passCount,
-                            ElapsedSeconds: stopwatch.Elapsed.TotalSeconds,
+                            ElapsedSeconds: ActiveElapsedSeconds(),
                             ProcessedSeconds: progress.ProcessedSeconds,
                             Percentage: progress.Percentage,
                             Speed: progress.Speed));
@@ -68,6 +72,7 @@ public sealed class DefaultJobExecutionService(
                     expectedFrameCount,
                     wrappedProgress,
                     wrappedLog,
+                    pauseState,
                     ct).ConfigureAwait(false);
 
                 processResults.Add(result);
@@ -83,6 +88,7 @@ public sealed class DefaultJobExecutionService(
                 var result = await processRunner.RunAsync(
                     postProcessCommand,
                     logCallback: logCallback,
+                    pauseState: pauseState,
                     ct: ct).ConfigureAwait(false);
                 processResults.Add(result);
             }
@@ -92,7 +98,6 @@ public sealed class DefaultJobExecutionService(
             CleanupTwoPassLogs(job.OutputPath);
         }
 
-        stopwatch.Stop();
         var finalState = ResolveJobState(processResults);
 
         // Emit final progress
@@ -100,7 +105,7 @@ public sealed class DefaultJobExecutionService(
             State: finalState,
             PassIndex: passCount,
             PassCount: passCount,
-            ElapsedSeconds: stopwatch.Elapsed.TotalSeconds,
+            ElapsedSeconds: ActiveElapsedSeconds(),
             Percentage: finalState == JobState.Completed ? 100.0 : null));
 
         return new JobResult(
@@ -108,7 +113,7 @@ public sealed class DefaultJobExecutionService(
             State: finalState,
             Commands: [.. plannedCommands],
             ProcessResults: [.. processResults],
-            ElapsedSeconds: stopwatch.Elapsed.TotalSeconds,
+            ElapsedSeconds: ActiveElapsedSeconds(),
             LogOutput: CombineProcessLogs(processResults));
     }
 

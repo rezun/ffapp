@@ -58,7 +58,7 @@
                                 Command="{Binding StartCommand}"
                                 IsVisible="{Binding !IsRunning}" />
                         <Button Grid.Column="1"
-                                ToolTip.Tip="Pause before the next job or resume the queue. The active encode continues until it finishes."
+                                ToolTip.Tip="Pause the active encoder and queue, or resume from the same position. Keep the app open to resume."
                                 Classes="warning sm"
                                 Command="{Binding PauseResumeCommand}"
                                 IsVisible="{Binding IsRunning}">

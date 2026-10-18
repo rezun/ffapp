@@ -22,6 +22,8 @@ public interface IQueueService
         Action<QueueItem, string>? logCallback = null,
         CancellationToken ct = default);
     void CancelActive();
+    /// <summary>Suspends the active encoder and prevents subsequent processes/jobs from advancing.</summary>
     void Pause();
+    /// <summary>Continues the suspended encoder in the current application session.</summary>
     void Resume();
 }

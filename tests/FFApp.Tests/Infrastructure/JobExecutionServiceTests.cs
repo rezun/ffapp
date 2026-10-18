@@ -36,6 +36,7 @@ public class JobExecutionServiceTests
             Arg.Any<int?>(),
             Arg.Any<Action<ProcessProgress>?>(),
             Arg.Any<Action<string>?>(),
+            Arg.Any<ExecutionPauseState?>(),
             Arg.Any<CancellationToken>());
     }
 
@@ -57,6 +58,7 @@ public class JobExecutionServiceTests
             Arg.Any<int?>(),
             Arg.Any<Action<ProcessProgress>?>(),
             Arg.Any<Action<string>?>(),
+            Arg.Any<ExecutionPauseState?>(),
             Arg.Any<CancellationToken>());
     }
 
@@ -77,7 +79,27 @@ public class JobExecutionServiceTests
     }
 
     private DefaultJobExecutionService CreateSut() =>
-        new(_commandBuilder, _processRunner, _postProcessor);
+        new(_commandBuilder, _processRunner, _postProcessor, TimeProvider.System);
+
+    [Fact]
+    public async Task ExecuteAsync_PassesSamePauseStateToBothPassesAndPostProcessing()
+    {
+        var first = Command("first", ProcessProtocol.Ffmpeg);
+        var second = Command("second", ProcessProtocol.Ffmpeg);
+        var post = Command("post", ProcessProtocol.Plain);
+        _commandBuilder.Build(Arg.Any<JobDefinition>(), Arg.Any<SourceMediaInfo>()).Returns([first, second]);
+        _postProcessor.BuildCommand(Arg.Any<JobDefinition>()).Returns(post);
+        ConfigureResult(first, JobState.Completed);
+        ConfigureResult(second, JobState.Completed);
+        ConfigureResult(post, JobState.Completed);
+        var state = new ExecutionPauseState(TimeProvider.System);
+
+        await CreateSut().ExecuteAsync(DefaultJob(), DefaultMedia(), pauseState: state);
+
+        foreach (var command in new[] { first, second, post })
+            await _processRunner.Received(1).RunAsync(command, Arg.Any<double?>(), Arg.Any<int?>(),
+                Arg.Any<Action<ProcessProgress>?>(), Arg.Any<Action<string>?>(), state, Arg.Any<CancellationToken>());
+    }
 
     private void ConfigureCommands(
         GeneratedCommand encodeCommand,
@@ -97,7 +119,8 @@ public class JobExecutionServiceTests
                 Arg.Any<int?>(),
                 Arg.Any<Action<ProcessProgress>?>(),
                 Arg.Any<Action<string>?>(),
-                Arg.Any<CancellationToken>())
+                Arg.Any<ExecutionPauseState?>(),
+            Arg.Any<CancellationToken>())
             .Returns(new ProcessExecutionResult(
                 command,
                 state,

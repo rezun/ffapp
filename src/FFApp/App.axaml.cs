@@ -69,6 +69,8 @@ public partial class App : Application
 
             var services = new ServiceCollection();
 
+            services.AddSingleton(TimeProvider.System);
+
             // Infrastructure services
             services.AddSingleton<ExecutablePathsConfig>();
             services.AddSingleton<IDependencyService, DependencyManager>();

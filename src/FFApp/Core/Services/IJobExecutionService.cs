@@ -9,5 +9,6 @@ public interface IJobExecutionService
         SourceMediaInfo mediaInfo,
         Action<JobProgress>? progressCallback = null,
         Action<string>? logCallback = null,
+        ExecutionPauseState? pauseState = null,
         CancellationToken ct = default);
 }

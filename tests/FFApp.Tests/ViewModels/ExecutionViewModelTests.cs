@@ -48,6 +48,41 @@ public class JobListPanelViewModelTests
         new(new TestMediaInfoBuilder().Build(), new OutputSettings());
 
     [Fact]
+    public async Task PauseResume_UpdatesQueueAndDisplaysPausedStatus()
+    {
+        var media = new TestMediaInfoBuilder().WithSourcePath("/test/movie.mp4").Build();
+        var queued = new QueuedJob(new TestJobDefinitionBuilder().Build(), media, [], new ValidationResult());
+        _sut.Jobs.Add(new JobItemViewModel("a", media, queued, "movie") { State = JobState.Running });
+        _sut.IsRunning = true;
+        var paused = false;
+        _queueService.When(queue => queue.Pause()).Do(_ => paused = true);
+        _queueService.When(queue => queue.Resume()).Do(_ => paused = false);
+        _queueService.IsPaused.Returns(_ => paused);
+
+        await _sut.PauseResumeCommand.ExecuteAsync(null);
+        _sut.IsPaused.Should().BeTrue();
+        _sut.StatusText.Should().Be("Paused: movie.mp4");
+
+        await _sut.PauseResumeCommand.ExecuteAsync(null);
+        _sut.IsPaused.Should().BeFalse();
+        _sut.StatusText.Should().Be("Processing: movie.mp4");
+        _queueService.Received(1).Pause();
+        _queueService.Received(1).Resume();
+    }
+
+    [Fact]
+    public async Task PauseResume_OnNativeFailure_ShowsErrorAndPreservesState()
+    {
+        _sut.IsRunning = true;
+        _queueService.When(queue => queue.Pause()).Do(_ => throw new InvalidOperationException("Access denied"));
+
+        await _sut.PauseResumeCommand.ExecuteAsync(null);
+
+        _sut.IsPaused.Should().BeFalse();
+        await _dialogService.Received(1).ShowErrorAsync("Pause / Resume Error", "Access denied");
+    }
+
+    [Fact]
     public void UpdateHasValidationErrors_SetsProperty()
     {
         _sut.UpdateHasValidationErrors(true);

@@ -86,6 +86,7 @@ public sealed class CropDetectionServiceTests
             int? expectedFrameCount = null,
             Action<ProcessProgress>? progressCallback = null,
             Action<string>? logCallback = null,
+            ExecutionPauseState? pauseState = null,
             CancellationToken ct = default)
         {
             Command = command;

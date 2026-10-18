@@ -50,8 +50,9 @@
                         ToolTip.Tip="Exclude all listed audio tracks from the current custom selection." />
                 </StackPanel>
                 <ScrollViewer MaxHeight="180" IsVisible="{Binding IsCustomTrackSelection}"
+                              HorizontalAlignment="Left"
                               IsScrollChainingEnabled="False">
-                    <ItemsControl ItemsSource="{Binding AudioTracks}">
+                    <ItemsControl ItemsSource="{Binding AudioTracks}" Margin="0,0,8,0">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="vm:AudioTrackViewModel">
                                 <CheckBox Content="{Binding Label}" IsChecked="{Binding IsSelected}"

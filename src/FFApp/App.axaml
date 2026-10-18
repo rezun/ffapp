@@ -24,6 +24,8 @@
 
         <Style Selector=":is(Control)">
             <Setter Property="ToolTip.ShowOnDisabled" Value="True" />
+            <!-- Use full-size, persistent scrollbars, including in control templates. -->
+            <Setter Property="ScrollViewer.AllowAutoHide" Value="False" />
         </Style>
         <Style Selector="ToolTip">
             <Setter Property="MaxWidth" Value="420" />

@@ -48,24 +48,6 @@ public class JobListPanelViewModelTests
         new(new TestMediaInfoBuilder().Build(), new OutputSettings());
 
     [Fact]
-    public void Default_IsRunning_IsFalse()
-    {
-        _sut.IsRunning.Should().BeFalse();
-    }
-
-    [Fact]
-    public void Default_SummaryText_IsNoJobs()
-    {
-        _sut.SummaryText.Should().Be("No jobs.");
-    }
-
-    [Fact]
-    public void Default_HasValidationErrors_IsFalse()
-    {
-        _sut.HasValidationErrors.Should().BeFalse();
-    }
-
-    [Fact]
     public void UpdateHasValidationErrors_SetsProperty()
     {
         _sut.UpdateHasValidationErrors(true);
@@ -84,20 +66,13 @@ public class JobListPanelViewModelTests
     }
 
     [Fact]
-    public void Default_Jobs_IsEmpty()
+    public void InitialState_HasEmptyIdleQueueAndGuidesUserToAddSources()
     {
-        _sut.Jobs.Should().BeEmpty();
-    }
-
-    [Fact]
-    public void Default_IsPaused_IsFalse()
-    {
+        _sut.IsRunning.Should().BeFalse();
         _sut.IsPaused.Should().BeFalse();
-    }
-
-    [Fact]
-    public void Default_QueuePresentation_GuidesUserToAddSources()
-    {
+        _sut.HasValidationErrors.Should().BeFalse();
+        _sut.Jobs.Should().BeEmpty();
+        _sut.SummaryText.Should().Be("No jobs.");
         _sut.HasJobs.Should().BeFalse();
         _sut.HasQueueableSelection.Should().BeFalse();
         _sut.AddSelectionLabel.Should().Be("Add selected");

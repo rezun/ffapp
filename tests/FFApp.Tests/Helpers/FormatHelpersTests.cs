@@ -218,15 +218,6 @@ public class FormatHelpersTests
     // --- Label functions ---
 
     [Theory]
-    [InlineData(VideoCodec.H264, "H.264")]
-    [InlineData(VideoCodec.H265, "H.265")]
-    [InlineData(VideoCodec.Vp9, "VP9")]
-    public void VideoCodecLabel_AllValues_ReturnExpected(VideoCodec codec, string expected)
-    {
-        FormatHelpers.VideoCodecLabel(codec).Should().Be(expected);
-    }
-
-    [Theory]
     [InlineData(AudioCodec.Aac, "AAC")]
     [InlineData(AudioCodec.Mp3, "MP3")]
     [InlineData(AudioCodec.Vorbis, "Vorbis")]

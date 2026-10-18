@@ -291,13 +291,9 @@ public class QueueServiceTests
     // --- ResetToPending ---
 
     [Fact]
-    public void ResetToPending_ResetsFailedItemToPending()
+    public async Task ResetToPending_ResetsFailedItemToPending()
     {
         _sut.Enqueue([MakeQueueEntry("a")]);
-        // Force "a" into a Failed state by running with a throwing execution.
-        var items = _sut.Items.ToList();
-        // Directly verify: Remove requires non-Running; simulate a prior failed run via
-        // running the queue with an execution that throws.
         _mockExecution.ExecuteAsync(
             Arg.Any<JobDefinition>(),
             Arg.Any<SourceMediaInfo>(),
@@ -307,7 +303,7 @@ public class QueueServiceTests
         .Returns<Task<JobResult>>(_ => throw new InvalidOperationException("boom"));
 
         Func<Task> run = () => _sut.ExecuteAllAsync();
-        run.Should().ThrowAsync<InvalidOperationException>();
+        await run.Should().ThrowAsync<InvalidOperationException>();
 
         _sut.Items[0].State.Should().Be(JobState.Failed);
 

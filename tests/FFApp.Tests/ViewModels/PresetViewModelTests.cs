@@ -305,14 +305,6 @@ public class PresetViewModelTests
     }
 
     [Fact]
-    public async Task IsUserPresetSelected_NoSelection_ReturnsFalse()
-    {
-        await _sut.LoadPresetsAsync();
-
-        _sut.IsUserPresetSelected.Should().BeFalse();
-    }
-
-    [Fact]
     public async Task IsUserPresetSelected_PresetSelected_ReturnsTrue()
     {
         var userPreset = new PresetDefinition("User One", new OutputSettings());

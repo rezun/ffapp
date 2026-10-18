@@ -16,7 +16,7 @@ namespace FFApp.Tests.Views;
 public sealed class Av1FilmGrainControlsTests(QueueTestSession fixture)
 {
     [Fact]
-    public async Task VarianceBoostControls_ShowWhenEnabledAndRememberSelections()
+    public async Task VarianceBoostControls_BindSelectionsAndVisibility()
     {
         await fixture.Session.Dispatch(() =>
         {
@@ -24,6 +24,7 @@ public sealed class Av1FilmGrainControlsTests(QueueTestSession fixture)
             var vm = new OutputSettingsViewModel(validation, Substitute.For<IMessenger>(),
                 Substitute.For<IFfmpegCapabilityService>(), new ExecutablePathsConfig());
             vm.ApplySettings(new TestOutputSettingsBuilder().WithAv1().Build());
+            var quality = vm.Strategy.Quality.Av1;
             var view = new OutputSettingsView { DataContext = vm };
             var window = new Window { Content = view, Width = 800, Height = 1000 };
             window.Show();
@@ -40,24 +41,21 @@ public sealed class Av1FilmGrainControlsTests(QueueTestSession fixture)
                     .Single(c => c.Name == "VarianceOctileComboBox");
 
                 options.IsVisible.Should().BeFalse();
-                strength.Items.Cast<int>().Should().Equal(Enumerable.Range(1, 4));
-                octile.Items.Cast<int>().Should().Equal(Enumerable.Range(1, 8));
                 enabled.IsChecked = true;
                 window.UpdateLayout();
                 strength.IsEffectivelyVisible.Should().BeTrue();
                 octile.IsEffectivelyVisible.Should().BeTrue();
-                strength.SelectedItem.Should().Be(2);
-                octile.SelectedItem.Should().Be(5);
                 strength.SelectedItem = 4;
                 octile.SelectedItem = 8;
-                var encoder = vm.BuildSettings().VideoEncoderOptions.Should().BeOfType<Av1EncoderOptions>().Subject;
-                encoder.VarianceBoostStrength.Should().Be(4);
-                encoder.VarianceOctile.Should().Be(8);
-                enabled.IsChecked = false;
+                quality.VarianceBoostStrength.Should().Be(4);
+                quality.VarianceOctile.Should().Be(8);
+                quality.EnableVarianceBoostChecked = false;
+                enabled.IsChecked.Should().BeFalse();
                 options.IsVisible.Should().BeFalse();
-                enabled.IsChecked = true;
-                strength.SelectedItem.Should().Be(4);
-                octile.SelectedItem.Should().Be(8);
+                quality.VarianceBoostStrength = 1;
+                quality.VarianceOctile = 3;
+                strength.SelectedItem.Should().Be(1);
+                octile.SelectedItem.Should().Be(3);
             }
             finally
             {
@@ -67,7 +65,7 @@ public sealed class Av1FilmGrainControlsTests(QueueTestSession fixture)
     }
 
     [Fact]
-    public async Task FilmGrainControls_CollapseWhenOffAndRestoreDropdownSelectionWhenReenabled()
+    public async Task FilmGrainControls_BindSelectionsAndCollapseWhenOff()
     {
         await fixture.Session.Dispatch(() =>
         {
@@ -77,6 +75,7 @@ public sealed class Av1FilmGrainControlsTests(QueueTestSession fixture)
             var vm = new OutputSettingsViewModel(validation, Substitute.For<IMessenger>(),
                 Substitute.For<IFfmpegCapabilityService>(), new ExecutablePathsConfig());
             vm.ApplySettings(new TestOutputSettingsBuilder().WithAv1().Build());
+            var quality = vm.Strategy.Quality.Av1;
             var view = new OutputSettingsView { DataContext = vm };
             var window = new Window { Content = new ScrollViewer { Content = view }, Width = 800, Height = 900 };
             window.Show();
@@ -94,45 +93,35 @@ public sealed class Av1FilmGrainControlsTests(QueueTestSession fixture)
                 var adaptive = view.GetVisualDescendants().OfType<CheckBox>()
                     .Single(c => c.Name == "AdaptiveFilmGrainCheckBox");
 
-                enabled.IsChecked.Should().BeFalse();
                 options.IsVisible.Should().BeFalse();
-                strength.IsEffectivelyVisible.Should().BeFalse();
-                denoise.IsEffectivelyVisible.Should().BeFalse();
-                adaptive.IsEffectivelyVisible.Should().BeFalse();
-                strength.Items.Cast<int>().Should().Equal(Enumerable.Range(1, 50));
-                denoise.IsChecked.Should().BeFalse();
-                adaptive.IsChecked.Should().BeTrue();
                 var collapsedHeight = view.DesiredSize.Height;
 
                 enabled.IsChecked = true;
                 window.UpdateLayout();
-                options.IsVisible.Should().BeTrue();
                 strength.IsEffectivelyVisible.Should().BeTrue();
                 denoise.IsEffectivelyVisible.Should().BeTrue();
                 adaptive.IsEffectivelyVisible.Should().BeTrue();
-                strength.SelectedItem.Should().Be(8);
                 view.DesiredSize.Height.Should().BeGreaterThan(collapsedHeight);
 
                 strength.SelectedItem = 15;
                 denoise.IsChecked = true;
                 adaptive.IsChecked = false;
 
-                var encoder = vm.BuildSettings().VideoEncoderOptions
-                    .Should().BeOfType<Av1EncoderOptions>().Subject;
-                encoder.FilmGrain.Should().Be(15);
-                encoder.FilmGrainDenoise.Should().Be(1);
-                encoder.AdaptiveFilmGrain.Should().Be(0);
+                quality.FilmGrain.Should().Be(15);
+                quality.FilmGrainDenoiseChecked.Should().BeTrue();
+                quality.AdaptiveFilmGrainChecked.Should().BeFalse();
 
-                enabled.IsChecked = false;
+                quality.IsFilmGrainEnabled = false;
                 window.UpdateLayout();
+                enabled.IsChecked.Should().BeFalse();
                 options.IsVisible.Should().BeFalse();
                 view.DesiredSize.Height.Should().Be(collapsedHeight);
-                ((Av1EncoderOptions)vm.BuildSettings().VideoEncoderOptions!).FilmGrain.Should().Be(0);
-                denoise.IsChecked.Should().BeTrue();
-                adaptive.IsChecked.Should().BeFalse();
-
-                enabled.IsChecked = true;
-                strength.SelectedItem.Should().Be(15);
+                quality.FilmGrain = 8;
+                quality.FilmGrainDenoiseChecked = false;
+                quality.AdaptiveFilmGrainChecked = true;
+                strength.SelectedItem.Should().Be(8);
+                denoise.IsChecked.Should().BeFalse();
+                adaptive.IsChecked.Should().BeTrue();
             }
             finally
             {

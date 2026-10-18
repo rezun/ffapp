@@ -20,8 +20,11 @@ public class SourceListPanelViewModelTests
     }
 
     [Fact]
-    public void MediaSummaryText_WhenNoSelectedSource_ReturnsEmpty()
+    public void InitialState_HasNoSourcesOrSelection()
     {
+        _sut.Sources.Should().BeEmpty();
+        _sut.SelectedSource.Should().BeNull();
+        _sut.StatusText.Should().Be("No source files loaded.");
         _sut.MediaSummaryText.Should().BeEmpty();
     }
 
@@ -34,23 +37,5 @@ public class SourceListPanelViewModelTests
         await _sut.AddFilesCommand.ExecuteAsync(null);
 
         await _probeService.DidNotReceive().ProbeAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public void Default_StatusText_IsNoSourceFilesLoaded()
-    {
-        _sut.StatusText.Should().Be("No source files loaded.");
-    }
-
-    [Fact]
-    public void Default_SelectedSource_IsNull()
-    {
-        _sut.SelectedSource.Should().BeNull();
-    }
-
-    [Fact]
-    public void Default_Sources_IsEmpty()
-    {
-        _sut.Sources.Should().BeEmpty();
     }
 }

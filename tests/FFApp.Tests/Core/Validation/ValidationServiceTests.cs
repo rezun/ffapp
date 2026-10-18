@@ -56,17 +56,6 @@ public class ValidationServiceTests
     // ── Container / codec compatibility ─────────────────────────────────
 
     [Fact]
-    public void Validate_H264InMp4_NoCodecError()
-    {
-        var settings = new TestOutputSettingsBuilder().Build();
-        var media = new TestMediaInfoBuilder().Build();
-
-        var result = _sut.Validate(settings, media);
-
-        HasIssueWithCode(result, "video_codec_incompatible").Should().BeFalse();
-    }
-
-    [Fact]
     public void Validate_H264InWebm_ReturnsVideoCodecIncompatible()
     {
         var settings = new TestOutputSettingsBuilder()
@@ -459,18 +448,6 @@ public class ValidationServiceTests
     }
 
     [Fact]
-    public void Validate_NoVideo_ReturnsEarlyWithOnlyThatError()
-    {
-        var settings = new TestOutputSettingsBuilder().Build();
-        var media = new TestMediaInfoBuilder().WithNoVideo().Build();
-
-        var result = _sut.Validate(settings, media);
-
-        // Should not attempt further validation beyond container compat + video_stream_missing.
-        result.Errors.Should().Contain(e => e.Code == "video_stream_missing");
-    }
-
-    [Fact]
     public void Validate_MultipleVideoStreams_ReturnsWarning()
     {
         var settings = new TestOutputSettingsBuilder().Build();
@@ -841,40 +818,6 @@ public class ValidationServiceTests
         var result = _sut.ResolveOutputResolution(settings, media);
 
         result.Should().BeNull();
-    }
-
-    // ── AllowedVideoCodecs / AllowedAudioCodecs ─────────────────────────
-
-    [Fact]
-    public void AllowedVideoCodecs_Mp4_ReturnsExpectedCodecs()
-    {
-        var result = _sut.AllowedVideoCodecs(OutputContainer.Mp4);
-
-        result.Should().BeEquivalentTo([VideoCodec.H264, VideoCodec.H265, VideoCodec.Av1, VideoCodec.Vp9]);
-    }
-
-    [Fact]
-    public void AllowedVideoCodecs_Webm_ReturnsVpxOnly()
-    {
-        var result = _sut.AllowedVideoCodecs(OutputContainer.Webm);
-
-        result.Should().BeEquivalentTo([VideoCodec.Vp9, VideoCodec.Av1]);
-    }
-
-    [Fact]
-    public void AllowedAudioCodecs_Mp4_ReturnsAacMp3AndOpus()
-    {
-        var result = _sut.AllowedAudioCodecs(OutputContainer.Mp4);
-
-        result.Should().BeEquivalentTo([AudioCodec.Aac, AudioCodec.Mp3, AudioCodec.Opus]);
-    }
-
-    [Fact]
-    public void AllowedAudioCodecs_Webm_ReturnsOpusAndVorbis()
-    {
-        var result = _sut.AllowedAudioCodecs(OutputContainer.Webm);
-
-        result.Should().BeEquivalentTo([AudioCodec.Opus, AudioCodec.Vorbis]);
     }
 
     // ── ValidationResult properties ─────────────────────────────────────

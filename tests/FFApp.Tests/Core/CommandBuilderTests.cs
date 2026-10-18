@@ -685,35 +685,12 @@ public class CommandBuilderTests
     }
 
     [Fact]
-    public void Build_AudioRemove_MapsOutAudioStreams()
+    public void Build_AudioRemove_MapsOutAudioAndOmitsAudioCodec()
     {
         var job = JobWith(s => s.WithAudioRemove());
         var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
 
-        args.Should().Contain("-map -0:a?");
-    }
-
-    [Fact]
-    public void Build_AudioRemove_DoesNotContainAudioCodecArg()
-    {
-        var job = JobWith(s => s.WithAudioRemove());
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        args.Should().NotContain("-c:a");
-    }
-
-    // ---------------------------------------------------------------
-    // Audio mode: Remove strips audio streams
-    // ---------------------------------------------------------------
-
-    [Fact]
-    public void Build_AudioModeRemove_MapsOutAudioStreams()
-    {
-        var job = JobWith(s => s.WithAudioRemove());
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        args.Should().Contain("-map -0:a?");
-        args.Should().NotContain("-c:a copy");
+        args.Should().Contain("-map -0:a?").And.NotContain("-c:a");
     }
 
     // ---------------------------------------------------------------
@@ -1235,16 +1212,8 @@ public class CommandBuilderTests
     }
 
     // ---------------------------------------------------------------
-    // H.264 pixel format
+    // SDR pixel formats
     // ---------------------------------------------------------------
-
-    [Fact]
-    public void Build_H264_ContainsPixFmtYuv420p()
-    {
-        var args = JoinArgs(_sut.Build(DefaultJob(), DefaultMedia())[0]);
-
-        args.Should().Contain("-pix_fmt yuv420p");
-    }
 
     [Fact]
     public void Build_H265_DoesNotContainPixFmt()

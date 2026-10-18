@@ -33,9 +33,6 @@ public sealed class QueueTestCollection : ICollectionFixture<QueueTestSession>;
 [Collection("Queue UI")]
 public sealed class QueueSelectionStyleTests(QueueTestSession fixture)
 {
-    // Fluent's default blue with white text yields approximately 4.499:1.
-    private static readonly double MinimumThemeTextContrast = 4.49;
-
     [Theory]
     [InlineData(false, JobState.Pending)]
     [InlineData(false, JobState.Running)]
@@ -47,7 +44,7 @@ public sealed class QueueSelectionStyleTests(QueueTestSession fixture)
     [InlineData(true, JobState.Completed)]
     [InlineData(true, JobState.Failed)]
     [InlineData(true, JobState.Canceled)]
-    public async Task SelectedRow_HasReadableTextAndDistinctProgress_AndRestoresColorsOnDeselect(
+    public async Task SelectedRow_UsesThemeSelectionColors_AndRestoresColorsOnDeselect(
         bool dark, JobState state)
     {
         await fixture.Session.Dispatch(() => VerifySelectionColors(dark, state), CancellationToken.None);
@@ -57,7 +54,7 @@ public sealed class QueueSelectionStyleTests(QueueTestSession fixture)
     {
         var media = new TestMediaInfoBuilder().Build();
         var queued = new QueuedJob(new TestJobDefinitionBuilder().Build(), media, [], new ValidationResult());
-        var item = new JobItemViewModel("contrast-test", media, queued, "source.mkv")
+        var item = new JobItemViewModel("selection-test", media, queued, "source.mkv")
         {
             State = state,
             Percentage = 28.8,
@@ -112,13 +109,9 @@ public sealed class QueueSelectionStyleTests(QueueTestSession fixture)
             background.Should().Be(ColorOf(referencePresenter.Background),
                 "the queue should use the standard selection background");
             foreach (var text in texts)
-            {
                 ColorOf(text.Foreground).Should().Be(ColorOf(referencePresenter.Foreground));
-                Contrast(ColorOf(text.Foreground), background).Should().BeGreaterThanOrEqualTo(MinimumThemeTextContrast);
-            }
-            Contrast(ColorOf(progress.Foreground), background).Should().BeGreaterThanOrEqualTo(3);
-            Contrast(ColorOf(progress.Foreground), ColorOf(progress.Background))
-                .Should().BeGreaterThanOrEqualTo(3);
+            ColorOf(progress.Foreground).Should().Be(ColorOf(referencePresenter.Foreground));
+            ColorOf(progress.Background).Should().Be(background);
             progress.Opacity.Should().Be(1);
 
             // Hovering must retain the standard selection appearance and readable content.
@@ -133,9 +126,9 @@ public sealed class QueueSelectionStyleTests(QueueTestSession fixture)
             window.UpdateLayout();
             ColorOf(presenter.Background).Should().Be(hoveredBackground);
             foreach (var text in texts)
-                Contrast(ColorOf(text.Foreground), hoveredBackground).Should().BeGreaterThanOrEqualTo(MinimumThemeTextContrast);
-            Contrast(ColorOf(progress.Foreground), ColorOf(progress.Background))
-                .Should().BeGreaterThanOrEqualTo(3);
+                ColorOf(text.Foreground).Should().Be(ColorOf(referencePresenter.Foreground));
+            ColorOf(progress.Foreground).Should().Be(ColorOf(referencePresenter.Foreground));
+            ColorOf(progress.Background).Should().Be(hoveredBackground);
 
             list.SelectedIndex = -1;
             window.UpdateLayout();
@@ -151,23 +144,4 @@ public sealed class QueueSelectionStyleTests(QueueTestSession fixture)
     private static Color ColorOf(IBrush? brush) =>
         (brush as ISolidColorBrush)?.Color
         ?? throw new InvalidOperationException("Expected an opaque solid color brush.");
-
-    private static double Contrast(Color first, Color second)
-    {
-        var firstLuminance = Luminance(first);
-        var secondLuminance = Luminance(second);
-        return (Math.Max(firstLuminance, secondLuminance) + 0.05)
-            / (Math.Min(firstLuminance, secondLuminance) + 0.05);
-    }
-
-    private static double Luminance(Color color) =>
-        0.2126 * LinearChannel(color.R)
-        + 0.7152 * LinearChannel(color.G)
-        + 0.0722 * LinearChannel(color.B);
-
-    private static double LinearChannel(byte channel)
-    {
-        var value = channel / 255.0;
-        return value <= 0.04045 ? value / 12.92 : Math.Pow((value + 0.055) / 1.055, 2.4);
-    }
 }

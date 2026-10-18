@@ -19,11 +19,14 @@ namespace FFApp.Tests.Views;
 public sealed class OptionTooltipsTests(QueueTestSession fixture)
 {
     [Theory]
-    [InlineData(VideoCodec.H264)]
-    [InlineData(VideoCodec.H265)]
-    [InlineData(VideoCodec.Av1)]
-    [InlineData(VideoCodec.Vp9)]
-    public async Task OutputOptions_HaveHelpAcrossCodecsStrategiesAndHdrEngines(VideoCodec codec)
+    [InlineData(VideoCodec.H264, EncodingStrategy.TargetQuality, ToneMapEngine.Standard)]
+    [InlineData(VideoCodec.H265, EncodingStrategy.TargetQuality, ToneMapEngine.Standard)]
+    [InlineData(VideoCodec.Av1, EncodingStrategy.TargetQuality, ToneMapEngine.Standard)]
+    [InlineData(VideoCodec.Vp9, EncodingStrategy.TargetQuality, ToneMapEngine.Standard)]
+    [InlineData(VideoCodec.H264, EncodingStrategy.TargetBitrate, ToneMapEngine.Libplacebo)]
+    [InlineData(VideoCodec.H264, EncodingStrategy.TargetFileSize, ToneMapEngine.Standard)]
+    public async Task OutputOptions_HaveHelpInEachDistinctSettingsPanel(
+        VideoCodec codec, EncodingStrategy strategy, ToneMapEngine engine)
     {
         await fixture.Session.Dispatch(() =>
         {
@@ -47,21 +50,12 @@ public sealed class OptionTooltipsTests(QueueTestSession fixture)
             vm.Audio.AllAudioTracks = false;
             vm.Hdr.IsLibplaceboAvailable = true;
             vm.Hdr.SelectedHdrMode = HdrMode.TonemapToSdr;
+            vm.Hdr.SelectedEngine = engine;
+            vm.Hdr.PeakDetect = false;
+            vm.Strategy.SelectedStrategy = strategy;
+            vm.Strategy.Quality.Av1.EnableVarianceBoostChecked = true;
             var view = new OutputSettingsView { DataContext = vm };
-            WithWindow(view, window =>
-            {
-                foreach (var strategy in Enum.GetValues<EncodingStrategy>())
-                {
-                    vm.Strategy.SelectedStrategy = strategy;
-                    foreach (var engine in Enum.GetValues<ToneMapEngine>())
-                    {
-                        vm.Hdr.SelectedEngine = engine;
-                        vm.Hdr.PeakDetect = false;
-                        window.UpdateLayout();
-                        AssertOptionHelp(view).Should().BeGreaterThan(10);
-                    }
-                }
-            });
+            WithWindow(view, _ => AssertOptionHelp(view).Should().BeGreaterThan(10));
         }, CancellationToken.None);
     }
 

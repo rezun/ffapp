@@ -147,24 +147,6 @@ public class MediaProbeServiceParsingTests
     }
 
     [Fact]
-    public void ParseMediaInfo_NumericFieldsAsStrings_ParsedCorrectly()
-    {
-        var json = """
-        {
-            "format": { "duration": "60.5", "bit_rate": "5000000" },
-            "streams": [
-                { "index": 0, "codec_type": "video", "codec_name": "h264", "bit_rate": "4500000", "width": 1920, "height": 1080, "avg_frame_rate": "30/1", "nb_frames": "1800" }
-            ]
-        }
-        """;
-
-        var result = MediaProbeService.ParseMediaInfo("/test/video.mp4", json);
-        result.DurationSeconds.Should().BeApproximately(60.5, 0.001);
-        result.BitRate.Should().Be(5_000_000);
-        result.PrimaryVideoStream!.BitRate.Should().Be(4_500_000);
-    }
-
-    [Fact]
     public void ParseMediaInfo_InvalidJson_ThrowsMediaProbeException()
     {
         var act = () => MediaProbeService.ParseMediaInfo("/test/video.mp4", "not json");

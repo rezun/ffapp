@@ -108,6 +108,46 @@ public class OutputSettingsViewModelTests
     }
 
     [Fact]
+    public void ColorSettings_AreRestoredAndEditsNotifyTheWorkspace()
+    {
+        var messenger = new WeakReferenceMessenger();
+        var sut = new OutputSettingsViewModel(_validationService, messenger, _capabilityService, _pathsConfig);
+        sut.UpdateSourceInfo(new TestMediaInfoBuilder().Build());
+        var colors = new ColorMetadataSettings(ColorMetadataMode.Custom, "bt470bg", "gamma28", "bt470bg", "pc");
+        sut.ApplySettings(new OutputSettings(ColorMetadata: colors));
+        sut.BuildSettings().ColorMetadata.Should().Be(colors);
+        OutputSettings? notified = null;
+        var recipient = new object();
+        messenger.Register<OutputSettingsChangedMessage>(recipient, (_, message) => notified = message.Value);
+        sut.Color.SelectedRange = "tv";
+        sut.BuildSettings().ColorMetadata.Range.Should().Be("tv");
+        notified.Should().NotBeNull();
+        notified?.ColorMetadata.Range.Should().Be("tv");
+        sut.Format.SelectedVideoCodec = VideoCodec.Av1;
+        sut.BuildSettings().ColorMetadata.Primaries.Should().Be("bt470bg");
+    }
+
+    [Fact]
+    public void ColorSummary_UpdatesForSourceAssumptionsHdrAndCopy()
+    {
+        _sut.UpdateSourceInfo(new TestMediaInfoBuilder().Build());
+        _sut.Color.SelectedMode.Should().Be(ColorMetadataMode.Automatic);
+        _sut.Color.OutputSummary.Should().Contain("unspecified values remain unspecified");
+        _sut.Color.SelectedMode = ColorMetadataMode.AssumeBt709;
+        _sut.Color.OutputSummary.Should().Contain("assumed").And.Contain("Limited");
+        _sut.UpdateSourceInfo(new TestMediaInfoBuilder().WithHdr10().Build());
+        _sut.Color.IsEditable.Should().BeFalse();
+        _sut.Color.OutputSummary.Should().Contain("HDR settings");
+        _sut.Hdr.SelectedHdrMode = HdrMode.TonemapToSdr;
+        _sut.Color.OutputSummary.Should().Contain("bt709");
+        _sut.UpdateSourceInfo(new TestMediaInfoBuilder().Build());
+        _sut.Color.IsEditable.Should().BeTrue();
+        _sut.Format.SelectedVideoMode = VideoMode.Copy;
+        _sut.Color.IsEditable.Should().BeFalse();
+        _sut.Color.OutputSummary.Should().Contain("unchanged");
+    }
+
+    [Fact]
     public void BuildSettings_ReturnsDefaults()
     {
         var settings = _sut.BuildSettings();

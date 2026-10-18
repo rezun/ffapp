@@ -15,6 +15,44 @@ public class SettingsSerializerTests
         return SettingsSerializer.DeserializeOutputSettings(element);
     }
 
+    [Theory]
+    [InlineData(ColorMetadataMode.Automatic)]
+    [InlineData(ColorMetadataMode.AssumeBt709)]
+    [InlineData(ColorMetadataMode.Custom)]
+    public void RoundTrip_ColorMetadata_PreservesModeAndManualValues(ColorMetadataMode mode)
+    {
+        var colors = new ColorMetadataSettings(mode, "bt470bg", "gamma28", "bt470bg", "pc");
+        RoundTrip(new OutputSettings(ColorMetadata: colors)).ColorMetadata.Should().Be(colors);
+    }
+
+    [Fact]
+    public void Deserialize_OldPreset_DefaultsToSourceColorsWithoutGuessing()
+    {
+        var json = SettingsSerializer.SerializeOutputSettings(new OutputSettings());
+        json.Remove("color_metadata");
+        using var doc = JsonDocument.Parse(json.ToJsonString());
+        SettingsSerializer.DeserializeOutputSettings(doc.RootElement).ColorMetadata
+            .Should().Be(new ColorMetadataSettings());
+    }
+
+    [Theory]
+    [InlineData("mode", "999")]
+    [InlineData("mode", "invalid")]
+    [InlineData("primaries", "invalid")]
+    [InlineData("transfer", "invalid")]
+    [InlineData("matrix", "invalid")]
+    [InlineData("range", "invalid")]
+    public void Deserialize_InvalidColorSettings_AreRejected(string field, string value)
+    {
+        var json = SettingsSerializer.SerializeOutputSettings(new OutputSettings());
+        var colors = json["color_metadata"] as System.Text.Json.Nodes.JsonObject
+            ?? throw new InvalidOperationException("Missing color settings.");
+        colors[field] = value;
+        using var doc = JsonDocument.Parse(json.ToJsonString());
+        var decode = () => SettingsSerializer.DeserializeOutputSettings(doc.RootElement);
+        decode.Should().Throw<SettingsDecodeException>();
+    }
+
     // --- Round-trip tests ---
 
     [Theory]

@@ -6,6 +6,18 @@ namespace FFApp.Converters;
 
 public static class EnumLabelConverters
 {
+    public static readonly FuncValueConverter<ColorMetadataMode, string> ColorMetadataMode =
+        new(v => v switch
+        {
+            Core.Models.ColorMetadataMode.Automatic => "Automatic (source)",
+            Core.Models.ColorMetadataMode.AssumeBt709 => "Source + BT.709 fallback",
+            Core.Models.ColorMetadataMode.Custom => "Manual",
+            _ => throw new ArgumentOutOfRangeException(nameof(v), v, "Unknown color metadata mode."),
+        });
+
+    public static readonly FuncValueConverter<string, string> ColorRange =
+        new(v => v switch { "tv" => "Limited (TV)", "pc" => "Full (PC)", _ => v ?? "" });
+
     public static readonly FuncValueConverter<int, string> Av1VarianceBoostStrength =
         new(v => v switch
         {

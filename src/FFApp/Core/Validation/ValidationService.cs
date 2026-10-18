@@ -114,6 +114,7 @@ public sealed class ValidationService : IValidationService
         // Video re-encode: full validation.
         ValidateVideoEncoderSettings(settings, issues);
         ValidateHdrSettings(settings, mediaInfo, issues);
+        ValidateColorMetadata(settings, mediaInfo, issues);
 
         // Resolution.
         if (settings.ResolutionPreset is not ResolutionPreset.Original
@@ -141,6 +142,22 @@ public sealed class ValidationService : IValidationService
         }
 
         return new ValidationResult { Issues = issues.ToImmutable() };
+    }
+
+    private static void ValidateColorMetadata(
+        OutputSettings settings, SourceMediaInfo mediaInfo,
+        ImmutableArray<ValidationIssue>.Builder issues)
+    {
+        var color = settings.ColorMetadata;
+        if (!Enum.IsDefined(color.Mode)
+            || (color.Mode == ColorMetadataMode.Custom
+                && !ColorMetadataResolver.HasHdrSignal(mediaInfo.PrimaryVideoStream)
+                && (!ColorPrimariesOptions.Contains(color.Primaries)
+                    || !ColorTransferOptions.Contains(color.Transfer)
+                    || !ColorMatrixOptions.Contains(color.Matrix)
+                    || !ColorRangeOptions.Contains(color.Range))))
+            issues.Add(new ValidationIssue(ValidationSeverity.Error, "invalid_color_metadata",
+                "Select valid color metadata values.", "color_metadata"));
     }
 
     // ── Container / codec compatibility ─────────────────────────────────

@@ -224,6 +224,7 @@ public static class FormatHelpers
             TrimStartSeconds: trimStartSeconds,
             TrimEndSeconds: trimEndSeconds,
             Crop: crop,
+            ColorMetadata: settings.ColorMetadata,
             HdrMode: settings.HdrMode,
             ToneMapSettings: settings.ToneMapSettings,
             KeyframeInterval: settings.KeyframeInterval,

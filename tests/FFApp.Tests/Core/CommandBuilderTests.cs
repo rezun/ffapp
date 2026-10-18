@@ -1418,7 +1418,7 @@ public class CommandBuilderTests
         args.Should().Contain("tonemap=hable");
         args.Should().Contain("zscale=t=bt709:m=bt709:r=tv");
         args.Should().Contain("format=yuv420p");
-        args.Should().NotContain("color_primaries");
+        args.Should().Contain("-color_primaries bt709");
         args.Should().NotContain("x265-params");
     }
 
@@ -1485,7 +1485,7 @@ public class CommandBuilderTests
 
         args.Should().Contain("zscale=t=linear");
         args.Should().NotContain("x265-params");
-        args.Should().NotContain("-color_primaries");
+        args.Should().Contain("-color_primaries bt709");
     }
 
     [Fact]

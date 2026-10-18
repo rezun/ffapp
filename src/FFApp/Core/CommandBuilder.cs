@@ -460,7 +460,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
             arguments.AddRange(["-tag:v", "hvc1"]);
 
         arguments.AddRange(PixelFormatArguments(job, mediaInfo));
-        arguments.AddRange(HdrPreserveArguments(job, mediaInfo));
+        arguments.AddRange(ColorMetadataArguments(job, mediaInfo));
 
         var filterChain = BuildVideoFilterChain(job, mediaInfo);
         if (filterChain is not null)
@@ -709,6 +709,12 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
     {
         var filters = new List<string>();
 
+        var isToneMapping = mediaInfo.PrimaryVideoStream?.IsHdr == true
+            && job.HdrMode == HdrMode.TonemapToSdr;
+        var colorFilter = ColorMetadataFrameFilter(job, mediaInfo);
+        if (!isToneMapping && colorFilter is not null)
+            filters.Add(colorFilter);
+
         filters.AddRange(ToneMapFilters(job, mediaInfo));
 
         if (job.Crop is { } crop)
@@ -725,7 +731,39 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         if (scaleFilter is not null)
             filters.Add(scaleFilter);
 
+        if (isToneMapping && colorFilter is not null)
+            filters.Add(colorFilter);
+
         return filters.Count > 0 ? string.Join(",", filters) : null;
+    }
+
+    private static string? ColorMetadataFrameFilter(JobDefinition job, SourceMediaInfo mediaInfo)
+    {
+        var colors = ColorMetadataResolver.Resolve(mediaInfo.PrimaryVideoStream, job.ColorMetadata, job.HdrMode);
+        var parts = new List<string>();
+        if (colors.Primaries is { } primaries)
+            parts.Add($"color_primaries={primaries}");
+        if (colors.Transfer is { } transfer)
+        {
+            // setparams uses different aliases from the encoder color_trc option.
+            var frameTransfer = transfer switch
+            {
+                "gamma22" => "bt470m", "gamma28" => "bt470bg",
+                "log" => "log100", "log_sqrt" => "log316",
+                "iec61966_2_4" => "iec61966-2-4", "iec61966_2_1" => "iec61966-2-1",
+                "bt2020_10" => "bt2020-10", "bt2020_12" => "bt2020-12",
+                _ => transfer,
+            };
+            parts.Add($"color_trc={frameTransfer}");
+        }
+        if (colors.Matrix is { } matrix)
+            parts.Add($"colorspace={(matrix == "rgb" ? "gbr" : matrix)}");
+        if (colors.Range is { } range)
+            parts.Add($"range={range}");
+        // Set frame properties as well as encoder options: some FFmpeg encoders
+        // prefer frame metadata. Before scaling, this also prevents a manual
+        // range correction from rescaling pixel levels.
+        return parts.Count > 0 ? $"setparams={string.Join(":", parts)}" : null;
     }
 
     private static string? VideoScaleFilter(JobDefinition job, SourceMediaInfo mediaInfo)
@@ -834,26 +872,32 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         };
     }
 
-    private static List<string> HdrPreserveArguments(JobDefinition job, SourceMediaInfo mediaInfo)
+    private static List<string> ColorMetadataArguments(JobDefinition job, SourceMediaInfo mediaInfo)
     {
-        var video = mediaInfo.PrimaryVideoStream;
-        if (video is null || !video.IsHdr || job.HdrMode != HdrMode.Preserve)
-            return [];
+        var settings = job.ColorMetadata;
+        if (!Enum.IsDefined(settings.Mode))
+            throw new CommandBuildException("Unknown color metadata mode.");
+        if (settings.Mode == ColorMetadataMode.Custom
+            && !ColorMetadataResolver.HasHdrSignal(mediaInfo.PrimaryVideoStream)
+            && (!CompatibilityData.ColorPrimariesOptions.Contains(settings.Primaries)
+                || !CompatibilityData.ColorTransferOptions.Contains(settings.Transfer)
+                || !CompatibilityData.ColorMatrixOptions.Contains(settings.Matrix)
+                || !CompatibilityData.ColorRangeOptions.Contains(settings.Range)))
+            throw new CommandBuildException("Invalid custom color metadata.");
 
-        if (job.VideoCodec is not (VideoCodec.H265 or VideoCodec.Av1))
-            return [];
-
-        var transfer = video.ColorTransfer ?? "smpte2084";
-        var args = new List<string>
-        {
-            "-color_primaries", "bt2020",
-            "-color_trc", transfer,
-            "-colorspace", "bt2020nc",
-        };
-
-        // H.265 x265-params (HDR) are emitted by CodecParamsArguments;
-        // AV1 HDR params are consolidated in BuildSvtAv1Params.
+        var colors = ColorMetadataResolver.Resolve(mediaInfo.PrimaryVideoStream, settings, job.HdrMode);
+        var args = new List<string>();
+        Add("-color_primaries", colors.Primaries);
+        Add("-color_trc", colors.Transfer);
+        Add("-colorspace", colors.Matrix);
+        Add("-color_range", colors.Range);
         return args;
+
+        void Add(string option, string? value)
+        {
+            if (value is not null)
+                args.AddRange([option, value]);
+        }
     }
 
     private static List<string> BuildSvtAv1Params(JobDefinition job, SourceMediaInfo mediaInfo)
@@ -936,14 +980,14 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
 
     private static List<string> BuildX265HdrParts(VideoStreamInfo video)
     {
-        var transfer = video.ColorTransfer ?? "smpte2084";
+        var colors = ColorMetadataResolver.Resolve(video, new ColorMetadataSettings(), HdrMode.Preserve);
         var parts = new List<string>
         {
             "hdr-opt=1",
             "repeat-headers=1",
-            $"colorprim=bt2020",
-            $"transfer={transfer}",
-            "colormatrix=bt2020nc",
+            $"colorprim={colors.Primaries}",
+            $"transfer={colors.Transfer}",
+            $"colormatrix={colors.Matrix}",
         };
 
         if (video.HdrMetadata is { } metadata)
@@ -994,6 +1038,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
                 "color_primaries=bt709",
                 "color_trc=bt709",
                 "colorspace=bt709",
+                "range=limited",
             };
 
             if (toneMap.TonemappingParam is > 0)

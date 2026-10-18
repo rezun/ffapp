@@ -67,8 +67,10 @@ public sealed record OutputSettings(
     ToneMapSettings? ToneMapSettings = null,
     int? KeyframeInterval = null,
     KeyframeUnit KeyframeUnit = KeyframeUnit.Frames,
-    PostProcessingOptions? PostProcessing = null)
+    PostProcessingOptions? PostProcessing = null,
+    ColorMetadataSettings? ColorMetadata = null)
 {
+    public ColorMetadataSettings ColorMetadata { get; init; } = ColorMetadata ?? new ColorMetadataSettings();
     public AudioOptions AudioOptions { get; init; } = AudioOptions ?? new AudioOptions();
     public StreamHandlingOptions StreamHandling { get; init; } = StreamHandling ?? new StreamHandlingOptions();
     public TargetFileSizeOptions TargetFileSize { get; init; } = TargetFileSize ?? new TargetFileSizeOptions();

@@ -8,6 +8,7 @@ A cross-platform desktop GUI for FFmpeg, built to make video and audio encoding 
 - **Three encoding strategies** — Target quality (CRF), target bitrate (two-pass), or target file size
 - **Job queue** — Batch encode with progress tracking, pause/resume, and per-job logs
 - **Video preview** — Scrub through video with trim and crop controls (via LibVLC)
+- **Color information** — Preserve source color labels, explicitly fill missing values as BT.709 / Limited, or correct labels manually; source and effective output values are shown
 - **HDR support** — Detect HDR10/HLG content, preserve metadata, or tone-map to SDR
 - **Presets** — Save and load encoding configurations
 - **Validation** — Warns about incompatible codec/container combinations before encoding
@@ -15,6 +16,14 @@ A cross-platform desktop GUI for FFmpeg, built to make video and audio encoding 
 - **Resolution & frame rate** — Presets for common targets (720p–4K, 23.976–60fps)
 - **Drag and drop** — Add files or folders directly into the source list
 - **Cross-platform** — Windows, macOS (Intel & Apple Silicon), and Linux
+
+### Color information
+
+Re-encodes explicitly preserve known source primaries, transfer function, YUV matrix and signal range by default. Missing or unspecified values remain unspecified; resolution and bit depth are not used to guess a color space.
+
+For a known untagged HD SDR Blu-ray, choose **Use source; assume BT.709 / Limited for missing values**. This fills only missing fields and shows the assumption in the output summary. **Manual color labels** corrects the four labels independently; it does not perform a color-space conversion. Copy mode leaves the stream unchanged.
+
+HDR settings take precedence: HDR preservation keeps the source color information, and HDR-to-SDR processing outputs BT.709 / Limited. SDR overrides are disabled for sources with HDR indicators, including incomplete HDR metadata. Color settings are included in presets and restored sessions; older presets default to source preservation.
 
 ## Requirements
 

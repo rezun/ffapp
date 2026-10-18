@@ -57,6 +57,14 @@ public static class SettingsSerializer
                 ["two_pass"] = settings.TargetBitrate.TwoPass,
             },
             ["target_quality"] = SerializeQualityOptions(settings.TargetQuality),
+            ["color_metadata"] = new JsonObject
+            {
+                ["mode"] = EnumToString(settings.ColorMetadata.Mode),
+                ["primaries"] = settings.ColorMetadata.Primaries,
+                ["transfer"] = settings.ColorMetadata.Transfer,
+                ["matrix"] = settings.ColorMetadata.Matrix,
+                ["range"] = settings.ColorMetadata.Range,
+            },
             ["hdr_mode"] = EnumToString(settings.HdrMode),
             ["tone_map_settings"] = new JsonObject
             {
@@ -163,6 +171,20 @@ public static class SettingsSerializer
             PeakDetect: ReadBool(toneMapEl, "peak_detect", true),
             TonemappingParam: ReadOptionalDouble(toneMapEl, "tonemapping_param"));
 
+        var colorEl = GetObjectOrEmpty(element, "color_metadata");
+        var colorMetadata = new ColorMetadataSettings(
+            Mode: ReadEnum<ColorMetadataMode>(colorEl, "mode", ColorMetadataMode.Automatic),
+            Primaries: ReadString(colorEl, "primaries", "bt709"),
+            Transfer: ReadString(colorEl, "transfer", "bt709"),
+            Matrix: ReadString(colorEl, "matrix", "bt709"),
+            Range: ReadString(colorEl, "range", "tv"));
+        if (!Enum.IsDefined(colorMetadata.Mode)
+            || !CompatibilityData.ColorPrimariesOptions.Contains(colorMetadata.Primaries)
+            || !CompatibilityData.ColorTransferOptions.Contains(colorMetadata.Transfer)
+            || !CompatibilityData.ColorMatrixOptions.Contains(colorMetadata.Matrix)
+            || !CompatibilityData.ColorRangeOptions.Contains(colorMetadata.Range))
+            throw new SettingsDecodeException("Invalid color metadata settings.");
+
         // Keyframe interval
         var keyframeInterval = ReadOptionalInt(element, "keyframe_interval");
         var keyframeUnit = ReadEnum<KeyframeUnit>(element, "keyframe_unit", KeyframeUnit.Frames);
@@ -190,6 +212,7 @@ public static class SettingsSerializer
             TargetFileSize: targetFileSize,
             TargetBitrate: targetBitrate,
             TargetQuality: targetQuality,
+            ColorMetadata: colorMetadata,
             HdrMode: hdrMode,
             ToneMapSettings: toneMapSettings,
             KeyframeInterval: keyframeInterval,

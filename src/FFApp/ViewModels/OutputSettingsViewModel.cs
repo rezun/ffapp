@@ -25,6 +25,7 @@ public partial class OutputSettingsViewModel : ObservableObject
     public EncodingStrategyViewModel Strategy { get; } = new();
     public StreamHandlingViewModel StreamHandling { get; } = new();
     public HdrViewModel Hdr { get; } = new();
+    public ColorMetadataViewModel Color { get; } = new();
 
     [ObservableProperty]
     private ResolutionPreset _selectedResolution = ResolutionPreset.Original;
@@ -121,6 +122,7 @@ public partial class OutputSettingsViewModel : ObservableObject
         Strategy.Quality.PropertyChanged += OnChildPropertyChanged;
         StreamHandling.PropertyChanged += OnChildPropertyChanged;
         Hdr.PropertyChanged += OnChildPropertyChanged;
+        Color.PropertyChanged += OnChildPropertyChanged;
 
         Format.PropertyChanged += OnFormatPropertyChanged;
 
@@ -218,6 +220,8 @@ public partial class OutputSettingsViewModel : ObservableObject
             // Encoder options
             ApplyEncoderOptions(settings.VideoEncoderOptions);
 
+            Color.ApplySettings(settings.ColorMetadata);
+
             // HDR
             Hdr.SelectedHdrMode = settings.HdrMode;
             Hdr.SelectedEngine = settings.ToneMapSettings.Engine;
@@ -279,6 +283,7 @@ public partial class OutputSettingsViewModel : ObservableObject
                 TwoPass: Strategy.Bitrate.TwoPass),
             TargetQuality: videoMode == VideoMode.Reencode
                 ? BuildQualityOptions(codec, quality) : H26xQualityOptions.ForCodec(VideoCodec.H264),
+            ColorMetadata: Color.BuildSettings(),
             HdrMode: Hdr.SelectedHdrMode,
             ToneMapSettings: new ToneMapSettings(
                 Engine: Hdr.SelectedEngine,
@@ -302,6 +307,10 @@ public partial class OutputSettingsViewModel : ObservableObject
     private void OnChildPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (_isSuppressing)
+            return;
+        if (sender == Color && e.PropertyName is not (nameof(ColorMetadataViewModel.SelectedMode)
+            or nameof(ColorMetadataViewModel.SelectedPrimaries) or nameof(ColorMetadataViewModel.SelectedTransfer)
+            or nameof(ColorMetadataViewModel.SelectedMatrix) or nameof(ColorMetadataViewModel.SelectedRange)))
             return;
 
         RebuildAndNotify();
@@ -342,6 +351,7 @@ public partial class OutputSettingsViewModel : ObservableObject
 
     private void RebuildAndNotify()
     {
+        Color.UpdateContext(_mediaInfo?.PrimaryVideoStream, Hdr.SelectedHdrMode, Format.IsVideoReencode);
         var settings = BuildSettings();
         RefreshValidation(settings);
         UpdateFileSizeBitrateDisplay(settings);

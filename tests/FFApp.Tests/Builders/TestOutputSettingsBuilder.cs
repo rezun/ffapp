@@ -157,6 +157,9 @@ public class TestOutputSettingsBuilder
     public TestOutputSettingsBuilder WithKeyframeIntervalSeconds(int seconds) =>
         Apply(s => s with { KeyframeInterval = seconds, KeyframeUnit = KeyframeUnit.Seconds });
 
+    public TestOutputSettingsBuilder WithColorMetadata(ColorMetadataSettings settings) =>
+        Apply(s => s with { ColorMetadata = settings });
+
     public TestOutputSettingsBuilder WithHdrPreserve() =>
         Apply(s => s with { HdrMode = HdrMode.Preserve });
 

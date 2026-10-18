@@ -23,6 +23,12 @@
         <DataTemplate x:Key="FrameRateTemplate" x:DataType="models:FrameRatePreset">
             <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.FrameRate}}" />
         </DataTemplate>
+        <DataTemplate x:Key="ColorMetadataModeTemplate" x:DataType="models:ColorMetadataMode">
+            <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.ColorMetadataMode}}" />
+        </DataTemplate>
+        <DataTemplate x:Key="ColorRangeTemplate" x:DataType="x:String">
+            <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.ColorRange}}" />
+        </DataTemplate>
         <DataTemplate x:Key="ToneMapAlgorithmTemplate" x:DataType="models:ToneMapAlgorithm">
             <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.ToneMapAlgorithm}}" />
         </DataTemplate>
@@ -328,6 +334,60 @@
                                 ItemsSource="{Binding AvailableFrameRates}"
                                 SelectedItem="{Binding SelectedFrameRate}"
                                 ItemTemplate="{StaticResource FrameRateTemplate}" />
+                        </Grid>
+
+                        <Grid x:Name="ColorMetadataSection" RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="85,*" Margin="0,4,0,0">
+                            <TextBlock Text="Color" VerticalAlignment="Center" />
+                            <Grid Grid.Column="1" ColumnDefinitions="220,Auto,*">
+                                <ctrl:NoWheelComboBox x:Name="ColorMetadataModeComboBox" HorizontalAlignment="Stretch"
+                                    IsEnabled="{Binding Color.IsEditable}"
+                                    ToolTip.Tip="Preserve source color labels by default. BT.709 fallback fills only missing values; use it for known HD SDR sources. Manual corrects labels without converting colors. HDR settings take precedence."
+                                    ItemsSource="{Binding Color.AvailableModes}"
+                                    SelectedItem="{Binding Color.SelectedMode}"
+                                    ItemTemplate="{StaticResource ColorMetadataModeTemplate}" />
+                                <ToggleButton x:Name="ColorDetailsToggle" Grid.Column="1" Content="Details" Margin="8,0,0,0"
+                                    Padding="8,4" VerticalAlignment="Center"
+                                    ToolTip.Tip="Show source and output color values and any assumptions."
+                                    IsChecked="{Binding Color.AreDetailsVisible}" />
+                                <TextBlock Grid.Column="2" Text="{Binding Color.CompactSummary}" Classes="secondary"
+                                    Margin="8,0,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                    ToolTip.Tip="{Binding Color.OutputSummary}" />
+                            </Grid>
+                            <StackPanel x:Name="CustomColorMetadataPanel" Grid.Row="1" Grid.Column="1"
+                                IsVisible="{Binding Color.IsCustomVisible}">
+                                <WrapPanel Margin="0,4,0,0">
+                                    <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,2,12,2">
+                                        <TextBlock Text="Primaries" VerticalAlignment="Center" />
+                                        <ctrl:NoWheelComboBox x:Name="ColorPrimariesComboBox" Width="115"
+                                            ToolTip.Tip="Label the existing color primaries without converting the gamut."
+                                            ItemsSource="{Binding Color.AvailablePrimaries}" SelectedItem="{Binding Color.SelectedPrimaries}" />
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,2,12,2">
+                                        <TextBlock Text="Transfer" VerticalAlignment="Center" />
+                                        <ctrl:NoWheelComboBox x:Name="ColorTransferComboBox" Width="135"
+                                            ToolTip.Tip="Label the existing transfer function without applying gamma correction or tone mapping."
+                                            ItemsSource="{Binding Color.AvailableTransfers}" SelectedItem="{Binding Color.SelectedTransfer}" />
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,2,12,2">
+                                        <TextBlock Text="Matrix" VerticalAlignment="Center" />
+                                        <ctrl:NoWheelComboBox x:Name="ColorMatrixComboBox" Width="115"
+                                            ToolTip.Tip="Label the existing YUV matrix without converting pixel values."
+                                            ItemsSource="{Binding Color.AvailableMatrices}" SelectedItem="{Binding Color.SelectedMatrix}" />
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,2,0,2">
+                                        <TextBlock Text="Range" VerticalAlignment="Center" />
+                                        <ctrl:NoWheelComboBox x:Name="ColorRangeComboBox" Width="115"
+                                            ToolTip.Tip="Label the existing range as Limited or Full without rescaling levels."
+                                            ItemsSource="{Binding Color.AvailableRanges}" SelectedItem="{Binding Color.SelectedRange}"
+                                            ItemTemplate="{StaticResource ColorRangeTemplate}" />
+                                    </StackPanel>
+                                </WrapPanel>
+                            </StackPanel>
+                            <StackPanel x:Name="ColorMetadataDetails" Grid.Row="2" Grid.Column="1" Spacing="2" Margin="0,4,0,0"
+                                IsVisible="{Binding Color.AreDetailsVisible}">
+                                <TextBlock Text="{Binding Color.SourceSummary}" Classes="secondary" TextWrapping="Wrap" />
+                                <TextBlock x:Name="ColorOutputSummary" Text="{Binding Color.OutputSummary}" Classes="secondary" TextWrapping="Wrap" />
+                            </StackPanel>
                         </Grid>
 
                         <!-- HDR Settings (visible when source is HDR and re-encoding) -->

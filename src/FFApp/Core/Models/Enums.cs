@@ -169,3 +169,11 @@ public enum HdrFormat
     [JsonStringEnumMemberName("hdr10")] Hdr10,
     [JsonStringEnumMemberName("hlg")] Hlg,
 }
+
+[JsonConverter(typeof(JsonStringEnumConverter<ColorMetadataMode>))]
+public enum ColorMetadataMode
+{
+    [JsonStringEnumMemberName("automatic")] Automatic,
+    [JsonStringEnumMemberName("assume_bt709")] AssumeBt709,
+    [JsonStringEnumMemberName("custom")] Custom,
+}

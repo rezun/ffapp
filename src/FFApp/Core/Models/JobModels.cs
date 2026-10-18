@@ -25,8 +25,10 @@ public sealed record JobDefinition(
     int? KeyframeInterval = null,
     KeyframeUnit KeyframeUnit = KeyframeUnit.Frames,
     PostProcessingOptions? PostProcessing = null,
-    ImmutableArray<int>? SelectedAudioStreamIndices = null)
+    ImmutableArray<int>? SelectedAudioStreamIndices = null,
+    ColorMetadataSettings? ColorMetadata = null)
 {
+    public ColorMetadataSettings ColorMetadata { get; init; } = ColorMetadata ?? new ColorMetadataSettings();
     public AudioOptions AudioOptions { get; init; } = AudioOptions ?? new AudioOptions();
     public StreamHandlingOptions StreamHandling { get; init; } = StreamHandling ?? new StreamHandlingOptions();
     public ToneMapSettings ToneMapSettings { get; init; } = ToneMapSettings ?? new ToneMapSettings();

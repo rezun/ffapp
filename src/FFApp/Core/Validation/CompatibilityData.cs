@@ -6,6 +6,15 @@ namespace FFApp.Core.Validation;
 
 public static class CompatibilityData
 {
+    public static readonly IReadOnlyList<string> ColorPrimariesOptions =
+        ["bt709", "bt470m", "bt470bg", "smpte170m", "smpte240m", "film", "bt2020", "smpte431", "smpte432", "ebu3213"];
+    public static readonly IReadOnlyList<string> ColorTransferOptions =
+        ["bt709", "gamma22", "gamma28", "smpte170m", "smpte240m", "linear", "log", "log_sqrt",
+         "iec61966_2_4", "bt1361e", "iec61966_2_1", "bt2020_10", "bt2020_12", "smpte2084", "smpte428", "arib-std-b67"];
+    public static readonly IReadOnlyList<string> ColorMatrixOptions =
+        ["bt709", "fcc", "bt470bg", "smpte170m", "smpte240m", "bt2020nc", "bt2020c"];
+    public static readonly IReadOnlyList<string> ColorRangeOptions = ["tv", "pc"];
+
     public static readonly IReadOnlyList<string> H26xPresetOptions =
     [
         "ultrafast", "superfast", "veryfast", "faster", "fast",

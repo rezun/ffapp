@@ -10,6 +10,85 @@ namespace FFApp.Tests.ViewModels;
 public sealed class VideoPreviewViewModelTests
 {
     [Fact]
+    public void Audio_DefaultsToFullVolumeAndUnmuted()
+    {
+        using var sut = new VideoPreviewViewModel(null);
+
+        sut.Volume.Should().Be(100);
+        sut.IsMuted.Should().BeFalse();
+        sut.MuteLabel.Should().Be("Mute");
+    }
+
+    [Fact]
+    public void ToggleMute_PreservesVolumeAndUpdatesLabel()
+    {
+        using var sut = new VideoPreviewViewModel(null) { Volume = 42 };
+
+        sut.ToggleMuteCommand.Execute(null);
+
+        sut.IsMuted.Should().BeTrue();
+        sut.MuteLabel.Should().Be("Unmute");
+        sut.Volume.Should().Be(42);
+
+        sut.ToggleMuteCommand.Execute(null);
+
+        sut.IsMuted.Should().BeFalse();
+        sut.MuteLabel.Should().Be("Mute");
+        sut.Volume.Should().Be(42);
+    }
+
+    [Theory]
+    [InlineData(-10, 0, true)]
+    [InlineData(0, 0, true)]
+    [InlineData(35, 35, false)]
+    [InlineData(150, 100, false)]
+    public void Volume_ClampsToPreviewRange(int volume, int expected, bool muted)
+    {
+        using var sut = new VideoPreviewViewModel(null);
+
+        sut.Volume = volume;
+
+        sut.Volume.Should().Be(expected);
+        sut.IsMuted.Should().Be(muted);
+    }
+
+    [Fact]
+    public void RaisingVolume_UnmutesAudio()
+    {
+        using var sut = new VideoPreviewViewModel(null) { Volume = 42 };
+        sut.ToggleMuteCommand.Execute(null);
+
+        sut.Volume = 50;
+
+        sut.IsMuted.Should().BeFalse();
+        sut.Volume.Should().Be(50);
+    }
+
+    [Fact]
+    public void UnmuteAtZero_RestoresLastAudibleVolume()
+    {
+        using var sut = new VideoPreviewViewModel(null) { Volume = 42 };
+        sut.Volume = 0;
+
+        sut.ToggleMuteCommand.Execute(null);
+
+        sut.Volume.Should().Be(42);
+        sut.IsMuted.Should().BeFalse();
+    }
+
+    [Fact]
+    public void LoadingSource_PreservesPreviewAudioSettings()
+    {
+        using var sut = new VideoPreviewViewModel(null) { Volume = 42 };
+        sut.ToggleMuteCommand.Execute(null);
+
+        sut.LoadMedia(CreateMediaInfo());
+
+        sut.Volume.Should().Be(42);
+        sut.IsMuted.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task DetectCropAsync_AppliesDetectedCropAtCurrentPreviewPosition()
     {
         var detector = new StubCropDetectionService(new CropRect(0, 140, 1920, 800));

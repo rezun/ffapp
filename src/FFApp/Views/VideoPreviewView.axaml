@@ -78,8 +78,28 @@
                                     IsEnabled="{Binding HasMedia}" />
                         </StackPanel>
 
-                        <!-- Spacer to balance the grid -->
-                        <Panel Grid.Column="2" />
+                        <StackPanel Grid.Column="2" Orientation="Horizontal"
+                                    HorizontalAlignment="Right" VerticalAlignment="Center"
+                                    Spacing="6" IsEnabled="{Binding HasMedia}">
+                            <Button x:Name="MuteButton" Classes="sm"
+                                    Content="{Binding MuteLabel}"
+                                    Command="{Binding ToggleMuteCommand}"
+                                    MinWidth="64" HorizontalContentAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    AutomationProperties.Name="Mute preview audio"
+                                    ToolTip.Tip="Mute or unmute preview audio." />
+                            <Slider x:Name="VolumeSlider" Width="100"
+                                    Margin="0" VerticalAlignment="Center"
+                                    Minimum="0" Maximum="100"
+                                    SmallChange="1" LargeChange="10"
+                                    Value="{Binding Volume, Mode=TwoWay}"
+                                    AutomationProperties.Name="Preview volume"
+                                    ToolTip.Tip="Adjust preview volume. Raising the volume unmutes audio." />
+                            <TextBlock x:Name="VolumeDisplay" Classes="caption"
+                                       Width="36" TextAlignment="Right"
+                                       VerticalAlignment="Center"
+                                       Text="{Binding Volume, StringFormat='{}{0}%'}" />
+                        </StackPanel>
                     </Grid>
 
                     <!-- Trim and Crop side by side -->

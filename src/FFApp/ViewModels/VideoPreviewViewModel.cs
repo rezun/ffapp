@@ -22,6 +22,48 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
     private double _frameRate = 30.0;
     private bool _disposed;
     private bool _pauseOnFirstPlay;
+    private const int MaximumVolume = 100;
+    private int _volume = MaximumVolume;
+    private int _lastAudibleVolume = MaximumVolume;
+
+    public int Volume
+    {
+        get => _volume;
+        set
+        {
+            var volume = Math.Clamp(value, 0, MaximumVolume);
+            if (!SetProperty(ref _volume, volume)) return;
+
+            if (volume > 0)
+                _lastAudibleVolume = volume;
+            IsMuted = volume == 0;
+            ApplyAudioSettings();
+        }
+    }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(MuteLabel))]
+    private bool _isMuted;
+
+    public string MuteLabel => IsMuted ? "Unmute" : "Mute";
+
+    partial void OnIsMutedChanged(bool value) => ApplyAudioSettings();
+
+    private void ApplyAudioSettings()
+    {
+        if (_mediaPlayer is null) return;
+        _mediaPlayer.Volume = Volume;
+        _mediaPlayer.Mute = IsMuted;
+    }
+
+    [RelayCommand]
+    private void ToggleMute()
+    {
+        if (IsMuted && Volume == 0)
+            Volume = _lastAudibleVolume;
+        else
+            IsMuted = !IsMuted;
+    }
 
     [ObservableProperty]
     private bool _isExpanded;
@@ -157,6 +199,7 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
 
         _currentMedia = new Media(_libVlc, mediaInfo.SourcePath, FromType.FromPath);
         _mediaPlayer = new MediaPlayer(_currentMedia);
+        ApplyAudioSettings();
 
         _mediaPlayer.TimeChanged += OnTimeChanged;
         _mediaPlayer.LengthChanged += OnLengthChanged;
@@ -449,6 +492,8 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
 
     private void OnPlaying(object? sender, EventArgs e)
     {
+        // VLC may recreate its audio output when starting or replaying media.
+        Dispatcher.UIThread.Post(ApplyAudioSettings);
         if (_pauseOnFirstPlay)
         {
             _pauseOnFirstPlay = false;

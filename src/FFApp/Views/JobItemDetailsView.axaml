@@ -1,66 +1,97 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:FFApp.ViewModels"
-             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="200"
              x:Class="FFApp.Views.JobItemDetailsView"
              x:CompileBindings="True"
              x:DataType="vm:JobItemDetailsViewModel">
 
-    <ScrollViewer IsVisible="{Binding SummaryText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                  HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Spacing="6">
+    <UserControl.Styles>
+        <Style Selector="TextBox.diagnostic">
+            <Setter Property="IsReadOnly" Value="True" />
+            <Setter Property="AcceptsReturn" Value="True" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="VerticalContentAlignment" Value="Top" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="VerticalAlignment" Value="Stretch" />
+            <Setter Property="Margin" Value="8" />
+            <Setter Property="Padding" Value="8" />
+        </Style>
+    </UserControl.Styles>
 
-            <!-- Summary: "file.mp4 -> file_out.mkv (Pending)" -->
-            <TextBlock Text="{Binding SummaryText}"
-                       FontWeight="SemiBold"
-                       TextWrapping="Wrap"
-                       Margin="0,0,0,4" />
+    <Grid>
+        <TextBlock Text="Select a job to view its details, command and log."
+                   IsVisible="{Binding !HasSelection}"
+                   Classes="caption secondary"
+                   TextWrapping="Wrap" TextAlignment="Center"
+                   HorizontalAlignment="Center" VerticalAlignment="Center" Margin="20" />
+        <TabControl x:Name="InspectorTabs"
+                    IsVisible="{Binding HasSelection}"
+                    SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}"
+                    HorizontalContentAlignment="Stretch"
+                    VerticalContentAlignment="Stretch" Padding="0">
+            <TabItem Header="Details">
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Spacing="8" Margin="8">
+                        <Border x:Name="FailurePanel"
+                                IsVisible="{Binding HasFailure}"
+                                BorderBrush="{DynamicResource ValidationErrorBrush}"
+                                BorderThickness="3,0,0,0"
+                                Padding="8,4">
+                            <StackPanel Spacing="6">
+                                <TextBlock x:Name="FailureTitle" Text="{Binding Failure.Title}"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource ValidationErrorBrush}"
+                                           TextWrapping="Wrap" />
+                                <SelectableTextBlock x:Name="FailureMessage" Text="{Binding Failure.Message}"
+                                                     TextWrapping="Wrap" />
+                                <SelectableTextBlock x:Name="FailureSuggestion" Text="{Binding Failure.Suggestion}"
+                                                     TextWrapping="Wrap" />
+                                <TextBlock Classes="caption secondary" Text="{Binding Failure.Context}"
+                                           IsVisible="{Binding Failure.Context, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                           TextWrapping="Wrap" />
+                                <Expander Header="Error details"
+                                          IsVisible="{Binding Failure.TechnicalDetails, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                          HorizontalAlignment="Stretch">
+                                    <TextBox Classes="mono caption"
+                                             ToolTip.Tip="Technical failure details for diagnosis. Read-only; select text to copy it."
+                                             Text="{Binding Failure.TechnicalDetails, Mode=OneWay}"
+                                             IsReadOnly="True" AcceptsReturn="True"
+                                             TextWrapping="Wrap" MaxHeight="140" />
+                                </Expander>
+                            </StackPanel>
+                        </Border>
 
-            <Border x:Name="FailurePanel"
-                    IsVisible="{Binding HasFailure}"
-                    BorderBrush="{DynamicResource ValidationErrorBrush}"
-                    BorderThickness="3,0,0,0"
-                    Padding="8,4">
-                <StackPanel Spacing="6">
-                    <TextBlock x:Name="FailureTitle" Text="{Binding Failure.Title}"
-                               FontWeight="SemiBold"
-                               Foreground="{DynamicResource ValidationErrorBrush}"
-                               TextWrapping="Wrap" />
-                    <SelectableTextBlock x:Name="FailureMessage" Text="{Binding Failure.Message}"
-                                         TextWrapping="Wrap" />
-                    <SelectableTextBlock x:Name="FailureSuggestion" Text="{Binding Failure.Suggestion}"
-                                         TextWrapping="Wrap" />
-                    <TextBlock Classes="caption secondary" Text="{Binding Failure.Context}"
-                               IsVisible="{Binding Failure.Context, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                               TextWrapping="Wrap" />
-                    <Expander Header="Error details"
-                              IsVisible="{Binding Failure.TechnicalDetails, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                              HorizontalAlignment="Stretch">
-                        <TextBox Classes="mono caption"
-                                 ToolTip.Tip="Technical failure details for diagnosis. Read-only; select text to copy it."
-                                 Text="{Binding Failure.TechnicalDetails, Mode=OneWay}"
-                                 IsReadOnly="True" AcceptsReturn="True"
-                                 TextWrapping="Wrap" MaxHeight="140" />
-                    </Expander>
-                </StackPanel>
-            </Border>
-
-            <Expander x:Name="CommandExpander" Header="Command"
-                      IsExpanded="{Binding IsCommandExpanded, Mode=TwoWay}"
-                      HorizontalAlignment="Stretch">
-                <TextBox Classes="mono caption"
-                         ToolTip.Tip="Generated command for the selected job or current settings. Read-only; select text to copy it."
+                        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto"
+                              ColumnSpacing="12" RowSpacing="6">
+                            <TextBlock Text="Status" Classes="caption secondary" />
+                            <TextBlock Grid.Column="1" Text="{Binding StateText}" FontWeight="SemiBold" />
+                            <TextBlock Grid.Row="1" Text="Source" Classes="caption secondary" />
+                            <SelectableTextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SourcePath}"
+                                                 TextWrapping="Wrap" />
+                            <TextBlock Grid.Row="2" Text="Output" Classes="caption secondary" />
+                            <SelectableTextBlock Grid.Row="2" Grid.Column="1" Text="{Binding OutputPath}"
+                                                 TextWrapping="Wrap" />
+                            <TextBlock Grid.Row="3" Text="Progress" Classes="caption secondary"
+                                       IsVisible="{Binding ProgressText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding ProgressText}"
+                                       TextWrapping="Wrap"
+                                       IsVisible="{Binding ProgressText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                        </Grid>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem Header="Command">
+                <TextBox x:Name="CommandTextBox" Classes="mono caption diagnostic"
                          Text="{Binding CommandText, Mode=OneWay}"
-                         IsReadOnly="True"
-                         AcceptsReturn="True"
-                         TextWrapping="Wrap"
-                         MinHeight="40"
-                         MaxHeight="160"
-                         PlaceholderText="Commands will appear here."
-                         BorderThickness="1" />
-            </Expander>
-        </StackPanel>
-    </ScrollViewer>
+                         ToolTip.Tip="Generated command for the selected job. Select text to copy it."
+                         PlaceholderText="Commands will appear here." />
+            </TabItem>
+            <TabItem Header="Log">
+                <TextBox x:Name="LogTextBox" Classes="mono caption diagnostic"
+                         Text="{Binding LogText, Mode=OneWay}"
+                         ToolTip.Tip="Encoding log for the selected job. Select text to copy diagnostic details."
+                         PlaceholderText="The encoding log will appear when this job starts." />
+            </TabItem>
+        </TabControl>
+    </Grid>
 </UserControl>

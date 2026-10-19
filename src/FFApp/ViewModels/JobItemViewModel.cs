@@ -1,7 +1,5 @@
 using System.Text;
-using Avalonia.Data.Converters;
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
 using FFApp.Core.Models;
 using FFApp.Helpers;
 
@@ -104,13 +102,22 @@ public sealed partial class JobItemViewModel : ObservableObject
 
 public sealed partial class JobItemDetailsViewModel : ObservableObject
 {
-    public static readonly FuncValueConverter<bool, string> ExpandCollapseConverter =
-        new(expanded => expanded ? "\u25BC Collapse" : "\u25B6 Expand");
-
     private JobItemViewModel? _trackedItem;
 
     [ObservableProperty]
-    private string _summaryText = "";
+    private bool _hasSelection;
+
+    [ObservableProperty]
+    private string _sourcePath = "";
+
+    [ObservableProperty]
+    private string _outputPath = "";
+
+    [ObservableProperty]
+    private string _stateText = "";
+
+    [ObservableProperty]
+    private string _progressText = "";
 
     [ObservableProperty]
     private string _commandText = "";
@@ -119,10 +126,7 @@ public sealed partial class JobItemDetailsViewModel : ObservableObject
     private string _logText = "";
 
     [ObservableProperty]
-    private bool _isLogExpanded;
-
-    [ObservableProperty]
-    private bool _isCommandExpanded = true;
+    private int _selectedTabIndex;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasFailure))]
@@ -130,16 +134,14 @@ public sealed partial class JobItemDetailsViewModel : ObservableObject
 
     public bool HasFailure => Failure is not null;
 
-    [RelayCommand]
-    private void ToggleLogExpanded() => IsLogExpanded = !IsLogExpanded;
-
     public void UpdateFromItem(JobItemViewModel? item)
     {
         if (_trackedItem is not null)
             _trackedItem.PropertyChanged -= OnTrackedItemPropertyChanged;
 
         _trackedItem = item;
-        IsCommandExpanded = item?.HasFailure != true;
+        if (item is null || item.HasFailure)
+            SelectedTabIndex = 0;
 
         if (_trackedItem is not null)
             _trackedItem.PropertyChanged += OnTrackedItemPropertyChanged;
@@ -164,7 +166,11 @@ public sealed partial class JobItemDetailsViewModel : ObservableObject
         var item = _trackedItem;
         if (item is null)
         {
-            SummaryText = "";
+            HasSelection = false;
+            SourcePath = "";
+            OutputPath = "";
+            StateText = "";
+            ProgressText = "";
             CommandText = "";
             LogText = "";
             Failure = null;
@@ -173,9 +179,13 @@ public sealed partial class JobItemDetailsViewModel : ObservableObject
 
         var job = item.QueuedJob.Job;
         if (!HasFailure && item.HasFailure)
-            IsCommandExpanded = false;
+            SelectedTabIndex = 0;
         Failure = item.Failure;
-        SummaryText = $"{Path.GetFileName(job.SourcePath)} -> {Path.GetFileName(job.OutputPath)} ({item.State})";
+        HasSelection = true;
+        SourcePath = job.SourcePath;
+        OutputPath = job.OutputPath;
+        StateText = item.State.ToString();
+        ProgressText = item.ProgressText;
         CommandText = string.Join(
             Environment.NewLine + Environment.NewLine,
             item.QueuedJob.Commands.Select(c => c.DisplayString));

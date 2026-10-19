@@ -59,13 +59,14 @@ public sealed class JobFailurePresentationTests(QueueTestSession fixture)
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task FailureCauseAndSuggestion_AreVisibleWithoutExpandingLogOrCommand(bool dark)
+    public async Task FailureCauseAndSuggestion_AreVisibleInDetailsTab(bool dark)
     {
         await fixture.Session.Dispatch(() =>
         {
             var item = JobFailureViewModelTests.CreateItem();
             var details = new JobItemDetailsViewModel();
             details.UpdateFromItem(item);
+            details.SelectedTabIndex = 2;
             var view = new JobItemDetailsView { DataContext = details };
             var window = new Window
             {
@@ -84,14 +85,13 @@ public sealed class JobFailurePresentationTests(QueueTestSession fixture)
                     ?? throw new InvalidOperationException("Failure message missing.");
                 var hint = view.FindControl<SelectableTextBlock>("FailureSuggestion")
                     ?? throw new InvalidOperationException("Failure suggestion missing.");
-                var command = view.FindControl<Expander>("CommandExpander")
-                    ?? throw new InvalidOperationException("Command expander missing.");
+                var tabs = view.FindControl<TabControl>("InspectorTabs")
+                    ?? throw new InvalidOperationException("Inspector tabs missing.");
 
                 panel.IsVisible.Should().BeTrue();
                 message.Text.Should().Contain("44.1 kHz");
                 hint.Text.Should().Contain("48 kHz");
-                command.IsExpanded.Should().BeFalse();
-                details.IsLogExpanded.Should().BeFalse();
+                tabs.SelectedIndex.Should().Be(0);
                 var hintPosition = hint.TranslatePoint(default, window)
                     ?? throw new InvalidOperationException("Suggestion was not laid out.");
                 hintPosition.Y.Should().BeGreaterThanOrEqualTo(0);

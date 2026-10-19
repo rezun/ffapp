@@ -8,12 +8,12 @@ namespace FFApp.Tests.ViewModels;
 public sealed class JobFailureViewModelTests
 {
     [Fact]
-    public void SelectedRunningItem_FailureImmediatelyUpdatesDetailsAndCollapsesCommand()
+    public void SelectedRunningItem_FailureImmediatelyOpensDetailsTab()
     {
         var item = CreateItem();
         var details = new JobItemDetailsViewModel();
         details.UpdateFromItem(item);
-        details.IsCommandExpanded.Should().BeTrue();
+        details.SelectedTabIndex = 1;
 
         item.UpdateResult(Result(item, JobState.Failed));
 
@@ -21,8 +21,7 @@ public sealed class JobFailureViewModelTests
         details.HasFailure.Should().BeTrue();
         details.Failure.Should().BeSameAs(item.Failure);
         details.Failure?.Message.Should().Contain("44.1 kHz");
-        details.IsCommandExpanded.Should().BeFalse();
-        details.IsLogExpanded.Should().BeFalse();
+        details.SelectedTabIndex.Should().Be(0);
         details.LogText.Should().Contain("Specified sample rate 44100");
     }
 
@@ -64,16 +63,16 @@ public sealed class JobFailureViewModelTests
         var pending = CreateItem();
         var details = new JobItemDetailsViewModel();
         details.UpdateFromItem(failed);
-        details.IsCommandExpanded.Should().BeFalse();
+        details.SelectedTabIndex.Should().Be(0);
 
         details.UpdateFromItem(pending);
         failed.UpdateFailure("Different failure");
 
         details.HasFailure.Should().BeFalse();
-        details.IsCommandExpanded.Should().BeTrue();
+        details.SelectedTabIndex.Should().Be(0);
         details.LogText.Should().BeEmpty();
         details.UpdateFromItem(null);
-        details.SummaryText.Should().BeEmpty();
+        details.HasSelection.Should().BeFalse();
         details.Failure.Should().BeNull();
     }
 

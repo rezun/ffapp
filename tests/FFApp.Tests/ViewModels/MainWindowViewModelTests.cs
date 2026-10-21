@@ -19,6 +19,8 @@ public sealed class MainWindowViewModelTests
     private readonly IServiceScopeFactory _scopeFactory = Substitute.For<IServiceScopeFactory>();
     private readonly IFfmpegCapabilityService _capabilityService = Substitute.For<IFfmpegCapabilityService>();
 
+    private readonly TranscodingPreferences _preferences = new();
+
     private MainWindowViewModel CreateSut() => new(
         _settings,
         _dependencies,
@@ -26,7 +28,44 @@ public sealed class MainWindowViewModelTests
         _messenger,
         () => null!,
         _scopeFactory,
-        _capabilityService);
+        _capabilityService,
+        _preferences);
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task InitializeAsync_RestoresPriorityPreference(bool enabled)
+    {
+        _settings.LoadAsync().Returns(new AppSettings { UseLowPriorityTranscoding = enabled });
+        _dependencies.DiscoverAsync(Arg.Any<AppSettings>()).Returns(new DependencyStatus(
+            new ExecutableValidation("ffmpeg", null, false),
+            new ExecutableValidation("ffprobe", null, false),
+            new ExecutableValidation("mkvpropedit", null, false)));
+        var sut = CreateSut();
+
+        await sut.InitializeAsync();
+
+        sut.UseLowPriorityTranscoding.Should().Be(enabled);
+        _preferences.UseLowPriority.Should().Be(enabled);
+    }
+
+    [Fact]
+    public void ChangingPriority_UpdatesRuntimePreferenceAndSavedSettings()
+    {
+        var sut = CreateSut();
+        sut.UseLowPriorityTranscoding.Should().BeFalse();
+
+        sut.UseLowPriorityTranscoding = true;
+
+        _preferences.UseLowPriority.Should().BeTrue();
+        sut.LoadedSettings.Should().NotBeNull();
+        sut.LoadedSettings?.UseLowPriorityTranscoding.Should().BeTrue();
+
+        sut.UseLowPriorityTranscoding = false;
+
+        _preferences.UseLowPriority.Should().BeFalse();
+        sut.LoadedSettings?.UseLowPriorityTranscoding.Should().BeFalse();
+    }
 
     [Fact]
     public async Task OpenFilesAsync_NullPaths_Throws()

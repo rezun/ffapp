@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using FFApp.Core;
 using FFApp.Core.Models;
@@ -14,6 +15,25 @@ public partial class MainWindowViewModel : ObservableObject,
     IRecipient<DependenciesResolvedMessage>,
     IRecipient<NavigateToDependencySetupMessage>
 {
+    private readonly TranscodingPreferences _transcodingPreferences;
+
+    public bool UseLowPriorityTranscoding
+    {
+        get => _transcodingPreferences.UseLowPriority;
+        set
+        {
+            if (value == _transcodingPreferences.UseLowPriority)
+                return;
+            _transcodingPreferences.UseLowPriority = value;
+            UpdateSettings(s => s with { UseLowPriorityTranscoding = value });
+            OnPropertyChanged();
+        }
+    }
+
+    [RelayCommand]
+    private void ToggleLowPriorityTranscoding() =>
+        UseLowPriorityTranscoding = !UseLowPriorityTranscoding;
+
     private readonly ISettingsService _settingsService;
     private readonly IDependencyService _dependencyService;
     private readonly ExecutablePathsConfig _config;
@@ -45,8 +65,10 @@ public partial class MainWindowViewModel : ObservableObject,
         IMessenger messenger,
         Func<DependencySetupViewModel> createSetup,
         IServiceScopeFactory scopeFactory,
-        IFfmpegCapabilityService capabilityService)
+        IFfmpegCapabilityService capabilityService,
+        TranscodingPreferences transcodingPreferences)
     {
+        _transcodingPreferences = transcodingPreferences;
         _settingsService = settingsService;
         _dependencyService = dependencyService;
         _config = config;
@@ -65,6 +87,7 @@ public partial class MainWindowViewModel : ObservableObject,
         {
             var settings = await _settingsService.LoadAsync();
             LoadedSettings = settings;
+            UseLowPriorityTranscoding = settings.UseLowPriorityTranscoding;
             _settingsLoaded.TrySetResult(settings);
             var status = await _dependencyService.DiscoverAsync(settings);
 

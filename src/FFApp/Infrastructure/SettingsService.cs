@@ -57,6 +57,7 @@ public sealed class SettingsService(string? path = null) : ISettingsService
             SplitterLayout = splitterLayout,
             WindowGeometry = windowGeometry,
             ThemePreference = themePreference,
+            UseLowPriorityTranscoding = SettingsSerializer.ReadBool(root, "low_priority_transcoding"),
         };
     }
 
@@ -110,6 +111,7 @@ public sealed class SettingsService(string? path = null) : ISettingsService
                 ["height"] = settings.WindowGeometry.Height,
                 ["is_maximized"] = settings.WindowGeometry.IsMaximized,
             },
+            ["low_priority_transcoding"] = settings.UseLowPriorityTranscoding,
             ["theme_preference"] = settings.ThemePreference.ToString().ToLowerInvariant(),
         };
 

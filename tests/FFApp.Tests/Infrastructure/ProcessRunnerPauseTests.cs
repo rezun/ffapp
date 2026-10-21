@@ -23,7 +23,7 @@ public sealed class ProcessRunnerPauseTests
                 ["-c", "i=0; while [ $i -lt 15 ]; do echo tick; sleep 0.1; i=$((i+1)); done"],
                 "pause test", ProcessProtocol.Plain);
 
-        var run = new ProcessRunner(TimeProvider.System).RunAsync(command, logCallback: _ =>
+        var run = new ProcessRunner(TimeProvider.System, new FFApp.Core.TranscodingPreferences()).RunAsync(command, logCallback: _ =>
         {
             Interlocked.Increment(ref lines);
             firstOutput.TrySetResult();
@@ -63,7 +63,7 @@ public sealed class ProcessRunnerPauseTests
         var state = new ExecutionPauseState(TimeProvider.System);
         state.Pause();
         using var cts = new CancellationTokenSource();
-        var run = new ProcessRunner(TimeProvider.System).RunAsync(
+        var run = new ProcessRunner(TimeProvider.System, new FFApp.Core.TranscodingPreferences()).RunAsync(
             new GeneratedCommand("must-not-be-started", [], ""), pauseState: state, ct: cts.Token);
         cts.Cancel();
         Func<Task> act = () => run;

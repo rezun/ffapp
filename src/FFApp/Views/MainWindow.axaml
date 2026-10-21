@@ -27,6 +27,14 @@
                                     Click="OnThemeLight" />
                 </NativeMenu>
             </NativeMenuItem>
+            <NativeMenuItem Header="Transcoding">
+                <NativeMenu>
+                    <NativeMenuItem Header="Low CPU priority"
+                                    ToggleType="CheckBox"
+                                    IsChecked="{Binding UseLowPriorityTranscoding, Mode=OneWay}"
+                                    Command="{Binding ToggleLowPriorityTranscodingCommand}" />
+                </NativeMenu>
+            </NativeMenuItem>
             <NativeMenuItem Header="Info">
                 <NativeMenu>
                     <NativeMenuItem Header="FFApp"

@@ -60,5 +60,6 @@ public sealed record AppSettings
     public SplitterLayout SplitterLayout { get; init; } = new();
     public WindowGeometry WindowGeometry { get; init; } = new();
     public ThemePreference ThemePreference { get; init; } = ThemePreference.System;
+    public bool UseLowPriorityTranscoding { get; init; }
     public int SchemaVersion { get; init; } = 4;
 }

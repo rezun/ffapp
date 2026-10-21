@@ -1,12 +1,14 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 
+using FFApp.Core;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
 
 namespace FFApp.Infrastructure;
 
-public sealed class ProcessRunner(TimeProvider timeProvider) : IProcessRunner
+public sealed class ProcessRunner(TimeProvider timeProvider, TranscodingPreferences preferences) : IProcessRunner
 {
     public async Task<ProcessExecutionResult> RunAsync(
         GeneratedCommand command,
@@ -21,23 +23,12 @@ public sealed class ProcessRunner(TimeProvider timeProvider) : IProcessRunner
         if (pauseState is not null)
             await pauseState.WaitWhilePausedAsync(ct).ConfigureAwait(false);
 
-        var arguments = BuildArguments(command);
-
+        var useLowPriority = preferences.UseLowPriority && command.Protocol == ProcessProtocol.Ffmpeg;
         using var process = new Process
         {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = command.ExecutablePath,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-            },
+            StartInfo = CreateStartInfo(command, useLowPriority, OperatingSystem.IsWindows()),
             EnableRaisingEvents = true,
         };
-
-        foreach (var arg in arguments)
-            process.StartInfo.ArgumentList.Add(arg);
 
         var stderrLines = new List<string>();
         var stdoutLines = new List<string>();
@@ -56,6 +47,22 @@ public sealed class ProcessRunner(TimeProvider timeProvider) : IProcessRunner
                     () => process.Start(),
                     () => ProcessSuspension.SetPaused(process, true),
                     () => ProcessSuspension.SetPaused(process, false));
+
+            if (useLowPriority && OperatingSystem.IsWindows())
+            {
+                try
+                {
+                    process.PriorityClass = ProcessPriorityClass.BelowNormal;
+                }
+                catch (InvalidOperationException) when (process.HasExited)
+                {
+                    // Short-lived commands may exit before their priority can be changed.
+                }
+                catch (Win32Exception ex)
+                {
+                    logCallback?.Invoke($"[Warning] Could not lower CPU priority: {ex.Message}");
+                }
+            }
 
             using var registration = ct.Register(() =>
             {
@@ -132,6 +139,30 @@ public sealed class ProcessRunner(TimeProvider timeProvider) : IProcessRunner
     }
 
     // --- Static helpers ---
+
+    internal static ProcessStartInfo CreateStartInfo(
+        GeneratedCommand command, bool useLowPriority, bool isWindows)
+    {
+        // nice execs FFmpeg in place, so cancellation and pause still target the encoder PID.
+        var useNice = useLowPriority && !isWindows;
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = useNice ? "/usr/bin/nice" : command.ExecutablePath,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        };
+        if (useNice)
+        {
+            startInfo.ArgumentList.Add("-n");
+            startInfo.ArgumentList.Add("10");
+            startInfo.ArgumentList.Add(command.ExecutablePath);
+        }
+        foreach (var argument in BuildArguments(command))
+            startInfo.ArgumentList.Add(argument);
+        return startInfo;
+    }
 
     internal static IReadOnlyList<string> BuildArguments(GeneratedCommand command)
     {

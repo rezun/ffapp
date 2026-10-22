@@ -41,6 +41,7 @@ public partial class MainWindowViewModel : ObservableObject,
     private readonly Func<DependencySetupViewModel> _createSetup;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IFfmpegCapabilityService _capabilityService;
+    private readonly IComparisonWindowService? _comparisonWindows;
     private IServiceScope? _workspaceScope;
     private readonly List<string> _pendingFiles = new();
     private readonly Lock _pendingFilesLock = new();
@@ -66,7 +67,8 @@ public partial class MainWindowViewModel : ObservableObject,
         Func<DependencySetupViewModel> createSetup,
         IServiceScopeFactory scopeFactory,
         IFfmpegCapabilityService capabilityService,
-        TranscodingPreferences transcodingPreferences)
+        TranscodingPreferences transcodingPreferences,
+        IComparisonWindowService? comparisonWindows = null)
     {
         _transcodingPreferences = transcodingPreferences;
         _settingsService = settingsService;
@@ -76,10 +78,13 @@ public partial class MainWindowViewModel : ObservableObject,
         _createSetup = createSetup;
         _scopeFactory = scopeFactory;
         _capabilityService = capabilityService;
+        _comparisonWindows = comparisonWindows;
 
         _messenger.Register<DependenciesResolvedMessage>(this);
         _messenger.Register<NavigateToDependencySetupMessage>(this);
     }
+
+    public Task<bool> CloseComparisonsAsync() => _comparisonWindows?.CloseAllAsync() ?? Task.FromResult(true);
 
     public async Task InitializeAsync()
     {

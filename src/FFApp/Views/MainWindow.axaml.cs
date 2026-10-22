@@ -14,6 +14,8 @@ namespace FFApp.Views;
 public partial class MainWindow : Window
 {
     private bool _closingSaved;
+    private bool _isClosing;
+    internal bool IsCloseSaved => _closingSaved;
 
     public MainWindow()
     {
@@ -133,13 +135,41 @@ public partial class MainWindow : Window
     // async void: Avalonia lifecycle override — must return void.
     protected override async void OnClosing(WindowClosingEventArgs e)
     {
-        if (_closingSaved || DataContext is not MainWindowViewModel vm)
+        if (_closingSaved || DataContext is not MainWindowViewModel)
         {
             base.OnClosing(e);
             return;
         }
 
         e.Cancel = true;
+        await CloseSavedAsync();
+    }
+
+    public async Task<bool> CloseSavedAsync()
+    {
+        if (_closingSaved) return true;
+        if (_isClosing) return false;
+        if (DataContext is not MainWindowViewModel vm)
+        {
+            Close();
+            return !IsVisible;
+        }
+        _isClosing = true;
+
+        try
+        {
+            if (!await vm.CloseComparisonsAsync())
+            {
+                _isClosing = false;
+                return false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to close comparisons: {ex}");
+            _isClosing = false;
+            return false;
+        }
 
         try
         {
@@ -184,5 +214,6 @@ public partial class MainWindow : Window
             _closingSaved = true;
             Close();
         }
+        return true;
     }
 }

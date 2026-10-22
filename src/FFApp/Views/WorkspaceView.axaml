@@ -64,7 +64,18 @@
                     <DockPanel Grid.Row="2">
                         <Border DockPanel.Dock="Top"
                                 Padding="16,10,8,2">
-                            <views:PresetBarView DataContext="{Binding Preset}" />
+                            <StackPanel Spacing="4">
+                                <Grid x:Name="PresetActions" ColumnDefinitions="*,Auto">
+                                    <views:PresetBarView DataContext="{Binding Preset}" Margin="0,0,8,0" />
+                                    <Button x:Name="OpenComparisonButton" Grid.Column="1"
+                                            HorizontalAlignment="Right" VerticalAlignment="Center"
+                                            Content="Compare Encodes"
+                                            Command="{Binding OpenComparisonCommand}"
+                                            ToolTip.Tip="Open a separate comparison window for this source. Test short samples with independent encoding variants." />
+                                </Grid>
+                                <TextBlock Text="{Binding ComparisonStatus}" TextWrapping="Wrap"
+                                           IsVisible="{Binding ComparisonStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                            </StackPanel>
                         </Border>
 
                         <ScrollViewer HorizontalScrollBarVisibility="Disabled"

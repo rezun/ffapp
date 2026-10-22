@@ -275,7 +275,7 @@
                     <!-- Video Mode -->
                     <Grid ColumnDefinitions="85,*">
                         <TextBlock Text="Video Mode" VerticalAlignment="Center" />
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" IsEnabled="{Binding IsVideoModeEditable}">
                             <RadioButton Content="Copy" GroupName="VideoMode"
                                 ToolTip.Tip="Copy video without re-encoding. Preserves its quality; resolution, frame rate, crop and encoder settings do not apply."
                                 IsEnabled="{Binding Format.SourceHasVideo}"

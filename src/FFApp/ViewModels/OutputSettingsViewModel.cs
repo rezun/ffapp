@@ -20,6 +20,8 @@ public partial class OutputSettingsViewModel : ObservableObject
     private string? _resolvedOutputPath;
     private double? _trimmedDurationSeconds;
 
+    public bool IsVideoModeEditable { get; init; } = true;
+
     public FormatViewModel Format { get; } = new();
     public AudioViewModel Audio { get; } = new();
     public EncodingStrategyViewModel Strategy { get; } = new();

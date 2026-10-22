@@ -90,6 +90,14 @@
         <Style Selector="NumericUpDown">
             <Setter Property="MinHeight" Value="26" />
             <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="6,0" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <!-- Single-line numeric editors must not expose the persistent scrollbars
+             used elsewhere in the app. The separate value spinner stays available. -->
+        <Style Selector="NumericUpDown /template/ TextBox">
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled" />
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Hidden" />
         </Style>
 
         <!-- Card-style sections: semantic surface with visible border -->

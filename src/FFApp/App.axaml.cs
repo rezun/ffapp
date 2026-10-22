@@ -16,6 +16,7 @@ using FFApp.Services;
 using LibVLCSharp.Shared;
 using FFApp.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
+using System.Text.Json;
 
 namespace FFApp;
 
@@ -70,6 +71,7 @@ public partial class App : Application
             var services = new ServiceCollection();
 
             services.AddSingleton(TimeProvider.System);
+            services.AddSingleton(new JsonSerializerOptions { WriteIndented = true });
 
             // Infrastructure services
             services.AddSingleton<ExecutablePathsConfig>();
@@ -86,6 +88,9 @@ public partial class App : Application
             services.AddSingleton<ICropDetectionService, CropDetectionService>();
             services.AddSingleton<IJobExecutionService, DefaultJobExecutionService>();
             services.AddSingleton<IFfmpegCapabilityService, FfmpegCapabilityService>();
+            services.AddSingleton<IComparisonService, ComparisonService>();
+            services.AddSingleton<IComparisonWindowService>(sp =>
+                new ComparisonWindowService(sp.GetRequiredService<IServiceScopeFactory>(), () => mainWindow));
             services.AddSingleton<Func<QueuedJob, IJobExecutionService>>(sp =>
                 _ => sp.GetRequiredService<IJobExecutionService>());
             services.AddSingleton<IQueueService, QueueService>();
@@ -113,6 +118,17 @@ public partial class App : Application
                     sp.GetService<LibVLC>(),
                     sp.GetRequiredService<ICropDetectionService>()));
 
+            // Comparison editors use a private messenger so exploratory changes cannot
+            // modify the main workspace or another source's comparison.
+            services.AddKeyedScoped<IMessenger>("comparison", (_, _) => new WeakReferenceMessenger());
+            services.AddKeyedScoped<OutputSettingsViewModel>("comparison", (sp, _) =>
+                new OutputSettingsViewModel(sp.GetRequiredService<IValidationService>(),
+                    sp.GetRequiredKeyedService<IMessenger>("comparison"),
+                    sp.GetRequiredService<IFfmpegCapabilityService>(),
+                    sp.GetRequiredService<ExecutablePathsConfig>()) { IsVideoModeEditable = false });
+            services.AddScoped<ComparisonPlaybackViewModel>(sp => new ComparisonPlaybackViewModel(sp.GetService<LibVLC>()));
+            services.AddScoped<ComparisonViewModel>();
+
             // Factory delegate for on-demand DependencySetupViewModel creation
             services.AddSingleton<Func<DependencySetupViewModel>>(sp =>
                 () => sp.GetRequiredService<DependencySetupViewModel>());
@@ -123,6 +139,14 @@ public partial class App : Application
             _mainViewModel = vm;
             mainWindow.DataContext = vm;
             desktop.MainWindow = mainWindow;
+            desktop.ShutdownMode = ShutdownMode.OnMainWindowClose;
+            // The native shutdown callback is synchronous; await the save pipeline
+            // here and log any boundary failure instead of dropping its Task.
+            desktop.ShutdownRequested += async (_, e) =>
+            {
+                try { await HandleShutdownRequestedAsync(mainWindow, e); }
+                catch (Exception ex) { Console.Error.WriteLine($"Application shutdown failed: {ex}"); }
+            };
 
             // Platform split:
             //  - macOS: file opens always arrive via Apple Events (IActivatableLifetime), never argv.
@@ -143,6 +167,19 @@ public partial class App : Application
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    internal static async Task HandleShutdownRequestedAsync(Views.MainWindow mainWindow, ShutdownRequestedEventArgs e)
+    {
+        // Closing the saved main window triggers a second lifetime shutdown request.
+        // Allow that request through so the dispatcher and process actually exit.
+        if (mainWindow.IsCloseSaved) return;
+
+        // Native Quit must enter the main window's asynchronous save/close pipeline.
+        // The default lifetime closes child windows first and aborts when their
+        // asynchronous Closing handlers cancel the initial close request.
+        e.Cancel = true;
+        await mainWindow.CloseSavedAsync();
     }
 
     private void QueueFilesFromArgs(IReadOnlyList<string>? args)

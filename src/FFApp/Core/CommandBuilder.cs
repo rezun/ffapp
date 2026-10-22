@@ -765,7 +765,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         return trimmed > 0 ? trimmed : mediaInfo.DurationSeconds.Value;
     }
 
-    private static int ResolveVideoBitrate(JobDefinition job, SourceMediaInfo mediaInfo)
+    internal static int ResolveVideoBitrate(JobDefinition job, SourceMediaInfo mediaInfo)
     {
         if (job.EncodingStrategy == EncodingStrategy.TargetBitrate)
         {

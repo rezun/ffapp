@@ -1,0 +1,38 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:FFApp.ViewModels"
+             xmlns:vlc="using:LibVLCSharp.Avalonia"
+             x:Class="FFApp.Views.ComparisonPlaybackView"
+             x:DataType="vm:ComparisonPlaybackViewModel" x:CompileBindings="True">
+    <Grid RowDefinitions="*,Auto,Auto,Auto">
+        <Grid x:Name="VideoGrid" ColumnDefinitions="*,*" MinHeight="160">
+            <Border x:Name="LeftPane" Background="Black" Margin="0,0,3,0" ClipToBounds="True">
+                <vlc:VideoView x:Name="LeftVideo" />
+            </Border>
+            <Border x:Name="RightPane" Grid.Column="1" Background="Black" Margin="3,0,0,0" ClipToBounds="True">
+                <vlc:VideoView x:Name="RightVideo" />
+            </Border>
+        </Grid>
+        <Slider Grid.Row="1" Margin="0,4" Minimum="0" Maximum="{Binding DurationSeconds}"
+                Value="{Binding PositionSeconds}" IsEnabled="{Binding HasMedia}"
+                ToolTip.Tip="Seek both previews to the same position inside this sample." />
+        <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" Margin="0,2">
+            <StackPanel Orientation="Horizontal" Spacing="6" IsEnabled="{Binding HasMedia}">
+                <Button Content="◀" Command="{Binding StepBackwardCommand}" ToolTip.Tip="Step back one source-frame interval." />
+                <Button x:Name="PlaySampleButton" Classes.accent="{Binding !IsPlaying}"
+                        Content="{Binding PlayLabel}" Command="{Binding TogglePlayCommand}" />
+                <Button Content="▶" Command="{Binding StepForwardCommand}" ToolTip.Tip="Step forward one source-frame interval." />
+                <CheckBox Content="Loop" IsChecked="{Binding Loop}" />
+            </StackPanel>
+            <TextBlock Grid.Column="1" Text="{Binding TimeDisplay}" VerticalAlignment="Center" HorizontalAlignment="Center" Classes="mono caption" />
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
+                <ComboBox ItemsSource="{Binding LayoutOptions}" SelectedItem="{Binding Layout}" MinWidth="112"
+                          IsVisible="{Binding !IsSourcePreview}"
+                          ToolTip.Tip="Switch between A, B and side-by-side without changing playback position." />
+                <ComboBox ItemsSource="{Binding ZoomOptions}" SelectedItem="{Binding Zoom}" MinWidth="76"
+                          ToolTip.Tip="Use the same zoom for both views. 100% displays source pixels at native size, centered in each pane." />
+            </StackPanel>
+        </Grid>
+        <TextBlock Grid.Row="3" Text="{Binding Status}" Classes="secondary caption" TextWrapping="Wrap" Margin="0,4,0,0" />
+    </Grid>
+</UserControl>

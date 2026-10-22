@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
@@ -22,6 +23,14 @@ public partial class WorkspaceViewModel : ObservableObject,
     private SourceMediaInfo? _currentMediaInfo;
     public OutputSettings? CurrentSettings { get; private set; }
     private SourceFileViewModel? _previousSource;
+    private readonly IComparisonWindowService? _comparisonWindows;
+    private JobContext? _comparisonContext;
+    public bool CanCompare => SourceList.SelectedSource?.MediaInfo is not null
+        && _comparisonContext is { MediaInfo.PrimaryVideoStream: not null,
+            MediaInfo.DurationSeconds: > 0, Settings.VideoMode: VideoMode.Reencode } context
+        && double.IsFinite(context.MediaInfo.DurationSeconds.Value)
+        && string.Equals(SourceList.SelectedSource.SourcePath, context.MediaInfo.SourcePath, StringComparison.Ordinal);
+    [ObservableProperty] private string _comparisonStatus = "";
 
     public WorkspaceViewModel(
         SourceListPanelViewModel sourceList,
@@ -31,7 +40,8 @@ public partial class WorkspaceViewModel : ObservableObject,
         CommandPreviewViewModel commandPreview,
         JobListPanelViewModel jobList,
         VideoPreviewViewModel videoPreview,
-        IMessenger messenger)
+        IMessenger messenger,
+        IComparisonWindowService? comparisonWindows = null)
     {
         SourceList = sourceList;
         OutputPath = outputPath;
@@ -40,6 +50,13 @@ public partial class WorkspaceViewModel : ObservableObject,
         CommandPreview = commandPreview;
         JobList = jobList;
         VideoPreview = videoPreview;
+        _comparisonWindows = comparisonWindows;
+        SourceList.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName != nameof(SourceListPanelViewModel.SelectedSource)) return;
+            OnPropertyChanged(nameof(CanCompare));
+            OpenComparisonCommand.NotifyCanExecuteChanged();
+        };
 
         // Wire PresetViewModel's apply callback to OutputSettingsViewModel
         Preset.PresetApplied += settings => OutputSettings.ApplySettings(settings);
@@ -62,6 +79,9 @@ public partial class WorkspaceViewModel : ObservableObject,
             CommandPreview.UpdateJobContext(null);
             JobList.UpdateJobContext(null);
             OutputSettings.UpdateEffectiveDuration(null);
+            _comparisonContext = null;
+            OnPropertyChanged(nameof(CanCompare));
+            OpenComparisonCommand.NotifyCanExecuteChanged();
             return;
         }
 
@@ -82,9 +102,35 @@ public partial class WorkspaceViewModel : ObservableObject,
             OutputPath.GetEffectiveFilename(),
             OutputPath.IsAutoName, OutputSettings.Audio.SelectedAudioStreamIndices);
 
+        _comparisonContext = context;
+        OnPropertyChanged(nameof(CanCompare));
+        OpenComparisonCommand.NotifyCanExecuteChanged();
+
         CommandPreview.UpdateJobContext(context);
         JobList.UpdateJobContext(context);
         OutputSettings.UpdateEffectiveDuration(context.EffectiveDurationSeconds);
+    }
+
+    [RelayCommand(CanExecute = nameof(CanCompare))]
+    private async Task OpenComparisonAsync()
+    {
+        if (_comparisonWindows is null || _comparisonContext is not { } context) return;
+        try
+        {
+            await _comparisonWindows.ShowAsync(context, settings =>
+            {
+                if (!string.Equals(SourceList.SelectedSource?.SourcePath, context.MediaInfo.SourcePath, StringComparison.Ordinal))
+                    return false;
+                OutputSettings.ApplySettings(settings);
+                return true;
+            });
+            ComparisonStatus = "";
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Opening comparison failed: {ex}");
+            ComparisonStatus = $"Could not open comparison: {ex.Message}";
+        }
     }
 
     private void OnAudioPropertyChanged(object? sender, PropertyChangedEventArgs e)

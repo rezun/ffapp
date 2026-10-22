@@ -1,0 +1,230 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:FFApp.ViewModels"
+        xmlns:views="using:FFApp.Views"
+        xmlns:ctrl="using:FFApp.Controls"
+        x:Class="FFApp.Views.ComparisonWindow"
+        x:DataType="vm:ComparisonViewModel" x:CompileBindings="True"
+        Title="FFApp · Compare encodes" Width="1480" Height="960"
+        MinWidth="1080" MinHeight="760" WindowStartupLocation="CenterOwner">
+    <NativeMenu.Menu>
+        <NativeMenu>
+            <NativeMenuItem Header="File">
+                <NativeMenu>
+                    <NativeMenuItem Header="Close window" Gesture="{OnPlatform macOS=Meta+W, Default=Ctrl+W}"
+                                    Click="OnCloseWindow" />
+                </NativeMenu>
+            </NativeMenuItem>
+        </NativeMenu>
+    </NativeMenu.Menu>
+    <Window.Styles>
+        <Style Selector="Button.step">
+            <Setter Property="MinHeight" Value="34" />
+            <Setter Property="Padding" Value="12,4" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0,0,0,2" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+        </Style>
+        <Style Selector="Button.step.current">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentButtonBackground}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+    </Window.Styles>
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="16">
+        <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+            <StackPanel Spacing="3">
+                <TextBlock Text="{Binding SourceLabel}" FontSize="20" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding RangeLabel}" Classes="secondary" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <Button Content="Save comparison" Command="{Binding SaveCommand}" IsEnabled="{Binding CanEdit}" />
+                <Button x:Name="PrimaryComparisonButton" Classes="accent" MinHeight="34" Padding="14,4"
+                        Content="{Binding PrimaryActionLabel}" Command="{Binding PrimaryActionCommand}" />
+                <Button Content="Cancel" Command="{Binding RunAllCancelCommand}" IsVisible="{Binding IsRunning}" />
+            </StackPanel>
+        </Grid>
+
+        <ctrl:ComparisonTimeline x:Name="SampleTimeline" Grid.Row="1" Height="30" Margin="0,0,0,10"
+                                 Samples="{Binding TimelineSamples}" RangeStart="{Binding RangeStart}" RangeEnd="{Binding RangeEnd}"
+                                 SelectedId="{Binding SelectedSample.Id}" Cursor="Hand"
+                                 ToolTip.Tip="Samples across the saved source range. Click to select the nearest sample; edit its start and duration below." />
+
+        <Grid Grid.Row="2" ColumnDefinitions="260,12,*">
+            <Border Classes="card">
+                <DockPanel Margin="12">
+                    <StackPanel DockPanel.Dock="Top" Spacing="8" IsEnabled="{Binding CanEdit}">
+                        <TextBlock Text="Test samples" FontSize="15" FontWeight="SemiBold" />
+                        <TextBlock Text="Select a sample to see the original. Adjust its position or length below." Classes="secondary" TextWrapping="Wrap" />
+                        <Grid ColumnDefinitions="*,*">
+                            <StackPanel Spacing="3" Margin="0,0,4,0">
+                                <TextBlock Text="Count" />
+                                <ctrl:NoWheelNumericUpDown Minimum="1" Maximum="24" Value="{Binding SampleCount}" FormatString="0" ShowButtonSpinner="False" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Spacing="3" Margin="4,0,0,0">
+                                <TextBlock Text="Length (s)" />
+                                <ctrl:NoWheelNumericUpDown Minimum="1" Maximum="120" Value="{Binding SampleDuration}" FormatString="0.0" ShowButtonSpinner="False" />
+                            </StackPanel>
+                        </Grid>
+                        <Button Content="Redistribute samples" Command="{Binding DistributeCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Button Content="Add sample" Command="{Binding AddSampleCommand}" />
+                            <Button Content="Remove" Command="{Binding RemoveSampleCommand}" />
+                        </StackPanel>
+                    </StackPanel>
+                    <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,12,0,0" IsEnabled="{Binding CanEdit}">
+                        <Separator />
+                        <TextBlock Text="Selected sample" FontWeight="SemiBold" />
+                        <TextBox Text="{Binding SelectedSample.Name}" PlaceholderText="Sample name" />
+                        <TextBlock Text="Start in source (seconds)" />
+                        <ctrl:NoWheelNumericUpDown x:Name="SampleStartInput" Minimum="0" Maximum="{Binding MaximumStart}"
+                                                  Value="{Binding SelectedSample.StartSeconds}" FormatString="0.000" Increment="1" />
+                        <TextBlock Text="Duration (seconds)" />
+                        <ctrl:NoWheelNumericUpDown Minimum="0.1" Maximum="120" Value="{Binding SelectedSample.DurationSeconds}" FormatString="0.0" Increment="1" />
+                        <TextBlock Text="Changes appear in the preview automatically. Loop repeats this selected range." Classes="secondary caption" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <ListBox x:Name="SampleList" ItemsSource="{Binding Samples}" SelectedItem="{Binding SelectedSample}" Margin="0,12,0,0">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ComparisonSampleViewModel">
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding Label}" Classes="secondary caption" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+
+            <Grid Grid.Column="2" RowDefinitions="Auto,Auto,*" Margin="8,0,0,0">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button x:Name="SamplesStepButton" Classes="step" Classes.current="{Binding IsSamplesStep}"
+                            Content="1. Review samples" Command="{Binding ShowSamplesCommand}" />
+                    <Button x:Name="VariantsStepButton" Classes="step" Classes.current="{Binding IsVariantsStep}"
+                            Content="2. Choose variants" Command="{Binding ShowVariantsCommand}" />
+                    <Button x:Name="ResultsStepButton" Classes="step" Classes.current="{Binding IsResultsStep}"
+                            Content="3. Compare results" Command="{Binding ShowResultsCommand}"
+                            ToolTip.Tip="Results become available after creating test clips." />
+                </StackPanel>
+                <TextBlock Grid.Row="1" Text="{Binding StepGuidance}" TextWrapping="Wrap" Classes="secondary" Margin="0,8,0,12" />
+                <Grid x:Name="CompareGrid" Grid.Row="2" RowDefinitions="Auto,*,Auto,0,Auto" IsVisible="{Binding !IsVariantsStep}">
+                    <StackPanel Spacing="6" Margin="0,0,0,8">
+                        <TextBlock Text="{Binding PreviewTitle}" FontWeight="SemiBold" IsVisible="{Binding Playback.IsSourcePreview}" />
+                        <Grid x:Name="ComparisonChoices" ColumnDefinitions="*,*" IsVisible="{Binding IsResultsStep}">
+                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,8,0">
+                                <TextBlock Text="A" FontWeight="Bold" VerticalAlignment="Center" />
+                                <ComboBox x:Name="LeftComparisonChoice" ItemsSource="{Binding Choices}" SelectedItem="{Binding LeftChoice}" MinWidth="210">
+                                    <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ComparisonChoice"><TextBlock Text="{Binding Name}" /></DataTemplate></ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="B" FontWeight="Bold" VerticalAlignment="Center" />
+                                <ComboBox x:Name="RightComparisonChoice" ItemsSource="{Binding Choices}" SelectedItem="{Binding RightChoice}" MinWidth="210">
+                                    <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ComparisonChoice"><TextBlock Text="{Binding Name}" /></DataTemplate></ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                        <views:ComparisonPlaybackView x:Name="SamplePlayback" Grid.Row="1" DataContext="{Binding Playback}" />
+                        <GridSplitter Grid.Row="2" Height="8" ResizeDirection="Rows" IsVisible="{Binding ShowResultTable}" />
+                        <Border x:Name="ResultsPanel" Grid.Row="3" Classes="card" IsVisible="{Binding ShowResultTable}">
+                            <DockPanel Margin="8">
+                                <TextBlock DockPanel.Dock="Top" Text="Video clip size · encoding time · change vs first variant" FontWeight="SemiBold" Margin="0,0,0,6" />
+                                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                                    <StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="Sample" Width="150" Margin="4" FontWeight="SemiBold" />
+                                            <ItemsControl ItemsSource="{Binding Variants}">
+                                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:ComparisonVariantViewModel">
+                                                        <TextBlock Text="{Binding Name}" Width="170" Margin="4" FontWeight="SemiBold" TextWrapping="Wrap" ToolTip.Tip="{Binding Summary}" />
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                        <ItemsControl x:Name="ResultsTable" ItemsSource="{Binding Rows}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:ComparisonRowViewModel">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="{Binding Label}" Width="150" Margin="4" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                                        <ItemsControl ItemsSource="{Binding Cells}">
+                                                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate x:DataType="vm:ComparisonCellViewModel">
+                                                                    <Button Width="170" Margin="4" Padding="8" MinHeight="68" HorizontalContentAlignment="Left"
+                                                                            Command="{Binding SelectCommand}" ToolTip.Tip="{Binding Details}">
+                                                                        <StackPanel Spacing="3">
+                                                                            <TextBlock Text="{Binding Status}" FontWeight="SemiBold" />
+                                                                            <TextBlock Text="{Binding Metrics}" Classes="caption" />
+                                                                        </StackPanel>
+                                                                    </Button>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </DockPanel>
+                        </Border>
+                        <StackPanel Grid.Row="4" Spacing="4" Margin="0,6,0,0" IsVisible="{Binding IsResultsStep}">
+                            <TextBlock Text="{Binding HdrNote}" Classes="secondary caption" TextWrapping="Wrap" IsVisible="{Binding IsHdr}" />
+                            <Expander Header="Selected result details" IsVisible="{Binding HasResults}">
+                                <ScrollViewer MaxHeight="100"><SelectableTextBlock Text="{Binding SelectionDetails}" TextWrapping="Wrap" /></ScrollViewer>
+                            </Expander>
+                        </StackPanel>
+                </Grid>
+                <DockPanel Grid.Row="2" IsVisible="{Binding IsVariantsStep}">
+                    <Border DockPanel.Dock="Top" Classes="card" Margin="0,0,0,12">
+                        <TextBlock Text="{Binding ClipPlan}" TextWrapping="Wrap" Margin="12" />
+                    </Border>
+                    <Grid ColumnDefinitions="240,12,*" IsEnabled="{Binding CanEdit}">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,10">
+                                <TextBlock Text="Independent variants" FontSize="15" FontWeight="SemiBold" />
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Button Content="Duplicate" Command="{Binding DuplicateVariantCommand}" />
+                                    <Button Content="Remove" Command="{Binding RemoveVariantCommand}" />
+                                </StackPanel>
+                                <Button Content="Add grain 0 / 8 / 10" Command="{Binding AddGrainVariantsCommand}" IsVisible="{Binding IsAv1}"
+                                        ToolTip.Tip="Add AV1 variants for grain 0, 8 and 10, keeping existing matching variants. Grain 8/10 enable source denoising; other settings are kept." />
+                            </StackPanel>
+                            <StackPanel DockPanel.Dock="Bottom" Spacing="8" Margin="0,10,0,0">
+                                <TextBlock Text="Variant name" />
+                                <TextBox Text="{Binding SelectedVariant.Name}" />
+                                <ScrollViewer MaxHeight="180" VerticalScrollBarVisibility="Auto">
+                                    <TextBlock Text="{Binding VariantDifferences}" Classes="secondary" TextWrapping="Wrap" />
+                                </ScrollViewer>
+                                <Button x:Name="ApplyComparisonVariantButton" Content="Apply to main window" Command="{Binding ApplyVariantCommand}" />
+                            </StackPanel>
+                            <ListBox x:Name="VariantList" ItemsSource="{Binding Variants}" SelectedItem="{Binding SelectedVariant}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:ComparisonVariantViewModel">
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                            <TextBlock Text="{Binding Summary}" TextWrapping="Wrap" Classes="secondary caption" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </DockPanel>
+                        <ScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                            <StackPanel MinWidth="760">
+                                <TextBlock Text="Edits affect this comparison only. Audio and other streams are omitted from test clips; full output settings are retained when applying a variant." TextWrapping="Wrap" Classes="secondary" Margin="0,0,0,8" />
+                                <views:OutputSettingsView DataContext="{Binding Editor}" />
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Grid>
+                </DockPanel>
+            </Grid>
+        </Grid>
+
+        <StackPanel Grid.Row="3" Spacing="6" Margin="0,12,0,0">
+            <ProgressBar Value="{Binding Progress}" Minimum="0" Maximum="100" Height="4" IsVisible="{Binding IsRunning}" />
+            <TextBlock Text="{Binding Status}" TextWrapping="Wrap" />
+            <TextBlock Text="Samples help compare settings; they do not guarantee whole-film quality or predict an exact final file size." Classes="secondary caption" />
+        </StackPanel>
+    </Grid>
+</Window>

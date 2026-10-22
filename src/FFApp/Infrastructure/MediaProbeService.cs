@@ -109,6 +109,7 @@ public sealed class MediaProbeService(ExecutablePathsConfig pathsConfig) : IMedi
             }
 
             var videoStreams = ImmutableArray.CreateBuilder<VideoStreamInfo>();
+            var attachedPictureStreams = ImmutableArray.CreateBuilder<DataStreamInfo>();
             var audioStreams = ImmutableArray.CreateBuilder<AudioStreamInfo>();
             var subtitleStreams = ImmutableArray.CreateBuilder<SubtitleStreamInfo>();
             var dataStreams = ImmutableArray.CreateBuilder<DataStreamInfo>();
@@ -121,6 +122,10 @@ public sealed class MediaProbeService(ExecutablePathsConfig pathsConfig) : IMedi
 
                     switch (codecType)
                     {
+                        case "video" when stream.TryGetProperty("disposition", out var disposition)
+                            && GetInt(disposition, "attached_pic") == 1:
+                            attachedPictureStreams.Add(ParseDataStream(stream));
+                            break;
                         case "video":
                             videoStreams.Add(ParseVideoStream(stream));
                             break;
@@ -145,6 +150,7 @@ public sealed class MediaProbeService(ExecutablePathsConfig pathsConfig) : IMedi
                 BitRate = bitRate,
                 MetadataKeys = metadataKeys,
                 VideoStreams = videoStreams.ToImmutable(),
+                AttachedPictureStreams = attachedPictureStreams.ToImmutable(),
                 AudioStreams = audioStreams.ToImmutable(),
                 SubtitleStreams = subtitleStreams.ToImmutable(),
                 DataStreams = dataStreams.ToImmutable(),

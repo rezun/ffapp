@@ -1,4 +1,6 @@
 using FFApp.Core.Models;
+using FFApp.Core.Validation;
+using FFApp.Helpers;
 using FFApp.Infrastructure;
 using FluentAssertions;
 
@@ -168,6 +170,48 @@ public class MediaProbeServiceParsingTests
         var result = MediaProbeService.ParseMediaInfo("/test/video.mp4", json);
         result.VideoStreams.Should().HaveCount(2);
         result.PrimaryVideoStream!.CodecName.Should().Be("h264");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ParseMediaInfo_AttachedPictures_AreNotVideoStreams(bool picturesFirst)
+    {
+        const string video = """{ "index": 0, "codec_type": "video", "codec_name": "hevc", "width": 3840, "height": 2160, "disposition": { "attached_pic": 0 } }""";
+        const string pictures = """
+            { "index": 7, "codec_type": "video", "codec_name": "png", "disposition": { "attached_pic": 1 } },
+            { "index": 8, "codec_type": "video", "codec_name": "mjpeg", "disposition": { "attached_pic": 1 } }
+            """;
+        var streams = picturesFirst ? $"{pictures},{video}" : $"{video},{pictures}";
+        var media = MediaProbeService.ParseMediaInfo("/test/movie.mkv", "{\"streams\":[" + streams + "]}");
+
+        media.VideoStreams.Should().ContainSingle().Which.Index.Should().Be(0);
+        (media.PrimaryVideoStream?.CodecName).Should().Be("hevc");
+        media.AttachedPictureStreams.Should().Equal(new DataStreamInfo(7, "png"), new DataStreamInfo(8, "mjpeg"));
+        media.StreamCount.Should().Be(3);
+        var validation = new ValidationService().Validate(new OutputSettings { VideoMode = VideoMode.Copy }, media);
+        validation.Issues.Should().NotContain(issue => issue.Code == "multiple_video_streams");
+        FormatHelpers.BuildMediaSummaryText(media).Should().Contain("Video streams: 1")
+            .And.Contain("Attached pictures: 2").And.NotContain("Warning: multiple video streams");
+    }
+
+    [Fact]
+    public void ParseMediaInfo_OnlyAttachedPicture_HasNoPrimaryVideo()
+    {
+        var media = MediaProbeService.ParseMediaInfo("/test/audio.m4a", """
+            { "streams": [
+                { "index": 0, "codec_type": "video", "codec_name": "mjpeg", "disposition": { "attached_pic": 1 } },
+                { "index": 1, "codec_type": "audio", "codec_name": "aac" }
+            ] }
+            """);
+
+        media.VideoStreams.Should().BeEmpty();
+        media.PrimaryVideoStream.Should().BeNull();
+        media.AttachedPictureStreams.Should().ContainSingle();
+        media.AudioStreams.Should().ContainSingle();
+        media.StreamCount.Should().Be(2);
+        var validation = new ValidationService().Validate(new OutputSettings { VideoMode = VideoMode.Copy }, media);
+        validation.Issues.Should().Contain(issue => issue.Code == "video_stream_missing");
     }
 
     // --- ParseFrameRate ---

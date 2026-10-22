@@ -795,6 +795,26 @@ public class CommandBuilderTests
 
     // ---------------------------------------------------------------
     // Multiple video streams
+
+    [Theory]
+    [InlineData(VideoMode.Copy)]
+    [InlineData(VideoMode.Reencode)]
+    [InlineData(VideoMode.Remove)]
+    public void Build_AttachedPictures_ExcludedFromOutput(VideoMode mode)
+    {
+        var media = new TestMediaInfoBuilder().Build() with
+        {
+            AttachedPictureStreams = [new DataStreamInfo(7, "png"), new DataStreamInfo(8, "mjpeg")],
+        };
+        var job = new TestJobDefinitionBuilder().WithOutputSettings(s => s.WithVideoMode(mode)).Build();
+
+        var args = JoinArgs(_sut.Build(job, media)[0]);
+
+        if (mode == VideoMode.Remove)
+            args.Should().Contain("-map -0:v?");
+        else
+            args.Should().Contain("-map -0:7").And.Contain("-map -0:8").And.NotContain("-map -0:0");
+    }
     // ---------------------------------------------------------------
 
     [Fact]

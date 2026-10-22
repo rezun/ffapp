@@ -222,6 +222,10 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         {
             foreach (var stream in mediaInfo.VideoStreams.Skip(1))
                 arguments.AddRange(["-map", $"-0:{stream.Index}"]);
+
+            // ffprobe reports cover art as video, but it must not be encoded as another video track.
+            foreach (var stream in mediaInfo.AttachedPictureStreams)
+                arguments.AddRange(["-map", $"-0:{stream.Index}"]);
         }
 
         if (job.AudioOptions.Mode == AudioMode.Remove)

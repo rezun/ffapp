@@ -17,6 +17,8 @@ public static class FormatHelpers
         sb.AppendLine($"Overall bitrate: {FormatBitrate(mediaInfo.BitRate)}");
         sb.AppendLine();
         sb.AppendLine($"Video streams: {mediaInfo.VideoStreams.Length}");
+        if (mediaInfo.AttachedPictureStreams.Length > 0)
+            sb.AppendLine($"Attached pictures: {mediaInfo.AttachedPictureStreams.Length}");
         sb.AppendLine($"Audio streams: {mediaInfo.AudioStreams.Length}");
         sb.AppendLine($"Subtitle streams: {mediaInfo.SubtitleStreams.Length}");
         sb.AppendLine($"Data streams: {mediaInfo.DataStreams.Length}");

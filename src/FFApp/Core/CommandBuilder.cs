@@ -46,6 +46,35 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
 
     public IReadOnlyList<GeneratedCommand> Build(JobDefinition job, SourceMediaInfo mediaInfo)
     {
+        // Matroska stores pictures as file attachments. Mapping them as video would
+        // turn them into regular video tracks and lose attached_pic on the next probe.
+        if (job.Container is not (OutputContainer.Mkv or OutputContainer.Mka)
+            || job.StreamHandling.RemoveImages || mediaInfo.AttachedPictureStreams.Length == 0)
+        {
+            return BuildEncodingCommands(job, mediaInfo, []);
+        }
+
+        var attachments = mediaInfo.AttachedPictureStreams.Select(stream => new PictureAttachment(
+            stream, Path.Combine(Path.GetTempPath(), $"ffapp-image-{Guid.NewGuid():N}"))).ToArray();
+        var extractionArgs = new List<string> { "-hide_banner", "-y", "-i", job.SourcePath };
+        foreach (var attachment in attachments)
+        {
+            extractionArgs.AddRange(["-map", $"0:{attachment.Stream.Index}", "-c:v", "copy",
+                "-frames:v", "1", "-f", "image2", "-update", "1", attachment.Path]);
+        }
+
+        var extraction = CreateGeneratedCommand(pathsConfig.FfmpegPath, extractionArgs, ProcessProtocol.Plain) with
+        {
+            TemporaryFiles = [.. attachments.Select(attachment => attachment.Path)],
+        };
+        return [extraction, .. BuildEncodingCommands(job, mediaInfo, attachments)];
+    }
+
+    private sealed record PictureAttachment(AttachedPictureStreamInfo Stream, string Path);
+
+    private IReadOnlyList<GeneratedCommand> BuildEncodingCommands(
+        JobDefinition job, SourceMediaInfo mediaInfo, IReadOnlyList<PictureAttachment> attachments)
+    {
         var inputArgs = new List<string> { "-hide_banner", "-y" };
         var trimStart = job.TrimStartSeconds ?? 0;
         if (trimStart > 0)
@@ -59,8 +88,29 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
                 inputArgs.AddRange(["-t", FormatSeconds(duration)]);
         }
         var mappingArgs = BuildMappingArguments(job, mediaInfo);
+        var firstPassMappingArgs = UsesTwoPass(job)
+            ? BuildMappingArguments(job, mediaInfo, includePictures: false) : mappingArgs;
         mediaInfo = AudioTrackSelection.Apply(mediaInfo, job.SelectedAudioStreamIndices);
         var streamArgs = BuildStreamArguments(job, mediaInfo);
+        var attachmentIndex = StreamCompatibilityPolicy.ShouldCopyDataStreams(job.Container, job.StreamHandling.RemoveData)
+            ? mediaInfo.DataStreams.Count(stream => stream.IsAttachment) : 0;
+        foreach (var attachment in attachments)
+        {
+            var mimeType = attachment.Stream.MimeType ?? attachment.Stream.CodecName switch
+            {
+                "mjpeg" => "image/jpeg",
+                "png" => "image/png",
+                "webp" => "image/webp",
+                "gif" => "image/gif",
+                "bmp" => "image/bmp",
+                _ => "application/octet-stream",
+            };
+            var fileName = attachment.Stream.FileName ?? $"image-{attachment.Stream.Index}";
+            streamArgs.AddRange(["-attach", attachment.Path,
+                $"-metadata:s:t:{attachmentIndex}", $"mimetype={mimeType}",
+                $"-metadata:s:t:{attachmentIndex}", $"filename={fileName}"]);
+            attachmentIndex++;
+        }
         var metadataCleanupArgs = BuildMetadataCleanupArguments(job, mediaInfo);
 
         // Audio-only: no video encoding, no two-pass
@@ -71,7 +121,10 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
             arguments.AddRange(streamArgs);
             arguments.AddRange(metadataCleanupArgs);
             arguments.AddRange(BuildEncodingSettingsMetadataArguments(job, mediaInfo));
-            arguments.AddRange(["-vn"]);
+            if (CopiedPictureStreams(job, mediaInfo).Count > 0)
+                arguments.AddRange(BuildPictureCodecArguments(job, mediaInfo));
+            else
+                arguments.AddRange(["-vn"]);
             if (job.Container is OutputContainer.Mp4 or OutputContainer.M4a)
                 arguments.AddRange(["-movflags", "+faststart"]);
             arguments.Add(job.OutputPath);
@@ -87,6 +140,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
             arguments.AddRange(metadataCleanupArgs);
             arguments.AddRange(BuildEncodingSettingsMetadataArguments(job, mediaInfo));
             arguments.AddRange(["-c:v", "copy"]);
+            arguments.AddRange(BuildPictureCodecArguments(job, mediaInfo));
             if (job.Container is OutputContainer.Mp4 or OutputContainer.M4a)
                 arguments.AddRange(["-movflags", "+faststart"]);
             arguments.Add(job.OutputPath);
@@ -103,7 +157,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
             var passLogPath = PassLogPath(job.OutputPath);
 
             var firstPassArgs = new List<string>(inputArgs);
-            firstPassArgs.AddRange(mappingArgs);
+            firstPassArgs.AddRange(firstPassMappingArgs);
             firstPassArgs.AddRange(BuildVideoCodecArguments(job, mediaInfo, bitrate: bitrate, passIndex: 1));
             firstPassArgs.AddRange(["-pass", "1", "-passlogfile", passLogPath, "-an", "-sn", "-dn", "-f", "null", NullOutputPath]);
 
@@ -116,6 +170,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
             secondPassArgs.AddRange(BuildEncodingSettingsMetadataArguments(
                 job, mediaInfo, secondPassVideoArgs, isTwoPass: true));
             secondPassArgs.AddRange(["-pass", "2", "-passlogfile", passLogPath]);
+            secondPassArgs.AddRange(BuildPictureCodecArguments(job, mediaInfo));
             if (job.Container == OutputContainer.Mp4)
                 secondPassArgs.AddRange(["-movflags", "+faststart"]);
             secondPassArgs.Add(job.OutputPath);
@@ -134,6 +189,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         var videoCodecArgs = BuildVideoCodecArguments(job, mediaInfo);
         reencodeArgs.AddRange(videoCodecArgs);
         reencodeArgs.AddRange(BuildEncodingSettingsMetadataArguments(job, mediaInfo, videoCodecArgs));
+        reencodeArgs.AddRange(BuildPictureCodecArguments(job, mediaInfo));
         if (job.Container == OutputContainer.Mp4)
             reencodeArgs.AddRange(["-movflags", "+faststart"]);
         reencodeArgs.Add(job.OutputPath);
@@ -210,7 +266,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         return arg;
     }
 
-    private static List<string> BuildMappingArguments(JobDefinition job, SourceMediaInfo mediaInfo)
+    private static List<string> BuildMappingArguments(JobDefinition job, SourceMediaInfo mediaInfo, bool includePictures = true)
     {
         var arguments = new List<string> { "-map", "0" };
 
@@ -223,10 +279,15 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
             foreach (var stream in mediaInfo.VideoStreams.Skip(1))
                 arguments.AddRange(["-map", $"-0:{stream.Index}"]);
 
-            // ffprobe reports cover art as video, but it must not be encoded as another video track.
+        }
+
+        // Append pictures after the primary video so v:0 always refers to the movie.
+        if (job.VideoMode != VideoMode.Remove)
             foreach (var stream in mediaInfo.AttachedPictureStreams)
                 arguments.AddRange(["-map", $"-0:{stream.Index}"]);
-        }
+        if (includePictures)
+            foreach (var stream in CopiedPictureStreams(job, mediaInfo))
+                arguments.AddRange(["-map", $"0:{stream.Index}"]);
 
         if (job.AudioOptions.Mode == AudioMode.Remove)
             arguments.AddRange(["-map", "-0:a?"]);
@@ -248,8 +309,28 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
             && !StreamCompatibilityPolicy.ShouldCopyDataStreams(job.Container, job.StreamHandling.RemoveData))
         {
             arguments.AddRange(["-map", "-0:d?"]);
+            if (mediaInfo.DataStreams.Any(stream => stream.IsAttachment))
+                arguments.AddRange(["-map", "-0:t?"]);
         }
 
+        return arguments;
+    }
+
+    private static IReadOnlyList<AttachedPictureStreamInfo> CopiedPictureStreams(JobDefinition job, SourceMediaInfo mediaInfo) =>
+        job.StreamHandling.RemoveImages || job.Container is OutputContainer.Mkv or OutputContainer.Mka
+            ? []
+            : mediaInfo.AttachedPictureStreams.Where(stream =>
+                StreamCompatibilityPolicy.CanCopyAttachedPicture(job.Container, stream)).ToArray();
+
+    private static IReadOnlyList<string> BuildPictureCodecArguments(JobDefinition job, SourceMediaInfo mediaInfo)
+    {
+        var arguments = new List<string>();
+        var index = job.VideoMode == VideoMode.Remove || mediaInfo.PrimaryVideoStream is null ? 0 : 1;
+        foreach (var stream in CopiedPictureStreams(job, mediaInfo))
+        {
+            arguments.AddRange([$"-c:v:{index}", "copy", $"-disposition:v:{index}", "attached_pic"]);
+            index++;
+        }
         return arguments;
     }
 
@@ -494,6 +575,23 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
             arguments.AddRange(BuildSvtAv1Params(job, mediaInfo));
 
         arguments.AddRange(CodecParamsArguments(job, mediaInfo));
+
+        // Filters cannot apply to stream-copied cover art. Keep video transforms
+        // scoped to the primary video while the image streams remain untouched.
+        if (CopiedPictureStreams(job, mediaInfo).Count > 0)
+        {
+            for (var i = 0; i < arguments.Count; i += 2)
+            {
+                arguments[i] = arguments[i] switch
+                {
+                    "-vf" => "-filter:v:0",
+                    "-pix_fmt" => "-pix_fmt:v:0",
+                    "-r" => "-r:v:0",
+                    var option when option.EndsWith(":v", StringComparison.Ordinal) => option + ":0",
+                    var option => option,
+                };
+            }
+        }
 
         return arguments;
     }

@@ -123,6 +123,21 @@ public class MediaProbeServiceParsingTests
         var result = MediaProbeService.ParseMediaInfo("/test/video.mkv", json);
         result.DataStreams.Should().HaveCount(1);
         result.DataStreams[0].CodecName.Should().Be("ttf");
+        result.DataStreams[0].IsAttachment.Should().BeTrue();
+    }
+
+    [Fact]
+    public void ParseMediaInfo_AttachedPicture_ParsesFileNameAndMimeType()
+    {
+        var media = MediaProbeService.ParseMediaInfo("/test/movie.mkv", """
+            { "streams": [{ "index": 7, "codec_type": "video", "codec_name": "png",
+                "disposition": { "attached_pic": 1 },
+                "tags": { "filename": "Original Release.png", "mimetype": "image/png" }
+            }] }
+            """);
+
+        media.AttachedPictureStreams.Should().ContainSingle().Which
+            .Should().Be(new AttachedPictureStreamInfo(7, "png", "Original Release.png", "image/png"));
     }
 
     [Fact]
@@ -187,7 +202,7 @@ public class MediaProbeServiceParsingTests
 
         media.VideoStreams.Should().ContainSingle().Which.Index.Should().Be(0);
         (media.PrimaryVideoStream?.CodecName).Should().Be("hevc");
-        media.AttachedPictureStreams.Should().Equal(new DataStreamInfo(7, "png"), new DataStreamInfo(8, "mjpeg"));
+        media.AttachedPictureStreams.Should().Equal(new AttachedPictureStreamInfo(7, "png"), new AttachedPictureStreamInfo(8, "mjpeg"));
         media.StreamCount.Should().Be(3);
         var validation = new ValidationService().Validate(new OutputSettings { VideoMode = VideoMode.Copy }, media);
         validation.Issues.Should().NotContain(issue => issue.Code == "multiple_video_streams");

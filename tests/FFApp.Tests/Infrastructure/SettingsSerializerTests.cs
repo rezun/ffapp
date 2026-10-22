@@ -235,13 +235,29 @@ public class SettingsSerializerTests
     {
         var original = new TestOutputSettingsBuilder()
             .WithStreamHandling(new StreamHandlingOptions(
-                RemoveSubtitles: true, RemoveData: true))
+                RemoveSubtitles: true, RemoveData: true, RemoveImages: true))
             .Build();
 
         var result = RoundTrip(original);
 
         result.StreamHandling.RemoveSubtitles.Should().BeTrue();
         result.StreamHandling.RemoveData.Should().BeTrue();
+        result.StreamHandling.RemoveImages.Should().BeTrue();
+    }
+
+    [Fact]
+    public void RoundTrip_DefaultStreamHandling_PreservesImages()
+    {
+        RoundTrip(new OutputSettings()).StreamHandling.RemoveImages.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("{}")]
+    [InlineData("{\"stream_handling\":{\"remove_data\":true}}")]
+    public void Deserialize_MissingRemoveImages_DefaultsToPreservingImages(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        SettingsSerializer.DeserializeOutputSettings(doc.RootElement).StreamHandling.RemoveImages.Should().BeFalse();
     }
 
     [Fact]

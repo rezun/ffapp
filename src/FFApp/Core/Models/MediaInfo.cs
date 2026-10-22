@@ -10,7 +10,7 @@ public sealed record SourceMediaInfo
     public int? BitRate { get; init; }
     public ImmutableArray<string> MetadataKeys { get; init; } = [];
     public ImmutableArray<VideoStreamInfo> VideoStreams { get; init; } = [];
-    public ImmutableArray<DataStreamInfo> AttachedPictureStreams { get; init; } = [];
+    public ImmutableArray<AttachedPictureStreamInfo> AttachedPictureStreams { get; init; } = [];
     public ImmutableArray<AudioStreamInfo> AudioStreams { get; init; } = [];
     public ImmutableArray<SubtitleStreamInfo> SubtitleStreams { get; init; } = [];
     public ImmutableArray<DataStreamInfo> DataStreams { get; init; } = [];

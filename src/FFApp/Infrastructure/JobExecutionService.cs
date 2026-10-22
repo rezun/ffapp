@@ -12,6 +12,11 @@ public sealed class DefaultJobExecutionService(
     IMatroskaPostProcessor matroskaPostProcessor,
     TimeProvider timeProvider) : IJobExecutionService
 {
+    /// <summary>
+    /// Executes preparation, encoding and post-processing in order. Cancellation stops
+    /// the active process; temporary image files and two-pass logs are removed in finally.
+    /// A partially written output file is retained, matching failed encoding behavior.
+    /// </summary>
     public async Task<JobResult> ExecuteAsync(
         JobDefinition job,
         SourceMediaInfo mediaInfo,
@@ -25,7 +30,7 @@ public sealed class DefaultJobExecutionService(
         var plannedCommands = postProcessCommand is null
             ? encodingCommands
             : [.. encodingCommands, postProcessCommand];
-        var passCount = encodingCommands.Count;
+        var passCount = encodingCommands.Count(command => command.Protocol == ProcessProtocol.Ffmpeg);
         var expectedDuration = EffectiveOutputDuration(job, mediaInfo);
         var expectedFrameCount = EstimateOutputFrameCount(job, mediaInfo);
         var processResults = new List<ProcessExecutionResult>(passCount);
@@ -44,9 +49,11 @@ public sealed class DefaultJobExecutionService(
 
         try
         {
-            for (var i = 0; i < passCount; i++)
+            var completedPasses = 0;
+            for (var i = 0; i < encodingCommands.Count; i++)
             {
-                var passIndex = i + 1;
+                var isPreparation = encodingCommands[i].Protocol == ProcessProtocol.Plain;
+                var passIndex = isPreparation ? 1 : ++completedPasses;
 
                 Action<ProcessProgress>? wrappedProgress = progressCallback is not null
                     ? progress =>
@@ -62,7 +69,9 @@ public sealed class DefaultJobExecutionService(
                     }
                 : null;
 
-                Action<string>? wrappedLog = logCallback is not null && passCount > 1
+                Action<string>? wrappedLog = logCallback is not null && isPreparation
+                    ? line => logCallback($"[Preparing images] {line}")
+                    : logCallback is not null && passCount > 1
                     ? line => logCallback($"[Pass {passIndex}] {line}")
                     : logCallback;
 
@@ -96,6 +105,21 @@ public sealed class DefaultJobExecutionService(
         finally
         {
             CleanupTwoPassLogs(job.OutputPath);
+            foreach (var path in encodingCommands.SelectMany(command => command.TemporaryFiles))
+            {
+                try
+                {
+                    File.Delete(path);
+                }
+                catch (IOException ex)
+                {
+                    logCallback?.Invoke($"[Warning] Could not delete temporary image {path}: {ex.Message}");
+                }
+                catch (UnauthorizedAccessException ex)
+                {
+                    logCallback?.Invoke($"[Warning] Could not delete temporary image {path}: {ex.Message}");
+                }
+            }
         }
 
         var finalState = ResolveJobState(processResults);
@@ -172,7 +196,7 @@ public sealed class DefaultJobExecutionService(
             if (!string.IsNullOrEmpty(output))
             {
                 var label = result.Command.Protocol == ProcessProtocol.Plain
-                    ? "Post-processing"
+                    ? result.Command.TemporaryFiles.Length > 0 ? "Preparing images" : "Post-processing"
                     : $"Pass {++passIndex}";
                 parts.Add($"[{label}]{Environment.NewLine}{output}");
             }

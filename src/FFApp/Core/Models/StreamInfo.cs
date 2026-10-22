@@ -67,4 +67,13 @@ public sealed record SubtitleStreamInfo(
 
 public sealed record DataStreamInfo(
     int Index,
-    string? CodecName = null);
+    string? CodecName = null)
+{
+    public bool IsAttachment { get; init; }
+}
+
+public sealed record AttachedPictureStreamInfo(
+    int Index,
+    string? CodecName = null,
+    string? FileName = null,
+    string? MimeType = null);

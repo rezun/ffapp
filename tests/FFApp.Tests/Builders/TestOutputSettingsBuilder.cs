@@ -72,6 +72,9 @@ public class TestOutputSettingsBuilder
     public TestOutputSettingsBuilder WithRemoveData() =>
         Apply(s => s with { StreamHandling = s.StreamHandling with { RemoveData = true } });
 
+    public TestOutputSettingsBuilder WithRemoveImages() =>
+        Apply(s => s with { StreamHandling = s.StreamHandling with { RemoveImages = true } });
+
     public TestOutputSettingsBuilder WithMatroskaStatistics(bool enabled = true) =>
         Apply(s => s with
         {

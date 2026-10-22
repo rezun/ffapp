@@ -6,6 +6,9 @@
              x:DataType="vm:StreamHandlingViewModel">
 
     <StackPanel Spacing="4">
+        <CheckBox Content="Remove image streams"
+                  ToolTip.Tip="Exclude attached images such as cover art. When unchecked, images are copied unchanged where supported by the output container."
+                  IsChecked="{Binding RemoveImages}" />
         <CheckBox Content="Remove subtitle streams"
                   ToolTip.Tip="Exclude all subtitle streams. When unchecked, supported subtitles are copied or converted as needed for the output container."
                   IsChecked="{Binding RemoveSubtitles}" />

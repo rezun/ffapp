@@ -14,6 +14,7 @@ public class TestMediaInfoBuilder
     private ImmutableArray<AudioStreamInfo> _audioStreams = [new(1, "aac", 128_000, 2, 48000, "eng")];
     private ImmutableArray<SubtitleStreamInfo> _subtitleStreams = [];
     private ImmutableArray<DataStreamInfo> _dataStreams = [];
+    private ImmutableArray<AttachedPictureStreamInfo> _attachedPictureStreams = [];
 
     public SourceMediaInfo Build() => new()
     {
@@ -26,6 +27,7 @@ public class TestMediaInfoBuilder
         AudioStreams = _audioStreams,
         SubtitleStreams = _subtitleStreams,
         DataStreams = _dataStreams,
+        AttachedPictureStreams = _attachedPictureStreams,
     };
 
     public TestMediaInfoBuilder WithSourcePath(string path) { _sourcePath = path; return this; }
@@ -34,6 +36,16 @@ public class TestMediaInfoBuilder
     public TestMediaInfoBuilder WithBitRate(int? bitRate) { _bitRate = bitRate; return this; }
     public TestMediaInfoBuilder WithContainerFormat(string? format) { _containerFormat = format; return this; }
     public TestMediaInfoBuilder WithMetadataKeys(params string[] keys) { _metadataKeys = [.. keys]; return this; }
+
+    public TestMediaInfoBuilder WithAttachedPictures()
+    {
+        _attachedPictureStreams =
+        [
+            new AttachedPictureStreamInfo(7, "png", "release.png", "image/png"),
+            new AttachedPictureStreamInfo(8, "mjpeg", "cover.jpg", "image/jpeg"),
+        ];
+        return this;
+    }
 
     public TestMediaInfoBuilder WithVideoStreams(params VideoStreamInfo[] streams)
     {

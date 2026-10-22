@@ -81,6 +81,60 @@ public class JobExecutionServiceTests
     private DefaultJobExecutionService CreateSut() =>
         new(_commandBuilder, _processRunner, _postProcessor, TimeProvider.System);
 
+    [Theory]
+    [InlineData(JobState.Completed)]
+    [InlineData(JobState.Failed)]
+    [InlineData(JobState.Canceled)]
+    public async Task ExecuteAsync_ImagePreparation_CleansTemporaryFilesAndDoesNotCountAsPass(JobState state)
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"ffapp-test-image-{Guid.NewGuid():N}");
+        await File.WriteAllTextAsync(path, "image");
+        try
+        {
+            var preparation = Command("extract", ProcessProtocol.Plain) with { TemporaryFiles = [path] };
+            var encode = Command("encode", ProcessProtocol.Ffmpeg);
+            _commandBuilder.Build(Arg.Any<JobDefinition>(), Arg.Any<SourceMediaInfo>()).Returns([preparation, encode]);
+            ConfigureResult(preparation, JobState.Completed);
+            ConfigureResult(encode, state);
+            var progress = new List<JobProgress>();
+
+            var result = await CreateSut().ExecuteAsync(DefaultJob(), DefaultMedia(), progress.Add);
+
+            result.State.Should().Be(state);
+            result.ProcessResults.Select(process => process.Command).Should().Equal(preparation, encode);
+            progress.Should().OnlyContain(update => update.PassCount == 1 && update.PassIndex == 1);
+            File.Exists(path).Should().BeFalse();
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ImageExtractionFailure_StopsBeforeEncodingAndCleansFiles()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"ffapp-test-image-{Guid.NewGuid():N}");
+        await File.WriteAllTextAsync(path, "partial image");
+        try
+        {
+            var preparation = Command("extract", ProcessProtocol.Plain) with { TemporaryFiles = [path] };
+            var encode = Command("encode", ProcessProtocol.Ffmpeg);
+            _commandBuilder.Build(Arg.Any<JobDefinition>(), Arg.Any<SourceMediaInfo>()).Returns([preparation, encode]);
+            ConfigureResult(preparation, JobState.Failed);
+
+            var result = await CreateSut().ExecuteAsync(DefaultJob(), DefaultMedia());
+
+            result.State.Should().Be(JobState.Failed);
+            result.ProcessResults.Should().ContainSingle().Which.Command.Should().Be(preparation);
+            File.Exists(path).Should().BeFalse();
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     [Fact]
     public async Task ExecuteAsync_PassesSamePauseStateToBothPassesAndPostProcessing()
     {

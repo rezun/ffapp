@@ -800,13 +800,13 @@ public class CommandBuilderTests
     [InlineData(VideoMode.Copy)]
     [InlineData(VideoMode.Reencode)]
     [InlineData(VideoMode.Remove)]
-    public void Build_AttachedPictures_ExcludedFromOutput(VideoMode mode)
+    public void Build_RemoveImages_AttachedPicturesExcludedFromOutput(VideoMode mode)
     {
         var media = new TestMediaInfoBuilder().Build() with
         {
-            AttachedPictureStreams = [new DataStreamInfo(7, "png"), new DataStreamInfo(8, "mjpeg")],
+            AttachedPictureStreams = [new AttachedPictureStreamInfo(7, "png"), new AttachedPictureStreamInfo(8, "mjpeg")],
         };
-        var job = new TestJobDefinitionBuilder().WithOutputSettings(s => s.WithVideoMode(mode)).Build();
+        var job = new TestJobDefinitionBuilder().WithOutputSettings(s => s.WithVideoMode(mode).WithRemoveImages()).Build();
 
         var args = JoinArgs(_sut.Build(job, media)[0]);
 

@@ -101,6 +101,12 @@ internal static class StreamCompatibilityPolicy
     internal static bool ShouldCopyDataStreams(OutputContainer container, bool removeData) =>
         !removeData && IsMatroskaContainer(container);
 
+    internal static bool CanCopyAttachedPicture(OutputContainer container, AttachedPictureStreamInfo stream) =>
+        IsMatroskaContainer(container)
+        || (container is OutputContainer.Mp4 or OutputContainer.M4a
+            && (string.Equals(stream.CodecName, "png", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(stream.CodecName, "mjpeg", StringComparison.OrdinalIgnoreCase)));
+
     internal static bool ShouldWarnDataStreamsNotPreserved(
         OutputContainer container,
         IReadOnlyList<DataStreamInfo> streams,

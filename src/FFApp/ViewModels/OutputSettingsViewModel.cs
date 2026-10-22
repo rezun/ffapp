@@ -195,6 +195,7 @@ public partial class OutputSettingsViewModel : ObservableObject
             // Stream handling
             StreamHandling.RemoveSubtitles = settings.StreamHandling.RemoveSubtitles;
             StreamHandling.RemoveData = settings.StreamHandling.RemoveData;
+            StreamHandling.RemoveImages = settings.StreamHandling.RemoveImages;
             RecalculateMatroskaStatistics =
                 settings.PostProcessing.RecalculateMatroskaStatistics;
 
@@ -272,7 +273,8 @@ public partial class OutputSettingsViewModel : ObservableObject
                 RemoveTrackTitles: Audio.RemoveTrackTitles),
             StreamHandling: new StreamHandlingOptions(
                 RemoveSubtitles: StreamHandling.RemoveSubtitles,
-                RemoveData: StreamHandling.RemoveData),
+                RemoveData: StreamHandling.RemoveData,
+                RemoveImages: StreamHandling.RemoveImages),
             TargetFileSize: new TargetFileSizeOptions(
                 TargetSizeMb: (int)Strategy.FileSize.TargetSizeMb,
                 TwoPass: Strategy.FileSize.TwoPass,

@@ -43,6 +43,7 @@ public static class SettingsSerializer
             {
                 ["remove_subtitles"] = settings.StreamHandling.RemoveSubtitles,
                 ["remove_data"] = settings.StreamHandling.RemoveData,
+                ["remove_images"] = settings.StreamHandling.RemoveImages,
             },
             ["target_file_size"] = new JsonObject
             {
@@ -126,7 +127,8 @@ public static class SettingsSerializer
         var streamEl = GetObjectOrEmpty(element, "stream_handling");
         var streamHandling = new StreamHandlingOptions(
             RemoveSubtitles: ReadBool(streamEl, "remove_subtitles"),
-            RemoveData: ReadBool(streamEl, "remove_data"));
+            RemoveData: ReadBool(streamEl, "remove_data"),
+            RemoveImages: ReadBool(streamEl, "remove_images"));
 
         // Target file size
         var fileSizeEl = GetObjectOrEmpty(element, "target_file_size");

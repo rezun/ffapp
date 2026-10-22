@@ -45,7 +45,8 @@ public sealed record AudioOptions(
 
 public sealed record StreamHandlingOptions(
     bool RemoveSubtitles = false,
-    bool RemoveData = false);
+    bool RemoveData = false,
+    bool RemoveImages = false);
 
 public sealed record PostProcessingOptions(
     bool RecalculateMatroskaStatistics = false);

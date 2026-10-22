@@ -162,6 +162,27 @@ public class OutputSettingsViewModelTests
         settings.AudioOptions.AudioChannels.Should().BeNull();
         settings.AudioOptions.SampleRate.Should().BeNull();
         settings.AudioOptions.RemoveTrackTitles.Should().BeFalse();
+        settings.StreamHandling.RemoveImages.Should().BeFalse();
+    }
+
+    [Fact]
+    public void RemoveImages_RestoredAndEditsNotifyWorkspace()
+    {
+        var messenger = new WeakReferenceMessenger();
+        var sut = new OutputSettingsViewModel(_validationService, messenger, _capabilityService, _pathsConfig);
+        sut.UpdateSourceInfo(new TestMediaInfoBuilder().Build());
+        sut.ApplySettings(new TestOutputSettingsBuilder().WithRemoveImages().Build());
+        sut.StreamHandling.RemoveImages.Should().BeTrue();
+        sut.BuildSettings().StreamHandling.RemoveImages.Should().BeTrue();
+        OutputSettings? notified = null;
+        var recipient = new object();
+        messenger.Register<OutputSettingsChangedMessage>(recipient, (_, message) => notified = message.Value);
+
+        sut.StreamHandling.RemoveImages = false;
+
+        sut.BuildSettings().StreamHandling.RemoveImages.Should().BeFalse();
+        notified.Should().NotBeNull();
+        (notified?.StreamHandling.RemoveImages).Should().BeFalse();
     }
 
     [Theory]

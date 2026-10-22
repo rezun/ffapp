@@ -69,6 +69,17 @@ public sealed class ValidationService : IValidationService
 
         ValidateSubtitleCopyCompatibility(settings, mediaInfo, issues);
         ValidateDataCopyCompatibility(settings, mediaInfo, issues);
+        if (!settings.StreamHandling.RemoveImages
+            && mediaInfo.AttachedPictureStreams.Any(stream =>
+                !StreamCompatibilityPolicy.CanCopyAttachedPicture(settings.Container, stream)))
+        {
+            issues.Add(new ValidationIssue(
+                ValidationSeverity.Warning,
+                "image_streams_not_preserved",
+                $"{settings.Container.ToString().ToUpperInvariant()} output cannot preserve some attached images. "
+                    + "Unsupported images will be removed automatically.",
+                "remove_images"));
+        }
 
         if (settings.VideoMode == VideoMode.Remove)
         {

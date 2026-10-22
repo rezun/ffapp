@@ -41,7 +41,10 @@ public sealed record GeneratedCommand(
     string ExecutablePath,
     ImmutableArray<string> Arguments,
     string DisplayString,
-    ProcessProtocol Protocol = ProcessProtocol.Ffmpeg);
+    ProcessProtocol Protocol = ProcessProtocol.Ffmpeg)
+{
+    public ImmutableArray<string> TemporaryFiles { get; init; } = [];
+}
 
 public sealed record ProcessProgress(
     double ElapsedSeconds,

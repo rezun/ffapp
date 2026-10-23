@@ -132,7 +132,7 @@ public static class FormatHelpers
     public static string FormatJobResultSummary(JobResult result) =>
         $"State: {JobStateLabel(result.State)} | " +
         $"Elapsed: {FormatPreciseDuration(result.ElapsedSeconds)} | " +
-        $"Commands Run: {result.ProcessResults.Length} of {result.Commands.Length}";
+        $"Commands run: {result.ProcessResults.Length} of {result.Commands.Length}";
 
     public static string FormatQueueSummary(IEnumerable<QueueItem> items)
     {

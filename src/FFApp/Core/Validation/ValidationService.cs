@@ -50,7 +50,7 @@ public sealed class ValidationService : IValidationService
             issues.Add(new ValidationIssue(
                 ValidationSeverity.Error,
                 "audio_container_requires_video_remove",
-                "Audio-only containers require Video Mode to be set to Remove.",
+                "Audio-only containers require Video mode to be set to Remove.",
                 "video_mode"));
         }
 

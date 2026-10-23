@@ -35,7 +35,7 @@
             <DockPanel>
                 <!-- Header + execution controls -->
                 <StackPanel DockPanel.Dock="Top" Margin="8,6,8,6" Spacing="6">
-                    <TextBlock Text="Encode Queue"
+                    <TextBlock Text="Encode queue"
                                Classes="card-header" Margin="0"
                                VerticalAlignment="Center" />
                     <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">

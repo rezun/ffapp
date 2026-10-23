@@ -34,7 +34,7 @@ internal static partial class JobFailureAnalyzer
             {
                 var encoder = sampleRate.Groups["encoder"].Value;
                 var suggestion = string.Equals(encoder, "libopus", StringComparison.OrdinalIgnoreCase)
-                    ? "Set Audio → Sample Rate to 48 kHz, then create a new job with the corrected settings."
+                    ? "Set Audio → Sample rate to 48 kHz, then create a new job with the corrected settings."
                     : "Choose a sample rate supported by the audio encoder, then create a new job.";
                 return new JobFailure("Unsupported audio sample rate",
                     $"{encoder} cannot encode audio at {FormatSampleRate(rate)}.",

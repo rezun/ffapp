@@ -202,7 +202,7 @@ public partial class JobListPanelViewModel : ObservableObject
         if (validation.HasErrors)
         {
             await _dialogService.ShowErrorAsync(
-                "Validation Error",
+                "Validation error",
                 string.Join(Environment.NewLine, validation.Errors.Select(e => e.Message)));
             return;
         }
@@ -216,7 +216,7 @@ public partial class JobListPanelViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            await _dialogService.ShowErrorAsync("Command Error", ex.Message);
+            await _dialogService.ShowErrorAsync("Command error", ex.Message);
             return;
         }
 
@@ -403,7 +403,7 @@ public partial class JobListPanelViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            await _dialogService.ShowErrorAsync("Execution Error", ex.Message);
+            await _dialogService.ShowErrorAsync("Execution error", ex.Message);
         }
         finally
         {
@@ -437,7 +437,7 @@ public partial class JobListPanelViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            await _dialogService.ShowErrorAsync("Pause / Resume Error", ex.Message);
+            await _dialogService.ShowErrorAsync("Pause / resume error", ex.Message);
         }
     }
 

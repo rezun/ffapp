@@ -66,7 +66,7 @@
         <DataTemplate DataType="qvm:H26xQualitySettingsViewModel">
             <Border Classes="nested-card" Margin="0,4,0,0">
                 <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="H.264 / H.265 Encoder Tuning"
+                    <TextBlock DockPanel.Dock="Top" Text="H.264 / H.265 encoder tuning"
                                Classes="nested-card-header" />
                     <Separator DockPanel.Dock="Top" />
                     <StackPanel Spacing="4" Margin="6,4,6,6">
@@ -99,7 +99,7 @@
         <DataTemplate DataType="qvm:Av1QualitySettingsViewModel">
             <Border Classes="nested-card" Margin="0,4,0,0">
                 <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="AV1 Encoder Tuning"
+                    <TextBlock DockPanel.Dock="Top" Text="AV1 encoder tuning"
                                Classes="nested-card-header" />
                     <Separator DockPanel.Dock="Top" />
                     <StackPanel Spacing="4" Margin="6,4,6,6">
@@ -118,7 +118,7 @@
                             </TextBlock>
                         </Grid>
                         <Grid ColumnDefinitions="112,Auto,8,Auto,*">
-                            <TextBlock Text="Max Bitrate" VerticalAlignment="Center" />
+                            <TextBlock Text="Max bitrate" VerticalAlignment="Center" />
                             <ctrl:NumericTextBox Grid.Column="1"
                                      ToolTip.Tip="Limit AV1 video bitrate in quality (CRF) mode, in kbps. Leave empty for no cap. A tight cap may reduce quality in complex scenes."
                                      Classes="numeric-input"
@@ -155,18 +155,18 @@
                                       IsChecked="{Binding EnableOverlaysChecked}" />
                             <CheckBox x:Name="VarianceBoostEnabledCheckBox" Grid.Column="3"
                                       ToolTip.Tip="Allocate more quality to low-contrast areas to preserve subtle textures. This can increase bitrate in quality mode."
-                                      Content="Variance Boost"
+                                      Content="Variance boost"
                                       VerticalAlignment="Center"
                                       IsChecked="{Binding EnableVarianceBoostChecked}" />
                             <CheckBox x:Name="FilmGrainEnabledCheckBox" Grid.Column="5"
-                                      Content="Film Grain"
+                                      Content="Film grain"
                                       VerticalAlignment="Center"
                                       IsChecked="{Binding IsFilmGrainEnabled}"
                                       ToolTip.Tip="Enable film grain synthesis and show its settings." />
                         </Grid>
                         <Grid x:Name="VarianceBoostOptionsPanel" ColumnDefinitions="112,Auto,16,Auto,Auto,*"
                               IsVisible="{Binding EnableVarianceBoostChecked}">
-                            <TextBlock Text="Boost Strength" VerticalAlignment="Center" />
+                            <TextBlock Text="Boost strength" VerticalAlignment="Center" />
                             <ctrl:NoWheelComboBox x:Name="VarianceBoostStrengthComboBox" Grid.Column="1"
                                 MinWidth="160"
                                 ItemsSource="{Binding AvailableVarianceBoostStrengths}"
@@ -183,7 +183,7 @@
                         </Grid>
                         <Grid x:Name="FilmGrainOptionsPanel" ColumnDefinitions="112,Auto,16,Auto,16,Auto,*"
                               IsVisible="{Binding IsFilmGrainEnabled}">
-                            <TextBlock Text="Grain Strength" VerticalAlignment="Center" />
+                            <TextBlock Text="Grain strength" VerticalAlignment="Center" />
                             <ctrl:NoWheelComboBox x:Name="FilmGrainComboBox" Grid.Column="1"
                                 MinWidth="64"
                                 ItemsSource="{Binding AvailableFilmGrainStrengths}"
@@ -216,12 +216,12 @@
         <DataTemplate DataType="qvm:VpxQualitySettingsViewModel">
             <Border Classes="nested-card" Margin="0,4,0,0">
                 <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="VP9 Encoder Tuning"
+                    <TextBlock DockPanel.Dock="Top" Text="VP9 encoder tuning"
                                Classes="nested-card-header" />
                     <Separator DockPanel.Dock="Top" />
                     <StackPanel Spacing="4" Margin="6,4,6,6">
                         <Grid ColumnDefinitions="80,*,Auto">
-                            <TextBlock Text="CPU Used" VerticalAlignment="Center" />
+                            <TextBlock Text="CPU used" VerticalAlignment="Center" />
                             <Slider Grid.Column="1"
                                     ToolTip.Tip="VP9 speed setting: lower values spend more time on compression; higher values encode faster with a quality or file-size tradeoff."
                                     Value="{Binding CpuUsed}"
@@ -235,13 +235,13 @@
                             </TextBlock>
                         </Grid>
                         <Grid ColumnDefinitions="80,Auto,16,80,Auto,*">
-                            <TextBlock Text="Tile Cols" VerticalAlignment="Center" />
+                            <TextBlock Text="Tile cols" VerticalAlignment="Center" />
                             <ctrl:NoWheelComboBox Grid.Column="1"
                                 ToolTip.Tip="VP9 tile columns, expressed as powers of two: 1 = 2 columns, 2 = 4. More tiles allow parallel work but may reduce compression efficiency. 0 leaves the encoder default."
                                 MinWidth="64"
                                 ItemsSource="{Binding AvailableTileColumns}"
                                 SelectedItem="{Binding TileColumns}" />
-                            <TextBlock Grid.Column="3" Text="Tile Rows" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="3" Text="Tile rows" VerticalAlignment="Center" />
                             <ctrl:NoWheelComboBox Grid.Column="4"
                                 ToolTip.Tip="VP9 tile rows, expressed as powers of two: 1 = 2 rows, 2 = 4. More tiles allow parallel work but may reduce compression efficiency. 0 leaves the encoder default."
                                 MinWidth="64"
@@ -274,7 +274,7 @@
 
                     <!-- Video Mode -->
                     <Grid ColumnDefinitions="85,*">
-                        <TextBlock Text="Video Mode" VerticalAlignment="Center" />
+                        <TextBlock Text="Video mode" VerticalAlignment="Center" />
                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" IsEnabled="{Binding IsVideoModeEditable}">
                             <RadioButton Content="Copy" GroupName="VideoMode"
                                 ToolTip.Tip="Copy video without re-encoding. Preserves its quality; resolution, frame rate, crop and encoder settings do not apply."
@@ -313,7 +313,7 @@
                     <!-- Re-encode settings (visible only when re-encoding) -->
                     <StackPanel Spacing="4" IsVisible="{Binding Format.IsVideoReencode}">
                         <Grid ColumnDefinitions="85,Auto,16,Auto,8,Auto,16,Auto,8,Auto,*">
-                            <TextBlock Text="Video Codec" VerticalAlignment="Center" />
+                            <TextBlock Text="Video codec" VerticalAlignment="Center" />
                             <ctrl:NoWheelComboBox Grid.Column="1"
                                 ToolTip.Tip="Choose how the video is compressed. Codec support varies by container and playback device."
                                 MinWidth="108"
@@ -327,7 +327,7 @@
                                 ItemsSource="{Binding AvailableResolutions}"
                                 SelectedItem="{Binding SelectedResolution}"
                                 ItemTemplate="{StaticResource ResolutionTemplate}" />
-                            <TextBlock Grid.Column="7" Text="Frame Rate" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="7" Text="Frame rate" VerticalAlignment="Center" />
                             <ctrl:NoWheelComboBox Grid.Column="9"
                                 ToolTip.Tip="Set output frames per second. Conversion may duplicate or drop frames. Original avoids requesting a frame-rate conversion."
                                 MinWidth="108"
@@ -399,7 +399,7 @@
                                 <Separator DockPanel.Dock="Top" />
                                 <StackPanel Spacing="4" Margin="6,4,6,6">
                                     <Grid ColumnDefinitions="85,*">
-                                        <TextBlock Text="HDR Mode" VerticalAlignment="Center" />
+                                        <TextBlock Text="HDR mode" VerticalAlignment="Center" />
                                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
                                             <RadioButton Content="Preserve HDR" GroupName="HdrMode"
                                                 ToolTip.Tip="Keep HDR color information when encoding with a supported codec. Playback requires a suitable HDR display and player."

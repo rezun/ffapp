@@ -18,7 +18,7 @@
 
         <!-- Video Codec -->
         <Grid ColumnDefinitions="100,*">
-            <TextBlock Text="Video Codec" VerticalAlignment="Center" />
+            <TextBlock Text="Video codec" VerticalAlignment="Center" />
             <ctrl:NoWheelComboBox Grid.Column="1"
                 ToolTip.Tip="Choose how the video is compressed. Codec support varies by container and playback device."
                 ItemsSource="{Binding AvailableVideoCodecs}"

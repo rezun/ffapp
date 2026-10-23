@@ -127,7 +127,7 @@ public partial class PresetViewModel : ObservableObject
         _currentSettings ??= new OutputSettings();
 
         var name = await _dialogService.PromptTextAsync(
-            "Save Preset", "Enter a name for this preset:",
+            "Save preset", "Enter a name for this preset:",
             SelectedPreset?.Name);
 
         if (string.IsNullOrWhiteSpace(name))
@@ -148,7 +148,7 @@ public partial class PresetViewModel : ObservableObject
             return;
 
         var newName = await _dialogService.PromptTextAsync(
-            "Rename Preset", "Enter the new name:",
+            "Rename preset", "Enter the new name:",
             SelectedPreset.Name);
 
         if (string.IsNullOrWhiteSpace(newName))
@@ -167,7 +167,7 @@ public partial class PresetViewModel : ObservableObject
             return;
 
         var confirmed = await _dialogService.ConfirmAsync(
-            "Delete Preset",
+            "Delete preset",
             $"Delete preset \"{SelectedPreset.Name}\"?");
 
         if (!confirmed)

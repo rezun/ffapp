@@ -13,7 +13,7 @@
             <DockPanel>
                 <!-- Header row -->
                 <DockPanel DockPanel.Dock="Top" Margin="8,6,8,4">
-                    <TextBlock Text="Source Files"
+                    <TextBlock Text="Source files"
                                Classes="card-header" Margin="0"
                                VerticalAlignment="Center" />
                     <StackPanel Orientation="Horizontal"
@@ -89,7 +89,7 @@
         <Border Classes="card">
             <DockPanel Margin="8,6,8,8">
                 <TextBlock DockPanel.Dock="Top"
-                           Text="Media Info"
+                           Text="Media info"
                            Classes="card-header" Margin="0,0,0,4" />
 
                 <SelectableTextBlock Classes="mono caption"

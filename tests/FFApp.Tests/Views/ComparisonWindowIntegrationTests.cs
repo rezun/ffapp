@@ -30,7 +30,7 @@ public sealed class ComparisonWindowIntegrationTests(QueueTestSession fixture)
                 ?? throw new InvalidOperationException("Missing preset actions.");
             actions.Children.Should().Contain(button);
             actions.Children.Should().ContainSingle(c => c is PresetBarView);
-            button.Content.Should().Be("Compare Encodes");
+            button.Content.Should().Be("Compare encodes");
             actions.Measure(new Size(1000, 100));
             actions.Arrange(new Rect(0, 0, 1000, actions.DesiredSize.Height));
             button.Bounds.Right.Should().BeApproximately(actions.Bounds.Width, 0.5,

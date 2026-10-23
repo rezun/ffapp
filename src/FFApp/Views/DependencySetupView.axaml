@@ -13,7 +13,7 @@
                 Width="500"
                 Spacing="16">
 
-        <TextBlock Text="FFApp Setup"
+        <TextBlock Text="FFApp setup"
                    FontSize="24"
                    FontWeight="Bold"
                    HorizontalAlignment="Center"
@@ -25,7 +25,7 @@
 
         <!-- ffmpeg path -->
         <StackPanel Spacing="4">
-            <TextBlock Text="ffmpeg Path" FontWeight="SemiBold" />
+            <TextBlock Text="ffmpeg path" FontWeight="SemiBold" />
             <DockPanel>
                 <Button Content="Browse..."
                         ToolTip.Tip="Select the installed FFmpeg executable."
@@ -40,7 +40,7 @@
 
         <!-- ffprobe path -->
         <StackPanel Spacing="4">
-            <TextBlock Text="ffprobe Path" FontWeight="SemiBold" />
+            <TextBlock Text="ffprobe path" FontWeight="SemiBold" />
             <DockPanel>
                 <Button Content="Browse..."
                         ToolTip.Tip="Select the installed ffprobe executable."
@@ -55,7 +55,7 @@
 
         <!-- optional mkvpropedit path -->
         <StackPanel Spacing="4">
-            <TextBlock Text="mkvpropedit Path (optional)" FontWeight="SemiBold" />
+            <TextBlock Text="mkvpropedit path (optional)" FontWeight="SemiBold" />
             <DockPanel>
                 <Button Content="Browse..."
                         ToolTip.Tip="Select the optional mkvpropedit executable from MKVToolNix."

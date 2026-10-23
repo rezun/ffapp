@@ -195,3 +195,7 @@ Applies to serializers, binary parsers, streaming pipelines, and I/O code with v
 
 - Use source-generated regexes (`[GeneratedRegex]`) for all regular expressions by default, where possible.
 - Fall back to pre-compiling with `RegexOptions.Compiled` if source generation is not an option (e.g. dynamic patterns, unsupported features).
+
+## UI text
+
+Use sentence case for buttons, menu items, tabs, headings, field labels, dropdown options, and dialog titles: capitalize the first word, proper names, and abbreviations. For example: `Copy template`, `Compare encodes`, `Video codec`, and `HDR mode`. Preserve names and technical notation such as FFmpeg, Matroska, AV1, HDR, and BT.709. Apply this rule to static XAML labels and dynamically generated UI text alike.

@@ -79,7 +79,7 @@ public class JobListPanelViewModelTests
         await _sut.PauseResumeCommand.ExecuteAsync(null);
 
         _sut.IsPaused.Should().BeFalse();
-        await _dialogService.Received(1).ShowErrorAsync("Pause / Resume Error", "Access denied");
+        await _dialogService.Received(1).ShowErrorAsync("Pause / resume error", "Access denied");
     }
 
     [Fact]

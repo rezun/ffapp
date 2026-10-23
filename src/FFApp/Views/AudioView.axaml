@@ -16,7 +16,7 @@
 
         <!-- Audio Mode -->
         <Grid ColumnDefinitions="85,*">
-            <TextBlock Text="Audio Mode" VerticalAlignment="Center" />
+            <TextBlock Text="Audio mode" VerticalAlignment="Center" />
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
                 <RadioButton Content="Copy" GroupName="AudioMode"
                     ToolTip.Tip="Copy selected audio tracks without re-encoding. Preserves their quality and requires a compatible output container."
@@ -73,7 +73,7 @@
         <!-- Re-encode controls (visible only in Reencode mode) -->
         <StackPanel Spacing="4" IsVisible="{Binding IsReencodeMode}">
             <Grid ColumnDefinitions="85,Auto,16,75,*">
-                <TextBlock Text="Audio Codec" VerticalAlignment="Center" />
+                <TextBlock Text="Audio codec" VerticalAlignment="Center" />
                 <ctrl:NoWheelComboBox Grid.Column="1"
                     ToolTip.Tip="Choose the audio compression format. Available codecs depend on the output container and playback support."
                     Width="104"
@@ -124,7 +124,7 @@
                         </DataTemplate>
                     </ctrl:NoWheelComboBox.ItemTemplate>
                 </ctrl:NoWheelComboBox>
-                <TextBlock Grid.Column="3" Text="Sample Rate" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="3" Text="Sample rate" VerticalAlignment="Center" />
                 <ctrl:NoWheelComboBox x:Name="SampleRateComboBox" Grid.Column="4"
                     Width="104"
                     HorizontalAlignment="Left"

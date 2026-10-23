@@ -77,7 +77,7 @@ public static class EnumLabelConverters
             0 => "Source",
             1 => "Mono",
             2 => "Stereo",
-            6 => "5.1 Surround",
+            6 => "5.1 surround",
             _ => $"{v} ch",
         });
 
@@ -97,9 +97,9 @@ public static class EnumLabelConverters
         new(v => v switch
         {
             0 => "Off",
-            1 => "Block Copy + Palette",
-            2 => "Content Adaptive",
-            3 => "Content Adaptive (AA)",
+            1 => "Block copy + palette",
+            2 => "Content adaptive",
+            3 => "Content adaptive (AA)",
             _ => v.ToString(),
         });
 

@@ -69,7 +69,7 @@
                                     <views:PresetBarView DataContext="{Binding Preset}" Margin="0,0,8,0" />
                                     <Button x:Name="OpenComparisonButton" Grid.Column="1"
                                             HorizontalAlignment="Right" VerticalAlignment="Center"
-                                            Content="Compare Encodes"
+                                            Content="Compare encodes"
                                             Command="{Binding OpenComparisonCommand}"
                                             ToolTip.Tip="Open a separate comparison window for this source. Test short samples with independent encoding variants." />
                                 </Grid>

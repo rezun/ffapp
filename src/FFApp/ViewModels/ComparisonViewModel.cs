@@ -60,13 +60,6 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
     public string PrimaryActionLabel => IsSamplesStep ? "Next: choose variants →"
         : IsVariantsStep && MissingClipCount == 0 ? "View results →"
         : IsResultsStep && MissingClipCount == 0 ? $"Apply {SelectedVariant?.Name} to main window" : CreateClipsLabel;
-    public string StepGuidance => SelectedTab switch
-    {
-        0 => "Review the original samples first. Select a sample on the left, press Play sample, and adjust its start or duration if needed. No encoding is required.",
-        1 => "Choose the settings to test. Baseline contains the settings copied from the main window; duplicate it to compare alternatives.",
-        2 => "Select a result below to compare it with the original, or choose two encoded variants using A and B.",
-        _ => throw new ArgumentOutOfRangeException(nameof(SelectedTab)),
-    };
     public string PreviewTitle => SelectedSample is not { } sample ? "Original preview"
         : $"Original · {sample.Name} · {FormatHelpers.FormatCompactDuration(sample.StartSeconds)} · {sample.DurationSeconds:F1}s";
     public double MaximumStart => _session?.RangeEnd ?? 0;
@@ -111,7 +104,7 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
         LeftChoice = Choices.FirstOrDefault();
         RightChoice = Choices.Skip(1).FirstOrDefault();
         RefreshResults();
-        Status = "Start by reviewing the original samples. Choose variants when the sample selection looks useful.";
+        Status = "";
         OnPropertyChanged(nameof(MaximumStart));
         OnPropertyChanged(nameof(RangeStart));
         OnPropertyChanged(nameof(RangeEnd));
@@ -188,7 +181,6 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
         OnPropertyChanged(nameof(IsResultsStep));
         OnPropertyChanged(nameof(ShowResultTable));
         OnPropertyChanged(nameof(PrimaryActionLabel));
-        OnPropertyChanged(nameof(StepGuidance));
         if (IsVariantsStep) Playback.Pause();
         else RefreshPlayback();
     }

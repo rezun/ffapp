@@ -36,7 +36,7 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
     [ObservableProperty] private bool _loop = true;
     [ObservableProperty] private double _durationSeconds = 1;
     [ObservableProperty] private double _positionSeconds;
-    [ObservableProperty] private string _status = "Select a sample to preview the original.";
+    [ObservableProperty] private string _status = "";
     [ObservableProperty] private string _zoom = "Fit";
     [ObservableProperty] private string _layout = "Side by side";
 
@@ -134,8 +134,8 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
                 _priming = false;
                 HasMedia = true;
                 Status = IsSourcePreview
-                    ? "Original sample, paused. Press Play sample to watch; select another sample to preview it. Audio is muted."
-                    : "Both previews are muted. Shared seek, loop and zoom; A/B switches preserve position.";
+                    ? "Paused · Audio muted"
+                    : "Audio muted";
                 return;
             }
             if (!IsPlaying) return;
@@ -179,8 +179,8 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
     partial void OnIsPlayingChanged(bool value)
     {
         if (HasMedia && IsSourcePreview)
-            Status = value ? "Playing the original sample. Audio is muted."
-                : "Original sample, paused. Press Play sample to watch; select another sample to preview it. Audio is muted.";
+            Status = value ? "Playing · Audio muted"
+                : "Paused · Audio muted";
     }
 
     private void ApplyZoom()

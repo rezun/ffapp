@@ -19,6 +19,56 @@ namespace FFApp.Tests.Views;
 [Collection("Queue UI")]
 public sealed class ComparisonWindowTests(QueueTestSession fixture)
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Lists_UseSelectionForegroundForSecondaryText_AndRestoreOnDeselect(bool dark)
+    {
+        await fixture.Session.Dispatch(async () =>
+        {
+            using var harness = new ComparisonTestHarness();
+            await harness.LoadAsync();
+            var window = new ComparisonWindow
+            {
+                DataContext = harness.ViewModel,
+                RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light,
+            };
+            window.Show();
+            try
+            {
+                for (var step = 0; step < 2; step++)
+                {
+                    harness.ViewModel.SelectedTab = step;
+                    window.UpdateLayout();
+                    var list = window.FindControl<ListBox>(step == 0 ? "SampleList" : "VariantList")
+                        ?? throw new InvalidOperationException("List missing.");
+                    list.SelectedIndex = -1;
+                    window.UpdateLayout();
+                    var row = list.ContainerFromIndex(0) as ListBoxItem
+                        ?? throw new InvalidOperationException("List row missing.");
+                    var text = row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Classes.Contains("secondary"));
+                    var original = (text.Foreground as ISolidColorBrush)?.Color;
+                    original.Should().NotBeNull();
+                    list.SelectedIndex = 0;
+                    window.UpdateLayout();
+                    var presenter = row.GetVisualDescendants().OfType<ContentPresenter>()
+                        .Single(p => p.Name == "PART_ContentPresenter");
+                    (text.Foreground as ISolidColorBrush)?.Color.Should().Be((presenter.Foreground as ISolidColorBrush)?.Color);
+                    var point = row.TranslatePoint(new Point(10, 10), window)
+                        ?? throw new InvalidOperationException("List row not attached.");
+                    window.MouseMove(point);
+                    window.UpdateLayout();
+                    (text.Foreground as ISolidColorBrush)?.Color.Should().Be((presenter.Foreground as ISolidColorBrush)?.Color);
+                    list.SelectedIndex = -1;
+                    window.UpdateLayout();
+                    (text.Foreground as ISolidColorBrush)?.Color.Should().Be(original);
+                }
+            }
+            finally { await window.CloseSavedAsync(); }
+            return true;
+        }, CancellationToken.None);
+    }
+
     [Fact]
     public async Task Window_BindsSamplesVariantsAndResults_AndTimelineSelectsSample()
     {
@@ -48,8 +98,11 @@ public sealed class ComparisonWindowTests(QueueTestSession fixture)
                 samples.SelectedItem.Should().BeSameAs(vm.Samples[1]);
 
                 var start = window.FindControl<NumericUpDown>("SampleStartInput") ?? throw new InvalidOperationException("Start input missing.");
-                start.Value = 83;
-                vm.Samples[1].StartSeconds.Should().Be(83);
+                start.Text = "00:01:23.456";
+                vm.Samples[1].StartSeconds.Should().Be(83.456);
+                start.Text = "00:99:00";
+                vm.Samples[1].StartSeconds.Should().Be(83.456, "invalid timecodes must not change the sample");
+                start.Text = "00:01:23.456";
                 vm.SelectedTab = 1;
                 window.UpdateLayout();
                 var variants = window.FindControl<ListBox>("VariantList") ?? throw new InvalidOperationException("Variant list missing.");
@@ -93,6 +146,18 @@ public sealed class ComparisonWindowTests(QueueTestSession fixture)
             try
             {
                 window.UpdateLayout();
+                foreach (var name in new[] { "SampleLengthInput", "SampleDurationInput" })
+                {
+                    var field = window.FindControl<NumericUpDown>(name)
+                        ?? throw new InvalidOperationException("Duration input missing.");
+                    field.Text.Should().Be("12");
+                    field.FormatString.Should().Be("0");
+                    field.Increment.Should().Be(1);
+                    field.Value = 15;
+                    field.Text.Should().Be("15");
+                }
+                harness.ViewModel.SampleDuration.Should().Be(15);
+                harness.ViewModel.SelectedSample?.DurationSeconds.Should().Be(15);
                 var fields = window.GetVisualDescendants().OfType<NumericUpDown>().ToArray();
                 fields.Should().HaveCount(4);
                 foreach (var field in fields)

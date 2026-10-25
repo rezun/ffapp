@@ -3,6 +3,7 @@
         xmlns:vm="using:FFApp.ViewModels"
         xmlns:views="using:FFApp.Views"
         xmlns:ctrl="using:FFApp.Controls"
+        xmlns:conv="using:FFApp.Converters"
         x:Class="FFApp.Views.ComparisonWindow"
         x:DataType="vm:ComparisonViewModel" x:CompileBindings="True"
         Title="FFApp · Compare encodes" Width="1480" Height="960"
@@ -17,6 +18,9 @@
             </NativeMenuItem>
         </NativeMenu>
     </NativeMenu.Menu>
+    <Window.Resources>
+        <conv:SecondsToTimecodeConverter x:Key="SecondsToTimecode" />
+    </Window.Resources>
     <Window.Styles>
         <Style Selector="Button.step">
             <Setter Property="MinHeight" Value="34" />
@@ -54,7 +58,6 @@
                 <DockPanel Margin="12">
                     <StackPanel DockPanel.Dock="Top" Spacing="8" IsEnabled="{Binding CanEdit}">
                         <TextBlock Text="Test samples" FontSize="15" FontWeight="SemiBold" />
-                        <TextBlock Text="Select a sample to see the original. Adjust its position or length below." Classes="secondary" TextWrapping="Wrap" />
                         <Grid ColumnDefinitions="*,*">
                             <StackPanel Spacing="3" Margin="0,0,4,0">
                                 <TextBlock Text="Count" />
@@ -62,7 +65,7 @@
                             </StackPanel>
                             <StackPanel Grid.Column="1" Spacing="3" Margin="4,0,0,0">
                                 <TextBlock Text="Length (s)" />
-                                <ctrl:NoWheelNumericUpDown Minimum="1" Maximum="120" Value="{Binding SampleDuration}" FormatString="0.0" ShowButtonSpinner="False" />
+                                <ctrl:NoWheelNumericUpDown Minimum="1" Maximum="120" x:Name="SampleLengthInput" Value="{Binding SampleDuration}" FormatString="0" ParsingNumberStyle="Integer" ShowButtonSpinner="False" />
                             </StackPanel>
                         </Grid>
                         <Button Content="Redistribute samples" Command="{Binding DistributeCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
@@ -75,12 +78,12 @@
                         <Separator />
                         <TextBlock Text="Selected sample" FontWeight="SemiBold" />
                         <TextBox Text="{Binding SelectedSample.Name}" PlaceholderText="Sample name" />
-                        <TextBlock Text="Start in source (seconds)" />
-                        <ctrl:NoWheelNumericUpDown x:Name="SampleStartInput" Minimum="0" Maximum="{Binding MaximumStart}"
-                                                  Value="{Binding SelectedSample.StartSeconds}" FormatString="0.000" Increment="1" />
+                        <TextBlock Text="Start in source" />
+                        <ctrl:NoWheelNumericUpDown x:Name="SampleStartInput" Minimum="{Binding RangeStart}" Maximum="{Binding MaximumStart}"
+                                                  Value="{Binding SelectedSample.StartSeconds}" TextConverter="{StaticResource SecondsToTimecode}" Increment="1"
+                                                  ToolTip.Tip="Source position (hh:mm:ss.fff)" />
                         <TextBlock Text="Duration (seconds)" />
-                        <ctrl:NoWheelNumericUpDown Minimum="0.1" Maximum="120" Value="{Binding SelectedSample.DurationSeconds}" FormatString="0.0" Increment="1" />
-                        <TextBlock Text="Changes appear in the preview automatically. Loop repeats this selected range." Classes="secondary caption" TextWrapping="Wrap" />
+                        <ctrl:NoWheelNumericUpDown x:Name="SampleDurationInput" Minimum="0.1" Maximum="120" Value="{Binding SelectedSample.DurationSeconds}" FormatString="0" ParsingNumberStyle="Integer" Increment="1" />
                     </StackPanel>
                     <ListBox x:Name="SampleList" ItemsSource="{Binding Samples}" SelectedItem="{Binding SelectedSample}" Margin="0,12,0,0">
                         <ListBox.ItemTemplate>
@@ -95,7 +98,7 @@
                 </DockPanel>
             </Border>
 
-            <Grid Grid.Column="2" RowDefinitions="Auto,Auto,*" Margin="8,0,0,0">
+            <Grid Grid.Column="2" RowDefinitions="Auto,*" Margin="8,0,0,0">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <Button x:Name="SamplesStepButton" Classes="step" Classes.current="{Binding IsSamplesStep}"
                             Content="1. Review samples" Command="{Binding ShowSamplesCommand}" />
@@ -105,8 +108,7 @@
                             Content="3. Compare results" Command="{Binding ShowResultsCommand}"
                             ToolTip.Tip="Results become available after creating test clips." />
                 </StackPanel>
-                <TextBlock Grid.Row="1" Text="{Binding StepGuidance}" TextWrapping="Wrap" Classes="secondary" Margin="0,8,0,12" />
-                <Grid x:Name="CompareGrid" Grid.Row="2" RowDefinitions="Auto,*,Auto,0,Auto" IsVisible="{Binding !IsVariantsStep}">
+                <Grid x:Name="CompareGrid" Grid.Row="1" Margin="0,8,0,0" RowDefinitions="Auto,*,Auto,0,Auto" IsVisible="{Binding !IsVariantsStep}">
                     <StackPanel Spacing="6" Margin="0,0,0,8">
                         <TextBlock Text="{Binding PreviewTitle}" FontWeight="SemiBold" IsVisible="{Binding Playback.IsSourcePreview}" />
                         <Grid x:Name="ComparisonChoices" ColumnDefinitions="*,*" IsVisible="{Binding IsResultsStep}">
@@ -176,7 +178,7 @@
                             </Expander>
                         </StackPanel>
                 </Grid>
-                <DockPanel Grid.Row="2" IsVisible="{Binding IsVariantsStep}">
+                <DockPanel Grid.Row="1" Margin="0,8,0,0" IsVisible="{Binding IsVariantsStep}">
                     <Border DockPanel.Dock="Top" Classes="card" Margin="0,0,0,12">
                         <TextBlock Text="{Binding ClipPlan}" TextWrapping="Wrap" Margin="12" />
                     </Border>
@@ -212,7 +214,6 @@
                         </DockPanel>
                         <ScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                             <StackPanel MinWidth="760">
-                                <TextBlock Text="Edits affect this comparison only. Audio and other streams are omitted from test clips; full output settings are retained when applying a variant." TextWrapping="Wrap" Classes="secondary" Margin="0,0,0,8" />
                                 <views:OutputSettingsView DataContext="{Binding Editor}" />
                             </StackPanel>
                         </ScrollViewer>
@@ -224,7 +225,6 @@
         <StackPanel Grid.Row="3" Spacing="6" Margin="0,12,0,0">
             <ProgressBar Value="{Binding Progress}" Minimum="0" Maximum="100" Height="4" IsVisible="{Binding IsRunning}" />
             <TextBlock Text="{Binding Status}" TextWrapping="Wrap" />
-            <TextBlock Text="Samples help compare settings; they do not guarantee whole-film quality or predict an exact final file size." Classes="secondary caption" />
         </StackPanel>
     </Grid>
 </Window>

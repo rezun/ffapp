@@ -222,6 +222,10 @@
         <Style Selector="TextBlock.secondary">
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
         </Style>
+        <!-- Explicit text roles must follow the theme's selection foreground. -->
+        <Style Selector="ListBoxItem:selected TextBlock" x:CompileBindings="False">
+            <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource FindAncestor, AncestorType=ContentPresenter, Tree=Visual}}" />
+        </Style>
 
         <!-- Monospace text for numeric/timecode values -->
         <Style Selector="TextBlock.mono">

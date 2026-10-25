@@ -17,8 +17,26 @@ internal static partial class MacOSColorSpace
     private const string CoreGraphics = "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics";
     private const string CoreFoundation = "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation";
     private static readonly string SrgbNameSymbol = "kCGColorSpaceSRGB";
+    private static readonly int MaxFrameAttempts = 60;
 
-    /// <summary>Tags the window's rendering layer as sRGB. False off macOS or when the layer has no color space.</summary>
+    /// <summary>
+    /// Tags the window's rendering layer as sRGB once it exists. Avalonia creates the Metal layer when it renders
+    /// the first frame, after Opened and Loaded, so the tag is retried on the following frames.
+    /// </summary>
+    public static void TagSrgbWhenRendered(TopLevel topLevel)
+    {
+        ArgumentNullException.ThrowIfNull(topLevel);
+        if (!OperatingSystem.IsMacOS()) return;
+        RetryOnFrames(() => TryTagSrgb(topLevel), next => topLevel.RequestAnimationFrame(_ => next()), MaxFrameAttempts);
+    }
+
+    internal static void RetryOnFrames(Func<bool> attempt, Action<Action> onNextFrame, int attempts)
+    {
+        if (attempts <= 0 || attempt()) return;
+        onNextFrame(() => RetryOnFrames(attempt, onNextFrame, attempts - 1));
+    }
+
+    /// <summary>Tags the window's rendering layer as sRGB. False off macOS or before the layer exists.</summary>
     public static bool TryTagSrgb(TopLevel topLevel)
     {
         ArgumentNullException.ThrowIfNull(topLevel);

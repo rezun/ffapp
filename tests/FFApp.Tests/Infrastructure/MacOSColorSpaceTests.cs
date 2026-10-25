@@ -44,6 +44,35 @@ public sealed class MacOSColorSpaceTests
     [Fact]
     public void TryTagSrgb_IgnoresMissingLayer() => MacOSColorSpace.TryTagSrgb(0).Should().BeFalse();
 
+    [Fact]
+    public void RetryOnFrames_RetriesUntilTheLayerExists()
+    {
+        var frames = new Queue<Action>();
+        var calls = 0;
+        MacOSColorSpace.RetryOnFrames(() => ++calls == 3, frames.Enqueue, 60);
+        calls.Should().Be(1, "the first attempt runs immediately");
+        while (frames.TryDequeue(out var next)) next();
+        calls.Should().Be(3);
+    }
+
+    [Fact]
+    public void RetryOnFrames_GivesUpAfterTheLastAttempt()
+    {
+        var frames = new Queue<Action>();
+        var calls = 0;
+        MacOSColorSpace.RetryOnFrames(() => { calls++; return false; }, frames.Enqueue, 5);
+        while (frames.TryDequeue(out var next)) next();
+        calls.Should().Be(5);
+    }
+
+    [Fact]
+    public void RetryOnFrames_DoesNotScheduleFramesAfterSuccess()
+    {
+        var scheduled = 0;
+        MacOSColorSpace.RetryOnFrames(() => true, _ => scheduled++, 60);
+        scheduled.Should().Be(0);
+    }
+
     private static nint CreateLayer(string className)
     {
         NativeLibrary.Load(QuartzCore);

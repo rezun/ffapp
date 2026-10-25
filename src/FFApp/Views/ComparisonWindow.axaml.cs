@@ -28,7 +28,7 @@ public sealed partial class ComparisonWindow : Window
         Opened += (_, _) =>
         {
             // Frames are sRGB; without a tagged layer macOS shows them oversaturated on P3 displays.
-            MacOSColorSpace.TryTagSrgb(this);
+            MacOSColorSpace.TagSrgbWhenRendered(this);
             (DataContext as ComparisonViewModel)?.PreviewSelection();
         };
         SampleTimeline.SampleSelected += (_, id) =>

@@ -9,6 +9,7 @@ using FFApp.Core.Models;
 using FFApp.Core.Services;
 using FFApp.Helpers;
 using FFApp.Infrastructure;
+using FFApp.Services;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace FFApp.ViewModels;
@@ -17,6 +18,7 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
 {
     private readonly IComparisonService _service;
     private readonly IMessenger _messenger;
+    private readonly IDialogService? _dialogs;
     private ComparisonSession? _session;
     private SourceMediaInfo? _media;
     private bool _loadingEditor;
@@ -33,6 +35,9 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
 
     [ObservableProperty] private string _sourceLabel = "";
     [ObservableProperty] private string _rangeLabel = "";
+    [ObservableProperty] private string _cacheUsageLabel = "Test clips: 0 B";
+    [ObservableProperty] private bool _isDeleted;
+    [ObservableProperty] private bool _isManagingStorage;
     [NotifyPropertyChangedFor(nameof(HasStatus), nameof(HasFooter))]
     [ObservableProperty] private string _status = "";
     [NotifyPropertyChangedFor(nameof(HasFooter))]
@@ -49,7 +54,7 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
     [ObservableProperty] private ComparisonChoice? _leftChoice;
     [ObservableProperty] private ComparisonChoice? _rightChoice;
 
-    public bool CanEdit => !IsRunning;
+    public bool CanEdit => !IsRunning && !IsManagingStorage && !IsDeleted;
     public bool HasStatus => !string.IsNullOrWhiteSpace(Status);
     public bool HasFooter => HasStatus || IsRunning;
     public bool IsSamplesStep => SelectedTab == 0;
@@ -85,12 +90,13 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
     public ComparisonViewModel(IComparisonService service,
         [FromKeyedServices("comparison")] OutputSettingsViewModel editor,
         [FromKeyedServices("comparison")] IMessenger messenger,
-        ComparisonPlaybackViewModel playback)
+        ComparisonPlaybackViewModel playback, IDialogService? dialogs = null)
     {
         _service = service;
         Editor = editor;
         _messenger = messenger;
         Playback = playback;
+        _dialogs = dialogs;
         messenger.Register<OutputSettingsChangedMessage>(this);
     }
 
@@ -99,6 +105,8 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
         _media = context.MediaInfo;
         _apply = apply;
         _session = await _service.LoadAsync(context, ct);
+        _service.ProtectSession(_session);
+        RefreshCacheUsage();
         SourceLabel = Path.GetFileName(_session.SourcePath);
         RangeLabel = $"{FormatHelpers.FormatCompactDuration(_session.RangeStart)} – {FormatHelpers.FormatCompactDuration(_session.RangeEnd)} · saved source, trim and crop";
         _loadingEditor = true;
@@ -223,13 +231,15 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
         }
     }
 
-    private bool CanRun() => !IsRunning && _session is not null && Samples.Count > 0 && Variants.Count > 0;
+    private bool CanRun() => CanEdit && _session is not null && Samples.Count > 0 && Variants.Count > 0;
     private bool CanRemoveSample() => CanEdit && SelectedSample is not null && Samples.Count > 1;
     private bool CanRemoveVariant() => CanEdit && SelectedVariant is not null && Variants.Count > 1;
     private bool CanChangeVariant() => CanEdit && SelectedVariant is not null;
 
     private void NotifyCommands()
     {
+        ClearTestClipsCommand.NotifyCanExecuteChanged();
+        DeleteComparisonCommand.NotifyCanExecuteChanged();
         RunAllCommand.NotifyCanExecuteChanged();
         RemoveSampleCommand.NotifyCanExecuteChanged();
         RemoveVariantCommand.NotifyCanExecuteChanged();
@@ -424,7 +434,7 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
 
     private void RefreshPlayback()
     {
-        if (!_previewReady || _changingSelection || IsVariantsStep
+        if (!_previewReady || _changingSelection || IsVariantsStep || IsManagingStorage || IsDeleted
             || _session is null || _media is null || SelectedSample is not { } sample) return;
         Playback.Reset();
         if (!ComparisonPlan.IsValid(sample.Snapshot(), _session.RangeStart, _session.RangeEnd))
@@ -533,17 +543,85 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
         {
             IsRunning = false;
             RefreshPlayback();
+            RefreshCacheUsage();
         }
     }
 
-    [RelayCommand]
-    private async Task SaveAsync() => await TrySaveAsync();
+    private bool CanManageStorage() => CanEdit && _session is not null;
+
+    partial void OnIsManagingStorageChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanEdit));
+        NotifyCommands();
+    }
+
+    private void RefreshCacheUsage()
+    {
+        if (_session is null) return;
+        var usage = _service.GetCacheUsage(_session.SourcePath);
+        CacheUsageLabel = $"Test clips: {FormatHelpers.FormatStorageSize(usage.ComparisonBytes)}";
+    }
+
+    [RelayCommand(CanExecute = nameof(CanManageStorage))]
+    private async Task ClearTestClipsAsync()
+    {
+        if (_session is null) return;
+        IsManagingStorage = true;
+        try
+        {
+            await Playback.ResetAsync();
+            var removed = _service.ClearClips(_session.SourcePath);
+            RefreshResults();
+            RefreshPlayback();
+            Status = $"Deleted {FormatHelpers.FormatStorageSize(removed)} of test clips. Samples and encoding settings are retained.";
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Comparison clip cleanup failed: {ex}");
+            RefreshResults();
+            Status = $"Could not delete all test clips: {ex.Message}";
+        }
+        finally
+        {
+            IsManagingStorage = false;
+            RefreshPlayback();
+            RefreshCacheUsage();
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanManageStorage))]
+    private async Task DeleteComparisonAsync()
+    {
+        if (_session is null) return;
+        IsManagingStorage = true;
+        try
+        {
+            if (_dialogs is not null && !await _dialogs.ConfirmAsync("Delete comparison",
+                    "Delete this comparison's saved samples, encoding variants and test clips? The source video is kept. This window will close.")) return;
+            await Playback.ResetAsync();
+            _service.DeleteComparison(_session.SourcePath);
+            IsDeleted = true;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Deleting comparison failed: {ex}");
+            RefreshResults();
+            Status = $"Could not delete comparison: {ex.Message}";
+        }
+        finally
+        {
+            IsManagingStorage = false;
+            RefreshPlayback();
+        }
+    }
 
     public async Task<bool> TrySaveAsync()
     {
+        if (IsDeleted) return true;
         try
         {
             await _service.SaveAsync(Snapshot());
+            RefreshCacheUsage();
             Status = "Comparison saved. Completed clips will be reused when reopened.";
             return true;
         }
@@ -557,10 +635,11 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
 
     public async Task<bool> CloseAsync()
     {
+        if (IsManagingStorage) return false;
         _previewReady = false;
         RunAllCommand.Cancel();
         if (RunAllCommand.ExecutionTask is { } running) await running;
-        Playback.Reset();
+        await Playback.ResetAsync();
         return await TrySaveAsync();
     }
 
@@ -569,6 +648,7 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
         _messenger.UnregisterAll(this);
         foreach (var sample in Samples) sample.PropertyChanged -= OnSampleChanged;
         foreach (var variant in Variants) variant.PropertyChanged -= OnVariantChanged;
+        if (_session is not null) _service.ReleaseSession(_session.SourcePath);
         GC.SuppressFinalize(this);
     }
 }

@@ -1,0 +1,25 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:FFApp.ViewModels"
+        xmlns:ctrl="using:FFApp.Controls"
+        x:Class="FFApp.Views.ComparisonStorageWindow"
+        x:DataType="vm:MainWindowViewModel" x:CompileBindings="True"
+        Title="Comparison storage" Width="680" Height="440" CanResize="False"
+        WindowStartupLocation="CenterOwner">
+    <StackPanel Margin="24" Spacing="14">
+        <TextBlock Text="Comparison storage" FontSize="20" FontWeight="SemiBold" />
+        <TextBlock Text="Sample positions and encoding settings are saved automatically. Test clips are a disposable cache and can be recreated." TextWrapping="Wrap" />
+        <TextBlock x:Name="StorageUsage" Text="{Binding ComparisonStorageUsage}" TextWrapping="Wrap" />
+        <StackPanel Orientation="Horizontal" Spacing="10">
+            <TextBlock Text="Test clip limit (GiB)" VerticalAlignment="Center" />
+            <ctrl:NoWheelNumericUpDown x:Name="CacheLimitInput" Value="{Binding ComparisonCacheLimitGiB}" Minimum="1" Maximum="1024" Increment="1" FormatString="0" Width="100" />
+            <Button Content="Apply limit" Command="{Binding ApplyComparisonCacheLimitCommand}" />
+        </StackPanel>
+        <TextBlock Text="The least recently used clips are removed first. Clips in open comparisons are protected until their windows close." TextWrapping="Wrap" Classes="secondary" />
+        <StackPanel Orientation="Horizontal" Spacing="10">
+            <Button Content="{Binding DeleteAllClipsLabel}" Command="{Binding DeleteAllComparisonClipsCommand}" />
+            <Button Content="Refresh" Command="{Binding RefreshComparisonStorageCommand}" />
+        </StackPanel>
+        <TextBlock x:Name="StorageStatus" Text="{Binding ComparisonStorageStatus}" TextWrapping="Wrap" />
+    </StackPanel>
+</Window>

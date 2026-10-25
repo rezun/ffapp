@@ -61,5 +61,6 @@ public sealed record AppSettings
     public WindowGeometry WindowGeometry { get; init; } = new();
     public ThemePreference ThemePreference { get; init; } = ThemePreference.System;
     public bool UseLowPriorityTranscoding { get; init; }
+    public int ComparisonCacheLimitGiB { get; init; } = 5;
     public int SchemaVersion { get; init; } = 4;
 }

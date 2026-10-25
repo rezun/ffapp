@@ -6,6 +6,7 @@ using FFApp.Core;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
 using FFApp.Services;
+using FFApp.Helpers;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace FFApp.ViewModels;
@@ -16,6 +17,68 @@ public partial class MainWindowViewModel : ObservableObject,
     IRecipient<NavigateToDependencySetupMessage>
 {
     private readonly TranscodingPreferences _transcodingPreferences;
+    private readonly IComparisonService? _comparisonService;
+    [ObservableProperty] private decimal _comparisonCacheLimitGiB = 5;
+    [ObservableProperty] private string _comparisonStorageUsage = "";
+    [ObservableProperty] private string _comparisonStorageStatus = "";
+    [ObservableProperty] private string _deleteAllClipsLabel = "Delete all test clips";
+
+    [RelayCommand]
+    private void RefreshComparisonStorage()
+    {
+        if (_comparisonService is null) return;
+        try
+        {
+            var usage = _comparisonService.GetCacheUsage();
+            ComparisonStorageUsage = $"Test clips: {FormatHelpers.FormatStorageSize(usage.TotalBytes)} · "
+                + $"Protected by open comparisons: {FormatHelpers.FormatStorageSize(usage.ProtectedBytes)}";
+            DeleteAllClipsLabel = $"Delete all unused test clips ({FormatHelpers.FormatStorageSize(usage.ReclaimableBytes)})";
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Reading comparison storage failed: {ex}");
+            ComparisonStorageStatus = $"Could not read storage usage: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private void DeleteAllComparisonClips()
+    {
+        if (_comparisonService is null) return;
+        try
+        {
+            var removed = _comparisonService.ClearClips();
+            ComparisonStorageStatus = $"Deleted {FormatHelpers.FormatStorageSize(removed)}. Saved comparisons and clips in open comparisons are retained.";
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Clearing comparison storage failed: {ex}");
+            ComparisonStorageStatus = $"Could not delete all test clips: {ex.Message}";
+        }
+        RefreshComparisonStorage();
+    }
+
+    [RelayCommand]
+    private async Task ApplyComparisonCacheLimitAsync()
+    {
+        if (_comparisonService is null) return;
+        try
+        {
+            if (ComparisonCacheLimitGiB is < 1 or > 1024 || decimal.Truncate(ComparisonCacheLimitGiB) != ComparisonCacheLimitGiB)
+                throw new ArgumentOutOfRangeException(nameof(ComparisonCacheLimitGiB), "Choose a whole number from 1 to 1024 GiB.");
+            var updated = (LoadedSettings ?? new AppSettings()) with { ComparisonCacheLimitGiB = (int)ComparisonCacheLimitGiB };
+            await _settingsService.SaveAsync(updated);
+            UpdateSettings(s => s with { ComparisonCacheLimitGiB = updated.ComparisonCacheLimitGiB });
+            _comparisonService.SetCacheLimit(updated.ComparisonCacheLimitGiB * 1024L * 1024 * 1024);
+            ComparisonStorageStatus = "Limit saved. Oldest unused clips are removed first. Open comparisons may temporarily exceed the limit.";
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Updating comparison cache limit failed: {ex}");
+            ComparisonStorageStatus = $"Could not apply cache limit: {ex.Message}";
+        }
+        RefreshComparisonStorage();
+    }
 
     public bool UseLowPriorityTranscoding
     {
@@ -68,7 +131,7 @@ public partial class MainWindowViewModel : ObservableObject,
         IServiceScopeFactory scopeFactory,
         IFfmpegCapabilityService capabilityService,
         TranscodingPreferences transcodingPreferences,
-        IComparisonWindowService? comparisonWindows = null)
+        IComparisonWindowService? comparisonWindows = null, IComparisonService? comparisonService = null)
     {
         _transcodingPreferences = transcodingPreferences;
         _settingsService = settingsService;
@@ -79,6 +142,7 @@ public partial class MainWindowViewModel : ObservableObject,
         _scopeFactory = scopeFactory;
         _capabilityService = capabilityService;
         _comparisonWindows = comparisonWindows;
+        _comparisonService = comparisonService;
 
         _messenger.Register<DependenciesResolvedMessage>(this);
         _messenger.Register<NavigateToDependencySetupMessage>(this);
@@ -92,6 +156,16 @@ public partial class MainWindowViewModel : ObservableObject,
         {
             var settings = await _settingsService.LoadAsync();
             LoadedSettings = settings;
+            ComparisonCacheLimitGiB = settings.ComparisonCacheLimitGiB;
+            try
+            {
+                _comparisonService?.SetCacheLimit(settings.ComparisonCacheLimitGiB * 1024L * 1024 * 1024);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                Debug.WriteLine($"Comparison cache cleanup failed during startup: {ex}");
+                ComparisonStorageStatus = $"Could not clean up test clips: {ex.Message}";
+            }
             UseLowPriorityTranscoding = settings.UseLowPriorityTranscoding;
             _settingsLoaded.TrySetResult(settings);
             var status = await _dependencyService.DiscoverAsync(settings);

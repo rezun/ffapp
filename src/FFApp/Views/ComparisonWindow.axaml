@@ -41,7 +41,19 @@
                 <TextBlock Text="{Binding RangeLabel}" Classes="secondary" />
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                <Button Content="Save comparison" Command="{Binding SaveCommand}" IsEnabled="{Binding CanEdit}" />
+                <StackPanel Spacing="3" VerticalAlignment="Center" Margin="0,0,8,0">
+                    <TextBlock Text="Saves automatically" Classes="secondary"
+                               ToolTip.Tip="Samples and settings are saved when this window closes and during test encoding." />
+                    <TextBlock Text="{Binding CacheUsageLabel}" Classes="secondary" />
+                </StackPanel>
+                <Button Content="Storage ▾" IsEnabled="{Binding CanEdit}">
+                    <Button.Flyout>
+                        <MenuFlyout>
+                            <MenuItem Header="Delete test clips" Command="{Binding ClearTestClipsCommand}" />
+                            <MenuItem Header="Delete comparison…" Command="{Binding DeleteComparisonCommand}" />
+                        </MenuFlyout>
+                    </Button.Flyout>
+                </Button>
                 <Button x:Name="PrimaryComparisonButton" Classes="accent" MinHeight="34" Padding="14,4"
                         Content="{Binding PrimaryActionLabel}" Command="{Binding PrimaryActionCommand}" />
                 <Button Content="Cancel" Command="{Binding RunAllCancelCommand}" IsVisible="{Binding IsRunning}" />

@@ -6,6 +6,7 @@ using FFApp.Core.Services;
 using FFApp.Core.Validation;
 using FFApp.Infrastructure;
 using FFApp.ViewModels;
+using FFApp.Services;
 using NSubstitute;
 
 namespace FFApp.Tests.Builders;
@@ -21,7 +22,7 @@ public sealed class ComparisonTestHarness : IDisposable
     public OutputSettings? Applied { get; private set; }
     public bool AcceptApply { get; set; } = true;
 
-    public ComparisonTestHarness()
+    public ComparisonTestHarness(IDialogService? dialogs = null)
     {
         Directory.CreateDirectory(DirectoryPath);
         var path = Path.Combine(DirectoryPath, "Film.mkv");
@@ -36,7 +37,7 @@ public sealed class ComparisonTestHarness : IDisposable
             validation, new JsonSerializerOptions(), Path.Combine(DirectoryPath, "comparison"));
         var messenger = new WeakReferenceMessenger();
         var editor = new OutputSettingsViewModel(validation, messenger, Substitute.For<IFfmpegCapabilityService>(), config) { IsVideoModeEditable = false };
-        ViewModel = new ComparisonViewModel(Service, editor, messenger, Playback);
+        ViewModel = new ComparisonViewModel(Service, editor, messenger, Playback, dialogs);
         Execution.ExecuteAsync(Arg.Any<JobDefinition>(), Arg.Any<SourceMediaInfo>(), Arg.Any<Action<JobProgress>?>(),
             Arg.Any<Action<string>?>(), Arg.Any<ExecutionPauseState?>(), Arg.Any<CancellationToken>())
             .Returns(call =>

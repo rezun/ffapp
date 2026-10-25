@@ -10,12 +10,13 @@ namespace FFApp.Infrastructure;
 
 public sealed class ComparisonEncodingException(string message) : InvalidOperationException(message);
 
-public sealed class ComparisonService(
+public sealed partial class ComparisonService(
     ICommandBuilder commandBuilder,
     IJobExecutionService execution,
     IValidationService validation,
     JsonSerializerOptions jsonOptions,
-    string? directory = null) : IComparisonService
+    string? directory = null,
+    TimeProvider? timeProvider = null) : IComparisonService
 {
     private readonly string _directory = directory ?? Path.Combine(AppPaths.AppDataDirectory(), "comparisons");
     private static string Hash(string value) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
@@ -132,7 +133,10 @@ public sealed class ComparisonService(
         var previous = session.Results.FirstOrDefault(r => string.Equals(r.CacheKey, key, StringComparison.Ordinal));
         var cached = new FileInfo(output);
         if (previous is not null && cached.Exists && cached.Length == previous.SizeBytes && cached.Length > 0)
+        {
+            TouchClip(output);
             return new ComparisonClip(output, offset, sample.DurationSeconds, cached.Length, previous.ElapsedSeconds, key, true);
+        }
 
         Directory.CreateDirectory(Path.GetDirectoryName(output) ?? _directory);
         var temporary = Path.Combine(Path.GetDirectoryName(output) ?? _directory,
@@ -153,7 +157,13 @@ public sealed class ComparisonService(
             var size = new FileInfo(temporary).Length;
             if (size == 0)
                 throw new ComparisonEncodingException("The encoder produced an empty clip.");
-            File.Move(temporary, output, overwrite: true);
+            lock (_cacheLock)
+            {
+                if (_protectedSessions.TryGetValue(session.SourcePath, out var keys)) keys.Add(key);
+                File.Move(temporary, output, overwrite: true);
+                TouchClip(output);
+                TrimCache();
+            }
             return new ComparisonClip(output, offset, sample.DurationSeconds, size, result.ElapsedSeconds, key, false);
         }
         finally

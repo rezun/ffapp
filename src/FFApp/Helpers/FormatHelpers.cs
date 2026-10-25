@@ -8,6 +8,14 @@ namespace FFApp.Helpers;
 
 public static class FormatHelpers
 {
+    public static string FormatStorageSize(long bytes) => bytes switch
+    {
+        >= 1024L * 1024 * 1024 => $"{bytes / (1024d * 1024 * 1024):F1} GiB",
+        >= 1024 * 1024 => $"{bytes / (1024d * 1024):F1} MiB",
+        >= 1024 => $"{bytes / 1024d:F1} KiB",
+        _ => $"{bytes} B",
+    };
+
     public static string BuildMediaSummaryText(SourceMediaInfo mediaInfo)
     {
         var sb = new StringBuilder();

@@ -58,6 +58,9 @@ public sealed class SettingsService(string? path = null) : ISettingsService
             WindowGeometry = windowGeometry,
             ThemePreference = themePreference,
             UseLowPriorityTranscoding = SettingsSerializer.ReadBool(root, "low_priority_transcoding"),
+            ComparisonCacheLimitGiB = root.TryGetProperty("comparison_cache_limit_gib", out var cacheLimit)
+                && cacheLimit.ValueKind == JsonValueKind.Number && cacheLimit.TryGetInt32(out var gib)
+                && gib is >= 1 and <= 1024 ? gib : 5,
         };
     }
 
@@ -112,6 +115,7 @@ public sealed class SettingsService(string? path = null) : ISettingsService
                 ["is_maximized"] = settings.WindowGeometry.IsMaximized,
             },
             ["low_priority_transcoding"] = settings.UseLowPriorityTranscoding,
+            ["comparison_cache_limit_gib"] = settings.ComparisonCacheLimitGiB,
             ["theme_preference"] = settings.ThemePreference.ToString().ToLowerInvariant(),
         };
 

@@ -63,6 +63,12 @@ public sealed partial class ComparisonWindow : Window
 
     private void OnWorkflowChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(ComparisonViewModel.IsDeleted) && _vm?.IsDeleted == true)
+        {
+            _saved = true;
+            Close();
+            return;
+        }
         if (e.PropertyName == nameof(ComparisonViewModel.ShowResultTable)) UpdateResultsLayout();
     }
 

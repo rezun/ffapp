@@ -318,6 +318,12 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
         }
         catch (Exception ex) { Debug.WriteLine($"Comparison decoder cleanup failed: {ex}"); }
     }
+
+    public async Task ResetAsync()
+    {
+        Reset();
+        await Task.WhenAll(_operations.ToArray());
+    }
     private void CloseDecoders()
     {
         _leftDecoder?.Dispose();

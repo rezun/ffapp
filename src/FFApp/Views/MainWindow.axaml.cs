@@ -53,6 +53,13 @@ public partial class MainWindow : Window
     }
 
     public void OnThemeSystem(object? sender, EventArgs e) => SetTheme(ThemePreference.System);
+
+    private void OnComparisonStorage(object? sender, EventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm) return;
+        vm.RefreshComparisonStorageCommand.Execute(null);
+        new ComparisonStorageWindow { DataContext = vm }.Show(this);
+    }
     public void OnThemeDark(object? sender, EventArgs e) => SetTheme(ThemePreference.Dark);
     public void OnThemeLight(object? sender, EventArgs e) => SetTheme(ThemePreference.Light);
 

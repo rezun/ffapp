@@ -152,5 +152,131 @@ public sealed class ComparisonServiceTests : IDisposable
             .Which.FilmGrain.Should().Be(0);
     }
 
+    [Fact]
+    public async Task ClearCurrentClips_PreservesConfigurationAndOtherComparisons_AndAllowsReencoding()
+    {
+        var session = await CreateSavedClipAsync(_context);
+        var otherPath = Path.Combine(_directory, "other.mkv");
+        File.WriteAllText(otherPath, "other-video");
+        var otherContext = _context with { MediaInfo = _context.MediaInfo with { SourcePath = otherPath } };
+        var other = await CreateSavedClipAsync(otherContext);
+        _service.ProtectSession(session);
+        _service.ProtectSession(other);
+
+        var usage = _service.GetCacheUsage(session.SourcePath);
+        usage.ComparisonBytes.Should().Be(session.Results[0].SizeBytes);
+        usage.ProtectedBytes.Should().Be(usage.TotalBytes);
+        _service.ClearClips(session.SourcePath).Should().Be(session.Results[0].SizeBytes);
+
+        File.Exists(_service.ClipPath(session.Results[0].CacheKey)).Should().BeFalse();
+        File.Exists(_service.ClipPath(other.Results[0].CacheKey)).Should().BeTrue();
+        File.Exists(session.SourcePath).Should().BeTrue();
+        (await _service.LoadAsync(_context)).Should().BeEquivalentTo(session);
+        (await _service.EncodeAsync(session, _context.MediaInfo, session.Samples[0], session.Variants[0]))
+            .WasCached.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ClearAllClips_RemovesOrphansButProtectsOpenComparisons_AndKeepsManifests()
+    {
+        var session = await CreateSavedClipAsync(_context);
+        _service.ProtectSession(session);
+        var orphan = WriteCacheFile('a', 25);
+        var partial = Path.Combine(_directory, "sessions", "clips", "encoding.partial.mp4");
+        File.WriteAllText(partial, "in progress");
+
+        _service.GetCacheUsage().ReclaimableBytes.Should().Be(25);
+        _service.ClearClips().Should().Be(25);
+        File.Exists(orphan).Should().BeFalse();
+        File.Exists(partial).Should().BeTrue();
+        File.Exists(_service.ClipPath(session.Results[0].CacheKey)).Should().BeTrue();
+        (await _service.LoadAsync(_context)).Should().BeEquivalentTo(session);
+
+        _service.ReleaseSession(session.SourcePath);
+        _service.ClearClips().Should().Be(session.Results[0].SizeBytes);
+        (await _service.LoadAsync(_context)).Should().BeEquivalentTo(session);
+    }
+
+    [Fact]
+    public void Limit_RemovesLeastRecentlyUsedClipsFirst_IncludingOrphans()
+    {
+        var oldest = WriteCacheFile('a', 10);
+        var middle = WriteCacheFile('b', 10);
+        var newest = WriteCacheFile('c', 10);
+        File.SetLastWriteTimeUtc(oldest, new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero).UtcDateTime);
+        File.SetLastWriteTimeUtc(middle, new DateTimeOffset(2021, 1, 1, 0, 0, 0, TimeSpan.Zero).UtcDateTime);
+        File.SetLastWriteTimeUtc(newest, new DateTimeOffset(2022, 1, 1, 0, 0, 0, TimeSpan.Zero).UtcDateTime);
+
+        _service.SetCacheLimit(20);
+        File.Exists(oldest).Should().BeFalse();
+        File.Exists(middle).Should().BeTrue();
+        File.Exists(newest).Should().BeTrue();
+        _service.GetCacheUsage().TotalBytes.Should().Be(20);
+    }
+
+    [Fact]
+    public async Task Limit_ProtectsOpenSessionAndNewEncodes_UntilReleased()
+    {
+        var session = await _service.LoadAsync(_context);
+        _service.ProtectSession(session);
+        _service.SetCacheLimit(0);
+        var clip = await _service.EncodeAsync(session, _context.MediaInfo, session.Samples[0], session.Variants[0]);
+        File.Exists(clip.Path).Should().BeTrue();
+        _service.GetCacheUsage().ProtectedBytes.Should().Be(clip.SizeBytes);
+        _service.ClearClips().Should().Be(0);
+        _service.ReleaseSession(session.SourcePath);
+        File.Exists(clip.Path).Should().BeFalse();
+        _service.GetCacheUsage().TotalBytes.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task ReusingClip_RefreshesItsRecency()
+    {
+        var session = await CreateSavedClipAsync(_context);
+        var path = _service.ClipPath(session.Results[0].CacheKey);
+        var oldTime = new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero).UtcDateTime;
+        File.SetLastWriteTimeUtc(path, oldTime);
+        await _service.EncodeAsync(session, _context.MediaInfo, session.Samples[0], session.Variants[0]);
+        File.GetLastWriteTimeUtc(path).Should().BeAfter(oldTime);
+    }
+
+    [Fact]
+    public async Task DeleteComparison_RemovesManifestAndHistoricalClips_WithoutTouchingSource()
+    {
+        var session = await CreateSavedClipAsync(_context);
+        var oldKey = session.Results[0].CacheKey;
+        var variant = session.Variants[0] with { Settings = session.Variants[0].Settings with { TargetQuality = new Av1QualityOptions(Crf: 32) } };
+        var clip = await _service.EncodeAsync(session, _context.MediaInfo, session.Samples[0], variant);
+        session = session with { Variants = [variant], Results = [.. session.Results,
+            new ComparisonResult(session.Samples[0].Id, variant.Id, clip.CacheKey, clip.SizeBytes, clip.ElapsedSeconds)] };
+        await _service.SaveAsync(session);
+        _service.ProtectSession(session);
+        _service.DeleteComparison(session.SourcePath);
+
+        File.Exists(clip.Path).Should().BeFalse();
+        File.Exists(_service.ClipPath(oldKey)).Should().BeFalse();
+        File.Exists(session.SourcePath).Should().BeTrue();
+        Directory.GetFiles(Path.Combine(_directory, "sessions"), "*.json").Should().BeEmpty();
+        (await _service.LoadAsync(_context)).Results.Should().BeEmpty();
+    }
+
+    private async Task<ComparisonSession> CreateSavedClipAsync(JobContext context)
+    {
+        var session = await _service.LoadAsync(context);
+        var clip = await _service.EncodeAsync(session, context.MediaInfo, session.Samples[0], session.Variants[0]);
+        session = session with { Results = [new ComparisonResult(session.Samples[0].Id, session.Variants[0].Id,
+            clip.CacheKey, clip.SizeBytes, clip.ElapsedSeconds)] };
+        await _service.SaveAsync(session);
+        return session;
+    }
+
+    private string WriteCacheFile(char digit, int bytes)
+    {
+        var path = _service.ClipPath(new string(digit, 64) + ".mp4");
+        Directory.CreateDirectory(Path.GetDirectoryName(path) ?? throw new InvalidOperationException());
+        File.WriteAllBytes(path, new byte[bytes]);
+        return path;
+    }
+
     public void Dispose() => Directory.Delete(_directory, recursive: true);
 }

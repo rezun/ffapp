@@ -2,6 +2,11 @@ using System.Collections.Immutable;
 
 namespace FFApp.Core.Models;
 
+public sealed record ComparisonCacheUsage(long TotalBytes, long ComparisonBytes, long ProtectedBytes)
+{
+    public long ReclaimableBytes => TotalBytes - ProtectedBytes;
+}
+
 public sealed record ComparisonSample(string Id, string Name, double StartSeconds, double DurationSeconds)
 {
     public double EndSeconds => StartSeconds + DurationSeconds;

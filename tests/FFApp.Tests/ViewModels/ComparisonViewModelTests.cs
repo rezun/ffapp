@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using FFApp.Helpers;
 using FFApp.Tests.Builders;
 using FFApp.ViewModels;
+using FFApp.Services;
 using FluentAssertions;
 using NSubstitute;
 
@@ -13,6 +14,57 @@ namespace FFApp.Tests.ViewModels;
 
 public sealed class ComparisonViewModelTests
 {
+    [Fact]
+    public async Task CancelDeleteComparison_RetainsClipsAndManifest()
+    {
+        var dialogs = Substitute.For<IDialogService>();
+        dialogs.ConfirmAsync(Arg.Any<string>(), Arg.Any<string>()).Returns(false);
+        using var harness = new ComparisonTestHarness(dialogs);
+        await harness.LoadAsync();
+        var vm = harness.ViewModel;
+        await vm.RunAllCommand.ExecuteAsync(null);
+        var count = vm.ReadyClipCount;
+        await vm.DeleteComparisonCommand.ExecuteAsync(null);
+        vm.IsDeleted.Should().BeFalse();
+        vm.CanEdit.Should().BeTrue();
+        vm.ReadyClipCount.Should().Be(count);
+        (await harness.Service.LoadAsync(harness.Context)).Results.Should().HaveCount(count);
+    }
+
+    [Fact]
+    public async Task DeleteTestClips_KeepsEditedConfiguration_AndResetsResults()
+    {
+        using var harness = new ComparisonTestHarness();
+        await harness.LoadAsync();
+        var vm = harness.ViewModel;
+        await vm.RunAllCommand.ExecuteAsync(null);
+        vm.ReadyClipCount.Should().BeGreaterThan(0);
+        vm.CacheUsageLabel.Should().NotBe("Test clips: 0 B");
+        vm.Samples[0].Name = "Keep this sample";
+        vm.Variants[0].Name = "Keep this variant";
+        await vm.ClearTestClipsCommand.ExecuteAsync(null);
+        vm.ReadyClipCount.Should().Be(0);
+        vm.MissingClipCount.Should().Be(vm.Samples.Count * vm.Variants.Count);
+        vm.CacheUsageLabel.Should().Be("Test clips: 0 B");
+        await vm.CloseAsync();
+        var saved = await harness.Service.LoadAsync(harness.Context);
+        saved.Samples[0].Name.Should().Be("Keep this sample");
+        saved.Variants[0].Name.Should().Be("Keep this variant");
+    }
+
+    [Fact]
+    public async Task DeleteComparison_CloseDoesNotRecreateManifest()
+    {
+        using var harness = new ComparisonTestHarness();
+        await harness.LoadAsync();
+        await harness.ViewModel.RunAllCommand.ExecuteAsync(null);
+        await harness.ViewModel.DeleteComparisonCommand.ExecuteAsync(null);
+        harness.ViewModel.IsDeleted.Should().BeTrue();
+        (await harness.ViewModel.CloseAsync()).Should().BeTrue();
+        Directory.GetFiles(Path.Combine(harness.DirectoryPath, "comparison"), "*.json").Should().BeEmpty();
+        File.Exists(harness.Context.MediaInfo.SourcePath).Should().BeTrue();
+    }
+
     [Fact]
     public async Task MaximizePreview_TogglesPanels_AndResetsWhenChangingSteps()
     {

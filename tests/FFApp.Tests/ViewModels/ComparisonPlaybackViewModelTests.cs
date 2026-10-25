@@ -9,6 +9,36 @@ namespace FFApp.Tests.ViewModels;
 
 public sealed class ComparisonPlaybackViewModelTests
 {
+    [Fact]
+    public async Task ResetAsync_WaitsForDecoderRelease_AndAllowsPlaybackToBeReopened()
+    {
+        var factory = new DecoderFactory(25);
+        await using var vm = new ComparisonPlaybackViewModel(factory);
+        vm.Load(new ComparisonTrack("left", 0), new ComparisonTrack("right", 0), 12, 25);
+        await vm.RenderAsync();
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        factory.Items["right"].BeforeRead = () => { entered.Set(); release.Wait(); };
+        vm.PositionSeconds = 1;
+        var pending = vm.RenderAsync();
+        try
+        {
+            entered.Wait(TimeSpan.FromSeconds(5)).Should().BeTrue();
+            var reset = vm.ResetAsync();
+            reset.IsCompleted.Should().BeFalse();
+            release.Set();
+            await Task.WhenAll(pending, reset);
+            factory.Items.Values.Should().OnlyContain(x => x.Disposed);
+            vm.HasMedia.Should().BeFalse();
+            vm.FramesToDisplay.Should().BeNull();
+            vm.LoadSource(new ComparisonTrack("source", 0), 12, 25);
+            await vm.RenderAsync();
+            vm.HasMedia.Should().BeTrue();
+            factory.Items["source"].Disposed.Should().BeFalse();
+        }
+        finally { release.Set(); }
+    }
+
     [Theory]
     [InlineData(1684.656, 1.821, 1686477)]
     [InlineData(2, 1.821, 3821)]

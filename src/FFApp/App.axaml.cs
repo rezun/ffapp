@@ -89,7 +89,7 @@ public partial class App : Application
             services.AddSingleton<IJobExecutionService, DefaultJobExecutionService>();
             services.AddSingleton<IFfmpegCapabilityService, FfmpegCapabilityService>();
             services.AddSingleton<IComparisonService, ComparisonService>();
-            services.AddScoped<IComparisonFrameService, ComparisonFrameService>();
+            services.AddSingleton<IComparisonDecoderFactory, ComparisonDecoderFactory>();
             services.AddSingleton<IComparisonWindowService>(sp =>
                 new ComparisonWindowService(sp.GetRequiredService<IServiceScopeFactory>(), () => mainWindow));
             services.AddSingleton<Func<QueuedJob, IJobExecutionService>>(sp =>
@@ -128,7 +128,7 @@ public partial class App : Application
                     sp.GetRequiredService<IFfmpegCapabilityService>(),
                     sp.GetRequiredService<ExecutablePathsConfig>()) { IsVideoModeEditable = false });
             services.AddScoped<ComparisonPlaybackViewModel>(sp => new ComparisonPlaybackViewModel(
-                sp.GetService<LibVLC>(), sp.GetRequiredService<IComparisonFrameService>()));
+                sp.GetRequiredService<IComparisonDecoderFactory>(), sp.GetRequiredService<TimeProvider>()));
             services.AddScoped<ComparisonViewModel>();
 
             // Factory delegate for on-demand DependencySetupViewModel creation

@@ -1,21 +1,18 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:FFApp.ViewModels"
-             xmlns:vlc="using:LibVLCSharp.Avalonia"
              x:Class="FFApp.Views.ComparisonPlaybackView"
              x:DataType="vm:ComparisonPlaybackViewModel" x:CompileBindings="True">
     <Grid RowDefinitions="*,Auto,Auto,Auto">
         <Grid x:Name="VideoGrid" ColumnDefinitions="*,*" MinHeight="160">
             <Border x:Name="LeftPane" Background="Black" Margin="0,0,3,0" ClipToBounds="True">
                 <Grid>
-                    <vlc:VideoView x:Name="LeftVideo" IsVisible="{Binding !HasStillFrames}" />
-                    <Image x:Name="LeftFrame" IsVisible="{Binding HasStillFrames}" />
+                    <Image x:Name="LeftFrame" IsVisible="{Binding HasFrames}" />
                 </Grid>
             </Border>
             <Border x:Name="RightPane" Grid.Column="1" Background="Black" Margin="3,0,0,0" ClipToBounds="True">
                 <Grid>
-                    <vlc:VideoView x:Name="RightVideo" IsVisible="{Binding !HasStillFrames}" />
-                    <Image x:Name="RightFrame" IsVisible="{Binding HasStillFrames}" />
+                    <Image x:Name="RightFrame" IsVisible="{Binding HasFrames}" />
                 </Grid>
             </Border>
         </Grid>

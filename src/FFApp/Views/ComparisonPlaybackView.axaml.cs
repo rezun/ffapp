@@ -1,5 +1,8 @@
 using System.ComponentModel;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Platform;
+using FFApp.Core.Services;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using FFApp.ViewModels;
@@ -9,8 +12,8 @@ namespace FFApp.Views;
 public sealed partial class ComparisonPlaybackView : UserControl
 {
     private ComparisonPlaybackViewModel? _vm;
-    private Bitmap? _leftFrame;
-    private Bitmap? _rightFrame;
+    private WriteableBitmap? _leftFrame;
+    private WriteableBitmap? _rightFrame;
     public ComparisonPlaybackView()
     {
         InitializeComponent();
@@ -25,28 +28,19 @@ public sealed partial class ComparisonPlaybackView : UserControl
         if (_vm is not null) return;
         _vm = DataContext as ComparisonPlaybackViewModel;
         if (_vm is null) return;
-        _vm.PlayersChanged += OnPlayersChanged;
         _vm.PropertyChanged += OnPlaybackChanged;
-        OnPlayersChanged(this, EventArgs.Empty);
         UpdateLayoutMode();
         UpdateFrames();
+        UpdateFrameZoom();
     }
     private void Detach()
     {
         if (_vm is not null)
         {
-            _vm.PlayersChanged -= OnPlayersChanged;
             _vm.PropertyChanged -= OnPlaybackChanged;
         }
-        LeftVideo.MediaPlayer = null;
-        RightVideo.MediaPlayer = null;
         ClearFrames();
         _vm = null;
-    }
-    private void OnPlayersChanged(object? sender, EventArgs e)
-    {
-        LeftVideo.MediaPlayer = _vm?.LeftPlayer;
-        RightVideo.MediaPlayer = _vm?.RightPlayer;
     }
     private void OnPlaybackChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -56,34 +50,31 @@ public sealed partial class ComparisonPlaybackView : UserControl
     }
     private void UpdateFrames()
     {
-        var frames = _vm?.FramesToDisplay;
-        Bitmap? left = null;
-        Bitmap? right = null;
-        try
+        if (_vm?.FramesToDisplay is not { } frames) { ClearFrames(); return; }
+        CopyFrame(ref _leftFrame, frames.Left);
+        if (frames.Right is { } right) CopyFrame(ref _rightFrame, right);
+        else { _rightFrame?.Dispose(); _rightFrame = null; }
+        LeftFrame.Source = _leftFrame;
+        RightFrame.Source = _rightFrame;
+        // WriteableBitmap pixels change in place during playback.
+        LeftFrame.InvalidateVisual();
+        RightFrame.InvalidateVisual();
+    }
+    private static unsafe void CopyFrame(ref WriteableBitmap? bitmap, ComparisonVideoFrame frame)
+    {
+        var dpi = new Vector(96 / frame.PixelAspectRatio, 96);
+        if (bitmap?.PixelSize != new PixelSize(frame.Width, frame.Height) || bitmap.Dpi != dpi)
         {
-            if (frames is not null)
-            {
-                using var leftStream = new MemoryStream(frames.Left);
-                left = new Bitmap(leftStream);
-                if (frames.Right is { } bytes)
-                {
-                    using var rightStream = new MemoryStream(bytes);
-                    right = new Bitmap(rightStream);
-                }
-            }
-            ClearFrames();
-            _leftFrame = left;
-            _rightFrame = right;
-            LeftFrame.Source = left;
-            RightFrame.Source = right;
-            UpdateFrameZoom();
+            bitmap?.Dispose();
+            bitmap = new WriteableBitmap(new PixelSize(frame.Width, frame.Height), dpi,
+                PixelFormat.Bgra8888, AlphaFormat.Opaque);
         }
-        catch
-        {
-            left?.Dispose();
-            right?.Dispose();
-            throw;
-        }
+        if (bitmap is null) return;
+        using var buffer = bitmap.Lock();
+        var target = new Span<byte>((void*)buffer.Address, checked(buffer.RowBytes * frame.Height));
+        for (var row = 0; row < frame.Height; row++)
+            frame.Pixels.Span.Slice(row * frame.Width * 4, frame.Width * 4)
+                .CopyTo(target.Slice(row * buffer.RowBytes));
     }
     private void ClearFrames()
     {

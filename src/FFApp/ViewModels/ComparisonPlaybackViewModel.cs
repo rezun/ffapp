@@ -1,43 +1,41 @@
 using System.Diagnostics;
-using System.Globalization;
-using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
-using LibVLCSharp.Shared;
 
 namespace FFApp.ViewModels;
 
 public sealed record ComparisonTrack(string Path, double OffsetSeconds, CropRect? Crop = null, double SourceStartSeconds = 0);
-public sealed record ComparisonFrames(byte[] Left, byte[]? Right);
-
-public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDisposable
+public sealed record ComparisonFrames(ComparisonVideoFrame Left, ComparisonVideoFrame? Right) : IDisposable
 {
-    private static readonly TimeSpan FramePreviewDelay = TimeSpan.FromMilliseconds(80);
-    private static readonly double FrameBoundaryTolerance = 1e-7;
-    private static readonly double FrameSeekLead = 0.25;
-    private static readonly int PrefetchFrameCount = 4;
-    private readonly LibVLC? _vlc;
-    private readonly IComparisonFrameService? _frames;
-    private CancellationTokenSource? _frameCancellation;
-    private DispatcherTimer? _timer;
-    private Media? _leftMedia;
-    private Media? _rightMedia;
+    public void Dispose() { Left.Dispose(); Right?.Dispose(); }
+}
+
+/// <summary>One presentation clock and a serial worker for two persistent FFmpeg decoders.</summary>
+public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDisposable, IAsyncDisposable
+{
+    private readonly IComparisonDecoderFactory? _decoders;
+    private readonly TimeProvider _time;
+    private readonly SemaphoreSlim _worker = new(1, 1);
+    private readonly List<Task> _operations = [];
+    private CancellationTokenSource? _cancellation;
+    private IComparisonDecoder? _leftDecoder;
+    private IComparisonDecoder? _rightDecoder;
+    private ComparisonTrack? _openedLeft;
+    private ComparisonTrack? _openedRight;
     private ComparisonTrack? _left;
     private ComparisonTrack? _right;
-    private bool _priming;
     private bool _updatingPosition;
-    private bool _steppingFrame;
+    private bool _disposed;
     private double _frameDuration = 1.0 / 24;
+    private double? _displayedLeftTime;
+    private static readonly double FrameBoundaryTolerance = 1e-7;
+    private static readonly TimeSpan ScrubDelay = TimeSpan.FromMilliseconds(40);
 
-    public MediaPlayer? LeftPlayer { get; private set; }
-    public MediaPlayer? RightPlayer { get; private set; }
-    public bool IsAvailable => _vlc is not null;
+    public bool IsAvailable => _decoders is not null;
     public ComparisonTrack? LeftTrack => _left;
     public ComparisonTrack? RightTrack => _right;
-    public event EventHandler? PlayersChanged;
-
     [ObservableProperty] private bool _hasMedia;
     [ObservableProperty] private bool _isSourcePreview = true;
     [NotifyPropertyChangedFor(nameof(PlayLabel))]
@@ -48,38 +46,33 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
     [ObservableProperty] private string _status = "";
     [ObservableProperty] private string _zoom = "Fit";
     [ObservableProperty] private string _layout = "Side by side";
-    [NotifyPropertyChangedFor(nameof(HasStillFrames))]
+    [NotifyPropertyChangedFor(nameof(HasFrames))]
     [ObservableProperty] private ComparisonFrames? _framesToDisplay;
-    public bool HasStillFrames => FramesToDisplay is not null;
-
+    public bool HasFrames => FramesToDisplay is not null;
     public IReadOnlyList<string> ZoomOptions { get; } = ["Fit", "100%", "200%"];
     public IReadOnlyList<string> LayoutOptions { get; } = ["Side by side", "A only", "B only"];
     public string TimeDisplay => $"{TimeSpan.FromSeconds(PositionSeconds):hh\\:mm\\:ss\\.fff} / {TimeSpan.FromSeconds(DurationSeconds):hh\\:mm\\:ss\\.fff}";
     public string PlayLabel => IsPlaying ? "Pause" : "Play sample";
 
-    public ComparisonPlaybackViewModel(LibVLC? vlc, IComparisonFrameService? frames = null)
+    public ComparisonPlaybackViewModel(IComparisonDecoderFactory? decoders, TimeProvider? time = null)
     {
-        _vlc = vlc;
-        _frames = frames;
+        _decoders = decoders;
+        _time = time ?? TimeProvider.System;
     }
 
     public static long MediaTime(ComparisonTrack track, double position, double duration) =>
         (long)Math.Round((track.OffsetSeconds + Math.Clamp(position, 0, Math.Max(0, duration - 0.04))) * 1000);
 
-    internal static double FrameTime(ComparisonTrack track, double position, double duration, double frameRate)
-    {
-        var sampleFrame = Math.Ceiling((track.SourceStartSeconds + track.OffsetSeconds) * frameRate - FrameBoundaryTolerance);
-        var firstClipFrame = Math.Ceiling(track.SourceStartSeconds * frameRate - FrameBoundaryTolerance);
-        var relativeFrame = Math.Floor(Math.Clamp(position, 0, Math.Max(0, duration - 1 / frameRate)) * frameRate + FrameBoundaryTolerance);
-        // Accurate FFmpeg seeking selects the first frame at or after the target.
-        // Seek inside the preceding frame, avoiding millisecond/frame-boundary rounding.
-        return Math.Max(0, (sampleFrame + relativeFrame - firstClipFrame - FrameSeekLead) / frameRate);
-    }
+    private double SourceOrigin(ComparisonTrack track) =>
+        Math.Ceiling(track.SourceStartSeconds / _frameDuration - FrameBoundaryTolerance) * _frameDuration;
+    private double SampleOrigin(ComparisonTrack track) =>
+        Math.Ceiling((track.SourceStartSeconds + track.OffsetSeconds) / _frameDuration - FrameBoundaryTolerance)
+        * _frameDuration - SourceOrigin(track);
 
     public void LoadSource(ComparisonTrack source, double duration, double? frameRate) => Load(source, null, duration, frameRate);
-
     public void Load(ComparisonTrack left, ComparisonTrack? right, double duration, double? frameRate)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         var wasSourcePreview = IsSourcePreview;
         Reset();
         _left = left;
@@ -89,228 +82,126 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
         _frameDuration = 1 / (frameRate is > 0 && double.IsFinite(frameRate.Value) ? frameRate.Value : 24);
         if (IsSourcePreview) Layout = "A only";
         else if (wasSourcePreview) Layout = "Side by side";
-        if (_vlc is null)
-        {
-            Status = "Install VLC to preview samples. You can still create test clips and compare their sizes.";
-            return;
-        }
-        _leftMedia = CreateMedia(left);
-        LeftPlayer = new MediaPlayer(_leftMedia) { Mute = true };
-        ApplyCrop(LeftPlayer, left.Crop);
-        if (right is not null)
-        {
-            _rightMedia = CreateMedia(right);
-            RightPlayer = new MediaPlayer(_rightMedia) { Mute = true };
-            ApplyCrop(RightPlayer, right.Crop);
-        }
-        ApplyZoom();
-        PlayersChanged?.Invoke(this, EventArgs.Empty);
-        _priming = true;
-        LeftPlayer.Play();
-        RightPlayer?.Play();
-        Status = IsSourcePreview ? "Loading original sample…" : "Loading comparison…";
-        if (_timer is null)
-        {
-            _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(80) };
-            _timer.Tick += OnTick;
-        }
-        _timer.Start();
-    }
-
-    private Media CreateMedia(ComparisonTrack track)
-    {
-        var media = new Media(_vlc ?? throw new InvalidOperationException("VLC unavailable."), track.Path, FromType.FromPath);
-        media.AddOption(":no-audio");
-        media.AddOption(":no-spu");
-        media.AddOption(":start-time=" + track.OffsetSeconds.ToString("F6", CultureInfo.InvariantCulture));
-        return media;
-    }
-
-    private static void ApplyCrop(MediaPlayer player, CropRect? crop)
-    {
-        if (crop is { Width: > 0, Height: > 0 })
-            player.CropGeometry = FormattableString.Invariant($"{crop.Width}x{crop.Height}+{crop.X}+{crop.Y}");
-    }
-
-    private void OnTick(object? sender, EventArgs e)
-    {
-        // DispatcherTimer is a synchronous UI callback. Handle errors at this boundary
-        // so an unavailable decoder cannot take down the comparison window.
-        try
-        {
-            if (LeftPlayer is null || _left is null)
-                return;
-            if (LeftPlayer.State == VLCState.Error || RightPlayer?.State == VLCState.Error)
-            {
-                _timer?.Stop();
-                HasMedia = false;
-                Status = "VLC could not decode this sample. Choose another sample or check the installed VLC codecs.";
-                return;
-            }
-            if (_priming)
-            {
-                if (LeftPlayer.State is not (VLCState.Playing or VLCState.Paused)
-                    || (RightPlayer is not null && RightPlayer.State is not (VLCState.Playing or VLCState.Paused))) return;
-                LeftPlayer.SetPause(true);
-                RightPlayer?.SetPause(true);
-                Seek(0);
-                QueueFrames();
-                _priming = false;
-                HasMedia = true;
-                Status = IsSourcePreview
-                    ? "Paused · Audio muted"
-                    : "Audio muted";
-                return;
-            }
-            if (!IsPlaying) return;
-            var position = Math.Max(0, LeftPlayer.Time / 1000.0 - _left.OffsetSeconds);
-            if (position >= DurationSeconds - _frameDuration || LeftPlayer.State == VLCState.Ended
-                || RightPlayer?.State == VLCState.Ended)
-            {
-                if (Loop)
-                {
-                    LeftPlayer.Play();
-                    RightPlayer?.Play();
-                    Seek(0);
-                }
-                else Pause();
-                return;
-            }
-            if (RightPlayer is not null && _right is not null
-                && Math.Abs(RightPlayer.Time - MediaTime(_right, position, DurationSeconds)) > 120)
-                RightPlayer.Time = MediaTime(_right, position, DurationSeconds);
-            _updatingPosition = true;
-            PositionSeconds = Math.Min(position, DurationSeconds);
-            _updatingPosition = false;
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Comparison playback failed: {ex}");
-            _timer?.Stop();
-            IsPlaying = false;
-            Status = $"Playback failed: {ex.Message}";
-        }
+        if (_decoders is null) { Status = "FFmpeg comparison decoder unavailable."; return; }
+        Status = "Loading comparison…";
+        // Selection callbacks are synchronous. RenderAsync handles all errors;
+        // disposal cancels and awaits every tracked operation.
+        Track(RenderAsync());
     }
 
     partial void OnPositionSecondsChanged(double value)
     {
         OnPropertyChanged(nameof(TimeDisplay));
-        if (!_updatingPosition)
+        if (_updatingPosition) return;
+        Pause();
+        _displayedLeftTime = null;
+        if (_left is not null && _decoders is not null)
         {
-            if (IsPlaying) Pause(false);
-            if (_frames is null) Seek(value);
+            // A slider property setter cannot await. RenderAsync is the error boundary.
+            Track(RenderAsync(debounce: true));
         }
-        if (!IsPlaying) QueueFrames();
     }
-
     partial void OnDurationSecondsChanged(double value) => OnPropertyChanged(nameof(TimeDisplay));
-    partial void OnZoomChanged(string value) => ApplyZoom();
-    partial void OnIsPlayingChanged(bool value)
-    {
-        if (value) CancelFrames();
-        if (HasMedia && IsSourcePreview)
-            Status = value ? "Playing · Audio muted"
-                : "Paused · Audio muted";
-    }
+    partial void OnFramesToDisplayChanged(ComparisonFrames? oldValue, ComparisonFrames? newValue) => oldValue?.Dispose();
 
-    private void ApplyZoom()
+    private void Track(Task operation)
     {
-        var scale = Zoom switch { "100%" => 1f, "200%" => 2f, _ => 0f };
-        if (LeftPlayer is not null) LeftPlayer.Scale = scale;
-        if (RightPlayer is not null) RightPlayer.Scale = scale;
+        _operations.RemoveAll(task => task.IsCompleted);
+        _operations.Add(operation);
     }
-
-    private void Seek(double value)
+    private CancellationTokenSource BeginRequest()
     {
-        if (_left is not null && LeftPlayer is not null)
-        {
-            LeftPlayer.Time = MediaTime(_left, value, DurationSeconds);
-        }
-        if (_right is not null && RightPlayer is not null)
-        {
-            RightPlayer.Time = MediaTime(_right, value, DurationSeconds);
-        }
-    }
-
-    private void QueueFrames()
-    {
-        // Property changes and VLC timer ticks are synchronous callbacks. The
-        // async boundary below catches errors and cancels superseded requests.
-        _ = RefreshFramesAsync(!_steppingFrame);
-    }
-
-    internal async Task RefreshFramesAsync(bool debounce = true)
-    {
-        _frameCancellation?.Cancel();
-        if (_frames is null || _left is null || IsPlaying) return;
+        _cancellation?.Cancel();
         var cancellation = new CancellationTokenSource();
-        _frameCancellation = cancellation;
+        _cancellation = cancellation;
+        return cancellation;
+    }
+    private void FinishRequest(CancellationTokenSource cancellation)
+    {
+        if (ReferenceEquals(_cancellation, cancellation)) _cancellation = null;
+        cancellation.Dispose();
+    }
+
+    internal async Task RenderAsync(bool next = false, bool debounce = false)
+    {
+        if (_left is not { } left || _decoders is null || _disposed) return;
+        var right = _right;
+        var cancellation = BeginRequest();
+        var ct = cancellation.Token;
+        var position = PositionSeconds;
+        var displayed = _displayedLeftTime;
         try
         {
-            var left = _left;
-            var right = _right;
-            var position = PositionSeconds;
-            var leftTime = FrameTime(left, position, DurationSeconds, 1 / _frameDuration);
-            var rightTime = right is null ? 0 : FrameTime(right, position, DurationSeconds, 1 / _frameDuration);
-            var leftCached = _frames.TryGetFrame(left.Path, leftTime, left.Crop, out var leftFrame);
-            byte[]? rightFrame = null;
-            var rightCached = right is null || _frames.TryGetFrame(right.Path, rightTime, right.Crop, out rightFrame);
-            if (leftCached && rightCached)
-            {
-                FramesToDisplay = new ComparisonFrames(leftFrame, rightFrame);
-                PrefetchFrames(position);
-                return;
-            }
-            // Scrubbing is debounced; explicit frame steps start immediately.
-            if (debounce) await Task.Delay(FramePreviewDelay, cancellation.Token);
-            var leftTask = _frames.DecodeAsync(left.Path,
-                leftTime, left.Crop, cancellation.Token);
-            var rightTask = right is null ? Task.FromResult<byte[]?>(null)
-                : DecodeRightAsync(right, rightTime, cancellation.Token);
-            await Task.WhenAll(new Task[] { leftTask, rightTask });
-            if (!cancellation.IsCancellationRequested && ReferenceEquals(_frameCancellation, cancellation) && !IsPlaying)
-            {
-                FramesToDisplay = new ComparisonFrames(await leftTask, await rightTask);
-                PrefetchFrames(position);
-            }
+            if (debounce) await Task.Delay(ScrubDelay, _time, ct);
+            var frames = await DecodeAsync(left, right, position, displayed, next, ct);
+            if (ct.IsCancellationRequested) { frames?.Dispose(); return; }
+            if (frames is not null) Publish(frames, left);
+            HasMedia = FramesToDisplay is not null;
+            Status = "Paused · Audio muted";
         }
-        catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Comparison frame decoding failed: {ex}");
-            if (ReferenceEquals(_frameCancellation, cancellation)) Status = $"Frame preview failed: {ex.Message}";
+            Debug.WriteLine($"Comparison decoding failed: {ex}");
+            if (!ct.IsCancellationRequested) Status = $"Playback failed: {ex.Message}";
         }
-        finally
+        finally { FinishRequest(cancellation); }
+    }
+
+    private async Task<ComparisonFrames?> DecodeAsync(ComparisonTrack left, ComparisonTrack? right,
+        double position, double? displayed, bool next, CancellationToken ct)
+    {
+        // Snapshot mapping before dispatch: selection changes may update timing while cancelled work unwinds.
+        var sampleOrigin = SampleOrigin(left);
+        var originDifference = SourceOrigin(left) - SourceOrigin(right ?? left);
+        var duration = DurationSeconds;
+        var target = displayed ?? sampleOrigin + Math.Clamp(position, 0, Math.Max(0, duration - _frameDuration));
+        await _worker.WaitAsync(ct);
+        try
         {
-            if (ReferenceEquals(_frameCancellation, cancellation)) _frameCancellation = null;
-            cancellation.Dispose();
+            return await Task.Run(() =>
+            {
+                ct.ThrowIfCancellationRequested();
+                EnsureDecoders(left, right, ct);
+                var decoder = _leftDecoder ?? throw new InvalidOperationException("No comparison decoder.");
+                var selected = next ? decoder.ReadNext(target, ct) : decoder.ReadAt(target, ct);
+                if (selected is null) return null;
+                if (selected.Seconds - sampleOrigin >= duration - FrameBoundaryTolerance)
+                {
+                    selected.Dispose();
+                    return null;
+                }
+                try
+                {
+                    var other = _rightDecoder?.ReadAt(Math.Max(0, selected.Seconds + originDifference), ct);
+                    return new ComparisonFrames(selected, other);
+                }
+                catch { selected.Dispose(); throw; }
+            }, ct);
         }
+        finally { _worker.Release(); }
     }
 
-    private async Task<byte[]?> DecodeRightAsync(ComparisonTrack track, double seconds, CancellationToken ct) =>
-        _frames is null ? null : await _frames.DecodeAsync(track.Path,
-            seconds, track.Crop, ct);
-
-    private void PrefetchFrames(double position)
+    private void EnsureDecoders(ComparisonTrack left, ComparisonTrack? right, CancellationToken ct)
     {
-        if (_frames is null || _left is null) return;
-        var nextFrame = Math.Floor(position / _frameDuration + FrameBoundaryTolerance) + 1;
-        var lastFrame = Math.Floor(Math.Max(0, DurationSeconds / _frameDuration - 1) + FrameBoundaryTolerance);
-        var count = (int)Math.Clamp(lastFrame - nextFrame + 1, 0, PrefetchFrameCount);
-        if (count == 0) return;
-        var nextPosition = nextFrame * _frameDuration;
-        _frames.Prefetch(_left.Path, FrameTime(_left, nextPosition, DurationSeconds, 1 / _frameDuration),
-            _frameDuration, count, _left.Crop);
-        if (_right is { } right)
-            _frames.Prefetch(right.Path, FrameTime(right, nextPosition, DurationSeconds, 1 / _frameDuration),
-                _frameDuration, count, right.Crop);
+        if (_openedLeft == left && _openedRight == right) return;
+        CloseDecoders();
+        try
+        {
+            _leftDecoder = _decoders?.Open(left.Path, left.Crop, ct);
+            _rightDecoder = right is null ? null : _decoders?.Open(right.Path, right.Crop, ct);
+            _openedLeft = left;
+            _openedRight = right;
+        }
+        catch { CloseDecoders(); throw; }
     }
-
-    private void CancelFrames()
+    private void Publish(ComparisonFrames frames, ComparisonTrack left)
     {
-        _frameCancellation?.Cancel();
-        _frameCancellation = null;
-        FramesToDisplay = null;
+        _displayedLeftTime = frames.Left.Seconds;
+        _updatingPosition = true;
+        try { PositionSeconds = Math.Clamp(frames.Left.Seconds - SampleOrigin(left), 0, DurationSeconds); }
+        finally { _updatingPosition = false; }
+        FramesToDisplay = frames;
     }
 
     [RelayCommand]
@@ -320,84 +211,126 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
         if (IsPlaying) Pause();
         else
         {
-            Seek(PositionSeconds);
-            LeftPlayer?.SetPause(false);
-            RightPlayer?.SetPause(false);
-            IsPlaying = true;
+            // ICommand.Execute is synchronous; PlayAsync catches all errors.
+            Track(PlayAsync());
         }
     }
-
-    public void Pause(bool refreshFrames = true)
+    internal async Task PlayAsync()
     {
-        LeftPlayer?.SetPause(true);
-        RightPlayer?.SetPause(true);
-        IsPlaying = false;
-        if (refreshFrames) QueueFrames();
-    }
-
-    [RelayCommand]
-    private void StepForward()
-    {
-        if (!HasMedia || LeftPlayer is null) return;
-        AdvanceFrame(LeftPlayer.NextFrame, RightPlayer is { } right ? right.NextFrame : null);
-    }
-
-    internal void AdvanceFrame(Action advanceLeft, Action? advanceRight)
-    {
-        Pause(false);
-        var target = PositionSeconds + _frameDuration;
-        if (target >= DurationSeconds - _frameDuration * 1e-9) return;
-
-        // The still-frame backend decodes the new position below. Only use VLC
-        // frame stepping when no still-frame service is available.
-        if (_frames is null)
+        if (_left is not { } left || _decoders is null || _disposed) return;
+        var right = _right;
+        var cancellation = BeginRequest();
+        var ct = cancellation.Token;
+        IsPlaying = true;
+        Status = "Playing · Audio muted";
+        var clockStart = _time.GetTimestamp();
+        var startPosition = PositionSeconds;
+        try
         {
-            advanceLeft();
-            advanceRight?.Invoke();
+            while (!ct.IsCancellationRequested)
+            {
+                var frames = await DecodeAsync(left, right, PositionSeconds, _displayedLeftTime, true, ct);
+                if (frames is null)
+                {
+                    if (!Loop) break;
+                    frames = await DecodeAsync(left, right, 0, null, false, ct);
+                    if (frames is null) break;
+                    startPosition = 0;
+                    clockStart = _time.GetTimestamp();
+                }
+                try
+                {
+                    var due = TimeSpan.FromSeconds(Math.Max(0, frames.Left.Seconds - SampleOrigin(left) - startPosition));
+                    var remaining = due - _time.GetElapsedTime(clockStart);
+                    if (remaining > TimeSpan.Zero) await Task.Delay(remaining, _time, ct);
+                    ct.ThrowIfCancellationRequested();
+                    Publish(frames, left);
+                }
+                catch { frames.Dispose(); throw; }
+            }
         }
-        _updatingPosition = true;
-        _steppingFrame = true;
-        try { PositionSeconds = target; }
-        finally { _updatingPosition = false; _steppingFrame = false; }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Comparison playback failed: {ex}");
+            if (!ct.IsCancellationRequested) Status = $"Playback failed: {ex.Message}";
+        }
+        finally
+        {
+            if (ReferenceEquals(_cancellation, cancellation))
+            {
+                IsPlaying = false;
+                if (Status.StartsWith("Playing", StringComparison.Ordinal)) Status = "Paused · Audio muted";
+            }
+            FinishRequest(cancellation);
+        }
     }
-
+    public void Pause()
+    {
+        _cancellation?.Cancel();
+        _cancellation = null;
+        IsPlaying = false;
+        if (HasMedia) Status = "Paused · Audio muted";
+    }
+    [RelayCommand]
+    private Task StepForward()
+    {
+        if (!HasMedia) return Task.CompletedTask;
+        Pause();
+        var operation = RenderAsync(next: true);
+        Track(operation);
+        return operation;
+    }
     [RelayCommand]
     private void SeekBackward()
     {
         Pause();
         PositionSeconds = Math.Max(0, PositionSeconds - 1);
     }
-
     public void Reset()
     {
-        CancelFrames();
-        _frames?.ClearCache();
-        _timer?.Stop();
+        Pause();
         HasMedia = false;
-        IsPlaying = false;
-        var left = LeftPlayer;
-        var right = RightPlayer;
-        LeftPlayer = null;
-        RightPlayer = null;
-        PlayersChanged?.Invoke(this, EventArgs.Empty);
-        left?.Stop();
-        right?.Stop();
-        left?.Dispose();
-        right?.Dispose();
-        _leftMedia?.Dispose();
-        _rightMedia?.Dispose();
-        _leftMedia = null;
-        _rightMedia = null;
+        FramesToDisplay = null;
+        _displayedLeftTime = null;
         _left = null;
         _right = null;
-        _priming = false;
-        PositionSeconds = 0;
+        _updatingPosition = true;
+        try { PositionSeconds = 0; }
+        finally { _updatingPosition = false; }
+        // Selection callbacks are synchronous. Cleanup is serialized with native calls
+        // and awaited by DisposeAsync, so active native resources cannot be freed early.
+        Track(CloseDecodersAsync());
     }
-
+    private async Task CloseDecodersAsync()
+    {
+        try
+        {
+            await _worker.WaitAsync();
+            try { await Task.Run(CloseDecoders); }
+            finally { _worker.Release(); }
+        }
+        catch (Exception ex) { Debug.WriteLine($"Comparison decoder cleanup failed: {ex}"); }
+    }
+    private void CloseDecoders()
+    {
+        _leftDecoder?.Dispose();
+        _rightDecoder?.Dispose();
+        _leftDecoder = null;
+        _rightDecoder = null;
+        _openedLeft = null;
+        _openedRight = null;
+    }
     public void Dispose()
     {
+        if (_disposed) return;
+        _disposed = true;
         Reset();
-        if (_timer is not null) _timer.Tick -= OnTick;
         GC.SuppressFinalize(this);
+    }
+    public async ValueTask DisposeAsync()
+    {
+        Dispose();
+        await Task.WhenAll(_operations.ToArray());
     }
 }

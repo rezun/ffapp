@@ -9,6 +9,7 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using FFApp.Controls;
+using FFApp.Tests.ViewModels;
 using FFApp.Tests.Builders;
 using FFApp.Views;
 using FFApp.ViewModels;
@@ -21,7 +22,7 @@ namespace FFApp.Tests.Views;
 public sealed class ComparisonWindowTests(QueueTestSession fixture)
 {
     [Fact]
-    public async Task PausedFrames_ReplaceBothVideoSurfaces_KeepZoom_AndClearOnReset()
+    public async Task RawFrames_UpdateBothSurfaces_ReuseBitmaps_KeepZoom_AndClearOnReset()
     {
         await fixture.Session.Dispatch(() =>
         {
@@ -32,16 +33,24 @@ public sealed class ComparisonWindowTests(QueueTestSession fixture)
             window.Show();
             try
             {
-                var png = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAACXBIWXMAAAABAAAAAQBPJcTWAAAAEElEQVR4nGP8wwACLGCSAQANBAECv1AVswAAAABJRU5ErkJggg==");
-                vm.FramesToDisplay = new ComparisonFrames(png, png);
+                vm.FramesToDisplay = new ComparisonFrames(ComparisonPlaybackViewModelTests.Frame(0), ComparisonPlaybackViewModelTests.Frame(0));
                 var left = view.FindControl<Image>("LeftFrame") ?? throw new InvalidOperationException("Missing left image.");
                 var right = view.FindControl<Image>("RightFrame") ?? throw new InvalidOperationException("Missing right image.");
                 left.Source.Should().NotBeNull();
                 right.Source.Should().NotBeNull();
                 left.IsVisible.Should().BeTrue();
                 right.IsVisible.Should().BeTrue();
-                view.FindControl<Control>("LeftVideo")?.IsVisible.Should().BeFalse();
-                view.FindControl<Control>("RightVideo")?.IsVisible.Should().BeFalse();
+                view.FindControl<Control>("LeftVideo").Should().BeNull();
+                view.FindControl<Control>("RightVideo").Should().BeNull();
+                var originalLeft = left.Source;
+                var originalRight = right.Source;
+                var newLeft = ComparisonPlaybackViewModelTests.Frame(.04);
+                var newRight = ComparisonPlaybackViewModelTests.Frame(.04);
+                newLeft.Pixels.Span.Fill(42);
+                newRight.Pixels.Span.Fill(84);
+                vm.FramesToDisplay = new ComparisonFrames(newLeft, newRight);
+                left.Source.Should().BeSameAs(originalLeft);
+                right.Source.Should().BeSameAs(originalRight);
                 vm.Zoom = "200%";
                 left.Stretch.Should().Be(Stretch.None);
                 left.RenderTransform.Should().BeOfType<ScaleTransform>().Which.ScaleX.Should().Be(2);

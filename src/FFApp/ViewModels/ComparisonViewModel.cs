@@ -73,7 +73,7 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
     public bool IsAv1 => SelectedVariant?.Settings.VideoCodec == VideoCodec.Av1;
     public bool IsHdr => _media?.PrimaryVideoStream?.IsHdr == true;
     public string HdrNote => IsHdr
-        ? "HDR originals use VLC's display conversion. Compare two SDR variants to judge tone-mapping consistently."
+        ? "HDR previews use an 8-bit RGB display without HDR tone mapping. Compare two SDR variants to judge tone-mapping consistently."
         : "";
     public string VariantDifferences => SelectedVariant is not { } variant || _session is null ? ""
         : ComparisonSettingsDescription.Differences(_session.Baseline, variant.Settings);

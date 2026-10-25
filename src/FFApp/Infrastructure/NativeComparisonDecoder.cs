@@ -53,6 +53,8 @@ internal sealed unsafe class NativeComparisonDecoder : IComparisonDecoder
     ];
     private static readonly double TimestampTolerance = 0.000001;
     private static readonly double SequentialReadWindowSeconds = 0.5;
+    private static readonly int HdMinimumWidth = 1280;
+    private static readonly int SdMaximumHeight = 576;
     public double TimestampResolutionSeconds => _timeBase;
 
     /// <summary>Frame properties the tone-mapping graph was configured for.</summary>
@@ -237,7 +239,12 @@ internal sealed unsafe class NativeComparisonDecoder : IComparisonDecoder
         try
         {
             if (_hdrConversion != HdrConversion.None && ComparisonToneMapping.IsHdr(_frame->color_trc)) ToneMap(full.Memory);
-            else ConvertToBgra(SoftwareFrame(), full.Memory);
+            else
+            {
+                var source = SoftwareFrame();
+                source->colorspace = EffectiveColorSpace(source->colorspace, source->width, source->height);
+                ConvertToBgra(source, full.Memory);
+            }
             if (_crop is null)
             {
                 var result = new ComparisonVideoFrame(width, height, _seconds, full, pixelAspectRatio);
@@ -252,6 +259,17 @@ internal sealed unsafe class NativeComparisonDecoder : IComparisonDecoder
         }
         finally { full?.Dispose(); }
     }
+
+    /// <summary>
+    /// The YUV matrix to decode with. swscale treats an untagged frame as BT.601, but HD specifications
+    /// (Blu-ray, broadcast) and players (mpv, QuickTime, Windows) use BT.709. Without this, an untagged HD
+    /// source would be decoded differently from its BT.709-tagged encodes, and the comparison would show
+    /// a color shift that no player shows. The size rule is mpv's.
+    /// </summary>
+    internal static AVColorSpace EffectiveColorSpace(AVColorSpace tagged, int width, int height) =>
+        tagged != AVColorSpace.AVCOL_SPC_UNSPECIFIED ? tagged
+            : width >= HdMinimumWidth || height > SdMaximumHeight ? AVColorSpace.AVCOL_SPC_BT709
+            : AVColorSpace.AVCOL_SPC_SMPTE170M;
 
     /// <summary>The current frame in system memory, downloading it first when the GPU decoded it.</summary>
     private AVFrame* SoftwareFrame()

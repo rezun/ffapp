@@ -3,6 +3,7 @@ using FFApp.Core.Models;
 using FFApp.Core.Services;
 using FFApp.Infrastructure;
 using FFApp.ViewModels;
+using FFmpeg.AutoGen;
 using FluentAssertions;
 
 namespace FFApp.Tests.Infrastructure;
@@ -226,6 +227,37 @@ public sealed class NativeComparisonDecoderTests(NativeComparisonFixture fixture
         using var decoder = fixture.Factory.Open(fixture.Video(), new CropRect(60, 0, 10, 48));
         var invalidCrop = () => decoder.ReadAt(0);
         invalidCrop.Should().Throw<InvalidDataException>().WithMessage("*crop*");
+    }
+
+    [Theory]
+    [InlineData(AVColorSpace.AVCOL_SPC_UNSPECIFIED, 1920, 1080, AVColorSpace.AVCOL_SPC_BT709)]
+    [InlineData(AVColorSpace.AVCOL_SPC_UNSPECIFIED, 1920, 800, AVColorSpace.AVCOL_SPC_BT709)]
+    [InlineData(AVColorSpace.AVCOL_SPC_UNSPECIFIED, 1280, 536, AVColorSpace.AVCOL_SPC_BT709)]
+    [InlineData(AVColorSpace.AVCOL_SPC_UNSPECIFIED, 1024, 720, AVColorSpace.AVCOL_SPC_BT709)]
+    [InlineData(AVColorSpace.AVCOL_SPC_UNSPECIFIED, 720, 576, AVColorSpace.AVCOL_SPC_SMPTE170M)]
+    [InlineData(AVColorSpace.AVCOL_SPC_UNSPECIFIED, 720, 480, AVColorSpace.AVCOL_SPC_SMPTE170M)]
+    [InlineData(AVColorSpace.AVCOL_SPC_BT470BG, 1920, 1080, AVColorSpace.AVCOL_SPC_BT470BG)]
+    [InlineData(AVColorSpace.AVCOL_SPC_BT709, 720, 576, AVColorSpace.AVCOL_SPC_BT709)]
+    [InlineData(AVColorSpace.AVCOL_SPC_BT2020_NCL, 3840, 2160, AVColorSpace.AVCOL_SPC_BT2020_NCL)]
+    public void EffectiveColorSpace_GuessesOnlyUntaggedFrames_ByResolution(
+        AVColorSpace tagged, int width, int height, AVColorSpace expected) =>
+        NativeComparisonDecoder.EffectiveColorSpace(tagged, width, height).Should().Be(expected);
+
+    // comparison-untagged-hd.mp4: 1280x720 H.264 without color tags, converted from RGB with the BT.709 matrix;
+    // left half #C03020, right half #2A7A80. Decoding with BT.601 would give red (177,34,32).
+    [NativeComparisonFact]
+    public void UntaggedHdFrames_AreDecodedWithBt709()
+    {
+        using var decoder = fixture.Factory.Open(fixture.Video("comparison-untagged-hd.mp4"), null);
+        using var frame = decoder.ReadAt(0);
+        var red = Pixel(frame, 100, 300);
+        ((int)red.R).Should().BeCloseTo(189, 4);
+        ((int)red.G).Should().BeCloseTo(47, 4);
+        ((int)red.B).Should().BeCloseTo(30, 4);
+        var teal = Pixel(frame, 1000, 300);
+        ((int)teal.R).Should().BeCloseTo(40, 4);
+        ((int)teal.G).Should().BeCloseTo(121, 4);
+        ((int)teal.B).Should().BeCloseTo(126, 4);
     }
 
     // comparison-hdr10.mp4: 64x48 HDR10 (PQ, BT.2020), left half BT.709 red, right half 50% gray.

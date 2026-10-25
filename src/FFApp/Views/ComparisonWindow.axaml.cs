@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
+using FFApp.Infrastructure;
 using FFApp.ViewModels;
 
 namespace FFApp.Views;
@@ -24,7 +25,12 @@ public sealed partial class ComparisonWindow : Window
         {
             if (_vm is not null) _vm.PropertyChanged -= OnWorkflowChanged;
         };
-        Opened += (_, _) => (DataContext as ComparisonViewModel)?.PreviewSelection();
+        Opened += (_, _) =>
+        {
+            // Frames are sRGB; without a tagged layer macOS shows them oversaturated on P3 displays.
+            MacOSColorSpace.TryTagSrgb(this);
+            (DataContext as ComparisonViewModel)?.PreviewSelection();
+        };
         SampleTimeline.SampleSelected += (_, id) =>
         {
             if (DataContext is ComparisonViewModel vm)

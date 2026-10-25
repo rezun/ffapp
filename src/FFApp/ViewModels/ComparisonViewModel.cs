@@ -430,7 +430,8 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
         {
             if (choice?.Id == "original") return new ComparisonTrack(_session.SourcePath, sample.StartSeconds, _session.Crop);
             var clip = Rows.SelectMany(r => r.Cells).FirstOrDefault(c => c.SampleId == sample.Id && c.VariantId == choice?.Id)?.Clip;
-            return clip is null ? null : new ComparisonTrack(clip.Path, clip.OffsetSeconds);
+            return clip is null ? null : new ComparisonTrack(clip.Path, clip.OffsetSeconds,
+                SourceStartSeconds: sample.StartSeconds - clip.OffsetSeconds);
         }
         if (IsSamplesStep)
             Playback.LoadSource(new ComparisonTrack(_session.SourcePath, sample.StartSeconds, _session.Crop),

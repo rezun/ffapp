@@ -7,10 +7,16 @@
     <Grid RowDefinitions="*,Auto,Auto,Auto">
         <Grid x:Name="VideoGrid" ColumnDefinitions="*,*" MinHeight="160">
             <Border x:Name="LeftPane" Background="Black" Margin="0,0,3,0" ClipToBounds="True">
-                <vlc:VideoView x:Name="LeftVideo" />
+                <Grid>
+                    <vlc:VideoView x:Name="LeftVideo" IsVisible="{Binding !HasStillFrames}" />
+                    <Image x:Name="LeftFrame" IsVisible="{Binding HasStillFrames}" />
+                </Grid>
             </Border>
             <Border x:Name="RightPane" Grid.Column="1" Background="Black" Margin="3,0,0,0" ClipToBounds="True">
-                <vlc:VideoView x:Name="RightVideo" />
+                <Grid>
+                    <vlc:VideoView x:Name="RightVideo" IsVisible="{Binding !HasStillFrames}" />
+                    <Image x:Name="RightFrame" IsVisible="{Binding HasStillFrames}" />
+                </Grid>
             </Border>
         </Grid>
         <Slider Grid.Row="1" Margin="0,4" Minimum="0" Maximum="{Binding DurationSeconds}"

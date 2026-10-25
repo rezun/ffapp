@@ -6,6 +6,17 @@ namespace FFApp.Tests.ViewModels;
 public sealed class ComparisonPlaybackViewModelTests
 {
     [Theory]
+    [InlineData(1684.656, 1.821, 1686477)]
+    [InlineData(2, 1.821, 3821)]
+    [InlineData(1684.656, 0, 1684656)]
+    public void MediaTime_RoundsToNearestMillisecond_WithoutFloatingPointTruncation(
+        double offset, double position, long expected)
+    {
+        ComparisonPlaybackViewModel.MediaTime(new ComparisonTrack("video", offset), position, 12)
+            .Should().Be(expected);
+    }
+
+    [Theory]
     [InlineData(24, 5.25, 4.25)]
     [InlineData(60, 5.25, 4.25)]
     [InlineData(24000.0 / 1001, 5.25, 4.25)]

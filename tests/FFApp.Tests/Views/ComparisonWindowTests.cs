@@ -11,6 +11,7 @@ using Avalonia.VisualTree;
 using FFApp.Controls;
 using FFApp.Tests.Builders;
 using FFApp.Views;
+using FFApp.ViewModels;
 using FluentAssertions;
 using NSubstitute;
 
@@ -19,6 +20,41 @@ namespace FFApp.Tests.Views;
 [Collection("Queue UI")]
 public sealed class ComparisonWindowTests(QueueTestSession fixture)
 {
+    [Fact]
+    public async Task PausedFrames_ReplaceBothVideoSurfaces_KeepZoom_AndClearOnReset()
+    {
+        await fixture.Session.Dispatch(() =>
+        {
+            using var vm = new ComparisonPlaybackViewModel(null);
+            vm.Load(new ComparisonTrack("source", 100), new ComparisonTrack("clip", 2), 12, 24);
+            var view = new ComparisonPlaybackView { DataContext = vm };
+            var window = new Window { Content = view };
+            window.Show();
+            try
+            {
+                var png = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAACXBIWXMAAAABAAAAAQBPJcTWAAAAEElEQVR4nGP8wwACLGCSAQANBAECv1AVswAAAABJRU5ErkJggg==");
+                vm.FramesToDisplay = new ComparisonFrames(png, png);
+                var left = view.FindControl<Image>("LeftFrame") ?? throw new InvalidOperationException("Missing left image.");
+                var right = view.FindControl<Image>("RightFrame") ?? throw new InvalidOperationException("Missing right image.");
+                left.Source.Should().NotBeNull();
+                right.Source.Should().NotBeNull();
+                left.IsVisible.Should().BeTrue();
+                right.IsVisible.Should().BeTrue();
+                view.FindControl<Control>("LeftVideo")?.IsVisible.Should().BeFalse();
+                view.FindControl<Control>("RightVideo")?.IsVisible.Should().BeFalse();
+                vm.Zoom = "200%";
+                left.Stretch.Should().Be(Stretch.None);
+                left.RenderTransform.Should().BeOfType<ScaleTransform>().Which.ScaleX.Should().Be(2);
+                right.RenderTransform.Should().BeOfType<ScaleTransform>().Which.ScaleX.Should().Be(2);
+                vm.Reset();
+                left.Source.Should().BeNull();
+                right.Source.Should().BeNull();
+                left.IsVisible.Should().BeFalse();
+            }
+            finally { window.Close(); }
+        }, CancellationToken.None);
+    }
+
     [Fact]
     public async Task Window_PreservesOuterMargins_AndReservesFooterSpaceOnlyWhenNeeded()
     {

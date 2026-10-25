@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using System.Diagnostics;
 using FFApp.Core.Models;
 using FFApp.ViewModels;
 using FFApp.Views;
@@ -32,7 +33,7 @@ public sealed class ComparisonWindowService(IServiceScopeFactory scopeFactory, F
             existing.Activate();
             return;
         }
-        var scope = scopeFactory.CreateScope();
+        var scope = scopeFactory.CreateAsyncScope();
         try
         {
             var vm = scope.ServiceProvider.GetRequiredService<ComparisonViewModel>();
@@ -42,13 +43,21 @@ public sealed class ComparisonWindowService(IServiceScopeFactory scopeFactory, F
             window.Closed += (_, _) =>
             {
                 _windows.Remove(path);
-                scope.Dispose();
+                // Closed is synchronous; track cleanup in an async boundary so
+                // scoped decoders can cancel and await their background work.
+                _ = DisposeScopeAsync();
             };
             window.Show(owner());
+
+            async Task DisposeScopeAsync()
+            {
+                try { await scope.DisposeAsync(); }
+                catch (Exception ex) { Debug.WriteLine($"Comparison cleanup failed: {ex}"); }
+            }
         }
         catch
         {
-            scope.Dispose();
+            await scope.DisposeAsync();
             throw;
         }
     }

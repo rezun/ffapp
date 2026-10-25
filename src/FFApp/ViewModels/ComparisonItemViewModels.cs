@@ -13,7 +13,12 @@ public sealed partial class ComparisonSampleViewModel : ObservableObject
     [ObservableProperty] private double _startSeconds;
     [ObservableProperty] private double _durationSeconds;
     public string Label => double.IsFinite(StartSeconds) && double.IsFinite(DurationSeconds)
-        ? $"{FormatHelpers.FormatCompactDuration(StartSeconds)} · {DurationSeconds:F1}s" : "Invalid sample range";
+        ? $"{FormatHelpers.FormatCompactDuration(StartSeconds)} · {DurationLabel}" : "Invalid sample range";
+    /// <summary>Start as h:mm:ss so list rows keep one width across the whole source.</summary>
+    public string StartLabel => double.IsFinite(StartSeconds)
+        ? TimeSpan.FromSeconds(Math.Max(0, StartSeconds)).ToString(@"h\:mm\:ss", CultureInfo.InvariantCulture) : "–";
+    public string DurationLabel => double.IsFinite(DurationSeconds)
+        ? string.Create(CultureInfo.InvariantCulture, $"{DurationSeconds:0.#} s") : "–";
     public ComparisonSampleViewModel(ComparisonSample sample)
     {
         Id = sample.Id;
@@ -22,8 +27,16 @@ public sealed partial class ComparisonSampleViewModel : ObservableObject
         _durationSeconds = sample.DurationSeconds;
     }
     partial void OnNameChanged(string value) => OnPropertyChanged(nameof(Label));
-    partial void OnStartSecondsChanged(double value) => OnPropertyChanged(nameof(Label));
-    partial void OnDurationSecondsChanged(double value) => OnPropertyChanged(nameof(Label));
+    partial void OnStartSecondsChanged(double value)
+    {
+        OnPropertyChanged(nameof(Label));
+        OnPropertyChanged(nameof(StartLabel));
+    }
+    partial void OnDurationSecondsChanged(double value)
+    {
+        OnPropertyChanged(nameof(Label));
+        OnPropertyChanged(nameof(DurationLabel));
+    }
     public ComparisonSample Snapshot() => new(Id, Name, StartSeconds, DurationSeconds);
 }
 

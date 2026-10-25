@@ -61,7 +61,8 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
     public IReadOnlyList<string> ZoomOptions { get; } = ["Fit", "100%", "200%"];
     public IReadOnlyList<string> LayoutOptions { get; } = [SideBySideLayout, SliderLayout, AOnlyLayout, BOnlyLayout];
     public bool IsSliderLayout => !IsSourcePreview && string.Equals(Layout, SliderLayout, StringComparison.Ordinal);
-    public string TimeDisplay => $"{TimeSpan.FromSeconds(PositionSeconds):hh\\:mm\\:ss\\.fff} / {TimeSpan.FromSeconds(DurationSeconds):hh\\:mm\\:ss\\.fff}";
+    public string PositionDisplay => $"{TimeSpan.FromSeconds(PositionSeconds):mm\\:ss\\.fff}";
+    public string DurationDisplay => $"/ {TimeSpan.FromSeconds(DurationSeconds):mm\\:ss\\.fff}";
     public string PlayLabel => IsPlaying ? "Pause" : "Play sample";
 
     public ComparisonPlaybackViewModel(IComparisonDecoderFactory? decoders, TimeProvider? time = null)
@@ -101,7 +102,7 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
 
     partial void OnPositionSecondsChanged(double value)
     {
-        OnPropertyChanged(nameof(TimeDisplay));
+        OnPropertyChanged(nameof(PositionDisplay));
         if (_updatingPosition) return;
         Pause();
         _displayedLeftTime = null;
@@ -111,7 +112,7 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
             Track(RenderAsync(debounce: true));
         }
     }
-    partial void OnDurationSecondsChanged(double value) => OnPropertyChanged(nameof(TimeDisplay));
+    partial void OnDurationSecondsChanged(double value) => OnPropertyChanged(nameof(DurationDisplay));
     partial void OnSplitPositionChanged(double value)
     {
         var coerced = double.IsNaN(value) ? CenterSplit : Math.Clamp(value, 0, 1);
@@ -154,7 +155,7 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
             if (ct.IsCancellationRequested) { frames?.Dispose(); return; }
             if (frames is not null) Publish(frames, left);
             HasMedia = FramesToDisplay is not null;
-            Status = "Paused · Audio muted";
+            Status = "";
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
         catch (Exception ex)
@@ -245,7 +246,7 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
         var cancellation = BeginRequest();
         var ct = cancellation.Token;
         IsPlaying = true;
-        Status = "Playing · Audio muted";
+        Status = "";
         var clockStart = _time.GetTimestamp();
         var startPosition = PositionSeconds;
         Task<ComparisonFrames?>? pending = null;
@@ -291,11 +292,7 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
         finally
         {
             if (pending is not null) await DiscardAsync(pending);
-            if (ReferenceEquals(_cancellation, cancellation))
-            {
-                IsPlaying = false;
-                if (Status.StartsWith("Playing", StringComparison.Ordinal)) Status = "Paused · Audio muted";
-            }
+            if (ReferenceEquals(_cancellation, cancellation)) IsPlaying = false;
             FinishRequest(cancellation);
         }
     }
@@ -323,7 +320,6 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
         _cancellation?.Cancel();
         _cancellation = null;
         IsPlaying = false;
-        if (HasMedia) Status = "Paused · Audio muted";
     }
     [RelayCommand]
     private Task StepForward()
@@ -335,10 +331,23 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
         return operation;
     }
     [RelayCommand]
+    private void StepBackward()
+    {
+        if (!HasMedia) return;
+        Pause();
+        PositionSeconds = Math.Max(0, PositionSeconds - _frameDuration);
+    }
+    [RelayCommand]
     private void SeekBackward()
     {
         Pause();
         PositionSeconds = Math.Max(0, PositionSeconds - 1);
+    }
+    [RelayCommand]
+    private void SeekForward()
+    {
+        Pause();
+        PositionSeconds = Math.Min(Math.Max(0, DurationSeconds - _frameDuration), PositionSeconds + 1);
     }
     public void Reset()
     {

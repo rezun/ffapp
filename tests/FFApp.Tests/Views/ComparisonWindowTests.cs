@@ -140,7 +140,7 @@ public sealed class ComparisonWindowTests(QueueTestSession fixture)
                 preview.Bounds.Width.Should().BeGreaterThan(originalSize.Width);
                 preview.Bounds.Height.Should().BeGreaterThan(originalSize.Height);
                 button.IsEffectivelyVisible.Should().BeTrue();
-                button.Content.Should().Be("Restore panels");
+                ToolTip.GetTip(button).Should().Be("Restore panels");
                 vm.SelectedSample.Should().BeSameAs(selectedSample);
                 vm.LeftChoice.Should().BeSameAs(leftChoice);
                 vm.RightChoice.Should().BeSameAs(rightChoice);
@@ -207,7 +207,7 @@ public sealed class ComparisonWindowTests(QueueTestSession fixture)
     }
 
     [Fact]
-    public async Task Window_PreservesOuterMargins_AndReservesFooterSpaceOnlyWhenNeeded()
+    public async Task StatusBar_AlwaysShowsSaveState_AndShowsProgressOrStatusOnlyWhenNeeded()
     {
         await fixture.Session.Dispatch(async () =>
         {
@@ -221,16 +221,20 @@ public sealed class ComparisonWindowTests(QueueTestSession fixture)
                 window.UpdateLayout();
                 var layout = window.FindControl<Grid>("ComparisonLayout")
                     ?? throw new InvalidOperationException("Window layout missing.");
+                var statusBar = window.FindControl<Border>("StatusBar")
+                    ?? throw new InvalidOperationException("Status bar missing.");
                 var footer = window.FindControl<StackPanel>("ComparisonStatusPanel")
                     ?? throw new InvalidOperationException("Status panel missing.");
+                var usage = window.FindControl<TextBlock>("CacheUsageText")
+                    ?? throw new InvalidOperationException("Cache usage missing.");
                 layout.Margin.Should().Be(new Thickness(16));
+                statusBar.IsEffectivelyVisible.Should().BeTrue();
+                usage.Text.Should().Be(vm.CacheUsageLabel);
                 footer.IsVisible.Should().BeFalse();
-                layout.RowDefinitions[3].ActualHeight.Should().Be(0);
 
                 vm.Status = "Unable to save comparison.";
                 window.UpdateLayout();
                 footer.IsVisible.Should().BeTrue();
-                layout.RowDefinitions[3].ActualHeight.Should().BeGreaterThan(0);
 
                 vm.Status = "";
                 vm.IsRunning = true;
@@ -242,7 +246,7 @@ public sealed class ComparisonWindowTests(QueueTestSession fixture)
                 vm.IsRunning = false;
                 window.UpdateLayout();
                 footer.IsVisible.Should().BeFalse();
-                layout.RowDefinitions[3].ActualHeight.Should().Be(0);
+                statusBar.IsEffectivelyVisible.Should().BeTrue();
             }
             finally
             {
@@ -381,6 +385,10 @@ public sealed class ComparisonWindowTests(QueueTestSession fixture)
             try
             {
                 window.UpdateLayout();
+                var distribute = window.FindControl<Button>("DistributeButton")
+                    ?? throw new InvalidOperationException("Distribute button missing.");
+                distribute.Flyout?.ShowAt(distribute);
+                window.UpdateLayout();
                 foreach (var name in new[] { "SampleLengthInput", "SampleDurationInput" })
                 {
                     var field = window.FindControl<NumericUpDown>(name)
@@ -393,13 +401,16 @@ public sealed class ComparisonWindowTests(QueueTestSession fixture)
                 }
                 harness.ViewModel.SampleDuration.Should().Be(15);
                 harness.ViewModel.SelectedSample?.DurationSeconds.Should().Be(15);
-                var fields = window.GetVisualDescendants().OfType<NumericUpDown>().ToArray();
-                fields.Should().HaveCount(4);
+                var fields = new[] { "SampleCountInput", "SampleLengthInput", "SampleStartInput", "SampleDurationInput" }
+                    .Select(name => window.FindControl<NumericUpDown>(name) ?? throw new InvalidOperationException($"{name} missing."))
+                    .ToArray();
                 foreach (var field in fields)
                 {
+                    field.UpdateLayout();
                     var editor = field.GetVisualDescendants().OfType<TextBox>().Single();
                     editor.Focus();
                     window.UpdateLayout();
+                    field.UpdateLayout();
                     var scrollbars = editor.GetVisualDescendants().OfType<ScrollBar>().ToArray();
                     scrollbars.Should().NotBeEmpty();
                     scrollbars.Should().OnlyContain(bar => !bar.IsEffectivelyVisible);
@@ -466,13 +477,23 @@ public sealed class ComparisonWindowTests(QueueTestSession fixture)
                 var brush = presenter.Background.Should().BeAssignableTo<ISolidColorBrush>().Subject;
                 brush.Color.B.Should().BeGreaterThan(brush.Color.R, "the primary action should be visibly blue");
                 var play = preview.FindControl<Button>("PlaySampleButton") ?? throw new InvalidOperationException("Play button missing.");
-                play.Content.Should().Be("Play sample");
-                play.Classes.Should().Contain("accent");
+                ToolTip.GetTip(play).Should().Be("Play sample");
+                play.Classes.Should().NotContain("accent", "the primary action is the only accent button");
                 var back = preview.FindControl<Button>("SeekBackwardButton")
                     ?? throw new InvalidOperationException("Backward seek button missing.");
-                back.Content.Should().Be("◀ 1 s");
                 back.Command.Should().BeSameAs(harness.Playback.SeekBackwardCommand);
-                ToolTip.GetTip(back).Should().Be("Seek back one second.");
+                ToolTip.GetTip(back).Should().Be("Seek back one second");
+                foreach (var (name, command) in new[]
+                {
+                    ("StepBackwardButton", harness.Playback.StepBackwardCommand),
+                    ("SeekForwardButton", harness.Playback.SeekForwardCommand),
+                    ("StepForwardButton", harness.Playback.StepForwardCommand),
+                })
+                {
+                    var button = preview.FindControl<Button>(name) ?? throw new InvalidOperationException($"{name} missing.");
+                    button.Command.Should().BeSameAs(command);
+                    ToolTip.GetTip(button).Should().NotBeNull("icon-only buttons need a tooltip");
+                }
                 (window.FindControl<Button>("ResultsStepButton")?.IsEffectivelyEnabled).Should().BeFalse();
                 await vm.PrimaryActionCommand.ExecuteAsync(null);
                 window.UpdateLayout();
@@ -482,5 +503,132 @@ public sealed class ComparisonWindowTests(QueueTestSession fixture)
             finally { await window.CloseSavedAsync(); }
             return true;
         }, CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task KeyI_SetsSampleStartToPlayhead_ButNotWhileEditingText()
+    {
+        await fixture.Session.Dispatch(async () =>
+        {
+            using var harness = new ComparisonTestHarness();
+            await harness.LoadAsync();
+            var vm = harness.ViewModel;
+            var window = new ComparisonWindow { DataContext = vm };
+            window.Show();
+            try
+            {
+                window.UpdateLayout();
+                var sample = vm.SelectedSample ?? throw new InvalidOperationException("No sample selected.");
+                var start = sample.StartSeconds;
+                harness.Playback.HasMedia = true;
+                harness.Playback.PositionSeconds = 2;
+
+                window.FindControl<TextBox>("SampleNameInput")?.Focus();
+                window.KeyPress(Key.I, RawInputModifiers.None, PhysicalKey.I, "i");
+                sample.StartSeconds.Should().Be(start, "typing into the name field must not move the sample");
+
+                FocusSelectedSample(window).Should().BeTrue();
+                harness.Playback.HasMedia = true;
+                harness.Playback.PositionSeconds = 2;
+                window.KeyPress(Key.I, RawInputModifiers.None, PhysicalKey.I, "i");
+                sample.StartSeconds.Should().Be(start + 2);
+                window.FindControl<Button>("SetStartButton")?.Command.Should().BeSameAs(vm.SetStartToPlayheadCommand);
+            }
+            finally { await window.CloseSavedAsync(); }
+            return true;
+        }, CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task KeyF_TogglesMaximizedVideos()
+    {
+        await fixture.Session.Dispatch(async () =>
+        {
+            using var harness = new ComparisonTestHarness();
+            await harness.LoadAsync();
+            var vm = harness.ViewModel;
+            var window = new ComparisonWindow { DataContext = vm };
+            window.Show();
+            try
+            {
+                window.UpdateLayout();
+                FocusSelectedSample(window).Should().BeTrue();
+                window.KeyPress(Key.F, RawInputModifiers.None, PhysicalKey.F, "f");
+                vm.IsPreviewMaximized.Should().BeTrue();
+                window.UpdateLayout();
+                window.FindControl<Border>("SampleEditor")?.IsVisible.Should().BeFalse();
+                window.KeyPress(Key.F, RawInputModifiers.None, PhysicalKey.F, "f");
+                vm.IsPreviewMaximized.Should().BeFalse();
+            }
+            finally { await window.CloseSavedAsync(); }
+            return true;
+        }, CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task SampleList_DeleteKeyRemovesSelectedSample_AndHeaderShowsCount()
+    {
+        await fixture.Session.Dispatch(async () =>
+        {
+            using var harness = new ComparisonTestHarness();
+            await harness.LoadAsync();
+            var vm = harness.ViewModel;
+            var window = new ComparisonWindow { DataContext = vm };
+            window.Show();
+            try
+            {
+                window.UpdateLayout();
+                var count = vm.Samples.Count;
+                var countText = window.FindControl<TextBlock>("SampleCountText")
+                    ?? throw new InvalidOperationException("Sample count missing.");
+                countText.Text.Should().Be(count.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                FocusSelectedSample(window).Should().BeTrue();
+                window.KeyPress(Key.Delete, RawInputModifiers.None, PhysicalKey.Delete, null);
+                vm.Samples.Should().HaveCount(count - 1);
+                window.UpdateLayout();
+                countText.Text.Should().Be((count - 1).ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
+            finally { await window.CloseSavedAsync(); }
+            return true;
+        }, CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task SourceTimeline_SitsBetweenVideoAndScrubber_AndBindsToComparison()
+    {
+        await fixture.Session.Dispatch(async () =>
+        {
+            using var harness = new ComparisonTestHarness();
+            await harness.LoadAsync();
+            var vm = harness.ViewModel;
+            var window = new ComparisonWindow { DataContext = vm, Width = 1480, Height = 960 };
+            window.Show();
+            try
+            {
+                window.UpdateLayout();
+                var preview = window.FindControl<ComparisonPlaybackView>("SamplePlayback")
+                    ?? throw new InvalidOperationException("Preview missing.");
+                var timeline = window.FindControl<ComparisonTimeline>("SampleTimeline")
+                    ?? throw new InvalidOperationException("Timeline missing.");
+                var video = preview.FindControl<Grid>("VideoGrid") ?? throw new InvalidOperationException("Video missing.");
+                var scrubber = preview.FindControl<Slider>("PositionSlider") ?? throw new InvalidOperationException("Scrubber missing.");
+                timeline.GetVisualAncestors().Should().Contain(preview);
+                timeline.Samples.Should().HaveCount(vm.Samples.Count);
+                timeline.SelectedId.Should().Be(vm.SelectedSample?.Id);
+                var timelineTop = timeline.TranslatePoint(default, window)?.Y ?? throw new InvalidOperationException("Timeline detached.");
+                var videoBottom = video.TranslatePoint(new Point(0, video.Bounds.Height), window)?.Y ?? 0;
+                var scrubberTop = scrubber.TranslatePoint(default, window)?.Y ?? 0;
+                timelineTop.Should().BeGreaterThanOrEqualTo(videoBottom);
+                scrubberTop.Should().BeGreaterThan(timelineTop);
+            }
+            finally { await window.CloseSavedAsync(); }
+            return true;
+        }, CancellationToken.None);
+    }
+
+    private static bool FocusSelectedSample(ComparisonWindow window)
+    {
+        var list = window.FindControl<ListBox>("SampleList") ?? throw new InvalidOperationException("Sample list missing.");
+        return list.ContainerFromIndex(Math.Max(0, list.SelectedIndex))?.Focus() == true;
     }
 }

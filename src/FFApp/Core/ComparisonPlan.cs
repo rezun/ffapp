@@ -10,6 +10,7 @@ public static class ComparisonPlan
     public const double DefaultSampleDuration = 12;
     public const double PreRollSeconds = 2;
     public const int MaximumSampleCount = 24;
+    public static readonly double MinimumSampleDuration = 0.1;
 
     public static ImmutableArray<ComparisonSample> Distribute(double start, double end,
         int count = DefaultSampleCount, double duration = DefaultSampleDuration)

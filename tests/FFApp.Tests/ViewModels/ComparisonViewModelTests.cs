@@ -376,4 +376,105 @@ public sealed class ComparisonViewModelTests
     {
         ComparisonPlaybackViewModel.MediaTime(new ComparisonTrack("/video", offset), position, duration).Should().Be(expected);
     }
+
+    [Fact]
+    public async Task SetStartToPlayhead_MovesSelectedSampleToPreviewPosition()
+    {
+        using var harness = new ComparisonTestHarness();
+        await harness.LoadAsync();
+        var vm = harness.ViewModel;
+        var sample = vm.Samples[1];
+        vm.SelectedSample = sample;
+        var originalStart = sample.StartSeconds;
+        var originalDuration = sample.DurationSeconds;
+        harness.Playback.HasMedia = true;
+        harness.Playback.PositionSeconds = 3.25;
+
+        vm.SetStartToPlayheadCommand.Execute(null);
+
+        sample.StartSeconds.Should().Be(originalStart + 3.25);
+        sample.DurationSeconds.Should().Be(originalDuration);
+    }
+
+    [Fact]
+    public async Task SetStartToPlayhead_NearRangeEnd_ShortensDurationToStayInsideRange()
+    {
+        using var harness = new ComparisonTestHarness();
+        await harness.LoadAsync();
+        var vm = harness.ViewModel;
+        var sample = vm.Samples[^1];
+        vm.SelectedSample = sample;
+        sample.StartSeconds = vm.RangeEnd - 12;
+        sample.DurationSeconds = 12;
+        harness.Playback.HasMedia = true;
+        harness.Playback.PositionSeconds = 8;
+
+        vm.SetStartToPlayheadCommand.Execute(null);
+
+        sample.StartSeconds.Should().Be(vm.RangeEnd - 4);
+        sample.DurationSeconds.Should().BeApproximately(4, 1e-9);
+        ComparisonPlan.IsValid(sample.Snapshot(), vm.RangeStart, vm.RangeEnd).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task SetStartToPlayhead_WithoutPreviewOrWhileRunning_DoesNothing()
+    {
+        using var harness = new ComparisonTestHarness();
+        await harness.LoadAsync();
+        var vm = harness.ViewModel;
+        var sample = vm.SelectedSample ?? throw new InvalidOperationException("No sample selected.");
+        var start = sample.StartSeconds;
+        harness.Playback.PositionSeconds = 5;
+
+        vm.SetStartToPlayheadCommand.Execute(null);
+        sample.StartSeconds.Should().Be(start, "nothing is shown yet");
+
+        harness.Playback.HasMedia = true;
+        vm.IsRunning = true;
+        vm.SetStartToPlayheadCommand.CanExecute(null).Should().BeFalse();
+        vm.IsRunning = false;
+        vm.SetStartToPlayheadCommand.CanExecute(null).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ShowSampleEditor_OnlyOnSamplesStep_AndHiddenWhenVideosAreMaximized()
+    {
+        using var harness = new ComparisonTestHarness();
+        await harness.LoadAsync();
+        var vm = harness.ViewModel;
+        vm.ShowSampleEditor.Should().BeTrue();
+        using (var changes = vm.Monitor())
+        {
+            vm.TogglePreviewSizeCommand.Execute(null);
+            changes.Should().RaisePropertyChangeFor(v => v.ShowSampleEditor);
+        }
+        vm.ShowSampleEditor.Should().BeFalse();
+        vm.TogglePreviewSizeCommand.Execute(null);
+        vm.ShowVariantsCommand.Execute(null);
+        vm.ShowSampleEditor.Should().BeFalse();
+        vm.ShowSamplesCommand.Execute(null);
+        vm.ShowSampleEditor.Should().BeTrue();
+    }
+
+    [Fact]
+    public void DescribeSource_UntrimmedSource_ShowsLengthAndPictureSize()
+    {
+        var media = new TestMediaInfoBuilder().WithDuration(10144)
+            .WithVideoStreams(new VideoStreamInfo(0, "hevc", Width: 3840, Height: 1608)).Build();
+        var session = Session(0, 10144, crop: null);
+        ComparisonViewModel.DescribeSource(session, media).Should().Be("2:49:04 · 3840×1608");
+    }
+
+    [Fact]
+    public void DescribeSource_TrimmedCroppedHdrSource_ShowsRangeCropAndHdr()
+    {
+        var media = new TestMediaInfoBuilder().WithDuration(10144)
+            .WithVideoStreams(new VideoStreamInfo(0, "hevc", Width: 3840, Height: 2160,
+                ColorPrimaries: "bt2020", ColorTransfer: "smpte2084")).Build();
+        var session = Session(600, 4200, new CropRect(0, 276, 3840, 1608));
+        ComparisonViewModel.DescribeSource(session, media).Should().Be("10:00 – 1:10:00 (1:00:00) · 3840×1608 cropped · HDR");
+    }
+
+    private static ComparisonSession Session(double start, double end, CropRect? crop) =>
+        new("Film.mkv", "fingerprint", new OutputSettings(), start, end, crop, [], [], []);
 }

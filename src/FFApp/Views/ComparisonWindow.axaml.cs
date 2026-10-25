@@ -36,15 +36,30 @@ public sealed partial class ComparisonWindow : Window
 
     private bool IsPlaybackShortcut(KeyEventArgs e) =>
         e.Key == Key.Space && e.KeyModifiers == KeyModifiers.None
-        && SamplePlayback.IsEffectivelyVisible && _vm?.Playback.HasMedia == true
-        && !(e.Source is Control control
-            && (control is TextBox || control.GetVisualAncestors().OfType<TextBox>().Any()));
+        && SamplePlayback.IsEffectivelyVisible && _vm?.Playback.HasMedia == true && !IsEditingText(e);
+
+    private bool IsEditingText(KeyEventArgs e) =>
+        e.Source is Control control && (control is TextBox || control.GetVisualAncestors().OfType<TextBox>().Any());
 
     private void OnPlaybackKeyDown(object? sender, KeyEventArgs e)
     {
-        if (!IsPlaybackShortcut(e)) return;
-        e.Handled = true;
-        _vm?.Playback.TogglePlayCommand.Execute(null);
+        if (IsPlaybackShortcut(e))
+        {
+            e.Handled = true;
+            _vm?.Playback.TogglePlayCommand.Execute(null);
+            return;
+        }
+        if (_vm is null || e.KeyModifiers != KeyModifiers.None || IsEditingText(e)) return;
+        if (e.Key == Key.I && SampleEditor.IsEffectivelyVisible && _vm.SetStartToPlayheadCommand.CanExecute(null))
+        {
+            e.Handled = true;
+            _vm.SetStartToPlayheadCommand.Execute(null);
+        }
+        else if (e.Key == Key.F && SamplePlayback.IsEffectivelyVisible)
+        {
+            e.Handled = true;
+            _vm.TogglePreviewSizeCommand.Execute(null);
+        }
     }
 
     private void OnPlaybackKeyUp(object? sender, KeyEventArgs e)

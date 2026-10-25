@@ -278,6 +278,57 @@ public sealed class ComparisonPlaybackViewModelTests
         vm.PositionSeconds.Should().Be(expected);
     }
 
+    [Theory]
+    [InlineData(5, 6)]
+    [InlineData(11.5, 11.96)]
+    public void SeekForward_PausesAndStopsAtLastFrame(double position, double expected)
+    {
+        using var vm = new ComparisonPlaybackViewModel(null);
+        vm.LoadSource(new ComparisonTrack("source", 100), 12, 25);
+        vm.PositionSeconds = position;
+        vm.IsPlaying = true;
+        vm.SeekForwardCommand.Execute(null);
+        vm.IsPlaying.Should().BeFalse();
+        vm.PositionSeconds.Should().BeApproximately(expected, 1e-9);
+    }
+
+    [Theory]
+    [InlineData(1, 0.96)]
+    [InlineData(0.01, 0)]
+    public void StepBackward_MovesOneFrameBack_AndClampsAtStart(double position, double expected)
+    {
+        using var vm = new ComparisonPlaybackViewModel(null);
+        vm.LoadSource(new ComparisonTrack("source", 100), 12, 25);
+        vm.HasMedia = true;
+        vm.PositionSeconds = position;
+        vm.IsPlaying = true;
+        vm.StepBackwardCommand.Execute(null);
+        vm.IsPlaying.Should().BeFalse();
+        vm.PositionSeconds.Should().BeApproximately(expected, 1e-9);
+    }
+
+    [Fact]
+    public void StepBackward_WithoutMedia_DoesNothing()
+    {
+        using var vm = new ComparisonPlaybackViewModel(null);
+        vm.LoadSource(new ComparisonTrack("source", 100), 12, 25);
+        vm.PositionSeconds = 1;
+        vm.StepBackwardCommand.Execute(null);
+        vm.PositionSeconds.Should().Be(1);
+    }
+
+    [Fact]
+    public void PositionAndDuration_UseCompactSampleTimecode()
+    {
+        using var vm = new ComparisonPlaybackViewModel(null);
+        vm.LoadSource(new ComparisonTrack("source", 100), 12, 25);
+        using var changes = vm.Monitor();
+        vm.PositionSeconds = 3.36;
+        changes.Should().RaisePropertyChangeFor(v => v.PositionDisplay);
+        vm.PositionDisplay.Should().Be("00:03.360");
+        vm.DurationDisplay.Should().Be("/ 00:12.000");
+    }
+
     [Fact]
     public void SliderLayout_IsOfferedForComparisons_ButNotForSourcePreview()
     {

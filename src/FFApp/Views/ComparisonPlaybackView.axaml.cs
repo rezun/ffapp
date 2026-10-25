@@ -19,6 +19,10 @@ public sealed partial class ComparisonPlaybackView : UserControl
     private static readonly double LargeSplitStep = 0.1;
     private static readonly Thickness LeftPaneMargin = new(0, 0, 3, 0);
     private static readonly Thickness RightPaneMargin = new(3, 0, 0, 0);
+    public static readonly StyledProperty<Control?> OverviewProperty =
+        AvaloniaProperty.Register<ComparisonPlaybackView, Control?>(nameof(Overview));
+    /// <summary>Optional strip between the video and the sample scrubber, e.g. the source timeline.</summary>
+    public Control? Overview { get => GetValue(OverviewProperty); set => SetValue(OverviewProperty, value); }
     public ComparisonPlaybackView()
     {
         InitializeComponent();
@@ -31,6 +35,12 @@ public sealed partial class ComparisonPlaybackView : UserControl
         DataContextChanged += OnContextChanged;
         DetachedFromVisualTree += (_, _) => Detach();
         AttachedToVisualTree += (_, _) => Attach();
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == OverviewProperty) OverviewHost.Content = change.GetNewValue<Control?>();
     }
 
     private void OnContextChanged(object? sender, EventArgs e) { Detach(); Attach(); }

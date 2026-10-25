@@ -51,19 +51,52 @@
                 </Border>
             </Panel>
         </Grid>
-        <Slider Grid.Row="1" Margin="0,4" Minimum="0" Maximum="{Binding DurationSeconds}"
-                Value="{Binding PositionSeconds}" IsEnabled="{Binding HasMedia}"
-                ToolTip.Tip="Seek both previews to the same position inside this sample." />
-        <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" Margin="0,2">
-            <StackPanel Orientation="Horizontal" Spacing="6" IsEnabled="{Binding HasMedia}">
-                <Button x:Name="SeekBackwardButton" Content="◀ 1 s" Command="{Binding SeekBackwardCommand}" ToolTip.Tip="Seek back one second." />
-                <Button x:Name="PlaySampleButton" Classes.accent="{Binding !IsPlaying}"
-                        Content="{Binding PlayLabel}" Command="{Binding TogglePlayCommand}" />
-                <Button Content="▶" Command="{Binding StepForwardCommand}" ToolTip.Tip="Step forward one video frame." />
-                <CheckBox Content="Loop" IsChecked="{Binding Loop}" />
+        <ContentControl x:Name="OverviewHost" Grid.Row="1" Margin="0,10,0,0" IsVisible="{Binding $self.Content, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        <Grid Grid.Row="2" ColumnDefinitions="52,*" Margin="0,4,0,0">
+            <TextBlock Text="Sample" Classes="secondary caption" VerticalAlignment="Center" />
+            <Slider x:Name="PositionSlider" Grid.Column="1" Margin="0" Minimum="0" Maximum="{Binding DurationSeconds}"
+                    Value="{Binding PositionSeconds}" IsEnabled="{Binding HasMedia}"
+                    ToolTip.Tip="Seek both previews to the same position inside this sample." />
+        </Grid>
+        <Grid Grid.Row="3" ColumnDefinitions="Auto,Auto,*,Auto" Margin="0,2,0,0">
+            <StackPanel Orientation="Horizontal" Spacing="2" IsEnabled="{Binding HasMedia}">
+                <Button x:Name="StepBackwardButton" Classes="icon"
+                        Command="{Binding StepBackwardCommand}" ToolTip.Tip="Step back one frame">
+                    <PathIcon Data="{StaticResource IconStepBackward}" />
+                </Button>
+                <Button x:Name="SeekBackwardButton" Classes="icon"
+                        Command="{Binding SeekBackwardCommand}" ToolTip.Tip="Seek back one second">
+                    <PathIcon Data="{StaticResource IconRewind}" />
+                </Button>
+                <Button x:Name="PlaySampleButton" Classes="icon emphasis" Command="{Binding TogglePlayCommand}"
+                        ToolTip.Tip="{Binding PlayLabel}" AutomationProperties.Name="{Binding PlayLabel}">
+                    <Panel>
+                        <PathIcon Data="{StaticResource IconPlay}" IsVisible="{Binding !IsPlaying}" />
+                        <PathIcon Data="{StaticResource IconPause}" IsVisible="{Binding IsPlaying}" />
+                    </Panel>
+                </Button>
+                <Button x:Name="SeekForwardButton" Classes="icon"
+                        Command="{Binding SeekForwardCommand}" ToolTip.Tip="Seek forward one second">
+                    <PathIcon Data="{StaticResource IconFastForward}" />
+                </Button>
+                <Button x:Name="StepForwardButton" Classes="icon"
+                        Command="{Binding StepForwardCommand}" ToolTip.Tip="Step forward one frame">
+                    <PathIcon Data="{StaticResource IconStepForward}" />
+                </Button>
             </StackPanel>
-            <TextBlock Grid.Column="1" Text="{Binding TimeDisplay}" VerticalAlignment="Center" HorizontalAlignment="Center" Classes="mono caption" />
-            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="12,0,0,0" VerticalAlignment="Center"
+                        ToolTip.Tip="Position inside the sample. Comparisons play without audio.">
+                <TextBlock x:Name="PositionText" Text="{Binding PositionDisplay}" Classes="mono" />
+                <TextBlock Text="{Binding DurationDisplay}" Classes="mono secondary" />
+            </StackPanel>
+            <TextBlock x:Name="PlaybackStatus" Grid.Column="2" Text="{Binding Status}" Classes="secondary caption"
+                       Margin="12,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                       ToolTip.Tip="{Binding Status}" />
+            <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6">
+                <ToggleButton x:Name="LoopButton" Classes="icon" IsChecked="{Binding Loop}"
+                              ToolTip.Tip="Loop the sample">
+                    <PathIcon Data="{StaticResource IconRepeat}" />
+                </ToggleButton>
                 <ComboBox ItemsSource="{Binding LayoutOptions}" SelectedItem="{Binding Layout}" MinWidth="112"
                           IsVisible="{Binding !IsSourcePreview}"
                           ToolTip.Tip="Switch between side-by-side, slider, A and B without changing playback position." />
@@ -71,6 +104,5 @@
                           ToolTip.Tip="Use the same zoom for both views. 100% displays source pixels at native size, centered in each pane." />
             </StackPanel>
         </Grid>
-        <TextBlock Grid.Row="3" Text="{Binding Status}" Classes="secondary caption" TextWrapping="Wrap" Margin="0,4,0,0" />
     </Grid>
 </UserControl>

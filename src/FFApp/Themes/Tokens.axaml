@@ -14,6 +14,7 @@
             <!-- Borders -->
             <SolidColorBrush x:Key="BorderSubtleBrush" Color="#48484C" />
             <SolidColorBrush x:Key="BorderDefaultBrush" Color="#5A5A5E" />
+            <SolidColorBrush x:Key="SelectionSubtleBrush" Color="#1FFFFFFF" />
 
             <!-- Text -->
             <SolidColorBrush x:Key="TextPrimaryBrush" Color="#E8E8E8" />
@@ -54,6 +55,7 @@
             <!-- Borders -->
             <SolidColorBrush x:Key="BorderSubtleBrush" Color="#E0E0E0" />
             <SolidColorBrush x:Key="BorderDefaultBrush" Color="#CCCCCC" />
+            <SolidColorBrush x:Key="SelectionSubtleBrush" Color="#14000000" />
 
             <!-- Text -->
             <SolidColorBrush x:Key="TextPrimaryBrush" Color="#1A1A1A" />

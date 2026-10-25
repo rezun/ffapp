@@ -34,7 +34,7 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
     public ObservableCollection<ComparisonChoice> Choices { get; } = [];
 
     [ObservableProperty] private string _sourceLabel = "";
-    [ObservableProperty] private string _rangeLabel = "";
+    [ObservableProperty] private string _sourceDetails = "";
     [ObservableProperty] private string _cacheUsageLabel = "Test clips: 0 B";
     [ObservableProperty] private bool _isDeleted;
     [ObservableProperty] private bool _isManagingStorage;
@@ -47,7 +47,7 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
     [ObservableProperty] private double _progress;
     [ObservableProperty] private int _selectedTab;
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowResultTable), nameof(ShowSamplePanel), nameof(PreviewSizeActionLabel))]
+    [NotifyPropertyChangedFor(nameof(ShowResultTable), nameof(ShowSamplePanel), nameof(ShowSampleEditor), nameof(PreviewSizeActionLabel))]
     private bool _isPreviewMaximized;
     [ObservableProperty] private ComparisonSampleViewModel? _selectedSample;
     [ObservableProperty] private ComparisonVariantViewModel? _selectedVariant;
@@ -64,6 +64,7 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
     public bool CanShowResults => HasResults || IsRunning;
     public bool ShowResultTable => IsResultsStep && HasResults && !IsPreviewMaximized;
     public bool ShowSamplePanel => !IsPreviewMaximized;
+    public bool ShowSampleEditor => IsSamplesStep && !IsPreviewMaximized;
     public string PreviewSizeActionLabel => IsPreviewMaximized ? "Restore panels" : "Maximize videos";
     public int ReadyClipCount => Rows.SelectMany(r => r.Cells).Count(c => c.Clip is not null);
     public int MissingClipCount => Samples.Count * Variants.Count - ReadyClipCount;
@@ -73,8 +74,7 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
     public string PrimaryActionLabel => IsSamplesStep ? "Next: choose variants →"
         : IsVariantsStep && MissingClipCount == 0 ? "View results →"
         : IsResultsStep && MissingClipCount == 0 ? $"Apply {SelectedVariant?.Name} to main window" : CreateClipsLabel;
-    public string PreviewTitle => SelectedSample is not { } sample ? "Original preview"
-        : $"Original · {sample.Name} · {FormatHelpers.FormatCompactDuration(sample.StartSeconds)} · {sample.DurationSeconds:F1}s";
+    public string PreviewTitle => SelectedSample is not { } sample ? "Original" : $"Original · {sample.Name}";
     public double MaximumStart => _session?.RangeEnd ?? 0;
     public double RangeStart => _session?.RangeStart ?? 0;
     public double RangeEnd => _session?.RangeEnd ?? 1;
@@ -108,7 +108,7 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
         _service.ProtectSession(_session);
         RefreshCacheUsage();
         SourceLabel = Path.GetFileName(_session.SourcePath);
-        RangeLabel = $"{FormatHelpers.FormatCompactDuration(_session.RangeStart)} – {FormatHelpers.FormatCompactDuration(_session.RangeEnd)} · saved source, trim and crop";
+        SourceDetails = DescribeSource(_session, _media);
         _loadingEditor = true;
         Editor.UpdateSourceInfo(_media, _session.SelectedAudioStreamIndices);
         _loadingEditor = false;
@@ -196,6 +196,7 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
         OnPropertyChanged(nameof(IsSamplesStep));
         OnPropertyChanged(nameof(IsVariantsStep));
         OnPropertyChanged(nameof(IsResultsStep));
+        OnPropertyChanged(nameof(ShowSampleEditor));
         OnPropertyChanged(nameof(ShowResultTable));
         OnPropertyChanged(nameof(PrimaryActionLabel));
         if (IsVariantsStep) Playback.Pause();
@@ -231,6 +232,25 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
         }
     }
 
+    /// <summary>Duration (or trimmed range), picture size and HDR, so the header says what is being compared.</summary>
+    internal static string DescribeSource(ComparisonSession session, SourceMediaInfo media)
+    {
+        var length = FormatHelpers.FormatCompactDuration(session.RangeEnd - session.RangeStart);
+        var trimmed = session.RangeStart > TrimTolerance
+            || media.DurationSeconds is { } duration && session.RangeEnd < duration - TrimTolerance;
+        var parts = new List<string>
+        {
+            trimmed ? $"{FormatHelpers.FormatCompactDuration(session.RangeStart)} – {FormatHelpers.FormatCompactDuration(session.RangeEnd)} ({length})" : length,
+        };
+        var video = media.PrimaryVideoStream;
+        var crop = session.Crop;
+        if (crop is not null) parts.Add($"{crop.Width}×{crop.Height} cropped");
+        else if (video?.DisplayWidth is { } width && video.DisplayHeight is { } height) parts.Add($"{width}×{height}");
+        if (video?.IsHdr == true) parts.Add("HDR");
+        return string.Join(" · ", parts);
+    }
+    private static readonly double TrimTolerance = 0.5;
+
     private bool CanRun() => CanEdit && _session is not null && Samples.Count > 0 && Variants.Count > 0;
     private bool CanRemoveSample() => CanEdit && SelectedSample is not null && Samples.Count > 1;
     private bool CanRemoveVariant() => CanEdit && SelectedVariant is not null && Variants.Count > 1;
@@ -247,6 +267,7 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
         ApplyVariantCommand.NotifyCanExecuteChanged();
         PrimaryActionCommand.NotifyCanExecuteChanged();
         ShowVariantsCommand.NotifyCanExecuteChanged();
+        SetStartToPlayheadCommand.NotifyCanExecuteChanged();
     }
 
     private void NotifyWorkflow()
@@ -305,11 +326,24 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
     {
         if (!CanEdit || _session is null || Samples.Count >= ComparisonPlan.MaximumSampleCount) return;
         var start = SelectedSample?.StartSeconds ?? _session.RangeStart;
-        start = Math.Clamp(start, _session.RangeStart, Math.Max(_session.RangeStart, _session.RangeEnd - 0.1));
+        start = Math.Clamp(start, _session.RangeStart, Math.Max(_session.RangeStart, _session.RangeEnd - ComparisonPlan.MinimumSampleDuration));
         AddSampleItem(new ComparisonSample(Guid.NewGuid().ToString("N"), "Manual sample", start,
             Math.Min(ComparisonPlan.DefaultSampleDuration, _session.RangeEnd - start)));
         SelectedSample = Samples[^1];
         RefreshResults();
+    }
+
+    private bool CanSetStart() => CanEdit && SelectedSample is not null;
+
+    /// <summary>Moves the selected sample so it starts at the frame currently shown in the preview.</summary>
+    [RelayCommand(CanExecute = nameof(CanSetStart))]
+    private void SetStartToPlayhead()
+    {
+        if (_session is null || SelectedSample is not { } sample || !Playback.HasMedia) return;
+        var start = Math.Clamp(sample.StartSeconds + Playback.PositionSeconds,
+            _session.RangeStart, Math.Max(_session.RangeStart, _session.RangeEnd - ComparisonPlan.MinimumSampleDuration));
+        sample.DurationSeconds = Math.Min(sample.DurationSeconds, _session.RangeEnd - start);
+        sample.StartSeconds = start;
     }
 
     [RelayCommand(CanExecute = nameof(CanRemoveSample))]

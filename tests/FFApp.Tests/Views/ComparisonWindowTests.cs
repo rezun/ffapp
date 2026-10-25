@@ -5,6 +5,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using Avalonia.Headless;
 using Avalonia.Input;
+using Avalonia.Input.Raw;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
@@ -21,6 +22,81 @@ namespace FFApp.Tests.Views;
 [Collection("Queue UI")]
 public sealed class ComparisonWindowTests(QueueTestSession fixture)
 {
+    [Theory]
+    [InlineData(0, "TogglePreviewSizeButton")]
+    [InlineData(2, "TogglePreviewSizeButton")]
+    [InlineData(2, "PlaySampleButton")]
+    [InlineData(2, "PrimaryComparisonButton")]
+    public async Task Space_TogglesPlayback_InsteadOfActivatingFocusedButton(int step, string buttonName)
+    {
+        await fixture.Session.Dispatch(async () =>
+        {
+            using var harness = new ComparisonTestHarness();
+            await harness.LoadAsync();
+            var vm = harness.ViewModel;
+            vm.SelectedTab = step;
+            var window = new ComparisonWindow { DataContext = vm };
+            window.Show();
+            try
+            {
+                window.UpdateLayout();
+                var button = window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == buttonName);
+                var clicks = 0;
+                button.Click += (_, _) => clicks++;
+                harness.Playback.HasMedia = true;
+                harness.Playback.IsPlaying = true;
+                window.UpdateLayout();
+                button.Focus().Should().BeTrue();
+
+                window.KeyPress(Key.Space, RawInputModifiers.None, PhysicalKey.Space, " ");
+                window.KeyRelease(Key.Space, RawInputModifiers.None, PhysicalKey.Space, " ");
+
+                harness.Playback.IsPlaying.Should().BeFalse();
+                clicks.Should().Be(0);
+                vm.IsPreviewMaximized.Should().BeFalse();
+                vm.SelectedTab.Should().Be(step);
+            }
+            finally { await window.CloseSavedAsync(); }
+            return true;
+        }, CancellationToken.None);
+    }
+
+    [Theory]
+    [InlineData(true, 0, true, RawInputModifiers.None)]
+    [InlineData(false, 1, true, RawInputModifiers.None)]
+    [InlineData(false, 0, false, RawInputModifiers.None)]
+    [InlineData(false, 0, true, RawInputModifiers.Control)]
+    public async Task Space_PreservesTextEditing_AndIgnoresHiddenOrUnavailableVideoAndModifiedKeys(
+        bool editText, int step, bool hasMedia, RawInputModifiers modifiers)
+    {
+        await fixture.Session.Dispatch(async () =>
+        {
+            using var harness = new ComparisonTestHarness();
+            await harness.LoadAsync();
+            var vm = harness.ViewModel;
+            vm.SelectedTab = step;
+            var window = new ComparisonWindow { DataContext = vm };
+            window.Show();
+            try
+            {
+                window.UpdateLayout();
+                if (editText)
+                    window.GetVisualDescendants().OfType<TextBox>().First(t => t.IsEffectivelyVisible).Focus();
+                else
+                    window.FindControl<Button>(step == 1 ? "VariantsStepButton" : "SamplesStepButton")?.Focus();
+                harness.Playback.HasMedia = hasMedia;
+                harness.Playback.IsPlaying = true;
+
+                window.KeyPress(Key.Space, modifiers, PhysicalKey.Space, " ");
+                window.KeyRelease(Key.Space, modifiers, PhysicalKey.Space, " ");
+
+                harness.Playback.IsPlaying.Should().BeTrue();
+            }
+            finally { await window.CloseSavedAsync(); }
+            return true;
+        }, CancellationToken.None);
+    }
+
     [Fact]
     public async Task MaximizeVideos_ReclaimsPanelSpace_AndRestoresResizedResults()
     {

@@ -1,6 +1,9 @@
 using System.Diagnostics;
 using System.ComponentModel;
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 using FFApp.ViewModels;
 
 namespace FFApp.Views;
@@ -14,6 +17,8 @@ public sealed partial class ComparisonWindow : Window
     public ComparisonWindow()
     {
         InitializeComponent();
+        AddHandler(KeyDownEvent, OnPlaybackKeyDown, RoutingStrategies.Tunnel);
+        AddHandler(KeyUpEvent, OnPlaybackKeyUp, RoutingStrategies.Tunnel);
         DataContextChanged += OnContextChanged;
         Closed += (_, _) =>
         {
@@ -28,6 +33,25 @@ public sealed partial class ComparisonWindow : Window
     }
 
     private void OnCloseWindow(object? sender, EventArgs e) => Close();
+
+    private bool IsPlaybackShortcut(KeyEventArgs e) =>
+        e.Key == Key.Space && e.KeyModifiers == KeyModifiers.None
+        && SamplePlayback.IsEffectivelyVisible && _vm?.Playback.HasMedia == true
+        && !(e.Source is Control control
+            && (control is TextBox || control.GetVisualAncestors().OfType<TextBox>().Any()));
+
+    private void OnPlaybackKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (!IsPlaybackShortcut(e)) return;
+        e.Handled = true;
+        _vm?.Playback.TogglePlayCommand.Execute(null);
+    }
+
+    private void OnPlaybackKeyUp(object? sender, KeyEventArgs e)
+    {
+        // Buttons can activate on release, so consume both halves of the shortcut.
+        if (IsPlaybackShortcut(e)) e.Handled = true;
+    }
 
     private void OnContextChanged(object? sender, EventArgs e)
     {

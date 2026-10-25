@@ -1,5 +1,6 @@
 using FFApp.Core;
 using FFApp.Core.Models;
+using FFApp.Core.Services;
 using FFApp.Infrastructure;
 using FFApp.ViewModels;
 using FluentAssertions;
@@ -24,6 +25,19 @@ public sealed class NativeComparisonFactAttribute : FactAttribute
         var name = OperatingSystem.IsMacOS() ? "libavcodec.63.dylib"
             : OperatingSystem.IsWindows() ? "avcodec-63.dll" : "libavcodec.so.63";
         if (!File.Exists(Path.Combine(directory, name))) Skip = "FFmpeg 9 shared libraries are not installed.";
+    }
+}
+
+/// <summary>HDR tests additionally need libavfilter with zscale (zimg) and tonemap.</summary>
+public sealed class NativeToneMapFactAttribute : FactAttribute
+{
+    public NativeToneMapFactAttribute()
+    {
+        Skip = new NativeComparisonFactAttribute().Skip;
+        if (Skip is not null) return;
+        var factory = new ComparisonDecoderFactory(new ExecutablePathsConfig());
+        using (factory.Open(Path.Combine(AppContext.BaseDirectory, "Fixtures", "comparison.mp4"), null)) { }
+        if (!factory.IsToneMappingAvailable) Skip = "FFmpeg is missing libavfilter, zscale or tonemap.";
     }
 }
 
@@ -212,5 +226,88 @@ public sealed class NativeComparisonDecoderTests(NativeComparisonFixture fixture
         using var decoder = fixture.Factory.Open(fixture.Video(), new CropRect(60, 0, 10, 48));
         var invalidCrop = () => decoder.ReadAt(0);
         invalidCrop.Should().Throw<InvalidDataException>().WithMessage("*crop*");
+    }
+
+    // comparison-hdr10.mp4: 64x48 HDR10 (PQ, BT.2020), left half BT.709 red, right half 50% gray.
+    private static (byte B, byte G, byte R) Pixel(ComparisonVideoFrame frame, int x, int y)
+    {
+        var offset = (y * frame.Width + x) * 4;
+        var pixels = frame.Pixels.Span;
+        return (pixels[offset], pixels[offset + 1], pixels[offset + 2]);
+    }
+
+    [NativeToneMapFact]
+    public void HdrFrames_AreToneMappedToBt709()
+    {
+        using var decoder = fixture.Factory.Open(fixture.Video("comparison-hdr10.mp4"), null);
+        using var frame = decoder.ReadAt(0);
+        frame.Width.Should().Be(64);
+        frame.Height.Should().Be(48);
+        var red = Pixel(frame, 8, 24);
+        red.R.Should().BeGreaterThan(120);
+        red.G.Should().BeLessThan(20);
+        red.B.Should().BeLessThan(20);
+        var gray = Pixel(frame, 48, 24);
+        gray.R.Should().BeInRange(60, 160);
+        ((int)gray.G).Should().BeCloseTo(gray.R, 2);
+        ((int)gray.B).Should().BeCloseTo(gray.R, 2);
+    }
+
+    [NativeToneMapFact]
+    public void Factory_UsesVideoToolboxOnMacOS_AndCpuClutElsewhere()
+    {
+        using var decoder = fixture.Factory.Open(fixture.Video(), null);
+        fixture.Factory.HdrConversion.Should().Be(OperatingSystem.IsMacOS() ? HdrConversion.VideoToolbox : HdrConversion.Clut);
+    }
+
+    [NativeToneMapFact]
+    public void HdrFrames_ClutFallback_AlsoMapsToBt709()
+    {
+        using var decoder = new NativeComparisonDecoder(fixture.Video("comparison-hdr10.mp4"), null, HdrConversion.Clut, default);
+        using var frame = decoder.ReadAt(0);
+        var red = Pixel(frame, 8, 24);
+        red.R.Should().BeGreaterThan(120);
+        red.G.Should().BeLessThan(20);
+        red.B.Should().BeLessThan(20);
+    }
+
+    [NativeToneMapFact]
+    public void HdrFrames_WithoutToneMapping_ShowDesaturatedBt2020Values()
+    {
+        // Guards the fixture: without the HDR path, red is visibly wrong, so the test above is meaningful.
+        using var decoder = new NativeComparisonDecoder(fixture.Video("comparison-hdr10.mp4"), null, HdrConversion.None, default);
+        using var frame = decoder.ReadAt(0);
+        var red = Pixel(frame, 8, 24);
+        red.G.Should().BeGreaterThan(40);
+        red.B.Should().BeGreaterThan(40);
+    }
+
+    [NativeToneMapFact]
+    public void HdrFrames_SeekAndStepReturnIdenticalPixels_AndCropMatchesFullFrame()
+    {
+        using var decoder = fixture.Factory.Open(fixture.Video("comparison-hdr10.mp4"), null);
+        using var first = decoder.ReadAt(.08);
+        using var again = decoder.ReadAt(.08);
+        again.Pixels.ToArray().Should().Equal(first.Pixels.ToArray());
+        using var next = decoder.ReadNext();
+        next?.Seconds.Should().BeApproximately(.12, 1e-7);
+        using var back = decoder.ReadAt(.08);
+        back.Pixels.ToArray().Should().Equal(first.Pixels.ToArray());
+
+        using var cropDecoder = fixture.Factory.Open(fixture.Video("comparison-hdr10.mp4"), new CropRect(3, 5, 17, 13));
+        using var cropped = cropDecoder.ReadAt(.08);
+        for (var row = 0; row < cropped.Height; row++)
+            cropped.Pixels.Span.Slice(row * 17 * 4, 17 * 4).ToArray().Should()
+                .Equal(first.Pixels.Span.Slice(((row + 5) * 64 + 3) * 4, 17 * 4).ToArray());
+    }
+
+    [NativeToneMapFact]
+    public void SdrFrames_AreNotChangedByToneMapping()
+    {
+        using var toneMapped = fixture.Factory.Open(fixture.Video(), null);
+        using var plain = new NativeComparisonDecoder(fixture.Video(), null, HdrConversion.None, default);
+        using var expected = plain.ReadAt(.4);
+        using var actual = toneMapped.ReadAt(.4);
+        actual.Pixels.ToArray().Should().Equal(expected.Pixels.ToArray());
     }
 }

@@ -248,11 +248,14 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
         Status = "Playing · Audio muted";
         var clockStart = _time.GetTimestamp();
         var startPosition = PositionSeconds;
+        Task<ComparisonFrames?>? pending = null;
         try
         {
+            pending = DecodeAsync(left, right, PositionSeconds, _displayedLeftTime, true, ct);
             while (!ct.IsCancellationRequested)
             {
-                var frames = await DecodeAsync(left, right, PositionSeconds, _displayedLeftTime, true, ct);
+                var frames = await pending;
+                pending = null;
                 if (frames is null)
                 {
                     if (!Loop) break;
@@ -263,10 +266,17 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
                 }
                 try
                 {
+                    // Decode the next frame while this one waits for its due time and is drawn.
+                    pending = DecodeAsync(left, right, PositionSeconds, frames.Left.Seconds, true, ct);
                     var due = TimeSpan.FromSeconds(Math.Max(0, frames.Left.Seconds - SampleOrigin(left) - startPosition));
                     var remaining = due - _time.GetElapsedTime(clockStart);
                     if (remaining > TimeSpan.Zero) await Task.Delay(remaining, _time, ct);
                     ct.ThrowIfCancellationRequested();
+                    if (ShouldSkip(remaining, _frameDuration, pending.IsCompleted))
+                    {
+                        frames.Dispose();
+                        continue;
+                    }
                     Publish(frames, left);
                 }
                 catch { frames.Dispose(); throw; }
@@ -280,6 +290,7 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
         }
         finally
         {
+            if (pending is not null) await DiscardAsync(pending);
             if (ReferenceEquals(_cancellation, cancellation))
             {
                 IsPlaying = false;
@@ -288,6 +299,25 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
             FinishRequest(cancellation);
         }
     }
+    /// <summary>
+    /// Keeps real-time speed by skipping a frame that is more than a frame late once a newer one is ready.
+    /// When decoding itself is the bottleneck nothing newer is ready, so playback slows down instead.
+    /// </summary>
+    internal static bool ShouldSkip(TimeSpan remaining, double frameDuration, bool newerFrameReady) =>
+        newerFrameReady && remaining < -TimeSpan.FromSeconds(frameDuration);
+
+    /// <summary>Waits for a read-ahead decode that playback no longer needs, so its frame is released.</summary>
+    private static async Task DiscardAsync(Task<ComparisonFrames?> pending)
+    {
+        try { (await pending)?.Dispose(); }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            // Playback already stopped; the error belongs to a frame nobody will see.
+            Debug.WriteLine($"Discarded comparison read-ahead failed: {ex}");
+        }
+    }
+
     public void Pause()
     {
         _cancellation?.Cancel();

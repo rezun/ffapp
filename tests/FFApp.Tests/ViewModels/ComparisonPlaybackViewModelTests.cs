@@ -138,6 +138,35 @@ public sealed class ComparisonPlaybackViewModelTests
     }
 
     [Fact]
+    public async Task Playback_DecodesNextFrame_WhileCurrentFrameWaitsForItsTime()
+    {
+        var factory = new DecoderFactory(25, [0, .04, .1, .18]);
+        var time = new PlaybackTimeProvider();
+        await using var vm = new ComparisonPlaybackViewModel(factory, time);
+        vm.Load(new ComparisonTrack("left", 0), new ComparisonTrack("right", 0), .15, 25);
+        await vm.RenderAsync();
+        vm.Loop = false;
+        var left = factory.Items["left"];
+        var readsBeforeDelay = new List<bool>();
+        // Without read-ahead the next read only starts after the delay, so the wait would time out.
+        time.BeforeDelay = () => readsBeforeDelay.Add(
+            SpinWait.SpinUntil(() => left.NextCount >= readsBeforeDelay.Count + 2, TimeSpan.FromSeconds(5)));
+        await vm.PlayAsync();
+        readsBeforeDelay.Should().Equal(true, true);
+        vm.FramesToDisplay?.Left.Seconds.Should().Be(.1);
+    }
+
+    [Theory]
+    [InlineData(-0.05, true, true)]
+    [InlineData(-0.05, false, false)]
+    [InlineData(-0.03, true, false)]
+    [InlineData(0.01, true, false)]
+    public void ShouldSkip_OnlyDropsFramesMoreThanAFrameLate_WhenANewerOneIsReady(
+        double remainingSeconds, bool newerReady, bool expected) =>
+        ComparisonPlaybackViewModel.ShouldSkip(TimeSpan.FromSeconds(remainingSeconds), .04, newerReady)
+            .Should().Be(expected);
+
+    [Fact]
     public async Task Loop_RestartsBothDecodersTogether_AndCanBePaused()
     {
         var factory = new DecoderFactory(25, [0, .04, .08, .12]);
@@ -336,10 +365,12 @@ public sealed class ComparisonPlaybackViewModelTests
     {
         private long _timestamp;
         public List<TimeSpan> Delays { get; } = [];
+        public Action? BeforeDelay { get; set; }
         public override long TimestampFrequency => TimeSpan.TicksPerSecond;
         public override long GetTimestamp() => Interlocked.Read(ref _timestamp);
         public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
         {
+            BeforeDelay?.Invoke();
             Delays.Add(dueTime);
             Interlocked.Add(ref _timestamp, dueTime.Ticks);
             return new Timer(callback, state, TimeSpan.Zero, Timeout.InfiniteTimeSpan);

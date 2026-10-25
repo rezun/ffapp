@@ -5,17 +5,34 @@ using FFmpeg.AutoGen;
 
 namespace FFApp.Infrastructure;
 
-/// <summary>Initializes the process-wide native bindings once; decoders belong to their comparison.</summary>
-public sealed class ComparisonDecoderFactory(ExecutablePathsConfig paths) : IComparisonDecoderFactory
+/// <summary>
+/// Initializes the process-wide native bindings once; decoders belong to their comparison.
+/// Owns the shared VideoToolbox device; each decoder holds its own reference to it.
+/// </summary>
+public sealed unsafe class ComparisonDecoderFactory(ExecutablePathsConfig paths) : IComparisonDecoderFactory, IDisposable
 {
     private readonly object _gate = new();
     private bool _initialized;
+    private bool _disposed;
+    private HdrConversion _hdrConversion;
+    private AVBufferRef* _videoToolbox;
+
+    /// <summary>How opened decoders convert PQ/HLG frames to SDR; known after the first Open.</summary>
+    internal HdrConversion HdrConversion
+    {
+        get { lock (_gate) return _hdrConversion; }
+    }
+
+    internal bool IsToneMappingAvailable => HdrConversion != HdrConversion.None;
 
     public IComparisonDecoder Open(string path, CropRect? crop, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
+        HdrConversion conversion;
+        AVBufferRef* device;
         lock (_gate)
         {
+            ObjectDisposedException.ThrowIf(_disposed, this);
             if (!_initialized)
             {
                 ffmpeg.RootPath = FindLibraryDirectory(paths.FfmpegPath);
@@ -33,11 +50,38 @@ public sealed class ComparisonDecoderFactory(ExecutablePathsConfig paths) : ICom
                     throw new NotSupportedException(
                         "Comparison playback requires FFmpeg 9 shared libraries (avcodec, avformat, avutil and swscale). Install a shared FFmpeg build beside ffmpeg or in the system library directory.", ex);
                 }
+                _videoToolbox = CreateVideoToolboxDevice();
+                _hdrConversion = _videoToolbox != null ? HdrConversion.VideoToolbox
+                    : ComparisonToneMapping.IsAvailable() ? HdrConversion.Clut : HdrConversion.None;
                 _initialized = true;
             }
+            conversion = _hdrConversion;
+            // The decoder takes ownership of this reference, so Dispose here cannot pull the device from under it.
+            device = _videoToolbox == null ? null : ffmpeg.av_buffer_ref(_videoToolbox);
         }
         // The factory owns decoder construction; each caller owns and disposes its session.
-        return new NativeComparisonDecoder(path, crop, ct);
+        return new NativeComparisonDecoder(path, crop, conversion, device, ct);
+    }
+
+    /// <summary>Null when not on macOS, or when FFmpeg lacks VideoToolbox or its filters.</summary>
+    private static AVBufferRef* CreateVideoToolboxDevice()
+    {
+        if (!OperatingSystem.IsMacOS() || !ComparisonToneMapping.IsVideoToolboxAvailable()) return null;
+        AVBufferRef* device = null;
+        return ffmpeg.av_hwdevice_ctx_create(&device, AVHWDeviceType.AV_HWDEVICE_TYPE_VIDEOTOOLBOX, null, null, 0) >= 0
+            ? device : null;
+    }
+
+    public void Dispose()
+    {
+        lock (_gate)
+        {
+            if (_disposed) return;
+            _disposed = true;
+            var device = _videoToolbox;
+            ffmpeg.av_buffer_unref(&device);
+            _videoToolbox = null;
+        }
     }
 
     internal static string FindLibraryDirectory(string executable)

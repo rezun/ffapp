@@ -22,6 +22,72 @@ namespace FFApp.Tests.Views;
 public sealed class ComparisonWindowTests(QueueTestSession fixture)
 {
     [Fact]
+    public async Task MaximizeVideos_ReclaimsPanelSpace_AndRestoresResizedResults()
+    {
+        await fixture.Session.Dispatch(async () =>
+        {
+            using var harness = new ComparisonTestHarness();
+            await harness.LoadAsync();
+            var vm = harness.ViewModel;
+            await vm.RunAllCommand.ExecuteAsync(null);
+            vm.ShowResultsCommand.Execute(null);
+            var window = new ComparisonWindow { DataContext = vm };
+            window.Show();
+            try
+            {
+                window.UpdateLayout();
+                var button = window.FindControl<Button>("TogglePreviewSizeButton")
+                    ?? throw new InvalidOperationException("Preview size button missing.");
+                var samples = window.FindControl<Border>("SamplePanel")
+                    ?? throw new InvalidOperationException("Sample panel missing.");
+                var results = window.FindControl<Border>("ResultsPanel")
+                    ?? throw new InvalidOperationException("Results panel missing.");
+                var grid = window.FindControl<Grid>("CompareGrid")
+                    ?? throw new InvalidOperationException("Compare grid missing.");
+                var preview = window.FindControl<ComparisonPlaybackView>("SamplePlayback")
+                    ?? throw new InvalidOperationException("Preview missing.");
+                grid.RowDefinitions[3].Height = new GridLength(180);
+                window.UpdateLayout();
+                var originalSize = preview.Bounds.Size;
+                var selectedSample = vm.SelectedSample;
+                var leftChoice = vm.LeftChoice;
+                var rightChoice = vm.RightChoice;
+                window.GetVisualDescendants().OfType<Expander>()
+                    .Should().NotContain(e => Equals(e.Header, "Selected result details"));
+
+                button.Command.Should().BeSameAs(vm.TogglePreviewSizeCommand);
+                button.Command?.Execute(null);
+                window.UpdateLayout();
+                samples.IsVisible.Should().BeFalse();
+                results.IsVisible.Should().BeFalse();
+                grid.RowDefinitions[3].ActualHeight.Should().Be(0);
+                preview.Bounds.Width.Should().BeGreaterThan(originalSize.Width);
+                preview.Bounds.Height.Should().BeGreaterThan(originalSize.Height);
+                button.IsEffectivelyVisible.Should().BeTrue();
+                button.Content.Should().Be("Restore panels");
+                vm.SelectedSample.Should().BeSameAs(selectedSample);
+                vm.LeftChoice.Should().BeSameAs(leftChoice);
+                vm.RightChoice.Should().BeSameAs(rightChoice);
+
+                button.Command?.Execute(null);
+                window.UpdateLayout();
+                samples.IsVisible.Should().BeTrue();
+                results.IsVisible.Should().BeTrue();
+                grid.RowDefinitions[3].ActualHeight.Should().Be(180);
+                preview.Bounds.Size.Should().Be(originalSize);
+
+                button.Command?.Execute(null);
+                vm.ShowVariantsCommand.Execute(null);
+                window.UpdateLayout();
+                samples.IsVisible.Should().BeTrue();
+                button.IsVisible.Should().BeFalse();
+            }
+            finally { await window.CloseSavedAsync(); }
+            return true;
+        }, CancellationToken.None);
+    }
+
+    [Fact]
     public async Task RawFrames_UpdateBothSurfaces_ReuseBitmaps_KeepZoom_AndClearOnReset()
     {
         await fixture.Session.Dispatch(() =>

@@ -53,8 +53,8 @@
                                  SelectedId="{Binding SelectedSample.Id}" Cursor="Hand"
                                  ToolTip.Tip="Samples across the saved source range. Click to select the nearest sample; edit its start and duration below." />
 
-        <Grid Grid.Row="2" ColumnDefinitions="260,12,*">
-            <Border Classes="card">
+        <Grid Grid.Row="2" ColumnDefinitions="Auto,Auto,*">
+            <Border x:Name="SamplePanel" Width="260" Classes="card" IsVisible="{Binding ShowSamplePanel}">
                 <DockPanel Margin="12">
                     <StackPanel DockPanel.Dock="Top" Spacing="8" IsEnabled="{Binding CanEdit}">
                         <TextBlock Text="Test samples" FontSize="15" FontWeight="SemiBold" />
@@ -98,16 +98,23 @@
                 </DockPanel>
             </Border>
 
-            <Grid Grid.Column="2" RowDefinitions="Auto,*" Margin="8,0,0,0">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button x:Name="SamplesStepButton" Classes="step" Classes.current="{Binding IsSamplesStep}"
-                            Content="1. Review samples" Command="{Binding ShowSamplesCommand}" />
-                    <Button x:Name="VariantsStepButton" Classes="step" Classes.current="{Binding IsVariantsStep}"
-                            Content="2. Choose variants" Command="{Binding ShowVariantsCommand}" />
-                    <Button x:Name="ResultsStepButton" Classes="step" Classes.current="{Binding IsResultsStep}"
-                            Content="3. Compare results" Command="{Binding ShowResultsCommand}"
-                            ToolTip.Tip="Results become available after creating test clips." />
-                </StackPanel>
+            <Border Grid.Column="1" Width="20" IsVisible="{Binding ShowSamplePanel}" />
+            <Grid Grid.Column="2" RowDefinitions="Auto,*">
+                <DockPanel>
+                    <Button x:Name="TogglePreviewSizeButton" DockPanel.Dock="Right" VerticalAlignment="Center"
+                            Content="{Binding PreviewSizeActionLabel}" Command="{Binding TogglePreviewSizeCommand}"
+                            IsVisible="{Binding !IsVariantsStep}"
+                            ToolTip.Tip="Hide or restore the test samples and clip results to give the videos more space." />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button x:Name="SamplesStepButton" Classes="step" Classes.current="{Binding IsSamplesStep}"
+                                Content="1. Review samples" Command="{Binding ShowSamplesCommand}" />
+                        <Button x:Name="VariantsStepButton" Classes="step" Classes.current="{Binding IsVariantsStep}"
+                                Content="2. Choose variants" Command="{Binding ShowVariantsCommand}" />
+                        <Button x:Name="ResultsStepButton" Classes="step" Classes.current="{Binding IsResultsStep}"
+                                Content="3. Compare results" Command="{Binding ShowResultsCommand}"
+                                ToolTip.Tip="Results become available after creating test clips." />
+                    </StackPanel>
+                </DockPanel>
                 <Grid x:Name="CompareGrid" Grid.Row="1" Margin="0,8,0,0" RowDefinitions="Auto,*,Auto,0,Auto" IsVisible="{Binding !IsVariantsStep}">
                     <StackPanel Spacing="6" Margin="0,0,0,8">
                         <TextBlock Text="{Binding PreviewTitle}" FontWeight="SemiBold" IsVisible="{Binding Playback.IsSourcePreview}" />
@@ -171,11 +178,8 @@
                                 </ScrollViewer>
                             </DockPanel>
                         </Border>
-                        <StackPanel Grid.Row="4" Spacing="4" Margin="0,6,0,0" IsVisible="{Binding IsResultsStep}">
-                            <TextBlock Text="{Binding HdrNote}" Classes="secondary caption" TextWrapping="Wrap" IsVisible="{Binding IsHdr}" />
-                            <Expander Header="Selected result details" IsVisible="{Binding HasResults}">
-                                <ScrollViewer MaxHeight="100"><SelectableTextBlock Text="{Binding SelectionDetails}" TextWrapping="Wrap" /></ScrollViewer>
-                            </Expander>
+                        <StackPanel Grid.Row="4" IsVisible="{Binding IsResultsStep}">
+                            <TextBlock Text="{Binding HdrNote}" Classes="secondary caption" Margin="0,6,0,0" TextWrapping="Wrap" IsVisible="{Binding IsHdr}" />
                         </StackPanel>
                 </Grid>
                 <DockPanel Grid.Row="1" Margin="0,8,0,0" IsVisible="{Binding IsVariantsStep}">

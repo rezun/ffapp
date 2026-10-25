@@ -14,6 +14,43 @@ namespace FFApp.Tests.ViewModels;
 public sealed class ComparisonViewModelTests
 {
     [Fact]
+    public async Task MaximizePreview_TogglesPanels_AndResetsWhenChangingSteps()
+    {
+        using var harness = new ComparisonTestHarness();
+        await harness.LoadAsync();
+        var vm = harness.ViewModel;
+        await vm.RunAllCommand.ExecuteAsync(null);
+        vm.ShowResultsCommand.Execute(null);
+        vm.ShowSamplePanel.Should().BeTrue();
+        vm.ShowResultTable.Should().BeTrue();
+
+        using (var changes = vm.Monitor())
+        {
+            vm.TogglePreviewSizeCommand.Execute(null);
+            changes.Should().RaisePropertyChangeFor(v => v.ShowSamplePanel);
+            changes.Should().RaisePropertyChangeFor(v => v.ShowResultTable);
+            changes.Should().RaisePropertyChangeFor(v => v.PreviewSizeActionLabel);
+        }
+        vm.IsPreviewMaximized.Should().BeTrue();
+        vm.ShowSamplePanel.Should().BeFalse();
+        vm.ShowResultTable.Should().BeFalse();
+        vm.PreviewSizeActionLabel.Should().Be("Restore panels");
+
+        vm.TogglePreviewSizeCommand.Execute(null);
+        vm.ShowSamplePanel.Should().BeTrue();
+        vm.ShowResultTable.Should().BeTrue();
+        vm.PreviewSizeActionLabel.Should().Be("Maximize videos");
+
+        vm.TogglePreviewSizeCommand.Execute(null);
+        vm.ShowVariantsCommand.Execute(null);
+        vm.IsPreviewMaximized.Should().BeFalse();
+        vm.ShowSamplePanel.Should().BeTrue();
+        vm.ShowResultTable.Should().BeFalse();
+        vm.ShowResultsCommand.Execute(null);
+        vm.ShowResultTable.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task GrainVariants_KeepCrfAndPreset_AndEnableSourceDenoising()
     {
         using var harness = new ComparisonTestHarness();

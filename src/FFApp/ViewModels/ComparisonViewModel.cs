@@ -35,13 +35,15 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
     [ObservableProperty] private string _rangeLabel = "";
     [NotifyPropertyChangedFor(nameof(HasStatus), nameof(HasFooter))]
     [ObservableProperty] private string _status = "";
-    [ObservableProperty] private string _selectionDetails = "";
     [NotifyPropertyChangedFor(nameof(HasFooter))]
     [ObservableProperty] private bool _isRunning;
     [ObservableProperty] private int _sampleCount = ComparisonPlan.DefaultSampleCount;
     [ObservableProperty] private double _sampleDuration = ComparisonPlan.DefaultSampleDuration;
     [ObservableProperty] private double _progress;
     [ObservableProperty] private int _selectedTab;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowResultTable), nameof(ShowSamplePanel), nameof(PreviewSizeActionLabel))]
+    private bool _isPreviewMaximized;
     [ObservableProperty] private ComparisonSampleViewModel? _selectedSample;
     [ObservableProperty] private ComparisonVariantViewModel? _selectedVariant;
     [ObservableProperty] private ComparisonChoice? _leftChoice;
@@ -55,7 +57,9 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
     public bool IsResultsStep => SelectedTab == 2;
     public bool HasResults => Rows.SelectMany(r => r.Cells).Any(c => c.Clip is not null || c.Status is "Failed" or "Canceled");
     public bool CanShowResults => HasResults || IsRunning;
-    public bool ShowResultTable => IsResultsStep && HasResults;
+    public bool ShowResultTable => IsResultsStep && HasResults && !IsPreviewMaximized;
+    public bool ShowSamplePanel => !IsPreviewMaximized;
+    public string PreviewSizeActionLabel => IsPreviewMaximized ? "Restore panels" : "Maximize videos";
     public int ReadyClipCount => Rows.SelectMany(r => r.Cells).Count(c => c.Clip is not null);
     public int MissingClipCount => Samples.Count * Variants.Count - ReadyClipCount;
     public string CreateClipsLabel => $"Create test clips ({MissingClipCount})";
@@ -180,6 +184,7 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
     }
     partial void OnSelectedTabChanged(int value)
     {
+        IsPreviewMaximized = false;
         OnPropertyChanged(nameof(IsSamplesStep));
         OnPropertyChanged(nameof(IsVariantsStep));
         OnPropertyChanged(nameof(IsResultsStep));
@@ -255,6 +260,9 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
 
     [RelayCommand(CanExecute = nameof(CanShowResults))]
     private void ShowResults() => SelectedTab = 2;
+
+    [RelayCommand]
+    private void TogglePreviewSize() => IsPreviewMaximized = !IsPreviewMaximized;
 
     [RelayCommand(CanExecute = nameof(CanEdit))]
     private async Task PrimaryActionAsync()
@@ -389,8 +397,6 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
                     SelectedVariant = variant;
                     RightChoice = Choices.FirstOrDefault(c => string.Equals(c.Id, variant.Id, StringComparison.Ordinal));
                     Playback.Layout = "Side by side";
-                    SelectionDetails = Rows.SelectMany(r => r.Cells)
-                        .FirstOrDefault(c => c.SampleId == sample.Id && c.VariantId == variant.Id)?.Details ?? "";
                     SelectedTab = 2;
                     _changingSelection = false;
                     RefreshPlayback();
@@ -505,14 +511,13 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
                 {
                     cell.Status = "Failed";
                     cell.Details = ex.Message;
-                    SelectionDetails = ex.Message;
                 }
                 finally { acceptingProgress = false; NotifyWorkflow(); }
                 completed++;
                 Progress = completed * 100.0 / total;
             }
             Status = Rows.SelectMany(r => r.Cells).Any(c => c.Clip is null)
-                ? "Finished with failed clips. Select a result for details; run again to retry."
+                ? "Finished with failed clips. Hover over a result for details; run again to retry."
                 : "Comparison ready. Sizes include up to 2 seconds of pre-roll and exclude audio. Percentages compare with the first variant.";
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)

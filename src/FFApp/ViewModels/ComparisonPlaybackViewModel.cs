@@ -32,11 +32,17 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
     private double? _displayedLeftTime;
     private static readonly double FrameBoundaryTolerance = 1e-7;
     private static readonly TimeSpan ScrubDelay = TimeSpan.FromMilliseconds(40);
+    public static readonly string SideBySideLayout = "Side by side";
+    public static readonly string SliderLayout = "Slider";
+    public static readonly string AOnlyLayout = "A only";
+    public static readonly string BOnlyLayout = "B only";
+    public static readonly double CenterSplit = 0.5;
 
     public bool IsAvailable => _decoders is not null;
     public ComparisonTrack? LeftTrack => _left;
     public ComparisonTrack? RightTrack => _right;
     [ObservableProperty] private bool _hasMedia;
+    [NotifyPropertyChangedFor(nameof(IsSliderLayout))]
     [ObservableProperty] private bool _isSourcePreview = true;
     [NotifyPropertyChangedFor(nameof(PlayLabel))]
     [ObservableProperty] private bool _isPlaying;
@@ -45,12 +51,16 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
     [ObservableProperty] private double _positionSeconds;
     [ObservableProperty] private string _status = "";
     [ObservableProperty] private string _zoom = "Fit";
-    [ObservableProperty] private string _layout = "Side by side";
+    [NotifyPropertyChangedFor(nameof(IsSliderLayout))]
+    [ObservableProperty] private string _layout = SideBySideLayout;
+    /// <summary>Divider position of the slider layout, from 0 (all B) to 1 (all A).</summary>
+    [ObservableProperty] private double _splitPosition = CenterSplit;
     [NotifyPropertyChangedFor(nameof(HasFrames))]
     [ObservableProperty] private ComparisonFrames? _framesToDisplay;
     public bool HasFrames => FramesToDisplay is not null;
     public IReadOnlyList<string> ZoomOptions { get; } = ["Fit", "100%", "200%"];
-    public IReadOnlyList<string> LayoutOptions { get; } = ["Side by side", "A only", "B only"];
+    public IReadOnlyList<string> LayoutOptions { get; } = [SideBySideLayout, SliderLayout, AOnlyLayout, BOnlyLayout];
+    public bool IsSliderLayout => !IsSourcePreview && string.Equals(Layout, SliderLayout, StringComparison.Ordinal);
     public string TimeDisplay => $"{TimeSpan.FromSeconds(PositionSeconds):hh\\:mm\\:ss\\.fff} / {TimeSpan.FromSeconds(DurationSeconds):hh\\:mm\\:ss\\.fff}";
     public string PlayLabel => IsPlaying ? "Pause" : "Play sample";
 
@@ -80,8 +90,8 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
         IsSourcePreview = right is null;
         DurationSeconds = duration;
         _frameDuration = 1 / (frameRate is > 0 && double.IsFinite(frameRate.Value) ? frameRate.Value : 24);
-        if (IsSourcePreview) Layout = "A only";
-        else if (wasSourcePreview) Layout = "Side by side";
+        if (IsSourcePreview) Layout = AOnlyLayout;
+        else if (wasSourcePreview) Layout = SideBySideLayout;
         if (_decoders is null) { Status = "FFmpeg comparison decoder unavailable."; return; }
         Status = "Loading comparison…";
         // Selection callbacks are synchronous. RenderAsync handles all errors;
@@ -102,6 +112,13 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
         }
     }
     partial void OnDurationSecondsChanged(double value) => OnPropertyChanged(nameof(TimeDisplay));
+    partial void OnSplitPositionChanged(double value)
+    {
+        var coerced = double.IsNaN(value) ? CenterSplit : Math.Clamp(value, 0, 1);
+        if (coerced != value) SplitPosition = coerced;
+    }
+    public void MoveSplit(double delta) => SplitPosition += delta;
+    public void ResetSplit() => SplitPosition = CenterSplit;
     partial void OnFramesToDisplayChanged(ComparisonFrames? oldValue, ComparisonFrames? newValue) => oldValue?.Dispose();
 
     private void Track(Task operation)

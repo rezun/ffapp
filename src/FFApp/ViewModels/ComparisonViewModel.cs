@@ -406,7 +406,7 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
                     SelectedSample = sample;
                     SelectedVariant = variant;
                     RightChoice = Choices.FirstOrDefault(c => string.Equals(c.Id, variant.Id, StringComparison.Ordinal));
-                    Playback.Layout = "Side by side";
+                    if (!Playback.IsSliderLayout) Playback.Layout = ComparisonPlaybackViewModel.SideBySideLayout;
                     SelectedTab = 2;
                     _changingSelection = false;
                     RefreshPlayback();

@@ -3,6 +3,23 @@
              xmlns:vm="using:FFApp.ViewModels"
              x:Class="FFApp.Views.ComparisonPlaybackView"
              x:DataType="vm:ComparisonPlaybackViewModel" x:CompileBindings="True">
+    <UserControl.Styles>
+        <Style Selector="Border.splitLabel">
+            <Setter Property="Background" Value="#99000000" />
+            <Setter Property="CornerRadius" Value="3" />
+            <Setter Property="Padding" Value="6,2" />
+            <Setter Property="Margin" Value="8" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+        </Style>
+        <Style Selector="Border.splitLabel > TextBlock">
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="Panel#SplitOverlay:focus-visible > Border#SplitHandle">
+            <Setter Property="BorderBrush" Value="{DynamicResource SystemAccentColor}" />
+            <Setter Property="BorderThickness" Value="2" />
+        </Style>
+    </UserControl.Styles>
     <Grid RowDefinitions="*,Auto,Auto,Auto">
         <Grid x:Name="VideoGrid" ColumnDefinitions="*,*" MinHeight="160">
             <Border x:Name="LeftPane" Background="Black" Margin="0,0,3,0" ClipToBounds="True">
@@ -15,6 +32,24 @@
                     <Image x:Name="RightFrame" IsVisible="{Binding HasFrames}" />
                 </Grid>
             </Border>
+            <Panel x:Name="SplitOverlay" Grid.ColumnSpan="2" Background="Transparent" Focusable="True"
+                   Cursor="SizeWestEast" IsVisible="{Binding IsSliderLayout}"
+                   ToolTip.Tip="Drag to compare A and B. Use the arrow keys to fine-tune and double-click to center.">
+                <Border x:Name="SplitDivider" Width="2" Background="White" HorizontalAlignment="Left"
+                        IsHitTestVisible="False" />
+                <Border x:Name="SplitHandle" Width="22" Height="22" CornerRadius="11" Background="White"
+                        BorderBrush="Black" BorderThickness="1" HorizontalAlignment="Left" VerticalAlignment="Center"
+                        IsHitTestVisible="False">
+                    <TextBlock Text="◀▶" FontSize="8" Foreground="Black"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <Border Classes="splitLabel" HorizontalAlignment="Left" IsHitTestVisible="False">
+                    <TextBlock Text="A" />
+                </Border>
+                <Border Classes="splitLabel" HorizontalAlignment="Right" IsHitTestVisible="False">
+                    <TextBlock Text="B" />
+                </Border>
+            </Panel>
         </Grid>
         <Slider Grid.Row="1" Margin="0,4" Minimum="0" Maximum="{Binding DurationSeconds}"
                 Value="{Binding PositionSeconds}" IsEnabled="{Binding HasMedia}"
@@ -31,7 +66,7 @@
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
                 <ComboBox ItemsSource="{Binding LayoutOptions}" SelectedItem="{Binding Layout}" MinWidth="112"
                           IsVisible="{Binding !IsSourcePreview}"
-                          ToolTip.Tip="Switch between A, B and side-by-side without changing playback position." />
+                          ToolTip.Tip="Switch between side-by-side, slider, A and B without changing playback position." />
                 <ComboBox ItemsSource="{Binding ZoomOptions}" SelectedItem="{Binding Zoom}" MinWidth="76"
                           ToolTip.Tip="Use the same zoom for both views. 100% displays source pixels at native size, centered in each pane." />
             </StackPanel>

@@ -142,6 +142,69 @@ public sealed class NativeComparisonDecoderTests(NativeComparisonFixture fixture
     }
 
     [NativeComparisonFact]
+    public async Task FractionalFrameRate_MixedTimeBases_AdvanceEveryFrame_InBothOrders()
+    {
+        const double fps = 24000.0 / 1001;
+        const double sampleStart = 1.316;
+        const double trimStart = 1.116;
+        var source = new ComparisonTrack(fixture.Video("comparison-23976.mp4"), sampleStart);
+        var clip = new ComparisonTrack(fixture.Video("comparison-23976-trim.webm"), .2, SourceStartSeconds: trimStart);
+        var clipOrigin = Math.Ceiling(trimStart * fps) / fps;
+        foreach (var tracks in new[] { (source, clip), (clip, source), (source, source), (clip, clip) })
+        {
+            await using var vm = new ComparisonPlaybackViewModel(fixture.Factory);
+            vm.Load(tracks.Item1, tracks.Item2, 1.2, fps);
+            await vm.RenderAsync();
+            for (var index = 0; index <= 20; index++)
+            {
+                if (index > 0) await vm.StepForwardCommand.ExecuteAsync(null);
+                var frames = vm.FramesToDisplay ?? throw new InvalidOperationException(vm.Status);
+                var right = frames.Right ?? throw new InvalidOperationException("Missing right frame.");
+                var leftOrigin = tracks.Item1 == source ? 0 : clipOrigin;
+                var rightOrigin = tracks.Item2 == source ? 0 : clipOrigin;
+                var expectedFrame = Math.Ceiling(sampleStart * fps) + index;
+                Math.Round((frames.Left.Seconds + leftOrigin) * fps).Should().Be(expectedFrame,
+                    "the left side must advance exactly one source frame per step");
+                Math.Round((right.Seconds + rightOrigin) * fps).Should().Be(expectedFrame,
+                    "timestamp quantization must not skip or repeat frames on the right");
+                frames.Left.Pixels.ToArray().Should().Equal(right.Pixels.ToArray());
+            }
+        }
+    }
+
+    [NativeComparisonFact]
+    public async Task FractionalFrameRate_PlaybackHasNoRepeatedOrSkippedFrames_WhenTracksAreSwapped()
+    {
+        const double fps = 24000.0 / 1001;
+        var source = new ComparisonTrack(fixture.Video("comparison-23976.mp4"), 1.316);
+        var clip = new ComparisonTrack(fixture.Video("comparison-23976-trim.webm"), .2, SourceStartSeconds: 1.116);
+        var clipOrigin = Math.Ceiling(1.116 * fps) / fps;
+        foreach (var tracks in new[] { (source, clip), (clip, source) })
+        {
+            await using var vm = new ComparisonPlaybackViewModel(fixture.Factory);
+            vm.Load(tracks.Item1, tracks.Item2, .5, fps);
+            await vm.RenderAsync();
+            vm.Loop = false;
+            var leftIndices = new List<double>();
+            var rightIndices = new List<double>();
+            var matchingPixels = new List<bool>();
+            vm.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName != nameof(vm.FramesToDisplay) || vm.FramesToDisplay is not { Right: { } right } frames) return;
+                leftIndices.Add(Math.Round((frames.Left.Seconds + (tracks.Item1 == source ? 0 : clipOrigin)) * fps));
+                rightIndices.Add(Math.Round((right.Seconds + (tracks.Item2 == source ? 0 : clipOrigin)) * fps));
+                matchingPixels.Add(frames.Left.Pixels.Span.SequenceEqual(right.Pixels.Span));
+            };
+            await vm.PlayAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            vm.Status.Should().NotContain("failed");
+            leftIndices.Count.Should().BeGreaterThan(8);
+            leftIndices.Should().Equal(Enumerable.Range(1, leftIndices.Count).Select(index => Math.Ceiling(1.316 * fps) + index));
+            rightIndices.Should().Equal(leftIndices);
+            matchingPixels.Should().OnlyContain(matches => matches);
+        }
+    }
+
+    [NativeComparisonFact]
     public void InvalidFileAndCrop_ReportErrors_WithoutLeakingOrCrashing()
     {
         var missing = () => fixture.Factory.Open(fixture.Video("missing.mp4"), null);

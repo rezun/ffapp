@@ -164,7 +164,8 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
                 ct.ThrowIfCancellationRequested();
                 EnsureDecoders(left, right, ct);
                 var decoder = _leftDecoder ?? throw new InvalidOperationException("No comparison decoder.");
-                var selected = next ? decoder.ReadNext(target, ct) : decoder.ReadAt(target, ct);
+                var selected = next ? decoder.ReadNext(target, ct)
+                    : decoder.ReadAt(target, decoder.TimestampResolutionSeconds / 2, ct);
                 if (selected is null) return null;
                 if (selected.Seconds - sampleOrigin >= duration - FrameBoundaryTolerance)
                 {
@@ -173,7 +174,12 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
                 }
                 try
                 {
-                    var other = _rightDecoder?.ReadAt(Math.Max(0, selected.Seconds + originDifference), ct);
+                    // Each PTS may be rounded by half a tick of its own time base.
+                    // Combining those uncertainties avoids skip/repeat cadence when
+                    // e.g. a Blu-ray MKV and a millisecond-based WebM are compared.
+                    var tolerance = (decoder.TimestampResolutionSeconds
+                        + (_rightDecoder?.TimestampResolutionSeconds ?? 0)) / 2;
+                    var other = _rightDecoder?.ReadAt(Math.Max(0, selected.Seconds + originDifference), tolerance, ct);
                     return new ComparisonFrames(selected, other);
                 }
                 catch { selected.Dispose(); throw; }

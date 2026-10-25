@@ -18,7 +18,12 @@ public sealed class ComparisonVideoFrame(int width, int height, double seconds, 
 /// <summary>One persistent decoder, accessed serially on a worker thread.</summary>
 public interface IComparisonDecoder : IDisposable
 {
+    /// <summary>One tick of the container's timestamp time base, in seconds.</summary>
+    double TimestampResolutionSeconds => 0;
     ComparisonVideoFrame ReadAt(double seconds, CancellationToken ct = default);
+    /// <summary>Accept timestamp rounding within the supplied uncertainty when matching a frame.</summary>
+    ComparisonVideoFrame ReadAt(double seconds, double timestampToleranceSeconds, CancellationToken ct = default) =>
+        ReadAt(seconds, ct);
     ComparisonVideoFrame? ReadNext(double? afterSeconds = null, CancellationToken ct = default);
 }
 

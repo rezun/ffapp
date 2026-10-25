@@ -30,6 +30,7 @@ internal sealed unsafe class NativeComparisonDecoder : IComparisonDecoder
     private bool _needsSeek;
     private static readonly double TimestampTolerance = 0.000001;
     private static readonly double SequentialReadWindowSeconds = 0.5;
+    public double TimestampResolutionSeconds => _timeBase;
 
     public NativeComparisonDecoder(string path, CropRect? crop, CancellationToken ct)
     {
@@ -72,21 +73,27 @@ internal sealed unsafe class NativeComparisonDecoder : IComparisonDecoder
         }
     }
 
-    public ComparisonVideoFrame ReadAt(double seconds, CancellationToken ct = default)
+    public ComparisonVideoFrame ReadAt(double seconds, CancellationToken ct = default) => ReadAt(seconds, 0, ct);
+
+    public ComparisonVideoFrame ReadAt(double seconds, double timestampToleranceSeconds, CancellationToken ct = default)
     {
-        MoveTo(seconds, ct);
+        MoveTo(seconds, ct, timestampToleranceSeconds);
         return CopyFrame();
     }
 
-    private void MoveTo(double seconds, CancellationToken ct)
+    private void MoveTo(double seconds, CancellationToken ct, double timestampToleranceSeconds = 0)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         _readCancellation = ct;
         CheckCancellation(ct);
         seconds = Math.Max(0, seconds);
-        if (!_needsSeek && (Math.Abs(_seconds - seconds) <= TimestampTolerance
-            || (double.IsFinite(_previousSeconds) && seconds > _previousSeconds + TimestampTolerance
-                && seconds <= _seconds + TimestampTolerance))) return;
+        // Different containers round the same frame's PTS to different grids.
+        // Include both grids' rounding uncertainty when aligning tracks, rather than
+        // treating a sub-millisecond difference as a reason to decode another frame.
+        var tolerance = TimestampTolerance + Math.Max(0, timestampToleranceSeconds);
+        if (!_needsSeek && (Math.Abs(_seconds - seconds) <= tolerance
+            || (double.IsFinite(_previousSeconds) && seconds > _previousSeconds + tolerance
+                && seconds <= _seconds + tolerance))) return;
         if (_needsSeek || seconds < _seconds || seconds > _seconds + SequentialReadWindowSeconds)
         {
             var timestamp = (long)Math.Floor((seconds + _start) / _timeBase);
@@ -101,7 +108,7 @@ internal sealed unsafe class NativeComparisonDecoder : IComparisonDecoder
             _previousSeconds = double.NegativeInfinity;
             _needsSeek = false;
         }
-        while (_seconds + TimestampTolerance < seconds)
+        while (_seconds + tolerance < seconds)
         {
             if (!DecodeNext(ct))
             {

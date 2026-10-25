@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <None Update="Fixtures/*.mp4" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Fixtures/*.webm" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

@@ -475,6 +475,78 @@ public sealed class ComparisonViewModelTests
         ComparisonViewModel.DescribeSource(session, media).Should().Be("10:00 – 1:10:00 (1:00:00) · 3840×1608 cropped · HDR");
     }
 
+    [Fact]
+    public async Task ChangingComparisonChoice_KeepsShownFrame()
+    {
+        using var harness = new ComparisonTestHarness();
+        await harness.LoadAsync();
+        var vm = harness.ViewModel;
+        await vm.RunAllCommand.ExecuteAsync(null);
+        vm.PreviewSelection();
+        ShowFrameAt(harness, 7.5);
+
+        vm.LeftChoice = vm.Choices[1];
+        harness.Playback.PositionSeconds.Should().Be(7.5);
+        ShowFrameAt(harness, harness.Playback.PositionSeconds);
+        vm.RightChoice = vm.Choices[0];
+        harness.Playback.PositionSeconds.Should().Be(7.5);
+        harness.Playback.LeftTrack?.Path.Should().NotBe(harness.Context.MediaInfo.SourcePath);
+    }
+
+    [Fact]
+    public async Task CreatingTestClips_KeepsShownFrame()
+    {
+        using var harness = new ComparisonTestHarness();
+        await harness.LoadAsync();
+        var vm = harness.ViewModel;
+        vm.PreviewSelection();
+        ShowFrameAt(harness, 4.25);
+
+        await vm.RunAllCommand.ExecuteAsync(null);
+
+        vm.IsResultsStep.Should().BeTrue();
+        harness.Playback.IsSourcePreview.Should().BeFalse("finished clips are compared");
+        harness.Playback.PositionSeconds.Should().Be(4.25);
+    }
+
+    [Fact]
+    public async Task SelectingAnotherSample_StartsAtItsBeginning()
+    {
+        using var harness = new ComparisonTestHarness();
+        await harness.LoadAsync();
+        var vm = harness.ViewModel;
+        vm.PreviewSelection();
+        ShowFrameAt(harness, 6);
+
+        vm.SelectedSample = vm.Samples[1];
+
+        harness.Playback.PositionSeconds.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task SetStartToPlayhead_ShowsSameFrameAtNewSampleStart()
+    {
+        using var harness = new ComparisonTestHarness();
+        await harness.LoadAsync();
+        var vm = harness.ViewModel;
+        vm.PreviewSelection();
+        var sample = vm.SelectedSample ?? throw new InvalidOperationException("No sample selected.");
+        var start = sample.StartSeconds;
+        ShowFrameAt(harness, 5);
+
+        vm.SetStartToPlayheadCommand.Execute(null);
+
+        sample.StartSeconds.Should().Be(start + 5);
+        harness.Playback.PositionSeconds.Should().Be(0);
+    }
+
+    /// <summary>Simulates a decoded frame: the harness has no FFmpeg decoder to publish one.</summary>
+    private static void ShowFrameAt(ComparisonTestHarness harness, double position)
+    {
+        harness.Playback.PositionSeconds = position;
+        harness.Playback.HasMedia = true;
+    }
+
     private static ComparisonSession Session(double start, double end, CropRect? crop) =>
         new("Film.mkv", "fingerprint", new OutputSettings(), start, end, crop, [], [], []);
 }

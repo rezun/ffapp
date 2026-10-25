@@ -80,8 +80,10 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
         Math.Ceiling((track.SourceStartSeconds + track.OffsetSeconds) / _frameDuration - FrameBoundaryTolerance)
         * _frameDuration - SourceOrigin(track);
 
-    public void LoadSource(ComparisonTrack source, double duration, double? frameRate) => Load(source, null, duration, frameRate);
-    public void Load(ComparisonTrack left, ComparisonTrack? right, double duration, double? frameRate)
+    public void LoadSource(ComparisonTrack source, double duration, double? frameRate, double position = 0) =>
+        Load(source, null, duration, frameRate, position);
+    /// <param name="position">Sample position to show first, e.g. to keep the frame when switching A or B.</param>
+    public void Load(ComparisonTrack left, ComparisonTrack? right, double duration, double? frameRate, double position = 0)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         var wasSourcePreview = IsSourcePreview;
@@ -91,6 +93,9 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
         IsSourcePreview = right is null;
         DurationSeconds = duration;
         _frameDuration = 1 / (frameRate is > 0 && double.IsFinite(frameRate.Value) ? frameRate.Value : 24);
+        _updatingPosition = true;
+        try { PositionSeconds = double.IsFinite(position) ? Math.Clamp(position, 0, Math.Max(0, duration - _frameDuration)) : 0; }
+        finally { _updatingPosition = false; }
         if (IsSourcePreview) Layout = AOnlyLayout;
         else if (wasSourcePreview) Layout = SideBySideLayout;
         if (_decoders is null) { Status = "FFmpeg comparison decoder unavailable."; return; }

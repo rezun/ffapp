@@ -25,6 +25,7 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
     private bool _previewReady;
     private bool _changingSelection;
     private Func<OutputSettings, bool>? _apply;
+    private double? _previewSourceSeconds;
 
     public OutputSettingsViewModel Editor { get; }
     public ComparisonPlaybackViewModel Playback { get; }
@@ -470,6 +471,8 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
     {
         if (!_previewReady || _changingSelection || IsVariantsStep || IsManagingStorage || IsDeleted
             || _session is null || _media is null || SelectedSample is not { } sample) return;
+        RememberPreviewPosition();
+        var position = ResumePosition(sample);
         Playback.Reset();
         if (!ComparisonPlan.IsValid(sample.Snapshot(), _session.RangeStart, _session.RangeEnd))
         {
@@ -485,14 +488,30 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
         }
         if (IsSamplesStep)
             Playback.LoadSource(new ComparisonTrack(_session.SourcePath, sample.StartSeconds, _session.Crop),
-                sample.DurationSeconds, _media.PrimaryVideoStream?.FrameRate);
+                sample.DurationSeconds, _media.PrimaryVideoStream?.FrameRate, position);
         else if (Resolve(LeftChoice) is { } left && Resolve(RightChoice) is { } right)
-            Playback.Load(left, right, sample.DurationSeconds, _media.PrimaryVideoStream?.FrameRate);
+            Playback.Load(left, right, sample.DurationSeconds, _media.PrimaryVideoStream?.FrameRate, position);
         else
         {
             Playback.LoadSource(new ComparisonTrack(_session.SourcePath, sample.StartSeconds, _session.Crop),
-                sample.DurationSeconds, _media.PrimaryVideoStream?.FrameRate);
+                sample.DurationSeconds, _media.PrimaryVideoStream?.FrameRate, position);
         }
+    }
+
+    /// <summary>
+    /// Remembers the shown frame as a source time, so reloading (other A/B choice, finished clips,
+    /// moved sample) returns to the same picture even though each clip has its own timestamps.
+    /// </summary>
+    private void RememberPreviewPosition()
+    {
+        if (Playback.HasMedia && Playback.LeftTrack is { } track)
+            _previewSourceSeconds = track.SourceStartSeconds + track.OffsetSeconds + Playback.PositionSeconds;
+    }
+
+    private double ResumePosition(ComparisonSampleViewModel sample)
+    {
+        var position = (_previewSourceSeconds ?? sample.StartSeconds) - sample.StartSeconds;
+        return position >= 0 && position < sample.DurationSeconds ? position : 0;
     }
 
     public void PreviewSelection()
@@ -511,6 +530,7 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
             IsRunning = true;
             SelectedTab = 2;
             Progress = 0;
+            RememberPreviewPosition();
             Playback.Reset();
             RefreshResults();
             await _service.SaveAsync(snapshot);
@@ -603,6 +623,7 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
         IsManagingStorage = true;
         try
         {
+            RememberPreviewPosition();
             await Playback.ResetAsync();
             var removed = _service.ClearClips(_session.SourcePath);
             RefreshResults();

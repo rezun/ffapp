@@ -307,6 +307,20 @@ public sealed class ComparisonPlaybackViewModelTests
         vm.PositionSeconds.Should().BeApproximately(expected, 1e-9);
     }
 
+    [Theory]
+    [InlineData(7.5, 7.5)]
+    [InlineData(-1, 0)]
+    [InlineData(30, 11.96)]
+    [InlineData(double.NaN, 0)]
+    public void Load_StartsAtRequestedPosition_ClampedToSample(double position, double expected)
+    {
+        using var vm = new ComparisonPlaybackViewModel(null);
+        vm.Load(new ComparisonTrack("left", 2), new ComparisonTrack("right", 2), 12, 25, position);
+        vm.PositionSeconds.Should().BeApproximately(expected, 1e-9);
+        vm.LoadSource(new ComparisonTrack("source", 100), 12, 25);
+        vm.PositionSeconds.Should().Be(0);
+    }
+
     [Fact]
     public void StepBackward_WithoutMedia_DoesNothing()
     {

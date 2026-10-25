@@ -233,6 +233,11 @@ public sealed class ComparisonWindowTests(QueueTestSession fixture)
                 var play = preview.FindControl<Button>("PlaySampleButton") ?? throw new InvalidOperationException("Play button missing.");
                 play.Content.Should().Be("Play sample");
                 play.Classes.Should().Contain("accent");
+                var back = preview.FindControl<Button>("SeekBackwardButton")
+                    ?? throw new InvalidOperationException("Backward seek button missing.");
+                back.Content.Should().Be("◀ 1 s");
+                back.Command.Should().BeSameAs(harness.Playback.SeekBackwardCommand);
+                ToolTip.GetTip(back).Should().Be("Seek back one second.");
                 (window.FindControl<Button>("ResultsStepButton")?.IsEffectivelyEnabled).Should().BeFalse();
                 await vm.PrimaryActionCommand.ExecuteAsync(null);
                 window.UpdateLayout();

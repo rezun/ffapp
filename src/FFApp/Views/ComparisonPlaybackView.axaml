@@ -18,10 +18,10 @@
                 ToolTip.Tip="Seek both previews to the same position inside this sample." />
         <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" Margin="0,2">
             <StackPanel Orientation="Horizontal" Spacing="6" IsEnabled="{Binding HasMedia}">
-                <Button Content="◀" Command="{Binding StepBackwardCommand}" ToolTip.Tip="Step back one source-frame interval." />
+                <Button x:Name="SeekBackwardButton" Content="◀ 1 s" Command="{Binding SeekBackwardCommand}" ToolTip.Tip="Seek back one second." />
                 <Button x:Name="PlaySampleButton" Classes.accent="{Binding !IsPlaying}"
                         Content="{Binding PlayLabel}" Command="{Binding TogglePlayCommand}" />
-                <Button Content="▶" Command="{Binding StepForwardCommand}" ToolTip.Tip="Step forward one source-frame interval." />
+                <Button Content="▶" Command="{Binding StepForwardCommand}" ToolTip.Tip="Step forward one video frame." />
                 <CheckBox Content="Loop" IsChecked="{Binding Loop}" />
             </StackPanel>
             <TextBlock Grid.Column="1" Text="{Binding TimeDisplay}" VerticalAlignment="Center" HorizontalAlignment="Center" Classes="mono caption" />

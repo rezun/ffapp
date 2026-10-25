@@ -63,6 +63,7 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
         _right = right;
         IsSourcePreview = right is null;
         DurationSeconds = duration;
+        _frameDuration = 1 / (frameRate is > 0 && double.IsFinite(frameRate.Value) ? frameRate.Value : 24);
         if (IsSourcePreview) Layout = "A only";
         else if (wasSourcePreview) Layout = "Side by side";
         if (_vlc is null)
@@ -70,7 +71,6 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
             Status = "Install VLC to preview samples. You can still create test clips and compare their sizes.";
             return;
         }
-        _frameDuration = 1 / (frameRate is > 0 ? frameRate.Value : 24);
         _leftMedia = CreateMedia(left);
         LeftPlayer = new MediaPlayer(_leftMedia) { Mute = true };
         ApplyCrop(LeftPlayer, left.Crop);
@@ -193,9 +193,17 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
     private void Seek(double value)
     {
         if (_left is not null && LeftPlayer is not null)
+        {
             LeftPlayer.Time = MediaTime(_left, value, DurationSeconds);
+            // Flush the paused decoder after a seek so the next frame command
+            // advances from the newly displayed picture rather than the old one.
+            if (!IsPlaying) LeftPlayer.NextFrame();
+        }
         if (_right is not null && RightPlayer is not null)
+        {
             RightPlayer.Time = MediaTime(_right, value, DurationSeconds);
+            if (!IsPlaying) RightPlayer.NextFrame();
+        }
     }
 
     [RelayCommand]
@@ -219,9 +227,33 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
     }
 
     [RelayCommand]
-    private void StepForward() { Pause(); PositionSeconds = Math.Min(DurationSeconds, PositionSeconds + _frameDuration); }
+    private void StepForward()
+    {
+        if (!HasMedia || LeftPlayer is null) return;
+        AdvanceFrame(LeftPlayer.NextFrame, RightPlayer is { } right ? right.NextFrame : null);
+    }
+
+    internal void AdvanceFrame(Action advanceLeft, Action? advanceRight)
+    {
+        Pause();
+        var target = PositionSeconds + _frameDuration;
+        if (target >= DurationSeconds - _frameDuration * 1e-9) return;
+
+        // A paused time seek may display the same decoded picture again. Ask VLC
+        // to consume the next picture, and update the UI without seeking it back.
+        advanceLeft();
+        advanceRight?.Invoke();
+        _updatingPosition = true;
+        try { PositionSeconds = target; }
+        finally { _updatingPosition = false; }
+    }
+
     [RelayCommand]
-    private void StepBackward() { Pause(); PositionSeconds = Math.Max(0, PositionSeconds - _frameDuration); }
+    private void SeekBackward()
+    {
+        Pause();
+        PositionSeconds = Math.Max(0, PositionSeconds - 1);
+    }
 
     public void Reset()
     {

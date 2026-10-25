@@ -19,6 +19,54 @@ namespace FFApp.Tests.Views;
 [Collection("Queue UI")]
 public sealed class ComparisonWindowTests(QueueTestSession fixture)
 {
+    [Fact]
+    public async Task Window_PreservesOuterMargins_AndReservesFooterSpaceOnlyWhenNeeded()
+    {
+        await fixture.Session.Dispatch(async () =>
+        {
+            using var harness = new ComparisonTestHarness();
+            await harness.LoadAsync();
+            var vm = harness.ViewModel;
+            var window = new ComparisonWindow { DataContext = vm };
+            window.Show();
+            try
+            {
+                window.UpdateLayout();
+                var layout = window.FindControl<Grid>("ComparisonLayout")
+                    ?? throw new InvalidOperationException("Window layout missing.");
+                var footer = window.FindControl<StackPanel>("ComparisonStatusPanel")
+                    ?? throw new InvalidOperationException("Status panel missing.");
+                layout.Margin.Should().Be(new Thickness(16));
+                footer.IsVisible.Should().BeFalse();
+                layout.RowDefinitions[3].ActualHeight.Should().Be(0);
+
+                vm.Status = "Unable to save comparison.";
+                window.UpdateLayout();
+                footer.IsVisible.Should().BeTrue();
+                layout.RowDefinitions[3].ActualHeight.Should().BeGreaterThan(0);
+
+                vm.Status = "";
+                vm.IsRunning = true;
+                window.UpdateLayout();
+                footer.IsVisible.Should().BeTrue();
+                footer.Children.OfType<ProgressBar>().Single().IsVisible.Should().BeTrue();
+                footer.Children.OfType<TextBlock>().Single().IsVisible.Should().BeFalse();
+
+                vm.IsRunning = false;
+                window.UpdateLayout();
+                footer.IsVisible.Should().BeFalse();
+                layout.RowDefinitions[3].ActualHeight.Should().Be(0);
+            }
+            finally
+            {
+                vm.IsRunning = false;
+                vm.Status = "";
+                await window.CloseSavedAsync();
+            }
+            return true;
+        }, CancellationToken.None);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

@@ -33,8 +33,10 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
 
     [ObservableProperty] private string _sourceLabel = "";
     [ObservableProperty] private string _rangeLabel = "";
+    [NotifyPropertyChangedFor(nameof(HasStatus), nameof(HasFooter))]
     [ObservableProperty] private string _status = "";
     [ObservableProperty] private string _selectionDetails = "";
+    [NotifyPropertyChangedFor(nameof(HasFooter))]
     [ObservableProperty] private bool _isRunning;
     [ObservableProperty] private int _sampleCount = ComparisonPlan.DefaultSampleCount;
     [ObservableProperty] private double _sampleDuration = ComparisonPlan.DefaultSampleDuration;
@@ -46,6 +48,8 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
     [ObservableProperty] private ComparisonChoice? _rightChoice;
 
     public bool CanEdit => !IsRunning;
+    public bool HasStatus => !string.IsNullOrWhiteSpace(Status);
+    public bool HasFooter => HasStatus || IsRunning;
     public bool IsSamplesStep => SelectedTab == 0;
     public bool IsVariantsStep => SelectedTab == 1;
     public bool IsResultsStep => SelectedTab == 2;

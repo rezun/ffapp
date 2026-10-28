@@ -24,6 +24,28 @@
       "stopAtEntry": false
     },
     {
+      "name": "Debug FFRux",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-ffrux",
+      "program": "${workspaceFolder}/src/FFRux/bin/Debug/net10.0/FFRux.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/src/FFRux",
+      "console": "internalConsole",
+      "stopAtEntry": false
+    },
+    {
+      "name": "Run FFRux (Release)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-ffrux-release",
+      "program": "${workspaceFolder}/src/FFRux/bin/Release/net10.0/FFRux.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/src/FFRux",
+      "console": "internalConsole",
+      "stopAtEntry": false
+    },
+    {
       "name": "Debug Tests",
       "type": "coreclr",
       "request": "launch",
@@ -32,6 +54,21 @@
       "args": [
         "test",
         "${workspaceFolder}/tests/FFApp.Tests/FFApp.Tests.csproj",
+        "--no-build"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "internalConsole",
+      "stopAtEntry": false
+    },
+    {
+      "name": "Debug FFRux tests",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-ffrux-tests",
+      "program": "dotnet",
+      "args": [
+        "test",
+        "${workspaceFolder}/tests/FFRux.Tests/FFRux.Tests.csproj",
         "--no-build"
       ],
       "cwd": "${workspaceFolder}",

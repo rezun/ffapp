@@ -1,0 +1,147 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:FFRux.ViewModels"
+             xmlns:conv="using:FFRux.Converters"
+             xmlns:ctrl="using:FFApp.Controls"
+             x:Class="FFRux.Views.SourcesPanelView"
+             x:DataType="vm:MainWindowViewModel">
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="8" Margin="8,8,2,8">
+
+            <!-- Source files -->
+            <Border Classes="card">
+                <DockPanel>
+                    <DockPanel DockPanel.Dock="Top" Margin="8,6,8,4">
+                        <Button DockPanel.Dock="Right" Classes="accent sm" Content="Add"
+                                Command="{Binding AddSourcesCommand}"
+                                ToolTip.Tip="Add media, audio or subtitle files. You can also drop files onto the window." />
+                        <TextBlock Classes="card-header" Margin="0" Text="Source files" VerticalAlignment="Center" />
+                    </DockPanel>
+
+                    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="4" Margin="8,4,8,8">
+                        <Button Classes="sm" Content="Remove" Command="{Binding RemoveSourceCommand}"
+                                ToolTip.Tip="Remove the selected source and its tracks. The file on disk is kept." />
+                        <Button Classes="sm" Content="Remove all" Command="{Binding RemoveAllSourcesCommand}"
+                                ToolTip.Tip="Remove all sources. Files on disk are kept." />
+                    </StackPanel>
+
+                    <Panel>
+                        <TextBlock Classes="caption secondary" Margin="8,2,8,4" Text="No source files yet."
+                                   IsVisible="{Binding IsEmpty}" />
+                        <ListBox Classes="dense" ItemsSource="{Binding Sources}" SelectedItem="{Binding SelectedSource}"
+                                 IsVisible="{Binding HasSources}" IsEnabled="{Binding IsEditable}"
+                                 MaxHeight="320" Margin="0,0,0,0">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:SourceViewModel">
+                                    <Grid ColumnDefinitions="Auto,*" ToolTip.Tip="{Binding Path}">
+                                        <Border Classes="marker" VerticalAlignment="Top" Margin="0,1,8,0"
+                                                Background="{Binding MarkerIndex, Converter={x:Static conv:MarkerBrushConverter.Instance}}">
+                                            <TextBlock Text="{Binding Number}" />
+                                        </Border>
+                                        <StackPanel Grid.Column="1" Spacing="1">
+                                            <TextBlock Text="{Binding FileName}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Classes="caption secondary" Text="{Binding Summary}" TextWrapping="Wrap"
+                                                       IsVisible="{Binding !IsError}" />
+                                            <TextBlock Classes="caption" Text="{Binding Summary}" TextWrapping="Wrap"
+                                                       Foreground="{DynamicResource ValidationErrorBrush}"
+                                                       IsVisible="{Binding IsError}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Panel>
+                </DockPanel>
+            </Border>
+
+            <!-- Chapters -->
+            <Border Classes="card">
+                <StackPanel>
+                    <TextBlock Classes="card-header" Text="Chapters" />
+                    <TextBlock Classes="caption secondary" Margin="8,0,8,8" TextWrapping="Wrap"
+                               Text="Chapters appear here when a source has them."
+                               IsVisible="{Binding !HasChapters}" />
+                    <ListBox Classes="dense" ItemsSource="{Binding ChapterOptions}" SelectedItem="{Binding SelectedChapter}"
+                             IsVisible="{Binding HasChapters}" IsEnabled="{Binding IsEditable}" Margin="0,0,0,6"
+                             ToolTip.Tip="FFmpeg takes chapters from one source only.">
+                        <ListBox.Styles>
+                            <Style Selector="ListBoxItem">
+                                <Setter Property="Padding" Value="8,3" />
+                            </Style>
+                            <Style Selector="ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="BorderBrush" Value="Transparent" />
+                            </Style>
+                        </ListBox.Styles>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ChapterOptionViewModel">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <!-- A drawn radio glyph: the row itself is the choice, so no nested RadioButton -->
+                                    <Panel Width="14" Height="14" VerticalAlignment="Center">
+                                        <Ellipse Stroke="{DynamicResource BorderDefaultBrush}" StrokeThickness="1"
+                                                 IsVisible="{Binding !$parent[ListBoxItem].IsSelected}" />
+                                        <Ellipse Stroke="{DynamicResource SystemAccentColor}" StrokeThickness="4"
+                                                 IsVisible="{Binding $parent[ListBoxItem].IsSelected}" />
+                                    </Panel>
+                                    <Border Classes="marker" IsVisible="{Binding HasMarker}"
+                                            Background="{Binding MarkerIndex, Converter={x:Static conv:MarkerBrushConverter.Instance}}">
+                                        <TextBlock Text="{Binding SourceNumber}" />
+                                    </Border>
+                                    <TextBlock Text="{Binding Label}" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </StackPanel>
+            </Border>
+
+            <!-- Output -->
+            <Border Classes="card">
+                <Grid ColumnDefinitions="64,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="0,0,0,8"
+                      DataContext="{Binding Output}" x:DataType="vm:OutputViewModel">
+                    <TextBlock Grid.ColumnSpan="2" Classes="card-header" Text="Output" />
+
+                    <TextBlock Grid.Row="1" Classes="field-label" Margin="8,0,8,6" Text="Format" />
+                    <ctrl:NoWheelComboBox Grid.Row="1" Grid.Column="1" Margin="0,0,8,6" HorizontalAlignment="Stretch"
+                                          ItemsSource="{Binding Formats}" SelectedItem="{Binding SelectedFormat}"
+                                          IsEnabled="{Binding IsEditable}"
+                                          ToolTip.Tip="The container to write. The list shows how many problems each format would have with the enabled tracks.">
+                        <ctrl:NoWheelComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:FormatOptionViewModel">
+                                <Grid ColumnDefinitions="*,Auto" MinWidth="210">
+                                    <TextBlock Text="{Binding Label}" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Classes="caption" Margin="12,0,0,0" VerticalAlignment="Center"
+                                               Text="{Binding ProblemText}"
+                                               Classes.status-error="{Binding HasErrors}"
+                                               Classes.status-warning="{Binding !HasErrors}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ctrl:NoWheelComboBox.ItemTemplate>
+                        <ctrl:NoWheelComboBox.SelectionBoxItemTemplate>
+                            <DataTemplate x:DataType="vm:FormatOptionViewModel">
+                                <TextBlock Text="{Binding Label}" />
+                            </DataTemplate>
+                        </ctrl:NoWheelComboBox.SelectionBoxItemTemplate>
+                    </ctrl:NoWheelComboBox>
+
+                    <TextBlock Grid.Row="2" Classes="field-label" Margin="8,0,8,6" Text="Title" />
+                    <TextBox Grid.Row="2" Grid.Column="1" Margin="0,0,8,6" Text="{Binding Title}"
+                             IsEnabled="{Binding TitleEnabled}" IsReadOnly="{Binding !IsEditable}"
+                             PlaceholderText="No title"
+                             ToolTip.Tip="The title players show for the file. It starts with the title of the first source that has one." />
+                    <TextBlock Grid.Row="3" Grid.Column="1" Classes="hint" Margin="0,-2,8,6" Text="{Binding TitleHint}"
+                               IsVisible="{Binding !TitleEnabled}" />
+
+                    <TextBlock Grid.Row="4" Classes="field-label" Margin="8,0,8,0" Text="File" />
+                    <Grid Grid.Row="4" Grid.Column="1" ColumnDefinitions="*,Auto" Margin="0,0,8,0">
+                        <TextBox Text="{Binding OutputPath}" IsReadOnly="{Binding !IsEditable}" PlaceholderText="Add a source first"
+                                 ToolTip.Tip="{Binding OutputPath}" />
+                        <Button Grid.Column="1" Margin="4,0,0,0" Content="…" Command="{Binding BrowseCommand}"
+                                ToolTip.Tip="Choose where to save the output file." />
+                    </Grid>
+                </Grid>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

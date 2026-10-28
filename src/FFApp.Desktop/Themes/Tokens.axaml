@@ -42,6 +42,12 @@
             <SolidColorBrush x:Key="JobStateCompletedBrush" Color="#50DC50" />
             <SolidColorBrush x:Key="JobStateFailedBrush" Color="#FF5A5A" />
             <SolidColorBrush x:Key="JobStateCanceledBrush" Color="#FFA500" />
+
+            <!-- Data tables (FFRux track table) -->
+            <SolidColorBrush x:Key="TableGroupBackgroundBrush" Color="#26262A" />
+            <SolidColorBrush x:Key="TableRowLineBrush" Color="#2F2F33" />
+            <SolidColorBrush x:Key="ChipBackgroundBrush" Color="#3C3C42" />
+            <SolidColorBrush x:Key="ValidationConvertBrush" Color="#64C8FF" />
         </ResourceDictionary>
 
         <!-- ============ LIGHT THEME ============ -->
@@ -83,6 +89,12 @@
             <SolidColorBrush x:Key="JobStateCompletedBrush" Color="#107C10" />
             <SolidColorBrush x:Key="JobStateFailedBrush" Color="#D13438" />
             <SolidColorBrush x:Key="JobStateCanceledBrush" Color="#CA5010" />
+
+            <!-- Data tables (FFRux track table) -->
+            <SolidColorBrush x:Key="TableGroupBackgroundBrush" Color="#F3F3F3" />
+            <SolidColorBrush x:Key="TableRowLineBrush" Color="#EEEEEE" />
+            <SolidColorBrush x:Key="ChipBackgroundBrush" Color="#E6E6EA" />
+            <SolidColorBrush x:Key="ValidationConvertBrush" Color="#0067C0" />
         </ResourceDictionary>
 
     </ResourceDictionary.ThemeDictionaries>
@@ -94,5 +106,15 @@
          glyph positioning, leaving the box visually offset from inline
          siblings like ComboBox/TextBox. -->
     <x:Double x:Key="CheckBoxMinHeight">22</x:Double>
+
+    <!-- Source markers: numbered badges that tell sources apart. The colors are light enough
+         for dark text in both themes, and the number keeps them usable without color vision. -->
+    <SolidColorBrush x:Key="SourceMarker0Brush" Color="#64C8FF" />
+    <SolidColorBrush x:Key="SourceMarker1Brush" Color="#C792EA" />
+    <SolidColorBrush x:Key="SourceMarker2Brush" Color="#E0B060" />
+    <SolidColorBrush x:Key="SourceMarker3Brush" Color="#7FD99A" />
+    <SolidColorBrush x:Key="SourceMarker4Brush" Color="#F49B8F" />
+    <SolidColorBrush x:Key="SourceMarker5Brush" Color="#A8B4F8" />
+    <SolidColorBrush x:Key="SourceMarkerForegroundBrush" Color="#1A1A1A" />
 
 </ResourceDictionary>

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -8,6 +9,8 @@ using FFApp.Core;
 using FFApp.Core.Services;
 using FFApp.Infrastructure;
 using FFApp.Infrastructure.SingleInstance;
+using FFRux.Core;
+using FFRux.Infrastructure;
 using FFRux.Services;
 using FFRux.ViewModels;
 using FFRux.Views;
@@ -76,6 +79,7 @@ public partial class App : Application
         var services = new ServiceCollection();
 
         services.AddSingleton(TimeProvider.System);
+        services.AddSingleton(new JsonSerializerOptions { WriteIndented = true });
 
         // Shared media plumbing from FFApp.Media
         services.AddSingleton<ExecutablePathsConfig>();
@@ -85,9 +89,15 @@ public partial class App : Application
         services.AddSingleton<IProcessRunner, ProcessRunner>();
 
         // FFRux services
-        services.AddSingleton<IFilePickerService>(_ => new FilePickerService(mainWindow));
+        services.AddSingleton<IDialogService>(_ => new DialogService(mainWindow));
+        services.AddSingleton<ISettingsService, SettingsService>();
+        services.AddSingleton<RemuxCommandBuilder>();
+        services.AddSingleton<IRemuxJobRunner, RemuxJobRunner>();
 
         // ViewModels
+        services.AddSingleton<OutputViewModel>();
+        services.AddSingleton<TrackPropertiesViewModel>();
+        services.AddSingleton<CommandPreviewViewModel>();
         services.AddSingleton<MainWindowViewModel>();
 
         return services.BuildServiceProvider();

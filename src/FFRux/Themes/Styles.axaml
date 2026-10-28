@@ -1,0 +1,137 @@
+<!-- FFRux-specific styles on top of the shared FFApp.Desktop styles: source markers, the track
+     table, flag chips and compatibility status colors. Brushes come from Tokens.axaml. -->
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Numbered source marker -->
+    <Style Selector="Border.marker">
+        <Setter Property="Width" Value="16" />
+        <Setter Property="Height" Value="16" />
+        <Setter Property="CornerRadius" Value="3" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.marker > TextBlock">
+        <Setter Property="FontSize" Value="10" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{DynamicResource SourceMarkerForegroundBrush}" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- Compatibility status colors; the symbol and text carry the meaning, color only adds to it -->
+    <Style Selector="TextBlock.status-ok">
+        <Setter Property="Foreground" Value="{DynamicResource ValidationOkBrush}" />
+    </Style>
+    <Style Selector="TextBlock.status-convert">
+        <Setter Property="Foreground" Value="{DynamicResource ValidationConvertBrush}" />
+    </Style>
+    <Style Selector="TextBlock.status-warning">
+        <Setter Property="Foreground" Value="{DynamicResource ValidationWarningBrush}" />
+    </Style>
+    <Style Selector="TextBlock.status-error">
+        <Setter Property="Foreground" Value="{DynamicResource ValidationErrorBrush}" />
+    </Style>
+
+    <!-- Track table -->
+    <Style Selector="ListBox.tracks">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Padding" Value="0" />
+    </Style>
+    <Style Selector="ListBox.tracks ListBoxItem">
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="MinHeight" Value="0" />
+    </Style>
+    <Style Selector="ListBox.tracks ListBoxItem /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="CornerRadius" Value="0" />
+        <Setter Property="BorderThickness" Value="2,0,0,0" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="ListBox.tracks ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource SelectionSubtleBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SystemAccentColor}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+    <!-- Group headers are disabled items so they cannot be selected; they must not look dimmed -->
+    <Style Selector="ListBox.tracks ListBoxItem:disabled /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Grid.track-row">
+        <Setter Property="Height" Value="26" />
+    </Style>
+    <Style Selector="Grid.track-row > :is(Control)">
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Grid.track-row > TextBlock">
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Setter Property="Margin" Value="0,0,8,0" />
+    </Style>
+    <Style Selector="Grid.track-row.off > TextBlock, Grid.track-row.off > ItemsControl">
+        <Setter Property="Opacity" Value="0.5" />
+    </Style>
+    <Style Selector="TextBlock.column-header">
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
+    <!-- Flag chips -->
+    <Style Selector="Border.chip">
+        <Setter Property="Background" Value="{DynamicResource ChipBackgroundBrush}" />
+        <Setter Property="CornerRadius" Value="3" />
+        <Setter Property="Padding" Value="5,0" />
+        <Setter Property="Margin" Value="0,0,3,0" />
+    </Style>
+    <Style Selector="Border.chip > TextBlock">
+        <Setter Property="FontSize" Value="10.5" />
+        <Setter Property="LineHeight" Value="16" />
+        <Setter Property="Foreground" Value="{DynamicResource NestedCardHeaderBrush}" />
+    </Style>
+
+    <!-- Disabled icon buttons stay flat instead of getting Fluent's disabled fill -->
+    <Style Selector=":is(Button).icon:disabled /template/ ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector=":is(Button).icon:disabled">
+        <Setter Property="Opacity" Value="0.4" />
+    </Style>
+
+    <!-- Quiet tabs, used to switch between command preview and log -->
+    <Style Selector="ToggleButton.tab">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="8,0" />
+        <Setter Property="Height" Value="24" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+    </Style>
+    <Style Selector="ToggleButton.tab:pointerover /template/ ContentPresenter">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+    <Style Selector="ToggleButton.tab:checked /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource SelectionSubtleBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource CardHeaderBrush}" />
+    </Style>
+
+    <!-- Labels in the property forms -->
+    <Style Selector="TextBlock.field-label">
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.hint">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <!-- Drop area of the empty state -->
+    <Style Selector="Rectangle.drop-area">
+        <Setter Property="Stroke" Value="{DynamicResource BorderDefaultBrush}" />
+        <Setter Property="StrokeThickness" Value="2" />
+        <Setter Property="StrokeDashArray" Value="3,2" />
+        <Setter Property="RadiusX" Value="5" />
+        <Setter Property="RadiusY" Value="5" />
+    </Style>
+</Styles>

@@ -1,0 +1,129 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:FFRux.ViewModels"
+             xmlns:m="using:FFRux.Core.Models"
+             xmlns:core="using:FFRux.Core"
+             xmlns:conv="using:FFRux.Converters"
+             xmlns:ctrl="using:FFApp.Controls"
+             x:Class="FFRux.Views.PropertiesView"
+             x:DataType="vm:TrackPropertiesViewModel">
+
+    <Border Classes="card" Margin="2,8,8,8">
+        <DockPanel>
+            <DockPanel DockPanel.Dock="Top" Margin="8,6,8,4">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6" IsVisible="{Binding HasSelection}">
+                    <Border Classes="marker" IsVisible="{Binding IsSingle}"
+                            Background="{Binding Single.MarkerIndex, Converter={x:Static conv:MarkerBrushConverter.Instance}, FallbackValue=0}">
+                        <TextBlock Text="{Binding Single.SourceNumber}" />
+                    </Border>
+                    <TextBlock Classes="caption secondary" Text="{Binding HeaderText}" VerticalAlignment="Center" />
+                </StackPanel>
+                <TextBlock Classes="card-header" Margin="0" Text="Track properties" VerticalAlignment="Center" />
+            </DockPanel>
+
+            <TextBlock DockPanel.Dock="Top" Classes="caption secondary" Margin="8,4,8,8" TextWrapping="Wrap"
+                       Text="Select a track to edit its name, language, flags and timeshift. Select several to edit them together."
+                       IsVisible="{Binding !HasSelection}" />
+
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding HasSelection}">
+                <StackPanel Margin="0,4,0,8">
+                    <Grid ColumnDefinitions="76,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
+                          IsEnabled="{Binding IsEditable}" Margin="8,0,8,0">
+                        <TextBlock Classes="field-label" Text="Name" Margin="0,0,8,6" />
+                        <TextBox Grid.Column="1" Margin="0,0,0,6" Text="{Binding Name}" PlaceholderText="{Binding NameWatermark}"
+                                 IsEnabled="{Binding NameEnabled}" ToolTip.Tip="Track name shown by players. Leave it empty for no name." />
+                        <TextBlock Grid.Row="1" Grid.Column="1" Classes="hint" Margin="0,-2,0,6" Text="{Binding NameHint}"
+                                   IsVisible="{Binding NameHint, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+                        <TextBlock Grid.Row="2" Classes="field-label" Text="Language" Margin="0,0,8,6" />
+                        <AutoCompleteBox x:Name="LanguageBox" Grid.Row="2" Grid.Column="1" Margin="0,0,0,6" Height="26"
+                                         ItemsSource="{Binding Languages}" SelectedItem="{Binding Language}"
+                                         PlaceholderText="{Binding LanguageWatermark}" FilterMode="Custom" MinimumPrefixLength="1"
+                                         MaxDropDownHeight="260" IsEnabled="{Binding LanguageEnabled}"
+                                         ToolTip.Tip="Type a language name or code, such as German, ger or de.">
+                            <AutoCompleteBox.ItemTemplate>
+                                <DataTemplate x:DataType="m:Language">
+                                    <TextBlock Text="{Binding Label}" />
+                                </DataTemplate>
+                            </AutoCompleteBox.ItemTemplate>
+                        </AutoCompleteBox>
+                        <TextBlock Grid.Row="3" Grid.Column="1" Classes="hint" Margin="0,-2,0,6" Text="{Binding LanguageHint}"
+                                   IsVisible="{Binding LanguageHint, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+                        <TextBlock Grid.Row="4" Classes="field-label" Text="Timeshift" Margin="0,0,8,6" />
+                        <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="0,0,0,6">
+                            <ctrl:NoWheelNumericUpDown Width="140" Value="{Binding TimeshiftMs}" Increment="10"
+                                                       Minimum="-600000" Maximum="600000" FormatString="+0;-0;0"
+                                                       PlaceholderText="{Binding TimeshiftWatermark}" IsEnabled="{Binding TimeshiftEnabled}"
+                                                       HorizontalContentAlignment="Right"
+                                                       ToolTip.Tip="Shift the track in milliseconds. Positive values play it later." />
+                            <TextBlock Classes="secondary" Text="ms" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <TextBlock Grid.Row="5" Grid.Column="1" Classes="hint" Margin="0,-2,0,6" Text="{Binding TimeshiftHint}" />
+
+                        <TextBlock Grid.Row="6" Classes="field-label" Text="Encoding" Margin="0,0,8,6" IsVisible="{Binding ShowEncoding}" />
+                        <ctrl:NoWheelComboBox Grid.Row="6" Grid.Column="1" Margin="0,0,0,6" HorizontalAlignment="Stretch"
+                                              ItemsSource="{Binding Encodings}" SelectedItem="{Binding Encoding}"
+                                              IsVisible="{Binding ShowEncoding}" PlaceholderText="Multiple values"
+                                              ToolTip.Tip="The character set of the subtitle file. FFRux writes UTF-8.">
+                            <ctrl:NoWheelComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="core:TextEncoding">
+                                    <TextBlock Text="{Binding Label}" />
+                                </DataTemplate>
+                            </ctrl:NoWheelComboBox.ItemTemplate>
+                        </ctrl:NoWheelComboBox>
+                        <TextBlock Grid.Row="7" Grid.Column="1" Classes="hint" Margin="0,-2,0,6" Text="{Binding EncodingHint}"
+                                   IsVisible="{Binding ShowEncoding}" />
+                    </Grid>
+
+                    <TextBlock Classes="field-label" Text="Flags" Margin="8,4,8,6" />
+                    <UniformGrid Columns="2" Margin="8,0,8,4" IsEnabled="{Binding IsEditable}">
+                        <CheckBox Content="Default" IsChecked="{Binding IsDefault}" IsEnabled="{Binding DefaultSupported}" Margin="0,0,0,4"
+                                  ToolTip.Tip="Players pick this track unless the user chooses another." />
+                        <CheckBox Content="Forced" IsChecked="{Binding IsForced}" IsEnabled="{Binding ForcedSupported}" Margin="0,0,0,4"
+                                  ToolTip.Tip="Shown even when subtitles are off, for example for foreign-language dialogue." />
+                        <CheckBox Content="Hearing impaired" IsChecked="{Binding IsHearingImpaired}" IsEnabled="{Binding HearingImpairedSupported}"
+                                  Margin="0,0,0,4" ToolTip.Tip="For viewers who are deaf or hard of hearing (SDH)." />
+                        <CheckBox Content="Visual impaired" IsChecked="{Binding IsVisualImpaired}" IsEnabled="{Binding VisualImpairedSupported}"
+                                  Margin="0,0,0,4" ToolTip.Tip="For viewers who are blind or partially sighted, such as audio description." />
+                        <CheckBox Content="Commentary" IsChecked="{Binding IsCommentary}" IsEnabled="{Binding CommentarySupported}"
+                                  Margin="0,0,0,4" ToolTip.Tip="A commentary track, for example by the director." />
+                        <CheckBox Content="Original" IsChecked="{Binding IsOriginal}" IsEnabled="{Binding OriginalSupported}"
+                                  Margin="0,0,0,4" ToolTip.Tip="The original language of the content." />
+                    </UniformGrid>
+                    <TextBlock Classes="hint" Margin="8,0,8,8" Text="{Binding FlagsHint}" />
+
+                    <Border Classes="nested-card" Margin="8,4,8,8" Padding="8,0,8,8">
+                        <StackPanel Spacing="4">
+                            <TextBlock Classes="nested-card-header" Margin="0,6,0,0" Text="Compatibility" />
+                            <TextBlock TextWrapping="Wrap" Classes.status-ok="{Binding IsStatusCopy}" Classes.status-convert="{Binding IsStatusConvert}"
+                                       Classes.status-warning="{Binding IsStatusWarning}" Classes.status-error="{Binding IsStatusError}">
+                                <Run Text="{Binding StatusSymbol}" />
+                                <Run Text="{Binding StatusText}" />
+                            </TextBlock>
+                            <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding StatusDetail}" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Classes="nested-card" Margin="8,0,8,0" Padding="8,0,8,8">
+                        <StackPanel>
+                            <TextBlock Classes="nested-card-header" Margin="0,6,0,6" Text="Source" />
+                            <Grid ColumnDefinitions="64,*" RowDefinitions="Auto,Auto,Auto,Auto">
+                                <TextBlock Classes="caption secondary" Text="File" Margin="0,0,8,2" />
+                                <TextBlock Grid.Column="1" Classes="caption" Text="{Binding SourceFile}" TextWrapping="Wrap" Margin="0,0,0,2" />
+                                <TextBlock Grid.Row="1" Classes="caption secondary" Text="Codec" Margin="0,0,8,2" />
+                                <TextBlock Grid.Row="1" Grid.Column="1" Classes="caption mono" Text="{Binding SourceCodec}" Margin="0,0,0,2" />
+                                <TextBlock Grid.Row="2" Classes="caption secondary" Text="Stream" Margin="0,0,8,2" />
+                                <TextBlock Grid.Row="2" Grid.Column="1" Classes="caption" Text="{Binding SourceStream}" Margin="0,0,0,2" />
+                                <TextBlock Grid.Row="3" Classes="caption secondary" Text="Prefilled" Margin="0,0,8,0"
+                                           IsVisible="{Binding SourcePrefill, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                <TextBlock Grid.Row="3" Grid.Column="1" Classes="caption" Text="{Binding SourcePrefill}" TextWrapping="Wrap"
+                                           IsVisible="{Binding SourcePrefill, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </DockPanel>
+    </Border>
+</UserControl>

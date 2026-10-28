@@ -13,5 +13,6 @@
     <Application.Styles>
         <FluentTheme />
         <StyleInclude Source="avares://FFApp.Desktop/Themes/Styles.axaml" />
+        <StyleInclude Source="avares://FFRux/Themes/Styles.axaml" />
     </Application.Styles>
 </Application>

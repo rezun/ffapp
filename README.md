@@ -90,11 +90,14 @@ src/
     Infrastructure/     # Service implementations (queue, settings, comparison)
     Converters/         # XAML value converters
     Controls/           # FFApp-only Avalonia controls
-  FFRux/                # The remux app (early stage)
+  FFRux/                # The remux app (see docs/ffrux-requirements.md)
+    Core/               # Remux plan, copy matrix (CodecRules), compatibility check, command builder
+    Infrastructure/     # Job runner, settings
+    ViewModels/  Views/ # Three-column UI: sources, track table, track properties
 tests/
   FFApp.Shared.Tests/   # Tests for FFApp.Media and FFApp.Desktop
   FFApp.Tests/
-  FFRux.Tests/
+  FFRux.Tests/          # Unit tests, plus integration tests that run the copy matrix against FFmpeg
 packaging/
   ffapp/  ffrux/        # Per-app Info.plist, icons and .desktop files
 ```
@@ -110,6 +113,9 @@ dotnet run --project src/FFRux/FFRux.csproj
 
 # Run tests
 dotnet test
+
+# Only the fast tests, without the FFRux integration tests that need FFmpeg
+dotnet test --filter "Category!=Integration"
 
 # Publish for a specific platform (self-contained)
 ./build.sh --rid osx-arm64

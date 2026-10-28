@@ -81,16 +81,15 @@ The list is not a filter: anything FFprobe can read is accepted. The picker offe
 
 ### 2.1 Track list
 
-All tracks of all sources appear in one list, the order in which they will be written. Each row shows:
+All tracks of all sources appear in one list, grouped by type (video, audio, subtitles), in the order in which they will be written. Each row shows:
 
 - Enabled checkbox
-- Type (video, audio, subtitle)
 - Codec (readable label plus `codec_name`)
 - Language
 - Name
-- Flags (default, forced, hearing impaired, visual impaired, commentary, original)
-- Details: resolution, frame rate and HDR format for video; channels, layout, sample rate and bitrate for audio; text or bitmap for subtitles
-- Source file
+- Flags that are set (default, forced, hearing impaired, visual impaired, commentary, original)
+- Details: resolution, frame rate and HDR format for video; channels, layout, sample rate and bitrate for audio; text or bitmap for subtitles; the timeshift if one is set
+- Source file, as a numbered marker
 - Compatibility status for the chosen output format (see section 4)
 
 ### 2.2 Enabling tracks
@@ -101,8 +100,9 @@ All tracks of all sources appear in one list, the order in which they will be wr
 
 ### 2.3 Track order
 
-- The default order is the order in which the sources were added, and the stream order within each source.
-- The user can reorder tracks by drag and drop, also across sources. The order in the list is the order in the output.
+- Tracks are grouped by type, and the output contains video, then audio, then subtitles. Players only care about the order within a type, so mixing types is not offered.
+- Within a group, the default order is the order in which the sources were added, and the stream order within each source.
+- The user can reorder tracks within their group by drag and drop, also across sources. The order in the list is the order in the output.
 
 ### 2.4 Chapters
 
@@ -334,6 +334,46 @@ The FFmpeg CLI cannot be asked whether a muxer accepts a codec, and it knows not
 1. **Rule table:** the matrix from section 4.3, kept as data rather than scattered conditions. It drives the live check in the UI and produces all four status levels with readable messages.
 2. **Trial mux before the start:** when the user starts a job, FFRux first remuxes about one second of the exact mapping into a temporary file. If FFmpeg rejects it, the job does not start and the FFmpeg error is shown. This catches problems no table knows about, such as broken sources.
 3. **Integration tests:** tests run every table entry against the real FFmpeg. Every compatible entry must mux, every incompatible one must fail. Test sources are generated with FFmpeg (`lavfi` plus an encoder); codecs without an FFmpeg encoder (PGS, VC-1) use small fixture files. A changed FFmpeg version shows up as failing tests.
+
+## 9. User interface
+
+FFRux follows FFApp's look and feel: the shared tokens from `Tokens.axaml` (dark and light theme), the card styles and compact control sizes from `Styles.axaml`, and FFApp's three-column layout. MKVToolNix is only a rough model for the workflow. The mock in [mockups/ffrux-main.html](mockups/ffrux-main.html) shows the layout and its main states.
+
+### 9.1 Layout
+
+| Area | Content |
+|---|---|
+| Left column | Source files, chapters (one radio choice per source with chapters, plus "No chapters"), output (format, title, file) |
+| Center | Track table as the main area, the compatibility list below it, a collapsible command preview at the bottom |
+| Right column | Properties of the selected track |
+| Status bar | Summary of blocking problems, estimated size and the start button; progress and cancel while a job runs |
+
+### 9.2 Track table
+
+- Grouped by type with a header row per group (section 2.3).
+- Each source has a numbered, colored marker (1, 2, 3) used in the source list and the track table. The number keeps it usable without color vision.
+- Only flags that are set are shown, as small chips.
+- The status column pairs a symbol with text: copied, converted, warning, not supported. Disabled tracks show "Not included".
+- The table is read-only apart from the enabled checkbox and drag and drop; editing happens in the properties pane.
+
+### 9.3 Properties pane
+
+- Fields: name, language, timeshift (audio and subtitles), character encoding (standalone text subtitles only), flags.
+- Flags the chosen format cannot store are disabled, with a one-line reason.
+- A compatibility box explains the status of the track; a source box shows the file, the `codec_name` and which values were prefilled (for example from the file name).
+- **Multiple selection:** with several tracks selected, the pane edits them together. Fields whose values differ show "Multiple values" and are only changed when the user edits them.
+
+### 9.4 Output format
+
+- The format list shows the number of problems next to each format, so the user sees which formats fit before choosing.
+- The closed field shows only the format name. The problems of the chosen format are shown in the compatibility list and the status bar.
+
+### 9.5 States
+
+- **Empty:** without sources, the center shows a drop area with a button to add files.
+- **Ready or blocked:** the status bar shows the blocking problems; the start button is enabled only without blocking problems.
+- **Running:** the status bar shows progress, remaining time and a cancel button. Sources, tracks and properties are locked until the job ends.
+- **Finished or failed:** the status bar shows the result, with actions to open the output folder or the log.
 
 ## After V1
 

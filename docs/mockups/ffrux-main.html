@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>FFRux mock</title>
+<style>
+  :root {
+    --base: #1E1E22; --card: #2A2A2E; --nested: #333338; --input: #363639;
+    --border-subtle: #48484C; --border: #5A5A5E; --select: rgba(255,255,255,.12);
+    --text: #E8E8E8; --text2: #A0A0A0; --text3: #606060; --header: #E0E0E0; --nested-header: #C8C8CC;
+    --warn: orange; --ok: #50DC50; --err: #FF6A6A; --accent: #0A84FF;
+    --src1: #64C8FF; --src2: #C792EA; --src3: #E0B060; --conv: #64C8FF;
+    --btn: #3A3A3E; --btn-dis: #333; --row-line: #2F2F33; --group: #26262A; --row-sel: #24384F; --chip: #3C3C42; --danger: #E04040;
+  }
+  .window.light {
+    --base: #F5F5F5; --card: #FFFFFF; --nested: #F0F0F0; --input: #E8E8E8;
+    --border-subtle: #E0E0E0; --border: #CCCCCC; --select: rgba(0,0,0,.08);
+    --text: #1A1A1A; --text2: #666666; --text3: #AAAAAA; --header: #333333; --nested-header: #444444;
+    --warn: #CA5010; --ok: #107C10; --err: #C42B1C; --conv: #0067C0;
+    --btn: #FFFFFF; --btn-dis: #EEEEEE; --row-line: #EEEEEE; --group: #F3F3F3; --row-sel: #DCEBFB; --chip: #E6E6EA; --danger: #D13438;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 0 0 32px; background: #111; font: 12px -apple-system, "Inter", system-ui, sans-serif; color: var(--text); }
+  .window { width: 1440px; height: 900px; margin: 0 auto; background: var(--base); color: var(--text); display: flex; flex-direction: column; border: 1px solid #000; }
+  .state { width: 1440px; margin: 24px auto 8px; color: #A0A0A0; font-size: 14px; }
+  .busy .col .card, .busy .col .card * { pointer-events: none; }
+  .busy .input, .busy .combo, .busy .cb, .busy .btn, .busy .radio i { opacity: .45; }
+  .drop { flex: 1; margin: 4px 8px 8px; border: 2px dashed var(--border); border-radius: 5px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
+  .drop .big { font-size: 15px; color: var(--header); font-weight: 600; }
+  .progress { width: 320px; height: 4px; background: var(--input); border-radius: 2px; overflow: hidden; }
+  .progress i { display: block; height: 100%; width: 42%; background: var(--accent); }
+  .titlebar { height: 28px; display: flex; align-items: center; justify-content: center; color: var(--text2); border-bottom: 1px solid var(--border-subtle); position: relative; }
+  .titlebar .dots { position: absolute; left: 10px; display: flex; gap: 8px; }
+  .titlebar .dots i { width: 12px; height: 12px; border-radius: 50%; background: #555; display: block; }
+  .main { flex: 1; display: grid; grid-template-columns: 296px minmax(0,1fr) 296px; gap: 6px; padding: 8px; min-height: 0; }
+  .col { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+  .card { background: var(--card); border: 1px solid var(--border-subtle); border-radius: 5px; display: flex; flex-direction: column; min-height: 0; }
+  .nested { background: var(--nested); border: 1px solid var(--border-subtle); border-radius: 5px; padding: 6px 8px 8px; }
+  .card-head { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px 4px; }
+  .card-head b, .nested b { font-weight: 600; color: var(--header); }
+  .nested b { color: var(--nested-header); display: block; margin-bottom: 6px; }
+  .caption { font-size: 11px; color: var(--text2); }
+  .btn { height: 26px; padding: 0 8px; border-radius: 4px; border: 1px solid var(--border); background: var(--btn); color: var(--text); display: inline-flex; align-items: center; font: inherit; }
+  .btn.sm { height: 22px; font-size: 11px; }
+  .btn.accent { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .btn.disabled { background: var(--btn-dis); border-color: var(--border-subtle); color: var(--text3); }
+  .field { display: grid; grid-template-columns: 90px minmax(0,1fr); align-items: center; gap: 8px; margin: 0 8px 6px; }
+  .field label { color: var(--text2); }
+  .input, .combo { height: 26px; background: var(--input); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 0 6px; display: flex; align-items: center; justify-content: space-between; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .combo::after { content: "⌄"; color: var(--text2); margin-left: 6px; }
+  .src { display: inline-flex; width: 16px; height: 16px; border-radius: 3px; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #1a1a1a; flex: none; }
+  .s1 { background: var(--src1); } .s2 { background: var(--src2); } .s3 { background: var(--src3); }
+  .file { display: flex; gap: 8px; padding: 5px 8px; align-items: flex-start; border-radius: 4px; margin: 0 4px; }
+  .file.sel { background: var(--select); }
+  .file .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .radio { display: flex; align-items: center; gap: 8px; padding: 3px 8px; }
+  .radio i { width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--border); display: inline-block; flex: none; }
+  .radio i.on { border: 4px solid var(--accent); }
+  table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+  th { text-align: left; font-weight: 400; color: var(--text2); padding: 4px 6px; border-bottom: 1px solid var(--border-subtle); white-space: nowrap; }
+  td { padding: 0 6px; height: 26px; border-bottom: 1px solid var(--row-line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  tr.group td { color: var(--text2); font-weight: 600; height: 24px; background: var(--group); font-size: 11px; }
+  tr.sel td { background: var(--row-sel); }
+  tr.off td { color: var(--text3); }
+  tr.off .chip { opacity: .5; }
+  .grip { color: var(--text3); }
+  .cb { width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--border); display: inline-block; vertical-align: middle; }
+  .cb.on { background: var(--accent); border-color: var(--accent); position: relative; }
+  .cb.on::after { content: "✓"; color: #fff; font-size: 10px; position: absolute; left: 2px; top: -1px; }
+  .cb.dis { opacity: .35; }
+  .chip { display: inline-block; padding: 0 5px; border-radius: 3px; background: var(--chip); color: var(--nested-header); font-size: 10.5px; line-height: 16px; margin-right: 3px; }
+  .st { display: inline-flex; gap: 5px; align-items: center; }
+  .st.ok { color: var(--ok); } .st.warn { color: var(--warn); } .st.err { color: var(--err); } .st.conv { color: var(--conv); }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11px; }
+  .issues { border-top: 1px solid var(--border-subtle); padding: 6px 8px 8px; }
+  .issue { display: flex; gap: 8px; padding: 2px 0; align-items: baseline; }
+  .statusbar { height: 40px; border-top: 1px solid var(--border-subtle); display: flex; align-items: center; gap: 12px; padding: 0 8px; }
+  .flags { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 8px; margin: 0 8px 8px; }
+  .flag { display: flex; align-items: center; gap: 6px; }
+  .flag.dis span { color: var(--text3); }
+  .hint { font-size: 11px; color: var(--text2); margin: -2px 8px 8px; }
+  .kv { display: grid; grid-template-columns: 80px minmax(0,1fr); gap: 2px 8px; }
+  .kv span:nth-child(odd) { color: var(--text2); }
+</style>
+</head>
+<body>
+<div class="state">Ready, blocked by problems (MP4 selected)</div>
+<div class="window" id="w-main">
+  <div class="titlebar"><div class="dots"><i></i><i></i><i></i></div>FFRux — Interstellar.mp4</div>
+
+  <div class="main">
+    <!-- LEFT -->
+    <div class="col">
+      <div class="card">
+        <div class="card-head"><b>Source files</b><span class="btn sm accent">Add</span></div>
+        <div class="file"><span class="src s1">1</span><div style="min-width:0"><div class="name">Interstellar - Movie.mkv</div><div class="caption">Matroska · 2:49:03 · 42.7 GB · 1 video, 8 audio, 14 subtitles</div></div></div>
+        <div class="file sel"><span class="src s2">2</span><div style="min-width:0"><div class="name">Interstellar.de.forced.srt</div><div class="caption">SubRip · Windows-1252 · 1 subtitle</div></div></div>
+        <div class="file"><span class="src s3">3</span><div style="min-width:0"><div class="name">Interstellar.commentary.ac3</div><div class="caption">AC-3 · 2:48:55 · 1 audio</div></div></div>
+        <div style="display:flex; gap:4px; padding: 6px 8px 8px"><span class="btn sm">Remove</span><span class="btn sm">Remove all</span></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><b>Chapters</b></div>
+        <div class="radio"><i class="on"></i><span class="src s1">1</span>20 chapters</div>
+        <div class="radio"><i></i><span style="color:var(--text2)">No chapters</span></div>
+        <div style="height:6px"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><b>Output</b></div>
+        <div class="field"><label>Format</label><div class="combo">MP4 (.mp4)</div></div>
+        <div class="field"><label>Title</label><div class="input">Interstellar</div></div>
+        <div class="field"><label>File</label><div style="display:flex; gap:4px; min-width:0"><div class="input" style="flex:1">/Volumes/Elements/rips/Interstellar/Interstellar.mp4</div><span class="btn">…</span></div></div>
+        <div style="height:4px"></div>
+      </div>
+    </div>
+
+    <!-- CENTER -->
+    <div class="col">
+      <div class="card" style="flex:1">
+        <div class="card-head"><b>Tracks</b><span class="caption">10 of 13 enabled · drag rows to reorder</span></div>
+        <div style="flex:1; overflow:hidden">
+          <table>
+            <colgroup><col style="width:28px"><col style="width:26px"><col style="width:88px"><col style="width:64px"><col style="width:150px"><col style="width:124px"><col><col style="width:196px"></colgroup>
+            <tr><th></th><th></th><th>Codec</th><th>Language</th><th>Name</th><th>Flags</th><th>Details</th><th>Status for MP4</th></tr>
+            <tr class="group"><td colspan="8">Video</td></tr>
+            <tr><td><span class="cb on"></span></td><td><span class="src s1">1</span></td><td>HEVC</td><td>und</td><td>Interstellar</td><td><span class="chip">Default</span></td><td class="caption">2160p · 23.976 · HDR10</td><td><span class="st ok">✓ Copied</span></td></tr>
+            <tr class="group"><td colspan="8">Audio</td></tr>
+            <tr><td><span class="cb on"></span></td><td><span class="src s1">1</span></td><td>E-AC-3</td><td>ger</td><td>Dolby Digital Plus 5.1</td><td><span class="chip">Default</span></td><td class="caption">5.1 · 768 kb/s</td><td><span class="st ok">✓ Copied</span></td></tr>
+            <tr><td><span class="cb on"></span></td><td><span class="src s1">1</span></td><td>DTS-HD MA</td><td>eng</td><td>DTS-HD Master Audio</td><td><span class="chip">Original</span></td><td class="caption">7.1 · 24 bit</td><td><span class="st warn">▲ Limited player support</span></td></tr>
+            <tr><td><span class="cb on"></span></td><td><span class="src s1">1</span></td><td>TrueHD</td><td>eng</td><td>Dolby TrueHD Atmos</td><td></td><td class="caption">7.1 · 24 bit</td><td><span class="st err">✕ Not supported in MP4</span></td></tr>
+            <tr><td><span class="cb on"></span></td><td><span class="src s3">3</span></td><td>AC-3</td><td>eng</td><td>Director's commentary</td><td><span class="chip">Commentary</span></td><td class="caption">2.0 · 192 kb/s · +120 ms</td><td><span class="st ok">✓ Copied</span></td></tr>
+            <tr class="off"><td><span class="cb"></span></td><td><span class="src s1">1</span></td><td>AC-3</td><td>spa</td><td>Surround 5.1</td><td></td><td class="caption">5.1 · 640 kb/s</td><td class="caption">Not included</td></tr>
+            <tr class="group"><td colspan="8">Subtitles</td></tr>
+            <tr class="sel"><td><span class="cb on"></span></td><td><span class="src s2">2</span></td><td>SubRip</td><td>ger</td><td>Forced</td><td><span class="chip">Default</span><span class="chip">Forced</span></td><td class="caption">Text · +250 ms</td><td><span class="st conv">⇄ Converted to MP4 text</span></td></tr>
+            <tr><td><span class="cb on"></span></td><td><span class="src s1">1</span></td><td>HDMV PGS</td><td>ger</td><td></td><td></td><td class="caption">Bitmap</td><td><span class="st err">✕ Bitmap subtitles need MKV</span></td></tr>
+            <tr><td><span class="cb on"></span></td><td><span class="src s1">1</span></td><td>HDMV PGS</td><td>eng</td><td>SDH</td><td><span class="chip">Hearing impaired</span></td><td class="caption">Bitmap</td><td><span class="st err">✕ Bitmap subtitles need MKV</span></td></tr>
+            <tr class="off"><td><span class="cb"></span></td><td><span class="src s1">1</span></td><td>HDMV PGS</td><td>fin</td><td></td><td></td><td class="caption">Bitmap</td><td class="caption">Not included</td></tr>
+            <tr class="off"><td><span class="cb"></span></td><td><span class="src s1">1</span></td><td>HDMV PGS</td><td>swe</td><td></td><td></td><td class="caption">Bitmap</td><td class="caption">Not included</td></tr>
+          </table>
+        </div>
+        <div class="issues">
+          <div style="display:flex; justify-content:space-between; margin-bottom:4px"><b style="font-weight:600; color:var(--header)">Compatibility</b><span class="caption">3 tracks block the start · 1 warning</span></div>
+          <div class="issue"><span class="st err">✕</span><span>TrueHD (eng) cannot be stored in MP4. Disable the track or choose MKV.</span></div>
+          <div class="issue"><span class="st err">✕</span><span>2 PGS subtitle tracks are bitmap subtitles. MP4 can't hold them, and they can't be converted.</span></div>
+          <div class="issue"><span class="st warn">▲</span><span>DTS-HD MA (eng) is allowed in MP4, but Apple devices and many TVs won't play it.</span></div>
+        </div>
+      </div>
+      <div class="card"><div class="card-head" style="padding-bottom:6px"><span><b>Command preview</b></span><span class="caption">▸ Show</span></div></div>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="col">
+      <div class="card" style="flex:1">
+        <div class="card-head"><b>Track properties</b><span class="caption"><span class="src s2" style="vertical-align:middle">2</span> Subtitle · SubRip</span></div>
+        <div style="height:4px"></div>
+        <div class="field"><label>Name</label><div class="input">Forced</div></div>
+        <div class="field"><label>Language</label><div class="combo">German (ger)</div></div>
+        <div class="field"><label>Timeshift</label><div style="display:flex; gap:6px; align-items:center"><div class="input" style="width:90px; justify-content:flex-end">+250</div><span class="caption">ms</span></div></div>
+        <div class="field"><label>Encoding</label><div class="combo">Windows-1252 (detected)</div></div>
+
+        <div style="margin: 6px 8px 6px; color: var(--text2)">Flags</div>
+        <div class="flags">
+          <div class="flag"><span class="cb on"></span><span>Default</span></div>
+          <div class="flag"><span class="cb on"></span><span>Forced</span></div>
+          <div class="flag"><span class="cb"></span><span>Hearing impaired</span></div>
+          <div class="flag dis"><span class="cb dis"></span><span>Visual impaired</span></div>
+          <div class="flag dis"><span class="cb dis"></span><span>Commentary</span></div>
+          <div class="flag dis"><span class="cb dis"></span><span>Original</span></div>
+        </div>
+        <div class="hint">Greyed flags can't be stored in MP4.</div>
+
+        <div class="nested" style="margin: 4px 8px 8px">
+          <b>Compatibility</b>
+          <div class="st conv" style="margin-bottom:4px">⇄ Converted to MP4 text (mov_text)</div>
+          <div class="caption">SubRip has no styling, so nothing is lost.</div>
+        </div>
+
+        <div class="nested" style="margin: 0 8px 8px">
+          <b>Source</b>
+          <div class="kv caption">
+            <span>File</span><span>Interstellar.de.forced.srt</span>
+            <span>Codec</span><span class="mono">subrip</span>
+            <span>Prefilled</span><span>Language, forced (from file name)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="statusbar">
+    <span class="st err">✕ 3 tracks block the start</span>
+    <span style="flex:1"></span>
+    <span class="caption">Estimated size 61.3 GB</span>
+    <span class="btn disabled">Start remux</span>
+  </div>
+</div>
+<script>
+const main = document.getElementById('w-main');
+function addState(label, cls) {
+  const head = document.createElement('div'); head.className = 'state'; head.textContent = label;
+  const w = main.cloneNode(true); w.removeAttribute('id'); if (cls) w.classList.add(cls);
+  document.body.append(head, w); return w;
+}
+const $ = (w, sel) => w.querySelector(sel);
+const $$ = (w, sel) => [...w.querySelectorAll(sel)];
+
+const empty = addState('Empty, no source files');
+$(empty, '.titlebar').lastChild.textContent = 'FFRux';
+const [srcCard, chapCard, outCard] = $$(empty, '.col:first-child > .card');
+$$(srcCard, '.file').forEach(e => e.remove());
+$$(srcCard, '.btn.sm:not(.accent)').forEach(e => e.classList.add('disabled'));
+srcCard.querySelector('.card-head').insertAdjacentHTML('afterend', '<div class="caption" style="padding: 4px 8px 6px">No source files yet.</div>');
+chapCard.innerHTML = '<div class="card-head"><b>Chapters</b></div><div class="caption" style="padding: 0 8px 8px">Chapters appear here when a source has them.</div>';
+$$(outCard, '.input, .combo').forEach(e => { e.textContent = ''; e.style.opacity = .45; });
+const tracks = $(empty, '.col:nth-child(2) > .card');
+tracks.innerHTML = '<div class="card-head"><b>Tracks</b></div><div class="drop"><div class="big">Drop media or subtitle files here</div><div class="caption">MKV, MP4, MOV, TS, audio files, SRT, ASS, VTT, SUP and more</div><span class="btn accent">Add source files</span></div>';
+$(empty, '.col:last-child > .card').innerHTML = '<div class="card-head"><b>Track properties</b></div><div class="caption" style="padding: 4px 8px">Select a track to edit its name, language, flags and timeshift.</div>';
+$(empty, '.statusbar').innerHTML = '<span class="caption">Add source files to start.</span><span style="flex:1"></span><span class="btn disabled">Start remux</span>';
+
+const run = addState('Running (Matroska selected, all tracks fit)');
+$(run, '.titlebar').lastChild.textContent = 'FFRux — Interstellar.mkv';
+$(run, '.main').classList.add('busy');
+$$(run, '.combo')[0].textContent = 'Matroska (.mkv)';
+$$(run, '.input')[1].textContent = '/Volumes/Elements/rips/Interstellar/Interstellar.mkv';
+$$(run, 'th').at(-1).textContent = 'Status for MKV';
+$$(run, 'td .st.err, td .st.warn, td .st.conv').forEach(e => { e.className = 'st ok'; e.textContent = '✓ Copied'; });
+$(run, '.issues').innerHTML = '<div style="display:flex; justify-content:space-between"><b style="font-weight:600; color:var(--header)">Compatibility</b><span class="st ok">✓ All enabled tracks fit Matroska</span></div>';
+$$(run, '.flag.dis').forEach(e => { e.classList.remove('dis'); e.querySelector('.cb').classList.remove('dis'); });
+$(run, '.hint').textContent = 'Matroska stores all flags.';
+const compat = $$(run, '.nested')[0];
+compat.querySelector('.st').className = 'st ok'; compat.querySelector('.st').textContent = '✓ Copied as SubRip';
+compat.querySelector('.caption').textContent = 'Matroska stores SubRip as is.';
+$(run, '.statusbar').innerHTML = '<span>Remuxing… 42 %</span><div class="progress"><i></i></div><span class="caption">1:12 remaining · 25.8 of 61.3 GB</span><span style="flex:1"></span><span class="btn danger">Cancel</span>';
+
+addState('Light theme (same as the first state)', 'light');
+</script>
+</body>
+</html>

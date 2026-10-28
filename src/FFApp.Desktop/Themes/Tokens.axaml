@@ -1,0 +1,98 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ResourceDictionary.ThemeDictionaries>
+
+        <!-- ============ DARK THEME ============ -->
+        <ResourceDictionary x:Key="Dark">
+            <!-- Surface layers -->
+            <SolidColorBrush x:Key="SurfaceBaseBrush" Color="#1E1E22" />
+            <SolidColorBrush x:Key="SurfaceCardBrush" Color="#2A2A2E" />
+            <SolidColorBrush x:Key="SurfaceNestedCardBrush" Color="#333338" />
+            <SolidColorBrush x:Key="SurfaceInputBrush" Color="#363639" />
+
+            <!-- Borders -->
+            <SolidColorBrush x:Key="BorderSubtleBrush" Color="#48484C" />
+            <SolidColorBrush x:Key="BorderDefaultBrush" Color="#5A5A5E" />
+            <SolidColorBrush x:Key="SelectionSubtleBrush" Color="#1FFFFFFF" />
+
+            <!-- Text -->
+            <SolidColorBrush x:Key="TextPrimaryBrush" Color="#E8E8E8" />
+            <SolidColorBrush x:Key="TextSecondaryBrush" Color="#A0A0A0" />
+            <SolidColorBrush x:Key="TextDisabledBrush" Color="#606060" />
+            <SolidColorBrush x:Key="CardHeaderBrush" Color="#E0E0E0" />
+            <SolidColorBrush x:Key="NestedCardHeaderBrush" Color="#C8C8CC" />
+
+            <!-- Semantic -->
+            <SolidColorBrush x:Key="ValidationWarningBrush" Color="Orange" />
+            <SolidColorBrush x:Key="ValidationOkBrush" Color="#50DC50" />
+            <SolidColorBrush x:Key="ValidationErrorBrush" Color="#FF6A6A" />
+
+            <!-- Button variants -->
+            <SolidColorBrush x:Key="ButtonDangerBrush" Color="#E04040" />
+            <SolidColorBrush x:Key="ButtonDangerHoverBrush" Color="#C83030" />
+            <SolidColorBrush x:Key="ButtonDangerForegroundBrush" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="ButtonWarningBrush" Color="#D4A017" />
+            <SolidColorBrush x:Key="ButtonWarningHoverBrush" Color="#B88A10" />
+            <SolidColorBrush x:Key="ButtonWarningForegroundBrush" Color="#1A1A1A" />
+
+            <!-- Job states -->
+            <SolidColorBrush x:Key="JobStatePendingBrush" Color="#C8C8C8" />
+            <SolidColorBrush x:Key="JobStateRunningBrush" Color="#64C8FF" />
+            <SolidColorBrush x:Key="JobStateCompletedBrush" Color="#50DC50" />
+            <SolidColorBrush x:Key="JobStateFailedBrush" Color="#FF5A5A" />
+            <SolidColorBrush x:Key="JobStateCanceledBrush" Color="#FFA500" />
+        </ResourceDictionary>
+
+        <!-- ============ LIGHT THEME ============ -->
+        <ResourceDictionary x:Key="Light">
+            <!-- Surface layers -->
+            <SolidColorBrush x:Key="SurfaceBaseBrush" Color="#F5F5F5" />
+            <SolidColorBrush x:Key="SurfaceCardBrush" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="SurfaceNestedCardBrush" Color="#F0F0F0" />
+            <SolidColorBrush x:Key="SurfaceInputBrush" Color="#E8E8E8" />
+
+            <!-- Borders -->
+            <SolidColorBrush x:Key="BorderSubtleBrush" Color="#E0E0E0" />
+            <SolidColorBrush x:Key="BorderDefaultBrush" Color="#CCCCCC" />
+            <SolidColorBrush x:Key="SelectionSubtleBrush" Color="#14000000" />
+
+            <!-- Text -->
+            <SolidColorBrush x:Key="TextPrimaryBrush" Color="#1A1A1A" />
+            <SolidColorBrush x:Key="TextSecondaryBrush" Color="#666666" />
+            <SolidColorBrush x:Key="TextDisabledBrush" Color="#AAAAAA" />
+            <SolidColorBrush x:Key="CardHeaderBrush" Color="#333333" />
+            <SolidColorBrush x:Key="NestedCardHeaderBrush" Color="#444444" />
+
+            <!-- Semantic -->
+            <SolidColorBrush x:Key="ValidationWarningBrush" Color="#CA5010" />
+            <SolidColorBrush x:Key="ValidationOkBrush" Color="#107C10" />
+            <SolidColorBrush x:Key="ValidationErrorBrush" Color="#C42B1C" />
+
+            <!-- Button variants -->
+            <SolidColorBrush x:Key="ButtonDangerBrush" Color="#D13438" />
+            <SolidColorBrush x:Key="ButtonDangerHoverBrush" Color="#B52428" />
+            <SolidColorBrush x:Key="ButtonDangerForegroundBrush" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="ButtonWarningBrush" Color="#D4940A" />
+            <SolidColorBrush x:Key="ButtonWarningHoverBrush" Color="#B07C08" />
+            <SolidColorBrush x:Key="ButtonWarningForegroundBrush" Color="#1A1A1A" />
+
+            <!-- Job states -->
+            <SolidColorBrush x:Key="JobStatePendingBrush" Color="#666666" />
+            <SolidColorBrush x:Key="JobStateRunningBrush" Color="#0078D4" />
+            <SolidColorBrush x:Key="JobStateCompletedBrush" Color="#107C10" />
+            <SolidColorBrush x:Key="JobStateFailedBrush" Color="#D13438" />
+            <SolidColorBrush x:Key="JobStateCanceledBrush" Color="#CA5010" />
+        </ResourceDictionary>
+
+    </ResourceDictionary.ThemeDictionaries>
+
+    <!-- Override Fluent's 32px CheckBox/RadioButton min height so their
+         internal glyph-grid (which uses this resource as a fixed Height)
+         shrinks to match our compact 22px sizing. Without this override,
+         overriding MinHeight via a Style has no effect on the internal
+         glyph positioning, leaving the box visually offset from inline
+         siblings like ComboBox/TextBox. -->
+    <x:Double x:Key="CheckBoxMinHeight">22</x:Double>
+
+</ResourceDictionary>

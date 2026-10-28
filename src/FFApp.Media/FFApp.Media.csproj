@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- UI-free media plumbing shared by FFApp and FFRux: probing, process execution, tool discovery. -->
+  <PropertyGroup>
+    <RootNamespace>FFApp</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="FFApp.Tests" />
+    <InternalsVisibleTo Include="FFApp.Shared.Tests" />
+    <InternalsVisibleTo Include="FFRux.Tests" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>FFRux</string>
+    <key>CFBundleDisplayName</key>
+    <string>FFRux</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.ffapp.ffrux</string>
+    <key>CFBundleVersion</key>
+    <string>VERSION_PLACEHOLDER</string>
+    <key>CFBundleShortVersionString</key>
+    <string>VERSION_PLACEHOLDER</string>
+    <key>CFBundleExecutable</key>
+    <string>FFRux</string>
+    <key>CFBundleIconFile</key>
+    <string>ffrux.icns</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>LSMinimumSystemVersion</key>
+    <string>11.0</string>
+    <key>CFBundleDocumentTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>Video File</string>
+            <key>CFBundleTypeRole</key>
+            <string>Editor</string>
+            <key>LSHandlerRank</key>
+            <string>Alternate</string>
+            <key>LSItemContentTypes</key>
+            <array>
+                <string>public.movie</string>
+                <string>public.mpeg</string>
+                <string>public.mpeg-2-video</string>
+                <string>public.mpeg-4</string>
+                <string>public.avi</string>
+                <string>public.3gpp</string>
+                <string>public.3gpp2</string>
+                <string>com.apple.quicktime-movie</string>
+                <string>com.microsoft.windows-media-wmv</string>
+                <string>org.matroska.mkv</string>
+                <string>org.webmproject.webm</string>
+            </array>
+        </dict>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>Audio File</string>
+            <key>CFBundleTypeRole</key>
+            <string>Editor</string>
+            <key>LSHandlerRank</key>
+            <string>Alternate</string>
+            <key>LSItemContentTypes</key>
+            <array>
+                <string>public.audio</string>
+                <string>public.mp3</string>
+                <string>public.mpeg-4-audio</string>
+                <string>public.aiff-audio</string>
+                <string>public.aifc-audio</string>
+                <string>com.microsoft.waveform-audio</string>
+                <string>com.apple.coreaudio-format</string>
+                <string>com.microsoft.windows-media-wma</string>
+                <string>org.xiph.ogg-audio</string>
+                <string>org.xiph.flac</string>
+                <string>org.xiph.opus</string>
+            </array>
+        </dict>
+    </array>
+</dict>
+</plist>

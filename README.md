@@ -54,7 +54,7 @@ FFApp declares itself as an optional handler for common video and audio containe
 
 - **macOS:** Associations ship in the `.app` bundle's `Info.plist`. FFApp registers as an `Alternate` handler so it won't displace QuickTime or VLC as the system default; right-click any media file and choose **Open With → FFApp**, or set FFApp as the default via **Get Info → Open with** for a specific extension.
 - **Windows:** File associations require the installer to write HKCR registry keys and are not registered by the standalone `.exe`. This will be wired up when the packaged installer lands.
-- **Linux:** `packaging/linux/ffapp.desktop` has no `MimeType=` entries yet. A full implementation depends on a proper package (`.deb`/`.rpm`/Flatpak) that can run `update-desktop-database`.
+- **Linux:** `packaging/ffapp/linux/ffapp.desktop` has no `MimeType=` entries yet. A full implementation depends on a proper package (`.deb`/`.rpm`/Flatpak) that can run `update-desktop-database`.
 
 ---
 
@@ -73,26 +73,40 @@ FFApp declares itself as an optional handler for common video and audio containe
 
 ### Project Structure
 
+The repository builds two desktop apps on two shared libraries:
+
 ```
-src/FFApp/
-  Views/              # Avalonia XAML views
-  ViewModels/         # MVVM ViewModels (ObservableObject, RelayCommand)
-  Core/
-    Models/           # Data models, enums, records
-    Services/         # Service interfaces
-    CommandBuilder.cs # FFmpeg argument generation
-    Validation/       # Codec/container compatibility rules
-  Infrastructure/     # Service implementations (process runner, queue, probing)
-  Converters/         # XAML value converters
-  Controls/           # Custom Avalonia controls
-tests/FFApp.Tests/    # Unit tests
+src/
+  FFApp.Media/          # UI-free: media models, ffprobe, process runner, tool discovery
+  FFApp.Desktop/        # Avalonia: app identity, single instance, launch files, theme tokens, styles, controls
+  FFApp/                # The encoder app
+    Views/              # Avalonia XAML views
+    ViewModels/         # MVVM ViewModels (ObservableObject, RelayCommand)
+    Core/
+      Models/           # Encoding models, enums, records
+      Services/         # Service interfaces
+      CommandBuilder.cs # FFmpeg argument generation
+      Validation/       # Codec/container compatibility rules
+    Infrastructure/     # Service implementations (queue, settings, comparison)
+    Converters/         # XAML value converters
+    Controls/           # FFApp-only Avalonia controls
+  FFRux/                # The remux app (early stage)
+tests/
+  FFApp.Shared.Tests/   # Tests for FFApp.Media and FFApp.Desktop
+  FFApp.Tests/
+  FFRux.Tests/
+packaging/
+  ffapp/  ffrux/        # Per-app Info.plist, icons and .desktop files
 ```
+
+Shared code keeps its original namespaces (`FFApp.Core.Models`, `FFApp.Infrastructure`, …), so moving a type into a shared library does not change any `using`. Each app has its own `AppIdentity`, which gives it a separate data folder and single-instance pipe: FFApp and FFRux can run side by side and never receive each other's "Open with" files. Package versions are pinned once in `Directory.Packages.props`.
 
 ### Building
 
 ```bash
 # Run locally
 dotnet run --project src/FFApp/FFApp.csproj
+dotnet run --project src/FFRux/FFRux.csproj
 
 # Run tests
 dotnet test
@@ -102,9 +116,12 @@ dotnet test
 
 # Publish and deploy to /Applications (macOS)
 ./build.sh --deploy-mac
+
+# The same for FFRux
+./build.sh --app ffrux --deploy-mac
 ```
 
-The build script supports `win-x64`, `osx-arm64`, `osx-x64`, and `linux-x64`. Each target produces a platform-appropriate artifact (.app bundle, .exe, or .tar.gz).
+`--app` selects `ffapp` (default) or `ffrux`; each app's version comes from its own `.csproj`. The build script supports `win-x64`, `osx-arm64`, `osx-x64`, and `linux-x64`. Each target produces a platform-appropriate artifact (.app bundle, .exe, or .tar.gz).
 
 ### Architecture Notes
 

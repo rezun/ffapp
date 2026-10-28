@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=FFRux
+Comment=Lossless remuxing for video and audio files
+Icon=ffrux
+Exec=ffrux %F
+Terminal=false
+Type=Application
+Categories=AudioVideo;Video;

@@ -37,28 +37,6 @@ public sealed record JobDefinition(
 
 public sealed record CropRect(int X, int Y, int Width, int Height);
 
-public sealed record GeneratedCommand(
-    string ExecutablePath,
-    ImmutableArray<string> Arguments,
-    string DisplayString,
-    ProcessProtocol Protocol = ProcessProtocol.Ffmpeg)
-{
-    public ImmutableArray<string> TemporaryFiles { get; init; } = [];
-}
-
-public sealed record ProcessProgress(
-    double ElapsedSeconds,
-    double? ProcessedSeconds = null,
-    double? Percentage = null,
-    double? Speed = null);
-
-public sealed record ProcessExecutionResult(
-    GeneratedCommand Command,
-    JobState State,
-    int ReturnCode,
-    double ElapsedSeconds,
-    string StderrOutput);
-
 public sealed record JobProgress(
     JobState State,
     int PassIndex,

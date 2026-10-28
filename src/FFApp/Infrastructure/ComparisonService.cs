@@ -18,7 +18,7 @@ public sealed partial class ComparisonService(
     string? directory = null,
     TimeProvider? timeProvider = null) : IComparisonService
 {
-    private readonly string _directory = directory ?? Path.Combine(AppPaths.AppDataDirectory(), "comparisons");
+    private readonly string _directory = directory ?? FFAppPaths.ComparisonsDirectory();
     private static string Hash(string value) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
 
     internal static string Fingerprint(string path)

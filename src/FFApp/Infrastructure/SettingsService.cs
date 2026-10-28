@@ -13,7 +13,7 @@ public sealed class SettingsService(string? path = null) : ISettingsService
     private const string SourceFolderMode = "source_folder";
     private const string CustomFolderMode = "custom_folder";
 
-    private readonly string _path = path ?? AppPaths.SettingsFilePath();
+    private readonly string _path = path ?? FFAppPaths.SettingsFilePath();
 
     public async Task<AppSettings> LoadAsync(CancellationToken ct = default)
     {
@@ -70,7 +70,7 @@ public sealed class SettingsService(string? path = null) : ISettingsService
 
     public static WindowGeometry LoadWindowGeometrySync(string? path = null)
     {
-        var filePath = path ?? AppPaths.SettingsFilePath();
+        var filePath = path ?? FFAppPaths.SettingsFilePath();
         if (!File.Exists(filePath))
             return new WindowGeometry();
 

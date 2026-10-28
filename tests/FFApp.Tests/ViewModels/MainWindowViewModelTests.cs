@@ -37,13 +37,13 @@ public sealed class MainWindowViewModelTests
         var comparisons = Substitute.For<IComparisonService>();
         comparisons.When(c => c.SetCacheLimit(Arg.Any<long>())).Do(_ => throw new IOException("Locked clip"));
         _settings.LoadAsync().Returns(new AppSettings());
-        _dependencies.DiscoverAsync(Arg.Any<AppSettings>()).Returns(new DependencyStatus(
+        _dependencies.DiscoverAsync(Arg.Any<ExecutablePaths>()).Returns(new DependencyStatus(
             new ExecutableValidation("ffmpeg", null, false),
             new ExecutableValidation("ffprobe", null, false),
             new ExecutableValidation("mkvpropedit", null, false)));
         var sut = CreateSut(comparisons);
         await sut.InitializeAsync();
-        await _dependencies.Received(1).DiscoverAsync(Arg.Any<AppSettings>());
+        await _dependencies.Received(1).DiscoverAsync(Arg.Any<ExecutablePaths>());
         sut.ComparisonStorageStatus.Should().Contain("Locked clip");
     }
 
@@ -52,7 +52,7 @@ public sealed class MainWindowViewModelTests
     {
         var comparisons = Substitute.For<IComparisonService>();
         _settings.LoadAsync().Returns(new AppSettings { ComparisonCacheLimitGiB = 12 });
-        _dependencies.DiscoverAsync(Arg.Any<AppSettings>()).Returns(new DependencyStatus(
+        _dependencies.DiscoverAsync(Arg.Any<ExecutablePaths>()).Returns(new DependencyStatus(
             new ExecutableValidation("ffmpeg", null, false),
             new ExecutableValidation("ffprobe", null, false),
             new ExecutableValidation("mkvpropedit", null, false)));
@@ -113,7 +113,7 @@ public sealed class MainWindowViewModelTests
     public async Task InitializeAsync_RestoresPriorityPreference(bool enabled)
     {
         _settings.LoadAsync().Returns(new AppSettings { UseLowPriorityTranscoding = enabled });
-        _dependencies.DiscoverAsync(Arg.Any<AppSettings>()).Returns(new DependencyStatus(
+        _dependencies.DiscoverAsync(Arg.Any<ExecutablePaths>()).Returns(new DependencyStatus(
             new ExecutableValidation("ffmpeg", null, false),
             new ExecutableValidation("ffprobe", null, false),
             new ExecutableValidation("mkvpropedit", null, false)));

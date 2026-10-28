@@ -80,22 +80,6 @@ public enum FrameRatePreset
     [JsonStringEnumMemberName("60fps")] Fps60,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<JobState>))]
-public enum JobState
-{
-    [JsonStringEnumMemberName("pending")] Pending,
-    [JsonStringEnumMemberName("running")] Running,
-    [JsonStringEnumMemberName("completed")] Completed,
-    [JsonStringEnumMemberName("failed")] Failed,
-    [JsonStringEnumMemberName("canceled")] Canceled,
-}
-
-public enum ProcessProtocol
-{
-    Ffmpeg,
-    Plain,
-}
-
 [JsonConverter(typeof(JsonStringEnumConverter<ValidationSeverity>))]
 public enum ValidationSeverity
 {
@@ -160,14 +144,6 @@ public enum KeyframeUnit
 {
     [JsonStringEnumMemberName("frames")] Frames,
     [JsonStringEnumMemberName("seconds")] Seconds,
-}
-
-[JsonConverter(typeof(JsonStringEnumConverter<HdrFormat>))]
-public enum HdrFormat
-{
-    [JsonStringEnumMemberName("sdr")] Sdr,
-    [JsonStringEnumMemberName("hdr10")] Hdr10,
-    [JsonStringEnumMemberName("hlg")] Hlg,
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<ColorMetadataMode>))]

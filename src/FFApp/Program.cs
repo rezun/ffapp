@@ -1,4 +1,5 @@
 using Avalonia;
+using FFApp.Infrastructure;
 using FFApp.Infrastructure.SingleInstance;
 
 namespace FFApp;
@@ -10,7 +11,7 @@ public static class Program
     [STAThread]
     public static int Main(string[] args)
     {
-        var coordinator = SingleInstanceCoordinator.CreateDefault();
+        var coordinator = SingleInstanceCoordinator.CreateFor(FFAppPaths.Identity);
         if (!coordinator.TryAcquire())
         {
             try

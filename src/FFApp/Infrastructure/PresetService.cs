@@ -12,7 +12,7 @@ public sealed class PresetStorageException(string message)
 
 public sealed class PresetService(string? path = null) : IPresetService
 {
-    private readonly string _path = path ?? AppPaths.PresetsFilePath();
+    private readonly string _path = path ?? FFAppPaths.PresetsFilePath();
 
     public async Task<IReadOnlyList<PresetDefinition>> LoadAllAsync(
         CancellationToken ct = default)

@@ -2,10 +2,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT="$SCRIPT_DIR/src/FFApp/FFApp.csproj"
 DIST_DIR="$SCRIPT_DIR/dist"
-PACKAGING_DIR="$SCRIPT_DIR/packaging"
-APP_NAME="FFApp"
+APP_KEY="ffapp"
 DEFAULT_RIDS=("win-x64" "win-arm64" "osx-arm64" "osx-x64" "linux-x64")
 
 VERSION=""
@@ -13,24 +11,30 @@ RIDS=()
 DEPLOY_MAC=false
 
 usage() {
-    echo "Usage: $0 [--version <version>] [--rid <rid>] [--deploy-mac]"
+    echo "Usage: $0 [--app <app>] [--version <version>] [--rid <rid>] [--deploy-mac]"
     echo ""
     echo "Options:"
+    echo "  --app, -a       App to build: ffapp (default) or ffrux"
     echo "  --version, -v   Set the version (default: read from csproj)"
     echo "  --rid, -r       Build for a specific RID (default: all)"
     echo "                  Available: win-x64, win-arm64, osx-arm64, osx-x64, linux-x64"
-    echo "  --deploy-mac    Build osx-arm64 slim and deploy to /Applications/FFApp.app"
+    echo "  --deploy-mac    Build osx-arm64 slim and deploy to /Applications/<App>.app"
     echo ""
     echo "Examples:"
     echo "  $0                          Build all platforms"
     echo "  $0 --rid osx-arm64          Build macOS ARM only"
     echo "  $0 --version 1.2.3          Build all with version 1.2.3"
     echo "  $0 --deploy-mac             Build and deploy to /Applications"
+    echo "  $0 --app ffrux --deploy-mac Build FFRux and deploy to /Applications"
     exit 1
 }
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --app|-a)
+            APP_KEY="$2"
+            shift 2
+            ;;
         --version|-v)
             VERSION="$2"
             shift 2
@@ -52,6 +56,20 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# Each app has its own project, version and packaging folder (Info.plist, icon, .desktop file).
+case "$APP_KEY" in
+    ffapp) APP_NAME="FFApp" ;;
+    ffrux) APP_NAME="FFRux" ;;
+    *)
+        echo "Unknown app: $APP_KEY"
+        usage
+        ;;
+esac
+PROJECT="$SCRIPT_DIR/src/$APP_NAME/$APP_NAME.csproj"
+PACKAGING_DIR="$SCRIPT_DIR/packaging/$APP_KEY"
+LOGO="$PACKAGING_DIR/linux/$APP_KEY.png"
+[[ "$APP_KEY" == "ffapp" ]] && LOGO="$SCRIPT_DIR/logo.png"
 
 if [[ -z "$VERSION" ]]; then
     VERSION=$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' "$PROJECT" | head -1)
@@ -136,8 +154,8 @@ package_macos() {
     sed "s/VERSION_PLACEHOLDER/$VERSION/g" "$PACKAGING_DIR/macos/Info.plist" \
         > "$app_bundle/Contents/Info.plist"
 
-    if [[ -f "$PACKAGING_DIR/macos/ffapp.icns" ]]; then
-        cp "$PACKAGING_DIR/macos/ffapp.icns" "$app_bundle/Contents/Resources/"
+    if [[ -f "$PACKAGING_DIR/macos/$APP_KEY.icns" ]]; then
+        cp "$PACKAGING_DIR/macos/$APP_KEY.icns" "$app_bundle/Contents/Resources/"
     fi
 
     chmod +x "$app_bundle/Contents/MacOS/$APP_NAME"
@@ -157,12 +175,12 @@ package_linux() {
     mkdir -p "$staging"
     cp -r "$publish_dir/"* "$staging/"
 
-    if [[ -f "$PACKAGING_DIR/linux/ffapp.desktop" ]]; then
-        cp "$PACKAGING_DIR/linux/ffapp.desktop" "$staging/"
+    if [[ -f "$PACKAGING_DIR/linux/$APP_KEY.desktop" ]]; then
+        cp "$PACKAGING_DIR/linux/$APP_KEY.desktop" "$staging/"
     fi
 
-    if [[ -f "$SCRIPT_DIR/logo.png" ]]; then
-        cp "$SCRIPT_DIR/logo.png" "$staging/ffapp.png"
+    if [[ -f "$LOGO" ]]; then
+        cp "$LOGO" "$staging/$APP_KEY.png"
     fi
 
     chmod +x "$staging/$APP_NAME"

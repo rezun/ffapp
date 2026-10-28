@@ -189,7 +189,7 @@ public partial class App : Application
         if (args is null || args.Count == 0 || _mainViewModel is null)
             return;
 
-        var paths = FilterExistingPaths(args);
+        var paths = LaunchFiles.FilterExistingPaths(args);
         if (paths.Count == 0)
             return;
 
@@ -210,51 +210,6 @@ public partial class App : Application
         }
     }
 
-    // On macOS, NSApplication inspects argv at launch and dispatches anything that looks like
-    // a path to application:openFiles: automatically (legacy Cocoa behavior). When the process
-    // is started via `dotnet FFApp.dll` — which is what `dotnet run` produces — that puts the
-    // managed assembly path on argv, and it arrives in FileActivatedEventArgs alongside any
-    // real user file. Runtime files inside our own directory are never legitimate user input,
-    // so we reject them regardless of which channel they arrived on.
-    private static readonly string RuntimeDirectory =
-        Path.TrimEndingDirectorySeparator(
-            Path.GetFullPath(AppContext.BaseDirectory))
-        + Path.DirectorySeparatorChar;
-
-    private static readonly StringComparison PathComparison =
-        OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
-            ? StringComparison.OrdinalIgnoreCase
-            : StringComparison.Ordinal;
-
-    internal static bool IsInsideRuntimeDirectory(string path)
-    {
-        try
-        {
-            var full = Path.GetFullPath(path);
-            return full.StartsWith(RuntimeDirectory, PathComparison);
-        }
-        catch (Exception)
-        {
-            return false;
-        }
-    }
-
-    private static IReadOnlyList<string> FilterExistingPaths(IReadOnlyList<string> candidates)
-    {
-        var paths = new List<string>(candidates.Count);
-        foreach (var candidate in candidates)
-        {
-            if (string.IsNullOrWhiteSpace(candidate))
-                continue;
-            if (!File.Exists(candidate) && !Directory.Exists(candidate))
-                continue;
-            if (IsInsideRuntimeDirectory(candidate))
-                continue;
-            paths.Add(candidate);
-        }
-        return paths;
-    }
-
     private void OnActivatableLifetimeActivated(object? sender, ActivatedEventArgs e)
     {
         if (e is not FileActivatedEventArgs fileArgs || _mainViewModel is null)
@@ -267,7 +222,7 @@ public partial class App : Application
                 candidates.Add(local);
         }
 
-        var paths = FilterExistingPaths(candidates);
+        var paths = LaunchFiles.FilterExistingPaths(candidates);
         if (paths.Count == 0)
             return;
 
@@ -277,7 +232,7 @@ public partial class App : Application
 
     private void OnSingleInstanceActivation(object? sender, SingleInstanceActivationEventArgs e)
     {
-        var paths = FilterExistingPaths(e.Args);
+        var paths = LaunchFiles.FilterExistingPaths(e.Args);
         Dispatcher.UIThread.Post(() =>
         {
             if (ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop

@@ -168,7 +168,7 @@ public partial class MainWindowViewModel : ObservableObject,
             }
             UseLowPriorityTranscoding = settings.UseLowPriorityTranscoding;
             _settingsLoaded.TrySetResult(settings);
-            var status = await _dependencyService.DiscoverAsync(settings);
+            var status = await _dependencyService.DiscoverAsync(settings.ExecutablePaths);
 
             if (status.IsReady)
             {

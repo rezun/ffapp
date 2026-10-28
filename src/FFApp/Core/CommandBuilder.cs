@@ -239,30 +239,8 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
     internal static GeneratedCommand CreateGeneratedCommand(
         string executable,
         IReadOnlyList<string> arguments,
-        ProcessProtocol protocol = ProcessProtocol.Ffmpeg)
-    {
-        var displayParts = new List<string>(arguments.Count + 1) { QuoteArgument(executable) };
-        foreach (var arg in arguments)
-            displayParts.Add(QuoteArgument(arg));
-
-        return new GeneratedCommand(
-            ExecutablePath: executable,
-            Arguments: [.. arguments],
-            DisplayString: string.Join(' ', displayParts),
-            Protocol: protocol);
-    }
-
-    private static readonly SearchValues<char> ShellMetaCharacters =
-        SearchValues.Create(" \t\"'\\()&|;<>$`!{}");
-
-    private static string QuoteArgument(string arg)
-    {
-        if (arg.Length == 0)
-            return "''";
-        if (arg.AsSpan().ContainsAny(ShellMetaCharacters))
-            return "'" + arg.Replace("'", "'\"'\"'") + "'";
-        return arg;
-    }
+        ProcessProtocol protocol = ProcessProtocol.Ffmpeg) =>
+        GeneratedCommand.Create(executable, arguments, protocol);
 
     private static List<string> BuildMappingArguments(JobDefinition job, SourceMediaInfo mediaInfo, bool includePictures = true)
     {

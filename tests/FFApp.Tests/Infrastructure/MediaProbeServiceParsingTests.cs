@@ -570,4 +570,80 @@ public class MediaProbeServiceParsingTests
         result.PrimaryVideoStream!.HdrMetadata.Should().BeNull();
         result.PrimaryVideoStream.Rotation.Should().Be(-90);
     }
+
+    // --- Track details, dispositions and chapters ---
+
+    [Fact]
+    public void ParseMediaInfo_ReadsTrackTitleLanguageAndDispositions()
+    {
+        var json = """
+        {
+            "streams": [
+                { "index": 1, "codec_type": "audio", "codec_name": "dts", "profile": "DTS-HD MA", "bits_per_raw_sample": "24",
+                  "duration": "12.5",
+                  "disposition": { "default": 1, "forced": 0, "hearing_impaired": 0, "visual_impaired": 1, "comment": 1, "original": 1 },
+                  "tags": { "title": "Commentary", "language": "eng", "BPS-eng": "1509000" } },
+                { "index": 2, "codec_type": "subtitle", "codec_name": "subrip",
+                  "disposition": { "default": 0, "forced": 1, "hearing_impaired": 1 }, "tags": { "language": "ger" } }
+            ]
+        }
+        """;
+
+        var result = MediaProbeService.ParseMediaInfo("/test/movie.mkv", json);
+
+        var audio = result.AudioStreams[0].Details;
+        audio.Title.Should().Be("Commentary");
+        audio.Language.Should().Be("eng");
+        audio.Profile.Should().Be("DTS-HD MA");
+        audio.BitsPerRawSample.Should().Be(24);
+        audio.DurationSeconds.Should().Be(12.5);
+        audio.Disposition.Should().Be(new StreamDisposition { Default = true, VisualImpaired = true, Comment = true, Original = true });
+        audio.Tags["bps-eng"].Should().Be("1509000", "tag lookups ignore case");
+
+        var subtitle = result.SubtitleStreams[0].Details;
+        subtitle.Disposition.Forced.Should().BeTrue();
+        subtitle.Disposition.HearingImpaired.Should().BeTrue();
+        subtitle.Language.Should().Be("ger");
+    }
+
+    [Fact]
+    public void ParseMediaInfo_ReadsChaptersTitleAndSize()
+    {
+        var json = """
+        {
+            "format": { "size": "45000000000", "tags": { "TITLE": "Interstellar" } },
+            "chapters": [
+                { "id": 1, "start_time": "0.000000", "end_time": "300.500000", "tags": { "title": "Opening" } },
+                { "id": 2, "start_time": "300.500000", "end_time": "600.000000" }
+            ]
+        }
+        """;
+
+        var result = MediaProbeService.ParseMediaInfo("/test/movie.mkv", json);
+
+        result.Title.Should().Be("Interstellar");
+        result.SizeBytes.Should().Be(45_000_000_000);
+        result.Chapters.Should().Equal(new ChapterInfo(0, 300.5, "Opening"), new ChapterInfo(300.5, 600, null));
+    }
+
+    [Fact]
+    public void ParseMediaInfo_ReadsDolbyVisionAndFontAttachments()
+    {
+        var json = """
+        {
+            "streams": [
+                { "index": 0, "codec_type": "video", "codec_name": "hevc",
+                  "side_data_list": [ { "side_data_type": "DOVI configuration record", "dv_profile": 8 } ] },
+                { "index": 1, "codec_type": "attachment", "codec_name": "ttf",
+                  "tags": { "filename": "Arial.ttf", "mimetype": "application/x-truetype-font" } }
+            ]
+        }
+        """;
+
+        var result = MediaProbeService.ParseMediaInfo("/test/movie.mkv", json);
+
+        result.VideoStreams[0].HasDolbyVision.Should().BeTrue();
+        result.DataStreams[0].FileName.Should().Be("Arial.ttf");
+        result.DataStreams[0].MimeType.Should().Be("application/x-truetype-font");
+    }
 }

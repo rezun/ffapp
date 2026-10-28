@@ -8,6 +8,9 @@ public sealed record SourceMediaInfo
     public string? ContainerFormat { get; init; }
     public double? DurationSeconds { get; init; }
     public int? BitRate { get; init; }
+    public long? SizeBytes { get; init; }
+    public string? Title { get; init; }
+    public ImmutableArray<ChapterInfo> Chapters { get; init; } = [];
     public ImmutableArray<string> MetadataKeys { get; init; } = [];
     public ImmutableArray<VideoStreamInfo> VideoStreams { get; init; } = [];
     public ImmutableArray<AttachedPictureStreamInfo> AttachedPictureStreams { get; init; } = [];

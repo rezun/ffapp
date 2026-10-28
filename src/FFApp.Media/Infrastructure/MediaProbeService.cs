@@ -34,6 +34,7 @@ public sealed class MediaProbeService(ExecutablePathsConfig pathsConfig) : IMedi
                         "-v", "error",
                         "-show_format",
                         "-show_streams",
+                        "-show_chapters",
                         "-of", "json",
                         sourcePath,
                     },
@@ -98,6 +99,8 @@ public sealed class MediaProbeService(ExecutablePathsConfig pathsConfig) : IMedi
             string? containerFormat = null;
             double? durationSeconds = null;
             int? bitRate = null;
+            long? sizeBytes = null;
+            string? title = null;
             ImmutableArray<string> metadataKeys = [];
 
             if (root.TryGetProperty("format", out var format))
@@ -105,6 +108,8 @@ public sealed class MediaProbeService(ExecutablePathsConfig pathsConfig) : IMedi
                 containerFormat = GetString(format, "format_name");
                 durationSeconds = GetDouble(format, "duration");
                 bitRate = GetInt(format, "bit_rate");
+                sizeBytes = GetLong(format, "size");
+                title = GetTagIgnoreCase(format, "title");
                 metadataKeys = ParseMetadataKeys(format);
             }
 
@@ -152,6 +157,9 @@ public sealed class MediaProbeService(ExecutablePathsConfig pathsConfig) : IMedi
                 ContainerFormat = containerFormat,
                 DurationSeconds = durationSeconds,
                 BitRate = bitRate,
+                SizeBytes = sizeBytes,
+                Title = title,
+                Chapters = ParseChapters(root),
                 MetadataKeys = metadataKeys,
                 VideoStreams = videoStreams.ToImmutable(),
                 AttachedPictureStreams = attachedPictureStreams.ToImmutable(),
@@ -182,6 +190,8 @@ public sealed class MediaProbeService(ExecutablePathsConfig pathsConfig) : IMedi
             HdrMetadata: ParseHdrMetadata(stream))
         {
             MetadataKeys = ParseMetadataKeys(stream),
+            Details = ParseDetails(stream),
+            HasDolbyVision = HasSideData(stream, "DOVI configuration record"),
         };
     }
 
@@ -263,6 +273,7 @@ public sealed class MediaProbeService(ExecutablePathsConfig pathsConfig) : IMedi
         {
             ChannelLayout = GetString(stream, "channel_layout"),
             MetadataKeys = ParseMetadataKeys(stream),
+            Details = ParseDetails(stream),
         };
     }
 
@@ -271,7 +282,10 @@ public sealed class MediaProbeService(ExecutablePathsConfig pathsConfig) : IMedi
         return new SubtitleStreamInfo(
             Index: GetInt(stream, "index") ?? 0,
             CodecName: GetString(stream, "codec_name"),
-            Language: GetTag(stream, "language"));
+            Language: GetTag(stream, "language"))
+        {
+            Details = ParseDetails(stream),
+        };
     }
 
     private static DataStreamInfo ParseDataStream(JsonElement stream)
@@ -281,7 +295,76 @@ public sealed class MediaProbeService(ExecutablePathsConfig pathsConfig) : IMedi
             CodecName: GetString(stream, "codec_name"))
         {
             IsAttachment = GetString(stream, "codec_type") == "attachment",
+            FileName = GetTag(stream, "filename"),
+            MimeType = GetTag(stream, "mimetype"),
         };
+    }
+
+    private static StreamDetails ParseDetails(JsonElement stream)
+    {
+        var tags = ImmutableDictionary.CreateBuilder<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (stream.TryGetProperty("tags", out var tagElement) && tagElement.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var tag in tagElement.EnumerateObject())
+            {
+                if (tag.Value.ValueKind == JsonValueKind.String)
+                    tags[tag.Name] = tag.Value.GetString() ?? "";
+            }
+        }
+
+        var disposition = StreamDisposition.None;
+        if (stream.TryGetProperty("disposition", out var flags))
+        {
+            disposition = new StreamDisposition
+            {
+                Default = GetInt(flags, "default") == 1,
+                Forced = GetInt(flags, "forced") == 1,
+                HearingImpaired = GetInt(flags, "hearing_impaired") == 1,
+                VisualImpaired = GetInt(flags, "visual_impaired") == 1,
+                Comment = GetInt(flags, "comment") == 1,
+                Original = GetInt(flags, "original") == 1,
+            };
+        }
+
+        return new StreamDetails
+        {
+            Title = tags.GetValueOrDefault("title"),
+            Language = tags.GetValueOrDefault("language"),
+            Disposition = disposition,
+            Profile = GetString(stream, "profile"),
+            BitsPerRawSample = GetInt(stream, "bits_per_raw_sample"),
+            DurationSeconds = GetDouble(stream, "duration"),
+            Tags = tags.ToImmutable(),
+        };
+    }
+
+    private static ImmutableArray<ChapterInfo> ParseChapters(JsonElement root)
+    {
+        if (!root.TryGetProperty("chapters", out var chapters) || chapters.ValueKind != JsonValueKind.Array)
+            return [];
+
+        var result = ImmutableArray.CreateBuilder<ChapterInfo>();
+        foreach (var chapter in chapters.EnumerateArray())
+        {
+            result.Add(new ChapterInfo(
+                StartSeconds: GetDouble(chapter, "start_time") ?? 0,
+                EndSeconds: GetDouble(chapter, "end_time") ?? 0,
+                Title: GetTagIgnoreCase(chapter, "title")));
+        }
+        return result.ToImmutable();
+    }
+
+    private static bool HasSideData(JsonElement stream, string sideDataType)
+    {
+        if (!stream.TryGetProperty("side_data_list", out var sideDataList))
+            return false;
+
+        foreach (var sideData in sideDataList.EnumerateArray())
+        {
+            if (GetString(sideData, "side_data_type") == sideDataType)
+                return true;
+        }
+        return false;
     }
 
     internal static double? ParseFrameRate(string? value)
@@ -324,6 +407,19 @@ public sealed class MediaProbeService(ExecutablePathsConfig pathsConfig) : IMedi
         return null;
     }
 
+    private static long? GetLong(JsonElement element, string property)
+    {
+        if (!element.TryGetProperty(property, out var value))
+            return null;
+
+        if (value.ValueKind == JsonValueKind.Number)
+            return value.TryGetInt64(out var n) ? n : null;
+        if (value.ValueKind == JsonValueKind.String)
+            return long.TryParse(value.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) ? parsed : null;
+
+        return null;
+    }
+
     private static double? GetDouble(JsonElement element, string property)
     {
         if (!element.TryGetProperty(property, out var value))
@@ -341,6 +437,20 @@ public sealed class MediaProbeService(ExecutablePathsConfig pathsConfig) : IMedi
     {
         if (stream.TryGetProperty("tags", out var tags))
             return GetString(tags, tagName);
+        return null;
+    }
+
+    // Vorbis comments (Ogg, FLAC) keep the writer's casing, for example TITLE.
+    private static string? GetTagIgnoreCase(JsonElement element, string tagName)
+    {
+        if (!element.TryGetProperty("tags", out var tags) || tags.ValueKind != JsonValueKind.Object)
+            return null;
+
+        foreach (var tag in tags.EnumerateObject())
+        {
+            if (tag.Name.Equals(tagName, StringComparison.OrdinalIgnoreCase) && tag.Value.ValueKind == JsonValueKind.String)
+                return tag.Value.GetString();
+        }
         return null;
     }
 

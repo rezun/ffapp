@@ -120,17 +120,17 @@ Audio and subtitle tracks can be shifted in time, for example an external audio 
 
 - The shift is entered per track in milliseconds; positive values play the track later, negative values earlier.
 - Few containers have a per-track delay field that players honor. FFRux therefore shifts the packet timestamps while remuxing, which works the same in every output format.
-- FFmpeg's `-itsoffset` applies to a whole input file. When tracks of the same source need different shifts, that source is opened once per shift as separate inputs, and each track is mapped from the matching input.
+- FFmpeg's input options apply to a whole input file. When tracks of the same source need different shifts, that source is opened once per shift as separate inputs, and each track is mapped from the matching input.
+- A positive shift uses `-itsoffset`. A negative shift seeks into the input (`-ss`) and drops the packets before the seek point (`-copypriorss 0`). A negative `-itsoffset` would move the whole output instead, including the video, which a test confirmed.
 
-Behavior by track type:
+Behavior by track type (verified with FFmpeg 9, see the integration tests):
 
 | Track | Positive shift | Negative shift |
 |---|---|---|
-| Text subtitles | Exact | Exact; cues that end before 0 are dropped |
-| Bitmap subtitles | Exact | Exact; pictures that end before 0 are dropped |
-| Audio | Exact | The start is cut in whole packets (about 20-32 ms steps, depending on the codec) |
+| Text subtitles | Exact | Exact; cues that start before 0 are dropped |
+| Bitmap subtitles | Exact | Exact; pictures that start before 0 are dropped |
+| Audio | Exact | Exact; the packets before 0 are dropped, so the track may start a few milliseconds after 0 |
 
-- For negative audio shifts, the editor shows the shift that is actually applied after rounding to whole packets.
 - In MP4-based outputs, a positive audio shift is stored as an edit list. Some players ignore edit lists; the track shows a warning in that case.
 
 ## 3. Output
@@ -163,7 +163,7 @@ The user can set a title for the output file. It starts with the title of the fi
 | Matroska, WebM, MKA | Segment title |
 | MP4, MOV, M4A, M4B | `©nam` |
 | MP3 | ID3 `TIT2` |
-| Ogg, Opus, FLAC | `TITLE` comment |
+| Ogg, Opus, FLAC | `TITLE` comment (in the stream header for Ogg and Opus) |
 | MPEG-TS | Not supported; the field is disabled |
 
 FFmpeg writes it with `-metadata title=…`. For audio formats the title is, in practice, the song or audiobook title.
@@ -199,9 +199,11 @@ Besides the per-codec rules, the job is checked as a whole:
 - At least one track is enabled.
 - Several default tracks of the same type produce a warning.
 
-### 4.3 Copy matrix (draft)
+### 4.3 Copy matrix
 
-The matrix works on FFprobe `codec_name` values, not on FFApp's encoder enums, because FFRux also copies codecs FFApp cannot encode. The table is a starting point and **must be verified against FFmpeg** during implementation (section 8.3); "W" is a warning, "C" is a conversion, a missing entry is incompatible.
+The matrix works on FFprobe `codec_name` values, not on FFApp's encoder enums, because FFRux also copies codecs FFApp cannot encode. It lives as data in `CodecRules` and was verified against FFmpeg 9 (section 8.3): every allowed entry is muxed and read back by the integration tests. "W" is a warning, "C" is a conversion, a missing entry is incompatible.
+
+Some muxers accept more than the table allows: MPEG-TS writes almost anything as an unknown data stream, and MP4 takes Vorbis. FFRux still treats these as incompatible, because players cannot use the result.
 
 **Video**
 
@@ -209,47 +211,54 @@ The matrix works on FFprobe `codec_name` values, not on FFApp's encoder enums, b
 |---|---|---|---|---|---|
 | `h264` | ✓ | ✓ | ✓ | | ✓ |
 | `hevc` | ✓ | ✓ | ✓ | | ✓ |
-| `av1` | ✓ | ✓ | W | ✓ | |
+| `av1` | ✓ | ✓ | | ✓ | |
 | `vp9` | ✓ | W | | ✓ | |
 | `vp8` | ✓ | | | ✓ | |
 | `mpeg2video` | ✓ | W | ✓ | | ✓ |
-| `mpeg4` | ✓ | ✓ | ✓ | | |
+| `mpeg4` | ✓ | ✓ | ✓ | | W |
 | `vc1` | ✓ | | | | ✓ |
-| `prores` | ✓ | W | ✓ | | |
+| `prores`, `dnxhd`, `mjpeg` | ✓ | | ✓ | | |
+| `ffv1`, `theora` | ✓ | | | | |
+
+AV1 in MPEG-TS is written as an unknown data stream by FFmpeg 9, so it is not offered. Other video codecs get a warning in MKV ("FFRux has not checked this codec"); the trial mux decides.
 
 **Audio**
 
-| Codec | mkv/mka | mp4/m4a/m4b | mov | webm | ts | ogg | opus | mp3 | flac |
-|---|---|---|---|---|---|---|---|---|---|
-| `aac` | ✓ | ✓ | ✓ | | ✓ | | | | |
-| `ac3`, `eac3` | ✓ | ✓ | ✓ | | ✓ | | | | |
-| `dts` | ✓ | W | | | ✓ | | | | |
-| `truehd` | ✓ | | | | ✓ | | | | |
-| `flac` | ✓ | W | | | | ✓ | | | ✓ |
-| `alac` | ✓ | ✓ | ✓ | | | | | | |
-| `opus` | ✓ | W | | ✓ | W | ✓ | ✓ | | |
-| `vorbis` | ✓ | | | ✓ | | ✓ | | | |
-| `mp3` | ✓ | ✓ | ✓ | | ✓ | | | ✓ | |
-| `pcm_*` | ✓ | | ✓ | | | | | | |
+| Codec | mkv/mka | mp4 | mov | m4a/m4b | webm | ts | ogg | opus | mp3 | flac |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `aac`, `ac3` | ✓ | ✓ | ✓ | ✓ | | ✓ | | | | |
+| `eac3` | ✓ | ✓ | ✓ | | | ✓ | | | | |
+| `dts` | ✓ | W | W | | | ✓ | | | | |
+| `truehd` | ✓ | | | | | ✓ | | | | |
+| `flac` | ✓ | W | | | | | ✓ | | | ✓ |
+| `alac` | ✓ | ✓ | ✓ | ✓ | | | | | | |
+| `opus` | ✓ | W | | | ✓ | W | ✓ | ✓ | | |
+| `vorbis` | ✓ | | | | ✓ | | ✓ | | | |
+| `mp3` | ✓ | ✓ | ✓ | | | ✓ | | | ✓ | |
+| `mp2` | ✓ | | ✓ | | | ✓ | | | | |
+| `pcm_*` | ✓ | W | ✓ | | | | | | | |
+
+M4A and M4B use FFmpeg's `ipod` muxer, which writes Apple's brands and accepts only Apple's codecs (AAC, AC-3, ALAC). MP2 in MP4 reads back as MP3, so it is not offered.
 
 **Subtitles**
 
-| Codec | mkv | mp4/mov | webm | ts |
+| Codec | mkv/mka | mp4/mov | webm | ts |
 |---|---|---|---|---|
 | `subrip`, `ass`, `ssa` | ✓ | C | C | |
 | `webvtt` | ✓ | C | ✓ | |
 | `mov_text` | C | ✓ | C | |
+| other text formats | C | C | C | |
 | `hdmv_pgs_subtitle` | ✓ | | | |
 | `dvd_subtitle` | ✓ | | | |
 | `dvb_subtitle` | ✓ | | | ✓ |
 
-MP4 can technically carry `dvd_subtitle`, but hardly any player shows it, so FFRux treats it as incompatible.
+MP4 can technically carry `dvd_subtitle`, but hardly any player shows it, so FFRux treats it as incompatible. The bitmap rows are not covered by the integration tests yet, because FFmpeg cannot create bitmap subtitles; they need small fixture files.
 
 **Chapters**
 
 | mkv/mka | webm | mp4/m4a/m4b/mov | ogg/opus | mp3 | flac | ts |
 |---|---|---|---|---|---|---|
-| ✓ | ✓ | ✓ | to verify | to verify | to verify | ✗ |
+| ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ |
 
 If the chosen format cannot hold chapters, an enabled chapter set produces a warning (not a block); chapters are then dropped.
 
@@ -258,8 +267,9 @@ If the chosen format cannot hold chapters, an enabled chapter set produces a war
 The check also covers things a plain `-c copy` does not solve:
 
 - HEVC in MP4/MOV is written with the `hvc1` tag so Apple players accept it.
-- Dolby Vision is detected and its handling per output format is decided during implementation.
-- Sources with different start times are aligned so audio and video stay in sync.
+- Dolby Vision is detected. MKV, MP4 and MOV keep the Dolby Vision configuration (MP4 and MOV need `-strict unofficial`); other formats show a warning. This is not covered by tests yet, because FFmpeg cannot create Dolby Vision sources.
+- Sources with different start times are aligned: FFmpeg moves the start of every input to 0, so external tracks line up with the main file.
+- QuickTime stores languages as Macintosh language codes. FFmpeg drops languages it cannot map, so FFRux uses the code FFmpeg knows (`fra` instead of `fre`) and warns when QuickTime cannot store the language at all.
 
 ## 5. Subtitle conversion
 
@@ -289,12 +299,20 @@ Fields start with the values from the source.
 
 ### 6.2 Format support
 
-Not every output format can store every field. Fields the chosen format cannot write are disabled in the editor with a short reason, instead of being dropped silently. Rough expectation, to be verified:
+Not every output format can store every field. Fields the chosen format cannot write are disabled in the editor with a short reason, instead of being dropped silently. Verified with FFmpeg 9 by writing every field and reading it back:
 
-- **Matroska, WebM:** all fields.
-- **MP4, MOV, M4A, M4B:** name, language, default; the other flags only partly and depending on the player.
-- **MPEG-TS:** language, and some flags through descriptors.
-- **Ogg, Opus, MP3, FLAC:** name and language as tags at most; no flags.
+| Format | Name | Language | Flags |
+|---|---|---|---|
+| Matroska, MKA | ✓ | ✓ | all |
+| WebM | ✓ | ✓ | default, forced |
+| MP4 | as handler name | ✓ | all except original |
+| MOV | as handler name | ✓ (Macintosh codes) | default |
+| M4A, M4B | as handler name | ✓ | default |
+| MPEG-TS | | ✓ | |
+| Ogg, Opus | | ✓ | |
+| MP3, FLAC | | | |
+
+MP4 and QuickTime have no track title; players show the handler name instead. Ogg, Opus, MP3 and FLAC have only the container title, which players show as the song or book title.
 
 ### 6.3 Language codes
 
@@ -304,8 +322,9 @@ Not every output format can store every field. Fields the chosen format cannot w
 ## 7. Running a job
 
 - One job at a time. Starting is possible only without "Incompatible" findings.
+- FFmpeg writes into a hidden partial file next to the output (`.Movie.ffrux-partial.mkv`). Only after FFmpeg and mkvpropedit succeeded does it replace the output file, so a failed or canceled job never damages an existing file.
 - Progress shows percent and the remaining time, based on the total duration.
-- Cancel stops FFmpeg and deletes the incomplete output file.
+- Cancel stops FFmpeg and deletes the partial file.
 - A log keeps the FFmpeg and mkvpropedit output of the last job.
 - A command preview shows the generated FFmpeg and mkvpropedit commands, as in FFApp.
 
@@ -333,7 +352,7 @@ The FFmpeg CLI cannot be asked whether a muxer accepts a codec, and it knows not
 
 1. **Rule table:** the matrix from section 4.3, kept as data rather than scattered conditions. It drives the live check in the UI and produces all four status levels with readable messages.
 2. **Trial mux before the start:** when the user starts a job, FFRux first remuxes about one second of the exact mapping into a temporary file. If FFmpeg rejects it, the job does not start and the FFmpeg error is shown. This catches problems no table knows about, such as broken sources.
-3. **Integration tests:** tests run every table entry against the real FFmpeg. Every compatible entry must mux, every incompatible one must fail. Test sources are generated with FFmpeg (`lavfi` plus an encoder); codecs without an FFmpeg encoder (PGS, VC-1) use small fixture files. A changed FFmpeg version shows up as failing tests.
+3. **Integration tests:** tests run every table entry against the real FFmpeg. Every compatible entry must mux and read back with the same codec; a list of combinations the muxers refuse must keep failing. Test sources are generated with FFmpeg (`lavfi` plus an encoder). Codecs without an FFmpeg encoder (PGS, VobSub, VC-1, Dolby Vision) still need small fixture files. A changed FFmpeg version shows up as failing tests. The first run found two wrong entries in the draft matrix (AV1 in MPEG-TS, MP2 in MP4).
 
 ## 9. User interface
 
@@ -365,7 +384,7 @@ FFRux follows FFApp's look and feel: the shared tokens from `Tokens.axaml` (dark
 
 ### 9.4 Output format
 
-- The format list shows the number of problems next to each format, so the user sees which formats fit before choosing.
+- The format list shows the number of problems next to each format, so the user sees which formats fit before choosing. Without problems it shows the number of warnings, if any.
 - The closed field shows only the format name. The problems of the chosen format are shown in the compatibility list and the status bar.
 
 ### 9.5 States

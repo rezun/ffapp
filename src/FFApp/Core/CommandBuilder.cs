@@ -346,6 +346,19 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         else if (audioMode == AudioMode.Reencode)
         {
             arguments.AddRange(BuildAudioReencodeArguments(job));
+            if (job.AudioOptions.Codec == AudioCodec.Opus
+                && job.AudioOptions.AudioChannels is null or 6)
+            {
+                for (var index = 0; index < mediaInfo.AudioStreams.Length; index++)
+                {
+                    if (string.Equals(mediaInfo.AudioStreams[index].ChannelLayout, "5.1(side)", StringComparison.Ordinal))
+                    {
+                        // libopus requires the Vorbis 5.1 layout. Preserve each channel's
+                        // samples, assigning side surrounds to the corresponding back surrounds.
+                        arguments.AddRange([$"-filter:a:{index}", "pan=5.1|FL=FL|FR=FR|FC=FC|LFE=LFE|BL=SL|BR=SR"]);
+                    }
+                }
+            }
         }
 
         var subtitlePolicy = StreamCompatibilityPolicy.ResolveSubtitlePolicy(

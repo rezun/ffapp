@@ -625,6 +625,71 @@ public class CommandBuilderTests
     }
 
     [Theory]
+    [InlineData(null)]
+    [InlineData(6)]
+    public void Build_OpusSideSurround_PreservesSixChannels(int? channels)
+    {
+        var job = JobWith(s => s.WithAudioReencode(AudioCodec.Opus, 320_000, channels));
+        var media = new TestMediaInfoBuilder().WithAudioStreams(
+            new AudioStreamInfo(1, "dts", Channels: 6) { ChannelLayout = "5.1(side)" }).Build();
+
+        var args = _sut.Build(job, media)[0].Arguments;
+
+        args.Should().ContainInOrder("-filter:a:0", "pan=5.1|FL=FL|FR=FR|FC=FC|LFE=LFE|BL=SL|BR=SR");
+        if (channels is null)
+            args.Should().NotContain("-ac");
+        else
+            args.Should().ContainInOrder("-ac", "6");
+    }
+
+    [Theory]
+    [InlineData(AudioCodec.Opus, "5.1(side)", 2)]
+    [InlineData(AudioCodec.Opus, "5.1(side)", 1)]
+    [InlineData(AudioCodec.Opus, "5.1", null)]
+    [InlineData(AudioCodec.Opus, "7.1", null)]
+    [InlineData(AudioCodec.Opus, "stereo", null)]
+    [InlineData(AudioCodec.Opus, null, null)]
+    [InlineData(AudioCodec.Aac, "5.1(side)", null)]
+    public void Build_AudioWithoutOpusSideSurroundConversion_OmitsFilter(AudioCodec codec, string? layout, int? channels)
+    {
+        var job = JobWith(s => s.WithAudioReencode(codec, 320_000, channels));
+        var media = new TestMediaInfoBuilder().WithAudioStreams(
+            new AudioStreamInfo(1, "dts") { ChannelLayout = layout }).Build();
+
+        _sut.Build(job, media)[0].Arguments.Should().NotContain(arg => arg.StartsWith("-filter:a:", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Build_AudioCopySideSurround_OmitsFilter()
+    {
+        var media = new TestMediaInfoBuilder().WithAudioStreams(
+            new AudioStreamInfo(1, "dts") { ChannelLayout = "5.1(side)" }).Build();
+
+        _sut.Build(JobWith(s => s.WithAudioCopy()), media)[0].Arguments.Should()
+            .NotContain(arg => arg.StartsWith("-filter:a:", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Build_OpusMixedTracks_FiltersOnlyIncludedSideSurroundAtOutputIndex(bool selectTracks)
+    {
+        var media = new TestMediaInfoBuilder().WithAudioStreams(
+            new AudioStreamInfo(2, "dts") { ChannelLayout = "5.1(side)" },
+            new AudioStreamInfo(5, "aac") { ChannelLayout = "stereo" },
+            new AudioStreamInfo(8, "dts") { ChannelLayout = "5.1(side)" }).Build();
+        var builder = new TestJobDefinitionBuilder()
+            .WithOutputSettings(s => s.WithAudioReencode(AudioCodec.Opus, 320_000));
+        if (selectTracks)
+            builder.WithAudioTracks(5, 8);
+
+        var args = _sut.Build(builder.Build(), media)[0].Arguments;
+
+        args.Where(arg => arg.StartsWith("-filter:a:", StringComparison.Ordinal)).Should()
+            .Equal(selectTracks ? ["-filter:a:1"] : ["-filter:a:0", "-filter:a:2"]);
+    }
+
+    [Theory]
     [InlineData(AudioCodec.Opus, 12000)]
     [InlineData(AudioCodec.Opus, 48000)]
     [InlineData(AudioCodec.Mp3, 44100)]

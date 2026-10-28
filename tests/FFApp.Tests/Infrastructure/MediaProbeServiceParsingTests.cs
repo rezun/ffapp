@@ -10,6 +10,20 @@ public class MediaProbeServiceParsingTests
 {
     // --- ParseMediaInfo ---
 
+    [Theory]
+    [InlineData("5.1(side)")]
+    [InlineData("5.1")]
+    [InlineData(null)]
+    public void ParseMediaInfo_AudioStream_ParsesOptionalChannelLayout(string? layout)
+    {
+        var layoutField = layout is null ? "" : $", \"channel_layout\": \"{layout}\"";
+        var json = "{\"streams\":[{\"index\":1,\"codec_type\":\"audio\",\"channels\":6" + layoutField + "}]}";
+
+        var result = MediaProbeService.ParseMediaInfo("/test/video.mkv", json);
+
+        result.AudioStreams[0].ChannelLayout.Should().Be(layout);
+    }
+
     [Fact]
     public void ParseMediaInfo_FullOutput_ParsesAllStreams()
     {

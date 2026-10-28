@@ -261,6 +261,7 @@ public sealed class MediaProbeService(ExecutablePathsConfig pathsConfig) : IMedi
             SampleRate: GetInt(stream, "sample_rate"),
             Language: GetTag(stream, "language"))
         {
+            ChannelLayout = GetString(stream, "channel_layout"),
             MetadataKeys = ParseMetadataKeys(stream),
         };
     }

@@ -57,6 +57,8 @@ public sealed record AudioStreamInfo(
     int? SampleRate = null,
     string? Language = null)
 {
+    public string? ChannelLayout { get; init; }
+
     public ImmutableArray<string> MetadataKeys { get; init; } = [];
 }
 

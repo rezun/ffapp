@@ -103,6 +103,22 @@ public sealed class QueueService(
         }
     }
 
+    public bool Replace(string itemId, QueuedJob job)
+    {
+        ArgumentNullException.ThrowIfNull(itemId);
+        ArgumentNullException.ThrowIfNull(job);
+
+        lock (_lock)
+        {
+            var index = _items.FindIndex(i => string.Equals(i.Id, itemId, StringComparison.Ordinal));
+            if (index < 0 || _items[index].State is JobState.Running or JobState.Completed)
+                return false;
+
+            _items[index] = _items[index] with { QueuedJob = job };
+            return true;
+        }
+    }
+
     public async Task<IReadOnlyList<QueueItem>> ExecuteAllAsync(
         Action<QueueItem>? itemStarted = null,
         Action<QueueItem>? itemProgress = null,

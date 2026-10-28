@@ -57,6 +57,7 @@ public sealed record AppSettings
     public ExecutablePaths ExecutablePaths { get; init; } = ExecutablePaths.Empty;
     public OutputSettings LastUsedSettings { get; init; } = new();
     public string? LastUsedPresetName { get; init; }
+    public OutputLocation OutputLocation { get; init; } = new();
     public SplitterLayout SplitterLayout { get; init; } = new();
     public WindowGeometry WindowGeometry { get; init; } = new();
     public ThemePreference ThemePreference { get; init; } = ThemePreference.System;

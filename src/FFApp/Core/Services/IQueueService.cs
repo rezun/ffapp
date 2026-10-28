@@ -15,6 +15,11 @@ public interface IQueueService
     /// previously failed or canceled jobs without removing them from the queue first.
     /// </summary>
     IReadOnlyList<QueueItem> ResetToPending(IEnumerable<string> itemIds);
+    /// <summary>
+    /// Replaces the job of a queued item that has not started (pending, failed or canceled).
+    /// Returns false when the item is unknown, running or completed.
+    /// </summary>
+    bool Replace(string itemId, QueuedJob job);
     Task<IReadOnlyList<QueueItem>> ExecuteAllAsync(
         Action<QueueItem>? itemStarted = null,
         Action<QueueItem>? itemProgress = null,

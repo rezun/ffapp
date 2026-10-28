@@ -98,9 +98,9 @@ public partial class WorkspaceViewModel : ObservableObject,
         var context = new JobContext(
             _currentMediaInfo, CurrentSettings,
             trimStart, trimEnd, crop,
-            OutputPath.GetEffectiveDirectory(),
-            OutputPath.GetEffectiveFilename(),
-            OutputPath.IsAutoName, OutputSettings.Audio.SelectedAudioStreamIndices);
+            OutputDirectory: OutputPath.GetEffectiveDirectory(),
+            OutputPresetName: OutputPath.PresetName,
+            SelectedAudioStreamIndices: OutputSettings.Audio.SelectedAudioStreamIndices);
 
         _comparisonContext = context;
         OnPropertyChanged(nameof(CanCompare));
@@ -186,9 +186,9 @@ public partial class WorkspaceViewModel : ObservableObject,
 
     private void OnOutputPathPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(OutputPathViewModel.OutputDirectory)
-                           or nameof(OutputPathViewModel.OutputFilename)
-                           or nameof(OutputPathViewModel.IsAutoName))
+        if (e.PropertyName is nameof(OutputPathViewModel.LocationMode)
+                           or nameof(OutputPathViewModel.CustomFolder)
+                           or nameof(OutputPathViewModel.PresetName))
         {
             RebuildAndPushJobContext();
         }
@@ -201,6 +201,7 @@ public partial class WorkspaceViewModel : ObservableObject,
 
     public async Task LoadAsync(AppSettings appSettings)
     {
+        OutputPath.RestoreLocation(appSettings.OutputLocation);
         await Preset.LoadPresetsAsync();
 
         // Restore last-used output settings into the workspace. This fires an

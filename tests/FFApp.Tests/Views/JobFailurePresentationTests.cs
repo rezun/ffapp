@@ -30,7 +30,7 @@ public sealed class JobFailurePresentationTests(QueueTestSession fixture)
                 Substitute.For<IMediaProbeService>(), dialogs, Substitute.For<IMessenger>());
             var panel = new JobListPanelViewModel(queue,
                 Substitute.For<ICommandBuilder>(), Substitute.For<IValidationService>(), dialogs,
-                sources, new VideoPreviewViewModel(null), new OutputPathViewModel(dialogs));
+                sources, new VideoPreviewViewModel(null));
             var item = JobFailureViewModelTests.CreateItem();
             panel.Jobs.Add(item);
             panel.SelectedJob = item;

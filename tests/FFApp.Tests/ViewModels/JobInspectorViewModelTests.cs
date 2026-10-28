@@ -64,4 +64,33 @@ public sealed class JobInspectorViewModelTests
         second.AppendLog("more diagnostics");
         details.SelectedTabIndex.Should().Be(tab, "an existing failure must not repeatedly switch tabs");
     }
+
+    [Fact]
+    public async Task RenameOutput_KeepsTypedNameWhileJobLogsAndPassesItOn()
+    {
+        var job = new TestJobDefinitionBuilder().WithOutputPath("/output/encoded.webm").Build();
+        var media = new TestMediaInfoBuilder().Build();
+        var item = new JobItemViewModel("rename-test", media,
+            new QueuedJob(job, media, [], new ValidationResult()), "source.mkv");
+        (JobItemViewModel Item, string Stem)? request = null;
+        var details = new JobItemDetailsViewModel((target, stem) =>
+        {
+            request = (target, stem);
+            return Task.CompletedTask;
+        });
+
+        details.UpdateFromItem(item);
+        details.OutputFileStem.Should().Be("encoded");
+        details.OutputExtension.Should().Be(".webm");
+        details.RenameOutputCommand.CanExecute(null).Should().BeFalse("the name is unchanged");
+
+        details.OutputFileStem = "final";
+        item.AppendLog("frame=1");
+        details.OutputFileStem.Should().Be("final");
+        details.RenameOutputCommand.CanExecute(null).Should().BeTrue();
+
+        await details.RenameOutputCommand.ExecuteAsync(null);
+
+        request.Should().Be((item, "final"));
+    }
 }

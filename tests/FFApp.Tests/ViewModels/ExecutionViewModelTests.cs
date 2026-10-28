@@ -25,11 +25,9 @@ public class JobListPanelViewModelTests
             Substitute.For<IDialogService>(),
             Substitute.For<IMessenger>());
         var videoPreview = new VideoPreviewViewModel(null);
-        var outputPath = new OutputPathViewModel(Substitute.For<IDialogService>());
-
         _sut = new JobListPanelViewModel(
             _queueService, _commandBuilder, _validationService, _dialogService,
-            _sourceList, videoPreview, outputPath);
+            _sourceList, videoPreview);
 
         _validationService.Validate(
                 Arg.Any<OutputSettings>(),
@@ -157,8 +155,7 @@ public class JobListPanelViewModelTests
         _sut.UpdateJobContext(new JobContext(
             source.MediaInfo!,
             new OutputSettings { Container = OutputContainer.Mkv },
-            OutputDirectory: Path.GetTempPath(),
-            IsAutoName: true));
+            OutputDirectory: Path.GetTempPath()));
 
         await _sut.CreateJobFromSelectionCommand.ExecuteAsync(null);
         await _sut.CreateJobFromSelectionCommand.ExecuteAsync(null);
@@ -171,6 +168,133 @@ public class JobListPanelViewModelTests
                 $"{Path.GetFileNameWithoutExtension(sourcePath)}-1.mkv"));
         _sut.Jobs.Select(job => job.QueuedJob.Commands[0].Arguments[^1])
             .Should().Equal(_sut.Jobs.Select(job => job.QueuedJob.Job.OutputPath));
+    }
+
+    [Fact]
+    public async Task CreateJobsForAll_WritesNextToEachSourceWithPresetName()
+    {
+        var first = AddReadySource(Path.Combine("/rips", "Interstellar UHD", "Interstellar UHD.mp4"));
+        AddReadySource(Path.Combine("/rips", "John Wick 3", "John Wick Kapitel 3_t1.mp4"));
+        _sourceList.SelectedSource = first;
+        _sut.UpdateJobContext(new JobContext(
+            first.MediaInfo!, new OutputSettings { Container = OutputContainer.Webm },
+            OutputPresetName: "AV1 CRF24"));
+
+        await _sut.CreateJobsForAllCommand.ExecuteAsync(null);
+
+        _sut.Jobs.Select(job => job.QueuedJob.Job.OutputPath).Should().Equal(
+            Path.Combine("/rips", "Interstellar UHD", "Interstellar UHD - AV1 CRF24.webm"),
+            Path.Combine("/rips", "John Wick 3", "John Wick Kapitel 3_t1 - AV1 CRF24.webm"));
+    }
+
+    [Fact]
+    public async Task CreateJobsForAll_CustomFolderCollectsEveryOutput()
+    {
+        var first = AddReadySource(Path.Combine("/rips", "Interstellar UHD", "Interstellar UHD.mp4"));
+        AddReadySource(Path.Combine("/rips", "John Wick 3", "John Wick Kapitel 3_t1.mp4"));
+        _sourceList.SelectedSource = first;
+        _sut.UpdateJobContext(new JobContext(
+            first.MediaInfo!, new OutputSettings { Container = OutputContainer.Mkv },
+            OutputDirectory: "/encodes"));
+
+        await _sut.CreateJobsForAllCommand.ExecuteAsync(null);
+
+        _sut.Jobs.Select(job => job.QueuedJob.Job.OutputPath).Should().Equal(
+            Path.Combine("/encodes", "Interstellar UHD.mkv"),
+            Path.Combine("/encodes", "John Wick Kapitel 3_t1.mkv"));
+    }
+
+    [Fact]
+    public async Task RenameOutput_UpdatesPathCommandsAndQueue()
+    {
+        var job = await QueueSingleJobAsync(Path.Combine("/rips", "Movie", "Movie.mp4"));
+        _queueService.Replace(job.Id, Arg.Any<QueuedJob>()).Returns(true);
+        _sut.SelectedJob = job;
+
+        _sut.Details.OutputFileStem = "Movie (director's cut)";
+        await _sut.Details.RenameOutputCommand.ExecuteAsync(null);
+
+        var renamed = Path.Combine("/rips", "Movie", "Movie (director's cut).mkv");
+        job.QueuedJob.Job.OutputPath.Should().Be(renamed);
+        job.QueuedJob.Commands[0].Arguments[^1].Should().Be(renamed);
+        _queueService.Received(1).Replace(job.Id, Arg.Is<QueuedJob>(q => q.Job.OutputPath == renamed));
+        _sut.Details.OutputPath.Should().Be(renamed);
+        _sut.Details.OutputFileStem.Should().Be("Movie (director's cut)");
+    }
+
+    [Fact]
+    public async Task RenameOutput_InvalidName_ShowsErrorAndKeepsJob()
+    {
+        var job = await QueueSingleJobAsync(Path.Combine("/rips", "Movie", "Movie.mp4"));
+        var original = job.QueuedJob;
+        _sut.SelectedJob = job;
+
+        _sut.Details.OutputFileStem = "sub/Movie";
+        await _sut.Details.RenameOutputCommand.ExecuteAsync(null);
+
+        await _dialogService.Received(1).ShowErrorAsync("Invalid file name", Arg.Any<string>());
+        job.QueuedJob.Should().BeSameAs(original);
+        _queueService.DidNotReceive().Replace(Arg.Any<string>(), Arg.Any<QueuedJob>());
+        _sut.Details.OutputFileStem.Should().Be("Movie");
+    }
+
+    [Fact]
+    public async Task RenameOutput_NameUsedByAnotherJob_ShowsError()
+    {
+        var first = await QueueSingleJobAsync(Path.Combine("/rips", "A", "First.mp4"), outputDirectory: "/encodes");
+        var second = await QueueSingleJobAsync(Path.Combine("/rips", "B", "Second.mp4"), outputDirectory: "/encodes");
+        _sut.SelectedJob = second;
+
+        _sut.Details.OutputFileStem = "First";
+        await _sut.Details.RenameOutputCommand.ExecuteAsync(null);
+
+        await _dialogService.Received(1).ShowErrorAsync("File name in use", Arg.Any<string>());
+        second.QueuedJob.Job.OutputPath.Should().Be(Path.Combine("/encodes", "Second.mkv"));
+        first.QueuedJob.Job.OutputPath.Should().Be(Path.Combine("/encodes", "First.mkv"));
+    }
+
+    [Fact]
+    public async Task RenameOutput_RefusedByQueue_KeepsOriginalName()
+    {
+        var job = await QueueSingleJobAsync(Path.Combine("/rips", "Movie", "Movie.mp4"));
+        _queueService.Replace(Arg.Any<string>(), Arg.Any<QueuedJob>()).Returns(false);
+        _sut.SelectedJob = job;
+
+        _sut.Details.OutputFileStem = "Renamed";
+        await _sut.Details.RenameOutputCommand.ExecuteAsync(null);
+
+        job.QueuedJob.Job.OutputPath.Should().Be(Path.Combine("/rips", "Movie", "Movie.mkv"));
+        _sut.Details.OutputFileStem.Should().Be("Movie");
+    }
+
+    [Theory]
+    [InlineData(JobState.Pending, true)]
+    [InlineData(JobState.Failed, true)]
+    [InlineData(JobState.Canceled, true)]
+    [InlineData(JobState.Running, false)]
+    [InlineData(JobState.Completed, false)]
+    public async Task RenameOutput_OnlyOfferedForJobsThatHaveNotRun(JobState state, bool expected)
+    {
+        var job = await QueueSingleJobAsync(Path.Combine("/rips", "Movie", "Movie.mp4"));
+        _sut.SelectedJob = job;
+
+        job.State = state;
+
+        _sut.Details.CanRenameOutput.Should().Be(expected);
+        _sut.Details.OutputFileStem = "Renamed";
+        _sut.Details.RenameOutputCommand.CanExecute(null).Should().Be(expected);
+    }
+
+    private async Task<JobItemViewModel> QueueSingleJobAsync(string sourcePath, string? outputDirectory = null)
+    {
+        var source = AddReadySource(sourcePath);
+        _sourceList.SelectedSource = source;
+        _sourceList.UpdateSelection([source]);
+        _sut.UpdateJobContext(new JobContext(
+            source.MediaInfo!, new OutputSettings { Container = OutputContainer.Mkv },
+            OutputDirectory: outputDirectory));
+        await _sut.CreateJobFromSelectionCommand.ExecuteAsync(null);
+        return _sut.Jobs[^1];
     }
 
     private SourceFileViewModel AddReadySource(string path)

@@ -6,27 +6,23 @@ using FFApp.Services;
 
 namespace FFApp.ViewModels;
 
+/// <summary>
+/// Output card state. The output location is a rule (next to each source, or one custom
+/// folder) rather than a fixed path, and file names are always generated per source.
+/// </summary>
 public partial class OutputPathViewModel : ObservableObject
 {
     private readonly IDialogService _dialogService;
     private string _sourcePath = "";
-    private string _sourceStem = "";
-    private string _sourceDirectory = "";
-    private string? _presetName;
     private OutputContainer _container = OutputContainer.Mp4;
-    private bool _hasInitializedDirectory;
+    private string? _presetName;
 
     [ObservableProperty]
-    private string _outputDirectory = "";
+    [NotifyPropertyChangedFor(nameof(IsCustomFolder))]
+    private OutputLocationMode _locationMode = OutputLocationMode.SourceFolder;
 
     [ObservableProperty]
-    private string _outputFilename = "";
-
-    [ObservableProperty]
-    private bool _isAutoName = true;
-
-    [ObservableProperty]
-    private string _extension = ".mp4";
+    private string _customFolder = "";
 
     [ObservableProperty]
     private string _resolvedPath = "";
@@ -46,21 +42,29 @@ public partial class OutputPathViewModel : ObservableObject
         _dialogService = dialogService;
     }
 
+    public bool IsCustomFolder => LocationMode == OutputLocationMode.CustomFolder;
+
+    /// <summary>Name of the selected saved preset, appended to generated file names.</summary>
+    public string? PresetName
+    {
+        get => _presetName;
+        private set => SetProperty(ref _presetName, value);
+    }
+
+    public OutputLocation Location => new(
+        LocationMode,
+        string.IsNullOrWhiteSpace(CustomFolder) ? null : CustomFolder);
+
+    public void RestoreLocation(OutputLocation location)
+    {
+        ArgumentNullException.ThrowIfNull(location);
+        CustomFolder = location.CustomFolder ?? "";
+        LocationMode = location.Mode;
+    }
+
     public void UpdateFromSource(SourceMediaInfo mediaInfo)
     {
         _sourcePath = mediaInfo.SourcePath;
-        _sourceStem = Path.GetFileNameWithoutExtension(mediaInfo.SourcePath);
-        _sourceDirectory = Path.GetDirectoryName(mediaInfo.SourcePath) ?? "";
-
-        if (!_hasInitializedDirectory)
-        {
-            OutputDirectory = _sourceDirectory;
-            _hasInitializedDirectory = true;
-        }
-
-        if (IsAutoName)
-            OutputFilename = BuildAutoFilename();
-
         HasSource = true;
         UpdateResolvedPath();
     }
@@ -69,7 +73,6 @@ public partial class OutputPathViewModel : ObservableObject
     {
         _container = container;
         SelectedContainer = container;
-        Extension = DefaultCommandBuilder.ContainerExtension(container);
         UpdateResolvedPath();
     }
 
@@ -80,60 +83,35 @@ public partial class OutputPathViewModel : ObservableObject
 
     partial void OnSelectedContainerChanged(OutputContainer value)
     {
-        // Sync internal state and extension when user changes container in the Output card
+        // Sync internal state when user changes container in the Output card
         _container = value;
-        Extension = DefaultCommandBuilder.ContainerExtension(value);
-
-        if (IsAutoName)
-            OutputFilename = BuildAutoFilename();
-
         UpdateResolvedPath();
     }
 
     public void UpdatePresetName(string? presetName)
     {
-        _presetName = presetName;
-
-        if (IsAutoName)
-            OutputFilename = BuildAutoFilename();
-    }
-
-    /// <summary>
-    /// Returns the configured output directory, or null to use the source file's directory.
-    /// </summary>
-    public string? GetEffectiveDirectory() =>
-        string.IsNullOrWhiteSpace(OutputDirectory) ? null : OutputDirectory;
-
-    /// <summary>
-    /// Returns the configured output filename (without extension), or null to auto-generate from source.
-    /// </summary>
-    public string? GetEffectiveFilename() =>
-        IsAutoName
-            ? (_presetName is not null ? OutputFilename : null)
-            : (string.IsNullOrWhiteSpace(OutputFilename) ? null : OutputFilename);
-
-    partial void OnOutputDirectoryChanged(string value) => UpdateResolvedPath();
-    partial void OnOutputFilenameChanged(string value) => UpdateResolvedPath();
-    partial void OnExtensionChanged(string value) => UpdateResolvedPath();
-
-    partial void OnIsAutoNameChanged(bool value)
-    {
-        if (value)
-            OutputFilename = BuildAutoFilename();
-
+        PresetName = presetName;
         UpdateResolvedPath();
     }
+
+    /// <summary>
+    /// Returns the custom output directory, or null to use each source file's directory.
+    /// </summary>
+    public string? GetEffectiveDirectory() => Location.EffectiveDirectory;
+
+    partial void OnLocationModeChanged(OutputLocationMode value) => UpdateResolvedPath();
+    partial void OnCustomFolderChanged(string value) => UpdateResolvedPath();
 
     [RelayCommand]
     private async Task BrowseDirectoryAsync()
     {
         var folder = await _dialogService.OpenFolderAsync("Select output folder");
-        if (folder is not null)
-            OutputDirectory = folder;
-    }
+        if (folder is null)
+            return;
 
-    private string BuildAutoFilename() =>
-        string.IsNullOrEmpty(_presetName) ? _sourceStem : $"{_sourceStem} - {_presetName}";
+        CustomFolder = folder;
+        LocationMode = OutputLocationMode.CustomFolder;
+    }
 
     private void UpdateResolvedPath()
     {
@@ -147,10 +125,11 @@ public partial class OutputPathViewModel : ObservableObject
         {
             ResolvedPath = DefaultCommandBuilder.SuggestOutputPath(
                 _sourcePath, _container,
-                GetEffectiveDirectory(), GetEffectiveFilename(),
-                IsAutoName);
+                GetEffectiveDirectory(),
+                OutputNaming.AutoStem(_sourcePath, PresetName),
+                isAutoName: true);
         }
-        catch
+        catch (Exception ex) when (ex is CommandBuildException or ArgumentException or IOException)
         {
             ResolvedPath = "";
         }

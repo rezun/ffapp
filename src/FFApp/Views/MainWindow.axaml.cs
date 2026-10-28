@@ -199,6 +199,7 @@ public partial class MainWindow : Window
                 vm.UpdateSettings(s => s with
                 {
                     LastUsedPresetName = workspace.Preset.SelectedPreset?.Name,
+                    OutputLocation = workspace.OutputPath.Location,
                 });
 
                 var workspaceView = this.GetVisualDescendants().OfType<WorkspaceView>().FirstOrDefault();

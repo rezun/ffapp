@@ -29,7 +29,7 @@ public sealed class WorkspaceAudioTrackTests
         var validation = new ValidationService();
         var settings = new OutputSettingsViewModel(validation, messenger, Substitute.For<IFfmpegCapabilityService>(), paths);
         var video = new VideoPreviewViewModel(null);
-        var jobs = new JobListPanelViewModel(Substitute.For<IQueueService>(), commandBuilder, validation, dialog, sources, video, outputPath);
+        var jobs = new JobListPanelViewModel(Substitute.For<IQueueService>(), commandBuilder, validation, dialog, sources, video);
         var preset = new PresetViewModel(Substitute.For<IPresetService>(), dialog);
         _workspace = new WorkspaceViewModel(sources, outputPath, settings, preset,
             new CommandPreviewViewModel(commandBuilder), jobs, video, messenger);

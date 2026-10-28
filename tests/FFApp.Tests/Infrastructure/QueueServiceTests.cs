@@ -44,6 +44,41 @@ public class QueueServiceTests
         return (id ?? Guid.NewGuid().ToString(), queued);
     }
 
+    // --- Replace ---
+
+    [Fact]
+    public void Replace_PendingItem_SwapsJob()
+    {
+        var (id, original) = MakeQueueEntry("a");
+        _sut.Enqueue([(id, original)]);
+        var renamed = original with { Job = original.Job with { OutputPath = "/out/renamed.mkv" } };
+
+        _sut.Replace(id, renamed).Should().BeTrue();
+
+        _sut.Items.Single().QueuedJob.Should().BeSameAs(renamed);
+    }
+
+    [Fact]
+    public void Replace_UnknownItem_ReturnsFalse()
+    {
+        var (_, job) = MakeQueueEntry();
+
+        _sut.Replace("missing", job).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Replace_CompletedItem_ReturnsFalseAndKeepsJob()
+    {
+        var (id, original) = MakeQueueEntry("a");
+        _sut.Enqueue([(id, original)]);
+        await _sut.ExecuteAllAsync();
+
+        _sut.Replace(id, original with { Job = original.Job with { OutputPath = "/out/late.mkv" } })
+            .Should().BeFalse();
+
+        _sut.Items.Single().QueuedJob.Should().BeSameAs(original);
+    }
+
     // --- Enqueue ---
 
     [Fact]

@@ -13,8 +13,7 @@ public sealed record JobContext(
     double? TrimEndSeconds = null,
     CropRect? Crop = null,
     string? OutputDirectory = null,
-    string? OutputFilename = null,
-    bool IsAutoName = false,
+    string? OutputPresetName = null,
     ImmutableArray<int>? SelectedAudioStreamIndices = null)
 {
     /// <summary>

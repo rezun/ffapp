@@ -214,9 +214,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
 
         var reservedPaths = reservedOutputPaths is null
             ? null
-            : new HashSet<string>(
-                reservedOutputPaths.Select(Path.GetFullPath),
-                OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+            : new HashSet<string>(reservedOutputPaths.Select(Path.GetFullPath), OutputNaming.PathComparer);
 
         if (IsOutputPathAvailable(candidate, reservedPaths))
             return candidate;

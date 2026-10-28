@@ -66,7 +66,7 @@ public sealed class OptionTooltipsTests(QueueTestSession fixture)
         {
             var views = new Control[]
             {
-                new OutputPathView { DataContext = new OutputPathViewModel(Substitute.For<IDialogService>()) { IsAutoName = false } },
+                new OutputPathView { DataContext = new OutputPathViewModel(Substitute.For<IDialogService>()) { LocationMode = OutputLocationMode.CustomFolder } },
                 new PresetBarView { DataContext = new PresetViewModel(Substitute.For<IPresetService>(), Substitute.For<IDialogService>()) },
                 new DependencySetupView { DataContext = new DependencySetupViewModel(
                     Substitute.For<IDependencyService>(), Substitute.For<ISettingsService>(),

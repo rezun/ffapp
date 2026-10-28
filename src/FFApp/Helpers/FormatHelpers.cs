@@ -196,10 +196,7 @@ public static class FormatHelpers
         JobContext context,
         IReadOnlyCollection<string>? reservedOutputPaths = null)
     {
-        var outputPath = DefaultCommandBuilder.SuggestOutputPath(
-            context.MediaInfo.SourcePath, context.Settings.Container,
-            context.OutputDirectory, context.OutputFilename, context.IsAutoName,
-            reservedOutputPaths);
+        var outputPath = SuggestContextOutputPath(context, reservedOutputPaths);
 
         return BuildJobDefinition(
             context.MediaInfo.SourcePath, outputPath, context.Settings,
@@ -208,9 +205,15 @@ public static class FormatHelpers
     }
 
     public static string ResolveOutputPath(JobContext context) =>
+        SuggestContextOutputPath(context, reservedOutputPaths: null);
+
+    private static string SuggestContextOutputPath(
+        JobContext context, IReadOnlyCollection<string>? reservedOutputPaths) =>
         DefaultCommandBuilder.SuggestOutputPath(
             context.MediaInfo.SourcePath, context.Settings.Container,
-            context.OutputDirectory, context.OutputFilename, context.IsAutoName);
+            context.OutputDirectory,
+            OutputNaming.AutoStem(context.MediaInfo.SourcePath, context.OutputPresetName),
+            isAutoName: true, reservedOutputPaths);
 
     public static JobDefinition BuildJobDefinition(
         string sourcePath, string outputPath, OutputSettings settings,

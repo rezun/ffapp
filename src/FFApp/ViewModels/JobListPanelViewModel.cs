@@ -25,7 +25,6 @@ public partial class JobListPanelViewModel : ObservableObject
 
     private readonly SourceListPanelViewModel _sourceList;
     private readonly VideoPreviewViewModel _videoPreview;
-    private readonly OutputPathViewModel _outputPath;
 
     public ObservableCollection<JobItemViewModel> Jobs { get; } = [];
 
@@ -82,7 +81,7 @@ public partial class JobListPanelViewModel : ObservableObject
         _ => "The selected sources will use the current output settings.",
     };
 
-    public JobItemDetailsViewModel Details { get; } = new();
+    public JobItemDetailsViewModel Details { get; }
 
     public JobListPanelViewModel(
         IQueueService queueService,
@@ -90,8 +89,7 @@ public partial class JobListPanelViewModel : ObservableObject
         IValidationService validationService,
         IDialogService dialogService,
         SourceListPanelViewModel sourceList,
-        VideoPreviewViewModel videoPreview,
-        OutputPathViewModel outputPath)
+        VideoPreviewViewModel videoPreview)
     {
         _queueService = queueService;
         _commandBuilder = commandBuilder;
@@ -99,7 +97,7 @@ public partial class JobListPanelViewModel : ObservableObject
         _dialogService = dialogService;
         _sourceList = sourceList;
         _videoPreview = videoPreview;
-        _outputPath = outputPath;
+        Details = new JobItemDetailsViewModel(RenameJobOutputAsync);
 
         Jobs.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasJobs));
         _sourceList.PropertyChanged += OnSourceListPropertyChanged;
@@ -169,22 +167,19 @@ public partial class JobListPanelViewModel : ObservableObject
 
         if (selected.Count == 0) return;
 
-        var settings = _currentContext.Settings;
-        var outputDirectory = _outputPath.GetEffectiveDirectory();
-
         // Save current source's trim/crop so it's up to date
         if (_sourceList.SelectedSource is { } currentSource)
             _videoPreview.SaveTrimCropToSource(currentSource);
 
         if (selected.Count == 1 && selected[0] == _sourceList.SelectedSource)
         {
-            // Single focused source: use the full JobContext (user-configured output path)
+            // Single focused source: use the full JobContext (its trim, crop and audio tracks)
             await CreateSingleJobFromContextAsync();
         }
         else
         {
-            // Multiple selection: auto-name each, like "For All Sources" but scoped
-            await CreateJobsForSourcesAsync(selected, settings, outputDirectory);
+            // Multiple selection: same naming as "For All Sources", but scoped
+            await CreateJobsForSourcesAsync(selected, _currentContext);
         }
 
         UpdateSummary();
@@ -236,23 +231,20 @@ public partial class JobListPanelViewModel : ObservableObject
     {
         if (_currentContext is null) return;
 
-        var settings = _currentContext.Settings;
-        var outputDirectory = _outputPath.GetEffectiveDirectory();
-
         // Save current source's trim/crop so it's up to date
         if (_sourceList.SelectedSource is { } currentSource)
             _videoPreview.SaveTrimCropToSource(currentSource);
 
         var sourcesWithMedia = _sourceList.Sources.Where(s => s.MediaInfo is not null).ToList();
-        await CreateJobsForSourcesAsync(sourcesWithMedia, settings, outputDirectory);
+        await CreateJobsForSourcesAsync(sourcesWithMedia, _currentContext);
         UpdateSummary();
     }
 
     private async Task CreateJobsForSourcesAsync(
         IReadOnlyList<SourceFileViewModel> sources,
-        OutputSettings settings,
-        string? outputDirectory)
+        JobContext context)
     {
+        var settings = context.Settings;
         var errorMessages = new List<string>();
         var reservedOutputPaths = ReservedOutputPaths();
 
@@ -265,9 +257,9 @@ public partial class JobListPanelViewModel : ObservableObject
 
             // Auto-name output (isAutoName: true enables collision avoidance)
             var outputPath = DefaultCommandBuilder.SuggestOutputPath(
-                source.SourcePath, settings.Container, outputDirectory,
-                outputFilename: null, isAutoName: true,
-                reservedOutputPaths: reservedOutputPaths);
+                source.SourcePath, settings.Container, context.OutputDirectory,
+                OutputNaming.AutoStem(source.SourcePath, context.OutputPresetName),
+                isAutoName: true, reservedOutputPaths: reservedOutputPaths);
 
             var job = FormatHelpers.BuildJobDefinition(
                 source.SourcePath, outputPath, settings, trimIn, trimOut, crop, source.SelectedAudioStreamIndices);
@@ -302,6 +294,70 @@ public partial class JobListPanelViewModel : ObservableObject
                 "Some files skipped",
                 string.Join(Environment.NewLine, errorMessages));
         }
+    }
+
+    // ── Output Rename ─────────────────────────────────────────────
+
+    /// <summary>
+    /// Gives a queued job a new output file name (same folder and extension) and rebuilds its
+    /// commands. Only jobs that have not started or will re-run can be renamed.
+    /// </summary>
+    internal async Task RenameJobOutputAsync(JobItemViewModel job, string requestedStem)
+    {
+        ArgumentNullException.ThrowIfNull(job);
+        ArgumentNullException.ThrowIfNull(requestedStem);
+        if (!job.CanRenameOutput)
+            return;
+
+        var stem = requestedStem.Trim();
+        if (!OutputNaming.IsValidStem(stem))
+        {
+            await _dialogService.ShowErrorAsync(
+                "Invalid file name",
+                "Enter a file name without a folder or any of these characters: / \\ : * ? \" < > |");
+            return;
+        }
+
+        var current = job.QueuedJob.Job.OutputPath;
+        var renamed = Path.Combine(
+            Path.GetDirectoryName(current) ?? "",
+            string.Concat(stem, Path.GetExtension(current)));
+        if (OutputNaming.PathComparer.Equals(renamed, current))
+            return;
+
+        var renamedFullPath = Path.GetFullPath(renamed);
+        if (OutputNaming.PathComparer.Equals(renamedFullPath, Path.GetFullPath(job.SourcePath)))
+        {
+            await _dialogService.ShowErrorAsync(
+                "File name in use", "The output cannot replace its source file.");
+            return;
+        }
+
+        if (Jobs.Any(other => other != job
+            && OutputNaming.PathComparer.Equals(Path.GetFullPath(other.QueuedJob.Job.OutputPath), renamedFullPath)))
+        {
+            await _dialogService.ShowErrorAsync(
+                "File name in use", $"Another job in the queue already writes {Path.GetFileName(renamed)}.");
+            return;
+        }
+
+        var definition = job.QueuedJob.Job with { OutputPath = renamed };
+        IReadOnlyList<GeneratedCommand> commands;
+        try
+        {
+            commands = _commandBuilder.Build(definition, job.MediaInfo);
+        }
+        catch (CommandBuildException ex)
+        {
+            await _dialogService.ShowErrorAsync("Command error", ex.Message);
+            return;
+        }
+
+        var updated = job.QueuedJob with { Job = definition, Commands = [.. commands] };
+
+        // The queue refuses jobs that started while the user was typing
+        if (_queueService.Replace(job.Id, updated))
+            job.QueuedJob = updated;
     }
 
     // ── Job Execution ─────────────────────────────────────────────

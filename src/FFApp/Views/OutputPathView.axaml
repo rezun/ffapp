@@ -9,6 +9,7 @@
              x:DataType="vm:OutputPathViewModel">
 
     <UserControl.Resources>
+        <conv:EnumToBoolConverter x:Key="EnumToBool" />
         <DataTemplate x:Key="ContainerTemplate" x:DataType="models:OutputContainer">
             <TextBlock Text="{Binding Converter={x:Static conv:EnumLabelConverters.Container}}" />
         </DataTemplate>
@@ -32,13 +33,30 @@
                         ItemTemplate="{StaticResource ContainerTemplate}" />
                 </Grid>
 
-                <!-- Output directory -->
-                <Grid ColumnDefinitions="85,*,Auto">
+                <!-- Output location -->
+                <Grid ColumnDefinitions="85,Auto,Auto">
+                    <TextBlock Text="Save to" VerticalAlignment="Center" />
+                    <RadioButton Grid.Column="1" Content="Next to source file" GroupName="OutputLocation"
+                                 ToolTip.Tip="Write each encoded file into the same folder as its source file."
+                                 IsChecked="{Binding LocationMode,
+                                     Converter={StaticResource EnumToBool},
+                                     ConverterParameter={x:Static models:OutputLocationMode.SourceFolder}}" />
+                    <RadioButton Grid.Column="2" Content="Custom folder" GroupName="OutputLocation"
+                                 ToolTip.Tip="Write all encoded files into one folder of your choice."
+                                 IsChecked="{Binding LocationMode,
+                                     Converter={StaticResource EnumToBool},
+                                     ConverterParameter={x:Static models:OutputLocationMode.CustomFolder}}"
+                                 Margin="12,0,0,0" />
+                </Grid>
+
+                <!-- Custom folder (only in custom folder mode) -->
+                <Grid ColumnDefinitions="85,*,Auto"
+                      IsVisible="{Binding IsCustomFolder}">
                     <TextBlock Text="Folder" VerticalAlignment="Center" />
                     <TextBox Grid.Column="1"
-                             ToolTip.Tip="Folder for encoded files. Leave empty to use each source file's folder."
-                             Text="{Binding OutputDirectory}"
-                             PlaceholderText="Output folder" />
+                             ToolTip.Tip="Folder for all encoded files. Until one is chosen, files are written next to their source."
+                             Text="{Binding CustomFolder}"
+                             PlaceholderText="No folder chosen. Files go next to their source." />
                     <Button Grid.Column="2"
                             ToolTip.Tip="Choose the folder for encoded output files."
                             Content="Browse"
@@ -47,29 +65,9 @@
                             VerticalAlignment="Center" />
                 </Grid>
 
-                <!-- Auto-name checkbox -->
-                <CheckBox Content="Auto-name from source filename"
-                          ToolTip.Tip="Generate the output name from the source filename, with the selected preset name when available."
-                          IsChecked="{Binding IsAutoName}"
-                          Margin="85,0,0,0" />
-
-                <!-- Output filename + extension (only when auto-name is off) -->
-                <Grid ColumnDefinitions="85,*,Auto"
-                      IsVisible="{Binding !IsAutoName}">
-                    <TextBlock Text="Filename" VerticalAlignment="Center" />
-                    <TextBox Grid.Column="1"
-                             ToolTip.Tip="Set the output filename without its extension. The extension is added from the selected container."
-                             Text="{Binding OutputFilename}"
-                             PlaceholderText="Enter filename" />
-                    <TextBlock Grid.Column="2"
-                               Classes="mono secondary"
-                               Text="{Binding Extension}"
-                               VerticalAlignment="Center"
-                               Margin="6,0,0,0" />
-                </Grid>
-
-                <!-- Resolved path preview -->
+                <!-- Resolved path for the selected source -->
                 <TextBlock Classes="mono caption secondary"
+                           ToolTip.Tip="Output file for the selected source. Each source gets its own name; a number is added if the file already exists."
                            Text="{Binding ResolvedPath}"
                            TextWrapping="Wrap"
                            Margin="85,0,0,0"

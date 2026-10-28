@@ -61,7 +61,7 @@
                             </StackPanel>
                         </Border>
 
-                        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto"
+                        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto"
                               ColumnSpacing="12" RowSpacing="6">
                             <TextBlock Text="Status" Classes="caption secondary" />
                             <TextBlock Grid.Column="1" Text="{Binding StateText}" FontWeight="SemiBold" />
@@ -71,9 +71,29 @@
                             <TextBlock Grid.Row="2" Text="Output" Classes="caption secondary" />
                             <SelectableTextBlock Grid.Row="2" Grid.Column="1" Text="{Binding OutputPath}"
                                                  TextWrapping="Wrap" />
-                            <TextBlock Grid.Row="3" Text="Progress" Classes="caption secondary"
+                            <TextBlock Grid.Row="3" Text="File name" Classes="caption secondary"
+                                       VerticalAlignment="Center"
+                                       IsVisible="{Binding CanRenameOutput}" />
+                            <Grid Grid.Row="3" Grid.Column="1" ColumnDefinitions="*,Auto,Auto"
+                                  IsVisible="{Binding CanRenameOutput}">
+                                <TextBox x:Name="OutputFileStemTextBox"
+                                         ToolTip.Tip="Change this job's output file name. The folder and extension stay the same."
+                                         Text="{Binding OutputFileStem}">
+                                    <TextBox.KeyBindings>
+                                        <KeyBinding Gesture="Enter" Command="{Binding RenameOutputCommand}" />
+                                    </TextBox.KeyBindings>
+                                </TextBox>
+                                <TextBlock Grid.Column="1" Classes="mono secondary"
+                                           Text="{Binding OutputExtension}"
+                                           VerticalAlignment="Center" Margin="6,0,0,0" />
+                                <Button x:Name="RenameOutputButton" Grid.Column="2" Content="Rename"
+                                        ToolTip.Tip="Apply the new output file name to this job."
+                                        Command="{Binding RenameOutputCommand}"
+                                        VerticalAlignment="Center" Margin="6,0,0,0" />
+                            </Grid>
+                            <TextBlock Grid.Row="4" Text="Progress" Classes="caption secondary"
                                        IsVisible="{Binding ProgressText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding ProgressText}"
+                            <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding ProgressText}"
                                        TextWrapping="Wrap"
                                        IsVisible="{Binding ProgressText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                         </Grid>

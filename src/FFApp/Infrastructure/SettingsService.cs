@@ -10,6 +10,9 @@ namespace FFApp.Infrastructure;
 
 public sealed class SettingsService(string? path = null) : ISettingsService
 {
+    private const string SourceFolderMode = "source_folder";
+    private const string CustomFolderMode = "custom_folder";
+
     private readonly string _path = path ?? AppPaths.SettingsFilePath();
 
     public async Task<AppSettings> LoadAsync(CancellationToken ct = default)
@@ -54,6 +57,7 @@ public sealed class SettingsService(string? path = null) : ISettingsService
             ExecutablePaths = executablePaths,
             LastUsedSettings = lastUsedSettings,
             LastUsedPresetName = lastUsedPresetName,
+            OutputLocation = DeserializeOutputLocation(root),
             SplitterLayout = splitterLayout,
             WindowGeometry = windowGeometry,
             ThemePreference = themePreference,
@@ -100,6 +104,11 @@ public sealed class SettingsService(string? path = null) : ISettingsService
             ["last_used_settings"] = SettingsSerializer.SerializeOutputSettings(
                 settings.LastUsedSettings),
             ["last_used_preset_name"] = settings.LastUsedPresetName,
+            ["output_location"] = new JsonObject
+            {
+                ["mode"] = SerializeOutputLocationMode(settings.OutputLocation.Mode),
+                ["custom_folder"] = settings.OutputLocation.CustomFolder,
+            },
             ["splitter_layout"] = new JsonObject
             {
                 ["main_splitter_sizes"] = ToJsonArray(settings.SplitterLayout.MainSplitterSizes),
@@ -142,6 +151,32 @@ public sealed class SettingsService(string? path = null) : ISettingsService
             Ffprobe: ffprobe,
             Mkvpropedit: mkvpropedit);
     }
+
+    private static OutputLocation DeserializeOutputLocation(JsonElement root)
+    {
+        var el = SettingsSerializer.GetObjectOrEmpty(root, "output_location");
+
+        // Unknown or missing modes (older files, hand edits) fall back to the source folder
+        var mode = ReadOptionalStringValue(el, "mode") switch
+        {
+            CustomFolderMode => OutputLocationMode.CustomFolder,
+            _ => OutputLocationMode.SourceFolder,
+        };
+        return new OutputLocation(mode, ReadOptionalStringValue(el, "custom_folder"));
+    }
+
+    private static string SerializeOutputLocationMode(OutputLocationMode mode) => mode switch
+    {
+        OutputLocationMode.SourceFolder => SourceFolderMode,
+        OutputLocationMode.CustomFolder => CustomFolderMode,
+        _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown output location mode."),
+    };
+
+    /// <summary>Like <see cref="ReadOptionalString"/>, but ignores non-string values instead of throwing.</summary>
+    private static string? ReadOptionalStringValue(JsonElement element, string property) =>
+        element.TryGetProperty(property, out var prop) && prop.ValueKind == JsonValueKind.String
+            ? ReadOptionalString(element, property)
+            : null;
 
     private static SplitterLayout DeserializeSplitterLayout(JsonElement root)
     {

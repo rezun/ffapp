@@ -182,8 +182,8 @@ Every enabled track gets one status for the chosen output format:
 
 | Status | Meaning | Blocks the start |
 |---|---|---|
-| **Compatible** | Copied as is | No |
-| **Converted** | Text subtitle that is converted to a format the output accepts (section 5) | No |
+| **Copy** | The track is copied as is | No |
+| **Convert** | Text subtitle that is converted to a format the output accepts (section 5) | No |
 | **Warning** | Allowed, but many players do not support it (for example FLAC or Opus in MP4) | No |
 | **Incompatible** | The output format cannot hold this track | Yes |
 
@@ -265,7 +265,7 @@ The check also covers things a plain `-c copy` does not solve:
 
 - Only text subtitles are converted. Bitmap subtitles cannot be converted (no OCR) and are incompatible with formats that do not accept them.
 - Target per output format: `mov_text` for MP4/MOV, `webvtt` for WebM, `subrip` for `mov_text` going into Matroska.
-- ASS/SSA lose their styling (fonts, positions, colors) when converted. The track shows this as a note on its "Converted" status.
+- ASS/SSA lose their styling (fonts, positions, colors) when converted. The track shows this as a note on its "Convert" status.
 - Conversion is the only exception to "copy only", and it applies to subtitles only.
 
 ## 6. Track metadata
@@ -353,7 +353,7 @@ FFRux follows FFApp's look and feel: the shared tokens from `Tokens.axaml` (dark
 - Grouped by type with a header row per group (section 2.3).
 - Each source has a numbered, colored marker (1, 2, 3) used in the source list and the track table. The number keeps it usable without color vision.
 - Only flags that are set are shown, as small chips.
-- The status column pairs a symbol with text: copied, converted, warning, not supported. Disabled tracks show "Not included".
+- The status column pairs a symbol with text and describes what the job will do with the track: "Copy", "Convert to …", a warning, or "Not supported in …". Disabled tracks show "Not included".
 - The table is read-only apart from the enabled checkbox and drag and drop; editing happens in the properties pane.
 
 ### 9.3 Properties pane

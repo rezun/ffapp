@@ -125,15 +125,15 @@
             <colgroup><col style="width:28px"><col style="width:26px"><col style="width:88px"><col style="width:64px"><col style="width:150px"><col style="width:124px"><col><col style="width:196px"></colgroup>
             <tr><th></th><th></th><th>Codec</th><th>Language</th><th>Name</th><th>Flags</th><th>Details</th><th>Status for MP4</th></tr>
             <tr class="group"><td colspan="8">Video</td></tr>
-            <tr><td><span class="cb on"></span></td><td><span class="src s1">1</span></td><td>HEVC</td><td>und</td><td>Interstellar</td><td><span class="chip">Default</span></td><td class="caption">2160p · 23.976 · HDR10</td><td><span class="st ok">✓ Copied</span></td></tr>
+            <tr><td><span class="cb on"></span></td><td><span class="src s1">1</span></td><td>HEVC</td><td>und</td><td>Interstellar</td><td><span class="chip">Default</span></td><td class="caption">2160p · 23.976 · HDR10</td><td><span class="st ok">✓ Copy</span></td></tr>
             <tr class="group"><td colspan="8">Audio</td></tr>
-            <tr><td><span class="cb on"></span></td><td><span class="src s1">1</span></td><td>E-AC-3</td><td>ger</td><td>Dolby Digital Plus 5.1</td><td><span class="chip">Default</span></td><td class="caption">5.1 · 768 kb/s</td><td><span class="st ok">✓ Copied</span></td></tr>
+            <tr><td><span class="cb on"></span></td><td><span class="src s1">1</span></td><td>E-AC-3</td><td>ger</td><td>Dolby Digital Plus 5.1</td><td><span class="chip">Default</span></td><td class="caption">5.1 · 768 kb/s</td><td><span class="st ok">✓ Copy</span></td></tr>
             <tr><td><span class="cb on"></span></td><td><span class="src s1">1</span></td><td>DTS-HD MA</td><td>eng</td><td>DTS-HD Master Audio</td><td><span class="chip">Original</span></td><td class="caption">7.1 · 24 bit</td><td><span class="st warn">▲ Limited player support</span></td></tr>
             <tr><td><span class="cb on"></span></td><td><span class="src s1">1</span></td><td>TrueHD</td><td>eng</td><td>Dolby TrueHD Atmos</td><td></td><td class="caption">7.1 · 24 bit</td><td><span class="st err">✕ Not supported in MP4</span></td></tr>
-            <tr><td><span class="cb on"></span></td><td><span class="src s3">3</span></td><td>AC-3</td><td>eng</td><td>Director's commentary</td><td><span class="chip">Commentary</span></td><td class="caption">2.0 · 192 kb/s · +120 ms</td><td><span class="st ok">✓ Copied</span></td></tr>
+            <tr><td><span class="cb on"></span></td><td><span class="src s3">3</span></td><td>AC-3</td><td>eng</td><td>Director's commentary</td><td><span class="chip">Commentary</span></td><td class="caption">2.0 · 192 kb/s · +120 ms</td><td><span class="st ok">✓ Copy</span></td></tr>
             <tr class="off"><td><span class="cb"></span></td><td><span class="src s1">1</span></td><td>AC-3</td><td>spa</td><td>Surround 5.1</td><td></td><td class="caption">5.1 · 640 kb/s</td><td class="caption">Not included</td></tr>
             <tr class="group"><td colspan="8">Subtitles</td></tr>
-            <tr class="sel"><td><span class="cb on"></span></td><td><span class="src s2">2</span></td><td>SubRip</td><td>ger</td><td>Forced</td><td><span class="chip">Default</span><span class="chip">Forced</span></td><td class="caption">Text · +250 ms</td><td><span class="st conv">⇄ Converted to MP4 text</span></td></tr>
+            <tr class="sel"><td><span class="cb on"></span></td><td><span class="src s2">2</span></td><td>SubRip</td><td>ger</td><td>Forced</td><td><span class="chip">Default</span><span class="chip">Forced</span></td><td class="caption">Text · +250 ms</td><td><span class="st conv">⇄ Convert to MP4 text</span></td></tr>
             <tr><td><span class="cb on"></span></td><td><span class="src s1">1</span></td><td>HDMV PGS</td><td>ger</td><td></td><td></td><td class="caption">Bitmap</td><td><span class="st err">✕ Bitmap subtitles need MKV</span></td></tr>
             <tr><td><span class="cb on"></span></td><td><span class="src s1">1</span></td><td>HDMV PGS</td><td>eng</td><td>SDH</td><td><span class="chip">Hearing impaired</span></td><td class="caption">Bitmap</td><td><span class="st err">✕ Bitmap subtitles need MKV</span></td></tr>
             <tr class="off"><td><span class="cb"></span></td><td><span class="src s1">1</span></td><td>HDMV PGS</td><td>fin</td><td></td><td></td><td class="caption">Bitmap</td><td class="caption">Not included</td></tr>
@@ -173,7 +173,7 @@
 
         <div class="nested" style="margin: 4px 8px 8px">
           <b>Compatibility</b>
-          <div class="st conv" style="margin-bottom:4px">⇄ Converted to MP4 text (mov_text)</div>
+          <div class="st conv" style="margin-bottom:4px">⇄ Convert to MP4 text (mov_text)</div>
           <div class="caption">SubRip has no styling, so nothing is lost.</div>
         </div>
 
@@ -225,12 +225,12 @@ $(run, '.main').classList.add('busy');
 $$(run, '.combo')[0].textContent = 'Matroska (.mkv)';
 $$(run, '.input')[1].textContent = '/Volumes/Elements/rips/Interstellar/Interstellar.mkv';
 $$(run, 'th').at(-1).textContent = 'Status for MKV';
-$$(run, 'td .st.err, td .st.warn, td .st.conv').forEach(e => { e.className = 'st ok'; e.textContent = '✓ Copied'; });
+$$(run, 'td .st.err, td .st.warn, td .st.conv').forEach(e => { e.className = 'st ok'; e.textContent = '✓ Copy'; });
 $(run, '.issues').innerHTML = '<div style="display:flex; justify-content:space-between"><b style="font-weight:600; color:var(--header)">Compatibility</b><span class="st ok">✓ All enabled tracks fit Matroska</span></div>';
 $$(run, '.flag.dis').forEach(e => { e.classList.remove('dis'); e.querySelector('.cb').classList.remove('dis'); });
 $(run, '.hint').textContent = 'Matroska stores all flags.';
 const compat = $$(run, '.nested')[0];
-compat.querySelector('.st').className = 'st ok'; compat.querySelector('.st').textContent = '✓ Copied as SubRip';
+compat.querySelector('.st').className = 'st ok'; compat.querySelector('.st').textContent = '✓ Copy as SubRip';
 compat.querySelector('.caption').textContent = 'Matroska stores SubRip as is.';
 $(run, '.statusbar').innerHTML = '<span>Remuxing… 42 %</span><div class="progress"><i></i></div><span class="caption">1:12 remaining · 25.8 of 61.3 GB</span><span style="flex:1"></span><span class="btn danger">Cancel</span>';
 

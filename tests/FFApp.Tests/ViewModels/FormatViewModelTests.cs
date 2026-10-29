@@ -1,4 +1,5 @@
 using FFApp.Core.Models;
+using FFApp.Core.Validation;
 using FFApp.ViewModels;
 using FluentAssertions;
 
@@ -72,5 +73,18 @@ public class FormatViewModelTests
         _sut.AvailableAudioCodecs.Should().BeEquivalentTo(
             [AudioCodec.Aac, AudioCodec.Mp3, AudioCodec.Opus],
             o => o.WithStrictOrdering());
+    }
+
+    [Fact]
+    public void ChangeMode_AfterAudioOnlyContainer_RefreshesVideoCodecsForNewContainer()
+    {
+        _sut.SelectedVideoMode = VideoMode.Remove;
+        _sut.SelectedContainer = OutputContainer.Mka;
+
+        _sut.SelectedVideoMode = VideoMode.Copy;
+
+        _sut.SelectedContainer.Should().Be(OutputContainer.Mp4);
+        _sut.AvailableVideoCodecs.Should().Equal(CompatibilityData.AllowedVideoCodecs(OutputContainer.Mp4));
+        _sut.AvailableVideoCodecs.Should().Contain(_sut.SelectedVideoCodec);
     }
 }

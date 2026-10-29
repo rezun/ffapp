@@ -55,10 +55,11 @@ public partial class FormatViewModel : ObservableObject
             var newContainers = CompatibilityData.ContainersForVideoMode(value);
             AvailableContainers = newContainers;
 
+            // The container change below is suppressed, so refresh the codecs for
+            // whichever container ends up selected.
             if (!newContainers.Contains(SelectedContainer))
                 SelectedContainer = newContainers[0];
-            else
-                RefreshCodecsForContainer(SelectedContainer);
+            RefreshCodecsForContainer(SelectedContainer);
         }
         finally
         {
@@ -84,10 +85,16 @@ public partial class FormatViewModel : ObservableObject
 
     private void RefreshCodecsForContainer(OutputContainer container)
     {
+        // Audio-only containers have no video codecs. Keep the previous list so the
+        // codec ComboBox never sees an empty list: it would clear its selection and
+        // write null into the non-nullable SelectedVideoCodec binding.
         var videoCodecs = CompatibilityData.AllowedVideoCodecs(container);
-        AvailableVideoCodecs = videoCodecs;
-        if (videoCodecs.Count > 0 && !videoCodecs.Contains(SelectedVideoCodec))
-            SelectedVideoCodec = videoCodecs[0];
+        if (videoCodecs.Count > 0)
+        {
+            AvailableVideoCodecs = videoCodecs;
+            if (!videoCodecs.Contains(SelectedVideoCodec))
+                SelectedVideoCodec = videoCodecs[0];
+        }
 
         AvailableAudioCodecs = CompatibilityData.AllowedAudioCodecs(container);
     }

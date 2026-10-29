@@ -55,6 +55,30 @@ public class SettingsSerializerTests
 
     // --- Round-trip tests ---
 
+    public static TheoryData<OutputSettings> NonReencodeVideoSettings => new()
+    {
+        new OutputSettings(Container: OutputContainer.Mkv, VideoMode: VideoMode.Copy, VideoCodec: VideoCodec.Av1),
+        new OutputSettings(Container: OutputContainer.Mka, VideoMode: VideoMode.Remove, VideoCodec: VideoCodec.H264),
+    };
+
+    [Theory]
+    [MemberData(nameof(NonReencodeVideoSettings))]
+    public void RoundTrip_CopyAndRemoveVideoModes_PreserveSettingsExactly(OutputSettings original)
+    {
+        RoundTrip(original).Should().Be(original);
+    }
+
+    [Fact]
+    public void Deserialize_MissingVideoMode_DefaultsToReencode()
+    {
+        var json = SettingsSerializer.SerializeOutputSettings(new OutputSettings(VideoMode: VideoMode.Copy));
+        json.Remove("video_mode");
+        using var doc = JsonDocument.Parse(json.ToJsonString());
+
+        SettingsSerializer.DeserializeOutputSettings(doc.RootElement).VideoMode
+            .Should().Be(VideoMode.Reencode);
+    }
+
     [Theory]
     [InlineData(AudioMode.Copy, true)]
     [InlineData(AudioMode.Reencode, true)]

@@ -25,6 +25,7 @@ public static class SettingsSerializer
         return new JsonObject
         {
             ["container"] = EnumToString(settings.Container),
+            ["video_mode"] = EnumToString(settings.VideoMode),
             ["video_codec"] = EnumToString(settings.VideoCodec),
             ["encoding_strategy"] = EnumToString(settings.EncodingStrategy),
             ["resolution_preset"] = EnumToString(settings.ResolutionPreset),
@@ -93,6 +94,10 @@ public static class SettingsSerializer
     public static OutputSettings DeserializeOutputSettings(JsonElement element)
     {
         var container = ReadEnum<OutputContainer>(element, "container", OutputContainer.Mp4);
+        // Settings written before video_mode was stored were always treated as re-encode.
+        var videoMode = ReadEnum<VideoMode>(element, "video_mode", VideoMode.Reencode);
+        if (!Enum.IsDefined(videoMode))
+            throw new SettingsDecodeException("Invalid video mode.");
         var videoCodec = ReadEnum<VideoCodec>(element, "video_codec", VideoCodec.H264);
         var encodingStrategy = ReadEnum<EncodingStrategy>(
             element, "encoding_strategy", EncodingStrategy.TargetQuality);
@@ -101,7 +106,10 @@ public static class SettingsSerializer
         var frameRatePreset = ReadEnum<FrameRatePreset>(
             element, "frame_rate_preset", FrameRatePreset.Original);
 
-        ValidateContainerCodecs(container, videoCodec);
+        // Audio-only containers allow no video codec; the stored codec only matters again
+        // once video is copied or re-encoded.
+        if (videoMode != VideoMode.Remove)
+            ValidateContainerCodecs(container, videoCodec);
 
         // Audio
         var audioEl = GetObjectOrEmpty(element, "audio_options");
@@ -144,19 +152,28 @@ public static class SettingsSerializer
             VideoBitrate: ReadInt(bitrateEl, "video_bitrate", 3_000_000),
             TwoPass: ReadBool(bitrateEl, "two_pass"));
 
-        // Target quality
-        var qualityEl = GetObjectOrEmpty(element, "target_quality");
-        var targetQuality = DeserializeQualityOptions(videoCodec, qualityEl);
-
-        // Video encoder options
+        // Target quality and video encoder options only apply when re-encoding. Copy and
+        // remove settings carry the same placeholders OutputSettingsViewModel.BuildSettings
+        // writes, so a saved preset compares equal to the settings it was saved from.
+        QualityOptions targetQuality;
         VideoEncoderOptions? videoEncoderOptions = null;
-        if (element.TryGetProperty("video_encoder_options", out var encoderEl)
-            && encoderEl.ValueKind == JsonValueKind.Object)
+        if (videoMode == VideoMode.Reencode)
         {
-            videoEncoderOptions = DeserializeVideoEncoderOptions(videoCodec, encoderEl);
-        }
+            var qualityEl = GetObjectOrEmpty(element, "target_quality");
+            targetQuality = DeserializeQualityOptions(videoCodec, qualityEl);
 
-        videoEncoderOptions ??= DefaultVideoEncoderOptions(videoCodec, targetQuality, qualityEl);
+            if (element.TryGetProperty("video_encoder_options", out var encoderEl)
+                && encoderEl.ValueKind == JsonValueKind.Object)
+            {
+                videoEncoderOptions = DeserializeVideoEncoderOptions(videoCodec, encoderEl);
+            }
+
+            videoEncoderOptions ??= DefaultVideoEncoderOptions(videoCodec, targetQuality, qualityEl);
+        }
+        else
+        {
+            targetQuality = H26xQualityOptions.ForCodec(VideoCodec.H264);
+        }
 
         // HDR settings
         var hdrMode = ReadEnum<HdrMode>(element, "hdr_mode", HdrMode.Preserve);
@@ -198,6 +215,7 @@ public static class SettingsSerializer
 
         return new OutputSettings(
             Container: container,
+            VideoMode: videoMode,
             VideoCodec: videoCodec,
             EncodingStrategy: encodingStrategy,
             ResolutionPreset: resolutionPreset,

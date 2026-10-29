@@ -44,6 +44,8 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
 
     internal const string TwoPassLogSuffix = "ffpass";
 
+    private static readonly string TrueHdCodecName = "truehd";
+
     public IReadOnlyList<GeneratedCommand> Build(JobDefinition job, SourceMediaInfo mediaInfo)
     {
         // Matroska stores pictures as file attachments. Mapping them as video would
@@ -79,6 +81,8 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         var trimStart = job.TrimStartSeconds ?? 0;
         if (trimStart > 0)
             inputArgs.AddRange(["-ss", FormatSeconds(trimStart)]);
+        inputArgs.AddRange(BuildAudioDecoderArguments(
+            job, AudioTrackSelection.Apply(mediaInfo, job.SelectedAudioStreamIndices)));
         inputArgs.AddRange(["-i", job.SourcePath]);
         if (job.TrimEndSeconds is > 0 && job.TrimEndSeconds < (mediaInfo.DurationSeconds ?? double.MaxValue))
         {
@@ -494,6 +498,34 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
 
         return string.Join("; ", settings);
     }
+
+    // TrueHD embeds encoder-made stereo and 5.1 presentations. Decoding one of them avoids
+    // a generic swresample downmix; a stream without it decodes in full and -ac still downmixes.
+    private static List<string> BuildAudioDecoderArguments(JobDefinition job, SourceMediaInfo mediaInfo)
+    {
+        var arguments = new List<string>();
+        if (job.AudioOptions.Mode != AudioMode.Reencode
+            || job.AudioOptions.AudioChannels is not { } channels
+            || TrueHdDownmixLayout(channels) is not { } layout)
+        {
+            return arguments;
+        }
+
+        foreach (var stream in mediaInfo.AudioStreams.Where(stream =>
+            string.Equals(stream.CodecName, TrueHdCodecName, StringComparison.Ordinal) && stream.Channels > channels))
+        {
+            arguments.AddRange([$"-downmix:{stream.Index}", layout]);
+        }
+        return arguments;
+    }
+
+    // The decoder accepts only these layouts; FFmpeg's "5.1" is the back-surround variant and is rejected.
+    private static string? TrueHdDownmixLayout(int channels) => channels switch
+    {
+        2 => "stereo",
+        6 => "5.1(side)",
+        _ => null,
+    };
 
     private static List<string> BuildAudioReencodeArguments(JobDefinition job)
     {

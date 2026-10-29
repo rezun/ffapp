@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.InteropServices;
 
 using FFApp.Core;
@@ -747,6 +748,65 @@ public class CommandBuilderTests
         var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
 
         args.Should().NotContain("-ac");
+    }
+
+    [Theory]
+    [InlineData(6, "5.1(side)")]
+    [InlineData(2, "stereo")]
+    public void Build_TrueHdDownmix_RequestsEmbeddedPresentationBeforeInput(int channels, string layout)
+    {
+        var job = JobWith(s => s.WithAudioReencode(AudioCodec.Opus, 256_000, channels));
+        var media = new TestMediaInfoBuilder().WithAudioStreams(
+            new AudioStreamInfo(1, "truehd", Channels: 8) { ChannelLayout = "7.1" }).Build();
+
+        var args = _sut.Build(job, media)[0].Arguments;
+
+        args.Should().ContainInOrder("-downmix:1", layout, "-i");
+        args.Should().ContainInOrder("-ac", channels.ToString(CultureInfo.InvariantCulture));
+    }
+
+    [Theory]
+    [InlineData("truehd", 8, 1)]
+    [InlineData("truehd", 6, 6)]
+    [InlineData("truehd", 2, 2)]
+    [InlineData("truehd", 8, null)]
+    [InlineData("ac3", 6, 2)]
+    public void Build_AudioWithoutTrueHdDownmix_OmitsDecoderOption(string codec, int sourceChannels, int? channels)
+    {
+        var job = JobWith(s => s.WithAudioReencode(AudioCodec.Opus, 256_000, channels));
+        var media = new TestMediaInfoBuilder().WithAudioStreams(
+            new AudioStreamInfo(1, codec, Channels: sourceChannels)).Build();
+
+        _sut.Build(job, media)[0].Arguments.Should().NotContain(arg => arg.StartsWith("-downmix", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Build_AudioCopyTrueHd_OmitsDecoderOption()
+    {
+        var media = new TestMediaInfoBuilder().WithAudioStreams(
+            new AudioStreamInfo(1, "truehd", Channels: 8)).Build();
+
+        _sut.Build(JobWith(s => s.WithAudioCopy()), media)[0].Arguments.Should()
+            .NotContain(arg => arg.StartsWith("-downmix", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Build_TrueHdDownmix_TargetsOnlySelectedTrueHdTracksBySourceIndex()
+    {
+        var media = new TestMediaInfoBuilder().WithAudioStreams(
+            new AudioStreamInfo(1, "truehd", Channels: 8),
+            new AudioStreamInfo(2, "ac3", Channels: 6),
+            new AudioStreamInfo(3, "truehd", Channels: 8),
+            new AudioStreamInfo(4, "truehd", Channels: 8)).Build();
+        var job = new TestJobDefinitionBuilder()
+            .WithOutputSettings(s => s.WithAudioReencode(AudioCodec.Opus, 256_000, 6))
+            .WithAudioTracks(1, 2, 3)
+            .Build();
+
+        var args = _sut.Build(job, media)[0].Arguments;
+
+        args.Where(arg => arg.StartsWith("-downmix", StringComparison.Ordinal)).Should()
+            .Equal("-downmix:1", "-downmix:3");
     }
 
     [Fact]

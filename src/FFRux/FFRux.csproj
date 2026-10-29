@@ -7,10 +7,12 @@
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <RootNamespace>FFRux</RootNamespace>
     <Version>0.1.0</Version>
+    <ApplicationIcon>Assets/ffrux.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="FFRux.Tests" />
+    <AvaloniaResource Include="Assets/ffrux.ico" />
   </ItemGroup>
 
   <ItemGroup>

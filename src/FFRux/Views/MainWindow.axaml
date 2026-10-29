@@ -8,6 +8,7 @@
         x:Class="FFRux.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Title="{Binding WindowTitle}"
+        Icon="/Assets/ffrux.ico"
         Width="1440" Height="900"
         MinWidth="1100" MinHeight="600"
         DragDrop.AllowDrop="True">

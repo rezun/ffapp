@@ -79,10 +79,11 @@ public sealed partial class AudioViewModel : ObservableObject
     [ObservableProperty]
     private int _selectedAudioChannels;
 
-    [ObservableProperty]
-    private IReadOnlyList<int> _availableAudioChannelOptions = [0, 1, 2];
-
-    private static readonly int[] AllChannelOptions = [0, 1, 2, 6];
+    /// <summary>
+    /// Channel count options; 0 is "Auto" (keep the source layout). The list is fixed so a
+    /// preset's choice stays visible and selected regardless of the loaded source.
+    /// </summary>
+    public static IReadOnlyList<int> AvailableAudioChannelOptions { get; } = [0, 1, 2, 6];
 
     [ObservableProperty]
     private int _selectedSampleRate;
@@ -142,27 +143,6 @@ public sealed partial class AudioViewModel : ObservableObject
         {
             OnPropertyChanged(nameof(AudioBitrate));
             OnPropertyChanged(nameof(CustomBitrateText));
-        }
-    }
-
-    private int _maxSourceChannels;
-
-    public int MaxSourceChannels
-    {
-        get => _maxSourceChannels;
-        set
-        {
-            if (!SetProperty(ref _maxSourceChannels, value))
-                return;
-
-            // Show options that are valid downmixes (less than source channels),
-            // plus stereo is always available (mono→stereo is a valid expansion).
-            AvailableAudioChannelOptions = AllChannelOptions
-                .Where(ch => ch == 0 || ch <= 2 || ch < value)
-                .ToArray();
-
-            if (!AvailableAudioChannelOptions.Contains(SelectedAudioChannels))
-                SelectedAudioChannels = 0;
         }
     }
 

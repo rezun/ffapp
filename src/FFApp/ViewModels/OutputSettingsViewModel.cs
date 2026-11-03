@@ -153,10 +153,6 @@ public partial class OutputSettingsViewModel : ObservableObject
         Audio.UpdateTracks(mediaInfo, selectedAudioStreamIndices);
         Format.SourceHasVideo = mediaInfo.VideoStreams.Length > 0;
         Audio.AvailableAudioCodecs = Format.AvailableAudioCodecs;
-        Audio.MaxSourceChannels = mediaInfo.AudioStreams
-            .Select(s => s.Channels ?? 0)
-            .DefaultIfEmpty(0)
-            .Max();
         Audio.MaxSourceSampleRate = mediaInfo.AudioStreams
             .Select(s => s.SampleRate ?? 0)
             .DefaultIfEmpty(0)

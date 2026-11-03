@@ -236,6 +236,22 @@ public class OutputSettingsViewModelTests
     }
 
     [Fact]
+    public void ApplySettings_SurroundChannelsWithoutSource_KeepsSelectionAfterStereoSourceLoads()
+    {
+        var settings = new TestOutputSettingsBuilder().WithAudioReencode(AudioCodec.Opus, 320_000, channels: 6).Build();
+
+        _sut.ApplySettings(settings);
+        _sut.Audio.SelectedAudioChannels.Should().Be(6);
+        AudioViewModel.AvailableAudioChannelOptions.Should().Contain(6);
+
+        _sut.UpdateSourceInfo(new TestMediaInfoBuilder()
+            .WithAudioStreams(new AudioStreamInfo(1, "aac", Channels: 2)).Build());
+
+        _sut.Audio.SelectedAudioChannels.Should().Be(6);
+        _sut.BuildSettings().AudioOptions.AudioChannels.Should().Be(6);
+    }
+
+    [Fact]
     public void BuildSettings_AfterContainerChange_ReflectsNewContainer()
     {
         _sut.Format.SelectedContainer = OutputContainer.Webm;

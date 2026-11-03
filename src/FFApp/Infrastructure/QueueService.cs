@@ -1,10 +1,13 @@
+using System.Globalization;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
+using FFApp.Infrastructure.Logging;
 
 namespace FFApp.Infrastructure;
 
 public sealed class QueueService(
     Func<QueuedJob, IJobExecutionService> executionServiceFactory,
+    IJobLogStore jobLogs,
     TimeProvider timeProvider) : IQueueService, IDisposable
 {
     private readonly Lock _lock = new();
@@ -97,6 +100,7 @@ public sealed class QueueService(
                     Progress = null,
                     Result = null,
                     FailureMessage = null,
+                    LogPath = null,
                 };
             }
             return [.. _items];
@@ -148,10 +152,12 @@ public sealed class QueueService(
                 if (item is null)
                     break;
 
+                var itemId = item.Id;
+                using var jobLog = StartJobLog(item.QueuedJob);
+                item = UpdateItem(itemId, i => i with { LogPath = jobLog.FilePath }) ?? item;
                 itemStarted?.Invoke(item);
 
                 var executionService = executionServiceFactory(item.QueuedJob);
-                var itemId = item.Id;
 
                 Action<JobProgress>? progressCb = itemProgress is not null
                     ? progress =>
@@ -166,14 +172,12 @@ public sealed class QueueService(
                     }
                 : null;
 
-                Action<string>? logCb = logCallback is not null
-                    ? line =>
-                    {
-                        var current = FindItem(itemId);
-                        if (current is not null)
-                            logCallback(current, line);
-                    }
-                : null;
+                void LogLine(string line)
+                {
+                    jobLog.WriteLine(line);
+                    if (logCallback is not null && FindItem(itemId) is { } current)
+                        logCallback(current, line);
+                }
 
                 try
                 {
@@ -181,17 +185,19 @@ public sealed class QueueService(
                         item.QueuedJob.Job,
                         item.QueuedJob.MediaInfo,
                         progressCb,
-                        logCb,
+                        LogLine,
                         pauseState,
                         linkedToken).ConfigureAwait(false);
 
                     var finished = FinalizeItem(itemId, result.State, result);
+                    WriteJobLogResult(jobLog, finished);
                     itemFinished?.Invoke(finished);
                 }
                 catch (OperationCanceledException)
                 {
                     var canceled = FinalizeItem(itemId, JobState.Canceled,
                         failureMessage: "Canceled during execution.");
+                    WriteJobLogResult(jobLog, canceled);
                     itemFinished?.Invoke(canceled);
                     break;
                 }
@@ -199,6 +205,8 @@ public sealed class QueueService(
                 {
                     var failed = FinalizeItem(itemId, JobState.Failed,
                         failureMessage: ex.Message);
+                    jobLog.WriteLine(ex.ToString());
+                    WriteJobLogResult(jobLog, failed);
                     itemFinished?.Invoke(failed);
                     throw;
                 }
@@ -242,6 +250,29 @@ public sealed class QueueService(
     }
 
     // --- Private helpers ---
+
+    private JobLog StartJobLog(QueuedJob queuedJob)
+    {
+        var job = queuedJob.Job;
+        var log = jobLogs.Start(Path.GetFileName(job.OutputPath));
+        log.WriteField("Source", job.SourcePath);
+        log.WriteField("Output", job.OutputPath);
+        log.WriteLine("");
+        foreach (var command in queuedJob.Commands)
+            log.WriteLine($"$ {command.DisplayString}");
+        log.WriteLine("");
+        return log;
+    }
+
+    private static void WriteJobLogResult(JobLog log, QueueItem item)
+    {
+        log.WriteLine("");
+        log.WriteField("Result", item.State.ToString());
+        if (item.Result is { } result)
+            log.WriteField("Elapsed", TimeSpan.FromSeconds(result.ElapsedSeconds).ToString(@"hh\:mm\:ss", CultureInfo.InvariantCulture));
+        if (item.FailureMessage is { Length: > 0 } message)
+            log.WriteField("Reason", message);
+    }
 
     private QueueItem? StartNextItem()
     {

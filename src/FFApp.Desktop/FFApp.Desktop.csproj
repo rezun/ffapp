@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- Avalonia building blocks shared by FFApp and FFRux: app identity, single instance,
-       launch-file handling, theme tokens, global styles and small input controls. -->
+       launch-file handling, logging, theme tokens, global styles and small input controls. -->
   <PropertyGroup>
     <RootNamespace>FFApp</RootNamespace>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
@@ -13,5 +13,9 @@
   <ItemGroup>
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+    <PackageReference Include="Serilog" />
+    <PackageReference Include="Serilog.Extensions.Logging" />
+    <PackageReference Include="Serilog.Sinks.File" />
   </ItemGroup>
 </Project>

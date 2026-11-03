@@ -56,6 +56,19 @@ FFApp declares itself as an optional handler for common video and audio containe
 - **Windows:** File associations require the installer to write HKCR registry keys and are not registered by the standalone `.exe`. This will be wired up when the packaged installer lands.
 - **Linux:** `packaging/ffapp/linux/ffapp.desktop` has no `MimeType=` entries yet. A full implementation depends on a proper package (`.deb`/`.rpm`/Flatpak) that can run `update-desktop-database`.
 
+### Logs
+
+FFApp and FFRux each keep two kinds of logs in their own log folder:
+
+| Platform | Folder |
+|---|---|
+| macOS | `~/Library/Logs/FFApp`, `~/Library/Logs/FFRux` (listed in Console.app) |
+| Windows | `%LOCALAPPDATA%\FFApp\Logs`, `%LOCALAPPDATA%\FFRux\Logs` |
+| Linux | `$XDG_STATE_HOME/ffapp/logs`, `$XDG_STATE_HOME/ffrux/logs` (default `~/.local/state`) |
+
+- **`app-YYYYMMDD.log`**: app events and errors, one file per day, kept for 14 days.
+- **`jobs/`**: one file per encode or remux, named after its start time and output file. It contains the commands and the complete FFmpeg/mkvpropedit output, followed by the result. These logs are kept for 30 days. Use **Open log file** on a job (Log tab in FFApp, result bar in FFRux) to open one.
+
 ---
 
 ## Developer Guide

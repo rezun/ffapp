@@ -33,6 +33,10 @@ public sealed partial class JobItemViewModel : ObservableObject
     [ObservableProperty]
     private string _logText = "";
 
+    /// <summary>The job's log file on disk, once the job has started and the file could be created.</summary>
+    [ObservableProperty]
+    private string? _logFilePath;
+
     [ObservableProperty]
     private JobResult? _result;
 
@@ -61,6 +65,7 @@ public sealed partial class JobItemViewModel : ObservableObject
         ProgressText = "";
         _logBuilder.Clear();
         LogText = "";
+        LogFilePath = null;
         Result = null;
         Failure = null;
     }
@@ -110,12 +115,17 @@ public sealed partial class JobItemViewModel : ObservableObject
 public sealed partial class JobItemDetailsViewModel : ObservableObject
 {
     private readonly Func<JobItemViewModel, string, Task>? _renameOutput;
+    private readonly Func<string, Task>? _openLogFile;
     private JobItemViewModel? _trackedItem;
 
     /// <param name="renameOutput">Applies a new output file name (without extension) to a job.</param>
-    public JobItemDetailsViewModel(Func<JobItemViewModel, string, Task>? renameOutput = null)
+    /// <param name="openLogFile">Opens a job's log file in the system's default app.</param>
+    public JobItemDetailsViewModel(
+        Func<JobItemViewModel, string, Task>? renameOutput = null,
+        Func<string, Task>? openLogFile = null)
     {
         _renameOutput = renameOutput;
+        _openLogFile = openLogFile;
     }
 
     [ObservableProperty]
@@ -149,6 +159,13 @@ public sealed partial class JobItemDetailsViewModel : ObservableObject
 
     [ObservableProperty]
     private string _logText = "";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasLogFile))]
+    [NotifyCanExecuteChangedFor(nameof(OpenLogFileCommand))]
+    private string? _logFilePath;
+
+    public bool HasLogFile => LogFilePath is not null;
 
     [ObservableProperty]
     private int _selectedTabIndex;
@@ -194,6 +211,15 @@ public sealed partial class JobItemDetailsViewModel : ObservableObject
             ResetOutputFileStem();
     }
 
+    private bool CanOpenLogFile => _openLogFile is not null && LogFilePath is not null;
+
+    [RelayCommand(CanExecute = nameof(CanOpenLogFile))]
+    private async Task OpenLogFileAsync()
+    {
+        if (_openLogFile is not null && LogFilePath is { } path)
+            await _openLogFile(path);
+    }
+
     private string CurrentOutputStem() =>
         _trackedItem is null ? "" : Path.GetFileNameWithoutExtension(_trackedItem.QueuedJob.Job.OutputPath);
 
@@ -214,6 +240,7 @@ public sealed partial class JobItemDetailsViewModel : ObservableObject
             or nameof(JobItemViewModel.State)
             or nameof(JobItemViewModel.Failure)
             or nameof(JobItemViewModel.Result)
+            or nameof(JobItemViewModel.LogFilePath)
             or nameof(JobItemViewModel.ProgressText))
         {
             Refresh();
@@ -239,6 +266,7 @@ public sealed partial class JobItemDetailsViewModel : ObservableObject
             ProgressText = "";
             CommandText = "";
             LogText = "";
+            LogFilePath = null;
             Failure = null;
             return;
         }
@@ -258,5 +286,6 @@ public sealed partial class JobItemDetailsViewModel : ObservableObject
             item.QueuedJob.Commands.Select(c => c.DisplayString));
 
         LogText = string.IsNullOrEmpty(item.LogText) ? item.Result?.LogOutput ?? "" : item.LogText;
+        LogFilePath = item.LogFilePath;
     }
 }

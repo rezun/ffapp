@@ -1,5 +1,7 @@
+using System.Globalization;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
+using FFApp.Infrastructure.Logging;
 using FFRux.Core;
 using FFRux.Core.Models;
 
@@ -8,6 +10,7 @@ namespace FFRux.Infrastructure;
 public sealed class RemuxJobRunner(
     RemuxCommandBuilder commandBuilder,
     IProcessRunner processRunner,
+    IJobLogStore jobLogs,
     TimeProvider timeProvider) : IRemuxJobRunner
 {
     private const double TrialSeconds = 1;
@@ -28,20 +31,72 @@ public sealed class RemuxJobRunner(
         var started = timeProvider.GetTimestamp();
         TimeSpan Elapsed() => timeProvider.GetElapsedTime(started);
 
+        using var jobLog = StartJobLog(plan, outputPath);
+        void Log(string line)
+        {
+            jobLog.WriteLine(line);
+            log?.Invoke(line);
+        }
+
+        RemuxResult result;
+        try
+        {
+            result = await RunLoggedAsync(plan, outputPath, Elapsed, progress, Log, ct);
+        }
+        catch (Exception ex)
+        {
+            // Rethrown unchanged; only recorded so the job log explains why it ends early.
+            jobLog.WriteLine(ex.ToString());
+            throw;
+        }
+        WriteJobLogResult(jobLog, result);
+        return result with { LogPath = jobLog.FilePath };
+    }
+
+    private async Task<RemuxResult> RunLoggedAsync(
+        RemuxPlan plan,
+        string outputPath,
+        Func<TimeSpan> elapsed,
+        Action<RemuxProgress>? progress,
+        Action<string> log,
+        CancellationToken ct)
+    {
         var directory = Path.GetDirectoryName(Path.GetFullPath(outputPath));
         if (directory is null || !Directory.Exists(directory))
-            return new RemuxResult(RemuxOutcome.Failed, outputPath, Elapsed(), "The output folder doesn't exist.");
+            return new RemuxResult(RemuxOutcome.Failed, outputPath, elapsed(), "The output folder doesn't exist.");
 
         try
         {
-            return await RunStepsAsync(plan, outputPath, Elapsed, progress, log, ct);
+            return await RunStepsAsync(plan, outputPath, elapsed, progress, log, ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
             // ProcessRunner throws instead of returning Canceled when the token fires between two steps.
-            log?.Invoke("[FFRux] Canceled.");
-            return new RemuxResult(RemuxOutcome.Canceled, outputPath, Elapsed());
+            log("[FFRux] Canceled.");
+            return new RemuxResult(RemuxOutcome.Canceled, outputPath, elapsed());
         }
+    }
+
+    private JobLog StartJobLog(RemuxPlan plan, string outputPath)
+    {
+        var jobLog = jobLogs.Start(Path.GetFileName(outputPath));
+        foreach (var source in plan.Sources)
+            jobLog.WriteField($"Source {source.Number}", source.Path);
+        jobLog.WriteField("Output", outputPath);
+        jobLog.WriteField("Format", plan.FormatInfo.Extension);
+        jobLog.WriteLine("");
+        return jobLog;
+    }
+
+    private static void WriteJobLogResult(JobLog jobLog, RemuxResult result)
+    {
+        jobLog.WriteLine("");
+        jobLog.WriteField("Result", result.Outcome.ToString());
+        jobLog.WriteField("Elapsed", result.Elapsed.ToString(@"hh\:mm\:ss", CultureInfo.InvariantCulture));
+        foreach (var warning in result.Warnings)
+            jobLog.WriteField("Warning", warning);
+        if (result.Error is { Length: > 0 } error)
+            jobLog.WriteField("Reason", error);
     }
 
     private async Task<RemuxResult> RunStepsAsync(
@@ -49,7 +104,7 @@ public sealed class RemuxJobRunner(
         string outputPath,
         Func<TimeSpan> elapsed,
         Action<RemuxProgress>? progress,
-        Action<string>? log,
+        Action<string> log,
         CancellationToken ct)
     {
         progress?.Invoke(new RemuxProgress(RemuxStage.Testing, null, elapsed()));
@@ -64,7 +119,7 @@ public sealed class RemuxJobRunner(
         try
         {
             var commands = commandBuilder.Build(plan, partialPath);
-            log?.Invoke($"$ {commands.Ffmpeg.DisplayString}");
+            log($"$ {commands.Ffmpeg.DisplayString}");
             var expected = RemuxCommandBuilder.ExpectedDurationSeconds(plan);
             var remux = await processRunner.RunAsync(
                 commands.Ffmpeg,
@@ -82,7 +137,7 @@ public sealed class RemuxJobRunner(
             if (commands.PostProcess is { } postProcess)
             {
                 progress?.Invoke(new RemuxProgress(RemuxStage.PostProcessing, 100, elapsed()));
-                log?.Invoke($"$ {postProcess.DisplayString}");
+                log($"$ {postProcess.DisplayString}");
                 var post = await processRunner.RunAsync(postProcess, logCallback: log, ct: ct);
                 if (post.State == JobState.Canceled || ct.IsCancellationRequested)
                     return Canceled();
@@ -90,12 +145,12 @@ public sealed class RemuxJobRunner(
                 {
                     const string warning = "mkvpropedit failed, so the track statistics were not updated.";
                     warnings.Add(warning);
-                    log?.Invoke($"[FFRux] {warning}");
+                    log($"[FFRux] {warning}");
                 }
             }
 
             File.Move(partialPath, outputPath, overwrite: true);
-            log?.Invoke($"[FFRux] Wrote {outputPath}");
+            log($"[FFRux] Wrote {outputPath}");
             return new RemuxResult(RemuxOutcome.Completed, outputPath, elapsed(), OutputBytes: new FileInfo(outputPath).Length)
             {
                 Warnings = warnings,
@@ -108,7 +163,7 @@ public sealed class RemuxJobRunner(
 
         RemuxResult Canceled()
         {
-            log?.Invoke("[FFRux] Canceled.");
+            log("[FFRux] Canceled.");
             return new RemuxResult(RemuxOutcome.Canceled, outputPath, elapsed());
         }
 
@@ -117,7 +172,7 @@ public sealed class RemuxJobRunner(
     }
 
     /// <summary>Remuxes one second into a temporary file. Returns the error, or null when the test passed or was skipped.</summary>
-    private async Task<string?> RunTrialAsync(RemuxPlan plan, Action<string>? log, CancellationToken ct)
+    private async Task<string?> RunTrialAsync(RemuxPlan plan, Action<string> log, CancellationToken ct)
     {
         var trialPath = Path.Combine(Path.GetTempPath(), $"ffrux-test-{Guid.NewGuid():N}{plan.FormatInfo.Extension}");
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -125,7 +180,7 @@ public sealed class RemuxJobRunner(
         try
         {
             var command = commandBuilder.Build(plan, trialPath, TrialSeconds).Ffmpeg;
-            log?.Invoke($"$ {command.DisplayString}");
+            log($"$ {command.DisplayString}");
             ProcessExecutionResult result;
             try
             {
@@ -142,7 +197,7 @@ public sealed class RemuxJobRunner(
             if (result.State != JobState.Completed)
                 return Describe("FFmpeg rejected this combination in a test remux, so the job did not start.", result.StderrOutput);
 
-            log?.Invoke("[FFRux] Test remux passed.");
+            log("[FFRux] Test remux passed.");
             return null;
         }
         finally
@@ -152,7 +207,7 @@ public sealed class RemuxJobRunner(
 
         string? TrialTimedOut()
         {
-            log?.Invoke("[FFRux] The test remux took too long and was skipped.");
+            log("[FFRux] The test remux took too long and was skipped.");
             return null;
         }
     }

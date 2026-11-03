@@ -4,6 +4,7 @@ using System.Text.Json;
 using FFApp.Core;
 using FFApp.Core.Models;
 using FFApp.Infrastructure;
+using FFApp.Infrastructure.Logging;
 using FFRux.Core;
 using FFRux.Core.Models;
 using FFRux.Infrastructure;
@@ -206,6 +207,12 @@ public sealed class RemuxIntegrationTests(FFmpegFixture ffmpeg)
         File.Exists(output).Should().BeTrue();
         File.Exists(OutputPaths.PartialFile(output)).Should().BeFalse();
         log.Should().Contain("[FFRux] Test remux passed.");
+
+        result.LogPath.Should().NotBeNull();
+        var saved = await File.ReadAllTextAsync(result.LogPath!);
+        saved.Should().Contain($"Output:    {output}")
+            .And.Contain("[FFRux] Test remux passed.")
+            .And.Contain("Result:    Completed");
     }
 
     [FFmpegFact]
@@ -239,7 +246,12 @@ public sealed class RemuxIntegrationTests(FFmpegFixture ffmpeg)
     }
 
     private RemuxJobRunner Runner() =>
-        new(Builder, new ProcessRunner(TimeProvider.System, new TranscodingPreferences()), TimeProvider.System);
+        new(Builder, new ProcessRunner(TimeProvider.System, new TranscodingPreferences()), JobLogs(), TimeProvider.System);
+
+    private JobLogStore JobLogs() => new(
+        new JobLogOptions(Path.Combine(ffmpeg.Directory, "logs"), TimeSpan.FromDays(30), "FFRux tests"),
+        TimeProvider.System,
+        Microsoft.Extensions.Logging.Abstractions.NullLogger<JobLogStore>.Instance);
 
     private Task<RemuxPlan> PlanAsync(OutputFormat format, params string[] paths) => BuildPlanAsync(format, paths, null);
 

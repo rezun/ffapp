@@ -100,6 +100,14 @@ public sealed class DialogService(Func<Window> windowAccessor) : IDialogService
         await window.Launcher.LaunchDirectoryInfoAsync(new DirectoryInfo(directory));
     }
 
+    public async Task OpenWithDefaultAppAsync(string filePath)
+    {
+        ArgumentNullException.ThrowIfNull(filePath);
+        if (!File.Exists(filePath))
+            return;
+        await windowAccessor().Launcher.LaunchFileInfoAsync(new FileInfo(filePath));
+    }
+
     public async Task SetClipboardTextAsync(string text)
     {
         if (windowAccessor().Clipboard is { } clipboard)

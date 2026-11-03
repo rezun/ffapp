@@ -14,4 +14,5 @@ public sealed record QueueItem(
     JobState State = JobState.Pending,
     JobProgress? Progress = null,
     JobResult? Result = null,
-    string? FailureMessage = null);
+    string? FailureMessage = null,
+    string? LogPath = null);

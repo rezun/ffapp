@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
@@ -8,6 +7,8 @@ using FFApp.Core.Services;
 using FFApp.Services;
 using FFApp.Helpers;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FFApp.ViewModels;
 
@@ -18,6 +19,7 @@ public partial class MainWindowViewModel : ObservableObject,
 {
     private readonly TranscodingPreferences _transcodingPreferences;
     private readonly IComparisonService? _comparisonService;
+    private readonly ILogger _logger;
     [ObservableProperty] private decimal _comparisonCacheLimitGiB = 5;
     [ObservableProperty] private string _comparisonStorageUsage = "";
     [ObservableProperty] private string _comparisonStorageStatus = "";
@@ -36,7 +38,7 @@ public partial class MainWindowViewModel : ObservableObject,
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Reading comparison storage failed: {ex}");
+            _logger.LogError(ex, "Reading comparison storage failed");
             ComparisonStorageStatus = $"Could not read storage usage: {ex.Message}";
         }
     }
@@ -52,7 +54,7 @@ public partial class MainWindowViewModel : ObservableObject,
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Clearing comparison storage failed: {ex}");
+            _logger.LogError(ex, "Clearing comparison storage failed");
             ComparisonStorageStatus = $"Could not delete all test clips: {ex.Message}";
         }
         RefreshComparisonStorage();
@@ -74,7 +76,7 @@ public partial class MainWindowViewModel : ObservableObject,
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Updating comparison cache limit failed: {ex}");
+            _logger.LogError(ex, "Updating comparison cache limit failed");
             ComparisonStorageStatus = $"Could not apply cache limit: {ex.Message}";
         }
         RefreshComparisonStorage();
@@ -131,8 +133,10 @@ public partial class MainWindowViewModel : ObservableObject,
         IServiceScopeFactory scopeFactory,
         IFfmpegCapabilityService capabilityService,
         TranscodingPreferences transcodingPreferences,
-        IComparisonWindowService? comparisonWindows = null, IComparisonService? comparisonService = null)
+        IComparisonWindowService? comparisonWindows = null, IComparisonService? comparisonService = null,
+        ILogger<MainWindowViewModel>? logger = null)
     {
+        _logger = logger ?? NullLogger<MainWindowViewModel>.Instance;
         _transcodingPreferences = transcodingPreferences;
         _settingsService = settingsService;
         _dependencyService = dependencyService;
@@ -163,7 +167,7 @@ public partial class MainWindowViewModel : ObservableObject,
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                Debug.WriteLine($"Comparison cache cleanup failed during startup: {ex}");
+                _logger.LogWarning(ex, "Comparison cache cleanup failed during startup");
                 ComparisonStorageStatus = $"Could not clean up test clips: {ex.Message}";
             }
             UseLowPriorityTranscoding = settings.UseLowPriorityTranscoding;
@@ -183,7 +187,7 @@ public partial class MainWindowViewModel : ObservableObject,
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Initialization failed: {ex}");
+            _logger.LogError(ex, "Initialization failed");
             _settingsLoaded.TrySetResult(new AppSettings());
         }
     }
@@ -197,7 +201,7 @@ public partial class MainWindowViewModel : ObservableObject,
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Failed to switch to workspace: {ex}");
+            _logger.LogError(ex, "Failed to switch to workspace");
         }
     }
 
@@ -232,7 +236,7 @@ public partial class MainWindowViewModel : ObservableObject,
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"File drop failed: {ex}");
+            _logger.LogError(ex, "File drop failed");
         }
     }
 
@@ -280,7 +284,7 @@ public partial class MainWindowViewModel : ObservableObject,
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Flushing pending file opens failed: {ex}");
+            _logger.LogError(ex, "Flushing pending file opens failed");
         }
     }
 }

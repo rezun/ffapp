@@ -8,6 +8,7 @@ using Avalonia.Threading;
 using FFApp.Core;
 using FFApp.Core.Services;
 using FFApp.Infrastructure;
+using FFApp.Infrastructure.Logging;
 using FFApp.Infrastructure.SingleInstance;
 using FFRux.Core;
 using FFRux.Infrastructure;
@@ -15,20 +16,26 @@ using FFRux.Services;
 using FFRux.ViewModels;
 using FFRux.Views;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FFRux;
 
 public partial class App : Application
 {
     private readonly SingleInstanceCoordinator? _singleInstance;
+    private readonly Serilog.ILogger? _appLog;
+    private ILogger _logger = NullLogger<App>.Instance;
     private MainWindowViewModel? _mainViewModel;
 
     public App() { }
 
-    public App(SingleInstanceCoordinator singleInstance)
+    public App(SingleInstanceCoordinator singleInstance, Serilog.ILogger appLog)
     {
         ArgumentNullException.ThrowIfNull(singleInstance);
+        ArgumentNullException.ThrowIfNull(appLog);
         _singleInstance = singleInstance;
+        _appLog = appLog;
     }
 
     public override void Initialize()
@@ -44,7 +51,9 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             var mainWindow = new MainWindow();
-            var provider = ConfigureServices(() => mainWindow);
+            var provider = ConfigureServices(() => mainWindow, _appLog);
+            _logger = provider.GetRequiredService<ILogger<App>>();
+            mainWindow.Logger = provider.GetRequiredService<ILogger<MainWindow>>();
 
             var vm = provider.GetRequiredService<MainWindowViewModel>();
             _mainViewModel = vm;
@@ -54,7 +63,7 @@ public partial class App : Application
 
             // OnFrameworkInitializationCompleted is synchronous, so tool discovery cannot be awaited here.
             // OpenFilesAsync awaits the same initialization, so files opened at launch are not lost.
-            _ = RunSafelyAsync(vm.InitializeAsync, "Tool discovery failed");
+            _ = RunSafelyAsync(vm.InitializeAsync, "Tool discovery");
 
             // macOS delivers opened files only via Apple Events (IActivatableLifetime); argv there is
             // the launcher's, not ours. Windows and Linux shells pass "Open with" files in argv.
@@ -74,12 +83,14 @@ public partial class App : Application
         base.OnFrameworkInitializationCompleted();
     }
 
-    internal static ServiceProvider ConfigureServices(Func<Window> mainWindow)
+    /// <param name="appLog">The file logger; null in tests, where logging goes nowhere.</param>
+    internal static ServiceProvider ConfigureServices(Func<Window> mainWindow, Serilog.ILogger? appLog = null)
     {
         var services = new ServiceCollection();
 
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton(new JsonSerializerOptions { WriteIndented = true });
+        services.AddAppLogging(FFRuxPaths.Identity, appLog);
 
         // Shared media plumbing from FFApp.Media
         services.AddSingleton<ExecutablePathsConfig>();
@@ -110,7 +121,7 @@ public partial class App : Application
             return;
 
         // Every caller is a synchronous platform callback, so the open runs fire-and-forget.
-        _ = RunSafelyAsync(() => vm.OpenFilesAsync(paths), "Opening files failed");
+        _ = RunSafelyAsync(() => vm.OpenFilesAsync(paths), "Opening files");
     }
 
     private void OnActivatableLifetimeActivated(object? sender, ActivatedEventArgs e)
@@ -149,10 +160,10 @@ public partial class App : Application
     {
         // lifetime.Exit is synchronous, so disposal cannot be awaited here.
         if (_singleInstance is { } singleInstance)
-            _ = RunSafelyAsync(() => singleInstance.DisposeAsync().AsTask(), "Failed to dispose single-instance coordinator");
+            _ = RunSafelyAsync(() => singleInstance.DisposeAsync().AsTask(), "Disposing the single-instance coordinator");
     }
 
-    private static async Task RunSafelyAsync(Func<Task> action, string failureMessage)
+    private async Task RunSafelyAsync(Func<Task> action, string operation)
     {
         try
         {
@@ -160,7 +171,7 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"{failureMessage}: {ex}");
+            _logger.LogError(ex, "{Operation} failed", operation);
         }
     }
 }

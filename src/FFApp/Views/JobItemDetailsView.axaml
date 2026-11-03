@@ -107,10 +107,17 @@
                          PlaceholderText="Commands will appear here." />
             </TabItem>
             <TabItem Header="Log">
-                <TextBox x:Name="LogTextBox" Classes="mono caption diagnostic"
-                         Text="{Binding LogText, Mode=OneWay}"
-                         ToolTip.Tip="Encoding log for the selected job. Select text to copy diagnostic details."
-                         PlaceholderText="The encoding log will appear when this job starts." />
+                <DockPanel>
+                    <Button DockPanel.Dock="Bottom" HorizontalAlignment="Right" Margin="0,6,0,0"
+                            Content="Open log file"
+                            ToolTip.Tip="Open the saved log of this job in your default text editor."
+                            Command="{Binding OpenLogFileCommand}"
+                            IsVisible="{Binding HasLogFile}" />
+                    <TextBox x:Name="LogTextBox" Classes="mono caption diagnostic"
+                             Text="{Binding LogText, Mode=OneWay}"
+                             ToolTip.Tip="Encoding log for the selected job. Select text to copy diagnostic details."
+                             PlaceholderText="The encoding log will appear when this job starts." />
+                </DockPanel>
             </TabItem>
         </TabControl>
     </Grid>

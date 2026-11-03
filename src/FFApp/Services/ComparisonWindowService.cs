@@ -1,14 +1,20 @@
 using Avalonia.Controls;
-using System.Diagnostics;
 using FFApp.Core.Models;
 using FFApp.ViewModels;
 using FFApp.Views;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FFApp.Services;
 
-public sealed class ComparisonWindowService(IServiceScopeFactory scopeFactory, Func<Window> owner) : IComparisonWindowService
+public sealed class ComparisonWindowService(
+    IServiceScopeFactory scopeFactory,
+    Func<Window> owner,
+    ILoggerFactory loggerFactory) : IComparisonWindowService
 {
+    private readonly ILogger _logger = loggerFactory.CreateLogger<ComparisonWindowService>();
+
     private readonly Dictionary<string, ComparisonWindow> _windows = new(StringComparer.Ordinal);
 
     public async Task<bool> CloseAllAsync()
@@ -38,7 +44,11 @@ public sealed class ComparisonWindowService(IServiceScopeFactory scopeFactory, F
         {
             var vm = scope.ServiceProvider.GetRequiredService<ComparisonViewModel>();
             await vm.LoadAsync(context, apply);
-            var window = new ComparisonWindow { DataContext = vm };
+            var window = new ComparisonWindow
+            {
+                DataContext = vm,
+                Logger = loggerFactory.CreateLogger<ComparisonWindow>(),
+            };
             _windows.Add(path, window);
             window.Closed += (_, _) =>
             {
@@ -52,7 +62,7 @@ public sealed class ComparisonWindowService(IServiceScopeFactory scopeFactory, F
             async Task DisposeScopeAsync()
             {
                 try { await scope.DisposeAsync(); }
-                catch (Exception ex) { Debug.WriteLine($"Comparison cleanup failed: {ex}"); }
+                catch (Exception ex) { _logger.LogWarning(ex, "Comparison cleanup failed"); }
             }
         }
         catch

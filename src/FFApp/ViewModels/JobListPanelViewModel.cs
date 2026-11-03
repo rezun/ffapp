@@ -97,7 +97,7 @@ public partial class JobListPanelViewModel : ObservableObject
         _dialogService = dialogService;
         _sourceList = sourceList;
         _videoPreview = videoPreview;
-        Details = new JobItemDetailsViewModel(RenameJobOutputAsync);
+        Details = new JobItemDetailsViewModel(RenameJobOutputAsync, _dialogService.OpenWithDefaultAppAsync);
 
         Jobs.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasJobs));
         _sourceList.PropertyChanged += OnSourceListPropertyChanged;
@@ -403,6 +403,7 @@ public partial class JobListPanelViewModel : ObservableObject
                         if (vm is not null)
                         {
                             vm.State = JobState.Running;
+                            vm.LogFilePath = queueItem.LogPath;
                             UpdateStatusFromRunningJob(vm);
                         }
                     });

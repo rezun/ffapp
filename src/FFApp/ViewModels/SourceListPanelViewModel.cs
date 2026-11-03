@@ -6,6 +6,8 @@ using FFApp.Core.Models;
 using FFApp.Core.Services;
 using FFApp.Helpers;
 using FFApp.Services;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FFApp.ViewModels;
 
@@ -22,6 +24,7 @@ public partial class SourceListPanelViewModel : ObservableObject
     private readonly IDialogService _dialogService;
     private readonly IMessenger _messenger;
     private readonly ICropDetectionService? _cropDetectionService;
+    private readonly ILogger _logger;
 
     // Crop analysis decodes video; run one source at a time even across overlapping add batches.
     private readonly SemaphoreSlim _cropAnalysisGate = new(1, 1);
@@ -57,8 +60,10 @@ public partial class SourceListPanelViewModel : ObservableObject
         IMediaProbeService mediaProbeService,
         IDialogService dialogService,
         IMessenger messenger,
-        ICropDetectionService? cropDetectionService = null)
+        ICropDetectionService? cropDetectionService = null,
+        ILogger<SourceListPanelViewModel>? logger = null)
     {
+        _logger = logger ?? NullLogger<SourceListPanelViewModel>.Instance;
         _mediaProbeService = mediaProbeService;
         _dialogService = dialogService;
         _messenger = messenger;
@@ -198,7 +203,7 @@ public partial class SourceListPanelViewModel : ObservableObject
         }
         catch (CropDetectionException ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Crop suggestion failed for {source.SourcePath}: {ex}");
+            _logger.LogWarning(ex, "Crop suggestion failed for {SourcePath}", source.SourcePath);
         }
         finally
         {

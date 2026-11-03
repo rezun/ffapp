@@ -2,6 +2,8 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using FFApp.Core;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
@@ -49,6 +51,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncInitia
     private readonly ISettingsService _settings;
     private readonly IRemuxJobRunner _runner;
     private readonly RemuxCommandBuilder _commandBuilder;
+    private readonly ILogger _logger;
 
     private readonly Dictionary<TrackKind, List<TrackViewModel>> _groups = new()
     {
@@ -80,8 +83,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncInitia
         RemuxCommandBuilder commandBuilder,
         OutputViewModel output,
         TrackPropertiesViewModel properties,
-        CommandPreviewViewModel commandPreview)
+        CommandPreviewViewModel commandPreview,
+        ILogger<MainWindowViewModel>? logger = null)
     {
+        _logger = logger ?? NullLogger<MainWindowViewModel>.Instance;
         _dependencies = dependencies;
         _pathsConfig = pathsConfig;
         _probe = probe;
@@ -166,6 +171,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncInitia
     [ObservableProperty] private string _resultText = "";
     [ObservableProperty] private string? _resultDetail;
     [ObservableProperty] private string? _resultPath;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasResultLog))]
+    [NotifyCanExecuteChangedFor(nameof(OpenLogFileCommand))]
+    private string? _resultLogPath;
+
+    public bool HasResultLog => ResultLogPath is not null;
 
     public bool IsEditable => !IsRunning;
     public bool HasSources => SourceCount > 0;
@@ -354,6 +366,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncInitia
 
     [RelayCommand]
     private void ShowLog() => CommandPreview.ShowLogExpanded();
+
+    [RelayCommand(CanExecute = nameof(HasResultLog))]
+    private async Task OpenLogFileAsync()
+    {
+        if (ResultLogPath is { } path)
+            await _dialogs.OpenWithDefaultAppAsync(path);
+    }
 
     [RelayCommand]
     private void DismissResult()
@@ -768,6 +787,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncInitia
         HasResult = true;
         ResultSucceeded = result.Outcome == RemuxOutcome.Completed;
         ResultPath = ResultSucceeded ? result.OutputPath : null;
+        ResultLogPath = result.LogPath;
         var elapsed = SourceViewModel.FormatDuration(result.Elapsed.TotalSeconds);
         (ResultText, ResultDetail) = result.Outcome switch
         {
@@ -812,11 +832,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncInitia
         }
         catch (IOException ex)
         {
-            Console.Error.WriteLine($"Saving FFRux settings failed: {ex.Message}");
+            _logger.LogWarning(ex, "Saving FFRux settings failed");
         }
         catch (UnauthorizedAccessException ex)
         {
-            Console.Error.WriteLine($"Saving FFRux settings failed: {ex.Message}");
+            _logger.LogWarning(ex, "Saving FFRux settings failed");
         }
     }
 }

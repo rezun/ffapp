@@ -1,6 +1,5 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
@@ -11,6 +10,8 @@ using FFApp.Helpers;
 using FFApp.Infrastructure;
 using FFApp.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FFApp.ViewModels;
 
@@ -19,6 +20,7 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
     private readonly IComparisonService _service;
     private readonly IMessenger _messenger;
     private readonly IDialogService? _dialogs;
+    private readonly ILogger _logger;
     private ComparisonSession? _session;
     private SourceMediaInfo? _media;
     private bool _loadingEditor;
@@ -91,8 +93,10 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
     public ComparisonViewModel(IComparisonService service,
         [FromKeyedServices("comparison")] OutputSettingsViewModel editor,
         [FromKeyedServices("comparison")] IMessenger messenger,
-        ComparisonPlaybackViewModel playback, IDialogService? dialogs = null)
+        ComparisonPlaybackViewModel playback, IDialogService? dialogs = null,
+        ILogger<ComparisonViewModel>? logger = null)
     {
+        _logger = logger ?? NullLogger<ComparisonViewModel>.Instance;
         _service = service;
         Editor = editor;
         _messenger = messenger;
@@ -590,7 +594,7 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Comparison encoding failed: {ex}");
+            _logger.LogError(ex, "Comparison encoding failed");
             Status = $"Comparison failed: {ex.Message}";
         }
         finally
@@ -632,7 +636,7 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Comparison clip cleanup failed: {ex}");
+            _logger.LogWarning(ex, "Comparison clip cleanup failed");
             RefreshResults();
             Status = $"Could not delete all test clips: {ex.Message}";
         }
@@ -659,7 +663,7 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Deleting comparison failed: {ex}");
+            _logger.LogError(ex, "Deleting comparison failed");
             RefreshResults();
             Status = $"Could not delete comparison: {ex.Message}";
         }
@@ -682,7 +686,7 @@ public sealed partial class ComparisonViewModel : ObservableObject, IRecipient<O
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Saving comparison failed: {ex}");
+            _logger.LogError(ex, "Saving comparison failed");
             Status = $"Could not save comparison: {ex.Message}";
             return false;
         }

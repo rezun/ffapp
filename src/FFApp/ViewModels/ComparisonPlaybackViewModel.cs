@@ -1,8 +1,9 @@
-using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FFApp.ViewModels;
 
@@ -17,6 +18,7 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
 {
     private readonly IComparisonDecoderFactory? _decoders;
     private readonly TimeProvider _time;
+    private readonly ILogger _logger;
     private readonly SemaphoreSlim _worker = new(1, 1);
     private readonly List<Task> _operations = [];
     private CancellationTokenSource? _cancellation;
@@ -65,10 +67,12 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
     public string DurationDisplay => $"/ {TimeSpan.FromSeconds(DurationSeconds):mm\\:ss\\.fff}";
     public string PlayLabel => IsPlaying ? "Pause" : "Play sample";
 
-    public ComparisonPlaybackViewModel(IComparisonDecoderFactory? decoders, TimeProvider? time = null)
+    public ComparisonPlaybackViewModel(
+        IComparisonDecoderFactory? decoders, TimeProvider? time = null, ILogger<ComparisonPlaybackViewModel>? logger = null)
     {
         _decoders = decoders;
         _time = time ?? TimeProvider.System;
+        _logger = logger ?? NullLogger<ComparisonPlaybackViewModel>.Instance;
     }
 
     public static long MediaTime(ComparisonTrack track, double position, double duration) =>
@@ -165,7 +169,7 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Comparison decoding failed: {ex}");
+            _logger.LogError(ex, "Comparison decoding failed");
             if (!ct.IsCancellationRequested) Status = $"Playback failed: {ex.Message}";
         }
         finally { FinishRequest(cancellation); }
@@ -291,7 +295,7 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Comparison playback failed: {ex}");
+            _logger.LogError(ex, "Comparison playback failed");
             if (!ct.IsCancellationRequested) Status = $"Playback failed: {ex.Message}";
         }
         finally
@@ -309,14 +313,14 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
         newerFrameReady && remaining < -TimeSpan.FromSeconds(frameDuration);
 
     /// <summary>Waits for a read-ahead decode that playback no longer needs, so its frame is released.</summary>
-    private static async Task DiscardAsync(Task<ComparisonFrames?> pending)
+    private async Task DiscardAsync(Task<ComparisonFrames?> pending)
     {
         try { (await pending)?.Dispose(); }
         catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             // Playback already stopped; the error belongs to a frame nobody will see.
-            Debug.WriteLine($"Discarded comparison read-ahead failed: {ex}");
+            _logger.LogWarning(ex, "Discarded comparison read-ahead failed");
         }
     }
 
@@ -377,7 +381,7 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
             try { await Task.Run(CloseDecoders); }
             finally { _worker.Release(); }
         }
-        catch (Exception ex) { Debug.WriteLine($"Comparison decoder cleanup failed: {ex}"); }
+        catch (Exception ex) { _logger.LogWarning(ex, "Comparison decoder cleanup failed"); }
     }
 
     public async Task ResetAsync()

@@ -23,6 +23,15 @@ public sealed class DialogService(Func<Window?> windowAccessor) : IDialogService
         return result.Count > 0 ? result[0].TryGetLocalPath() : null;
     }
 
+    public async Task OpenWithDefaultAppAsync(string filePath)
+    {
+        ArgumentNullException.ThrowIfNull(filePath);
+        if (!File.Exists(filePath))
+            return;
+        var window = await GetWindowAsync();
+        await window.Launcher.LaunchFileInfoAsync(new FileInfo(filePath));
+    }
+
     public async Task<string[]?> OpenFilesAsync(string title, string? filter = null)
     {
         var window = await GetWindowAsync();

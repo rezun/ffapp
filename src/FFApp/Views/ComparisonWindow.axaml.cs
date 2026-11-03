@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -6,6 +5,8 @@ using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using FFApp.Infrastructure;
 using FFApp.ViewModels;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FFApp.Views;
 
@@ -15,6 +16,9 @@ public sealed partial class ComparisonWindow : Window
     private bool _closing;
     private ComparisonViewModel? _vm;
     private double _resultsHeight = 250;
+
+    /// <summary>Set by whoever opens the window; windows are created by Avalonia's loader, not by DI.</summary>
+    public ILogger Logger { get; init; } = NullLogger<ComparisonWindow>.Instance;
     public ComparisonWindow()
     {
         InitializeComponent();
@@ -133,7 +137,7 @@ public sealed partial class ComparisonWindow : Window
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Closing comparison failed: {ex}");
+            Logger.LogError(ex, "Closing comparison failed");
             vm.Status = $"Could not close comparison: {ex.Message}";
         }
         finally { _closing = false; }

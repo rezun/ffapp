@@ -11,11 +11,14 @@ using FFApp.Core.Models;
 using FFApp.Core.Services;
 using FFApp.Core.Validation;
 using FFApp.Infrastructure;
+using FFApp.Infrastructure.Logging;
 using FFApp.Infrastructure.SingleInstance;
 using FFApp.Services;
 using LibVLCSharp.Shared;
 using FFApp.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using System.Text.Json;
 
 namespace FFApp;
@@ -23,14 +26,18 @@ namespace FFApp;
 public partial class App : Application
 {
     private readonly SingleInstanceCoordinator? _singleInstance;
+    private readonly Serilog.ILogger? _appLog;
+    private ILogger _logger = NullLogger<App>.Instance;
     private MainWindowViewModel? _mainViewModel;
 
     public App() { }
 
-    public App(SingleInstanceCoordinator singleInstance)
+    public App(SingleInstanceCoordinator singleInstance, Serilog.ILogger appLog)
     {
         ArgumentNullException.ThrowIfNull(singleInstance);
+        ArgumentNullException.ThrowIfNull(appLog);
         _singleInstance = singleInstance;
+        _appLog = appLog;
     }
 
     public override void Initialize()
@@ -72,6 +79,7 @@ public partial class App : Application
 
             services.AddSingleton(TimeProvider.System);
             services.AddSingleton(new JsonSerializerOptions { WriteIndented = true });
+            services.AddAppLogging(FFAppPaths.Identity, _appLog);
 
             // Infrastructure services
             services.AddSingleton<ExecutablePathsConfig>();
@@ -91,7 +99,8 @@ public partial class App : Application
             services.AddSingleton<IComparisonService, ComparisonService>();
             services.AddSingleton<IComparisonDecoderFactory, ComparisonDecoderFactory>();
             services.AddSingleton<IComparisonWindowService>(sp =>
-                new ComparisonWindowService(sp.GetRequiredService<IServiceScopeFactory>(), () => mainWindow));
+                new ComparisonWindowService(sp.GetRequiredService<IServiceScopeFactory>(), () => mainWindow,
+                    sp.GetRequiredService<ILoggerFactory>()));
             services.AddSingleton<Func<QueuedJob, IJobExecutionService>>(sp =>
                 _ => sp.GetRequiredService<IJobExecutionService>());
             services.AddSingleton<IQueueService, QueueService>();
@@ -128,7 +137,8 @@ public partial class App : Application
                     sp.GetRequiredService<IFfmpegCapabilityService>(),
                     sp.GetRequiredService<ExecutablePathsConfig>()) { IsVideoModeEditable = false });
             services.AddScoped<ComparisonPlaybackViewModel>(sp => new ComparisonPlaybackViewModel(
-                sp.GetRequiredService<IComparisonDecoderFactory>(), sp.GetRequiredService<TimeProvider>()));
+                sp.GetRequiredService<IComparisonDecoderFactory>(), sp.GetRequiredService<TimeProvider>(),
+                sp.GetRequiredService<ILogger<ComparisonPlaybackViewModel>>()));
             services.AddScoped<ComparisonViewModel>();
 
             // Factory delegate for on-demand DependencySetupViewModel creation
@@ -136,6 +146,9 @@ public partial class App : Application
                 () => sp.GetRequiredService<DependencySetupViewModel>());
 
             var provider = services.BuildServiceProvider();
+
+            _logger = provider.GetRequiredService<ILogger<App>>();
+            mainWindow.Logger = provider.GetRequiredService<ILogger<Views.MainWindow>>();
 
             var vm = provider.GetRequiredService<MainWindowViewModel>();
             _mainViewModel = vm;
@@ -147,7 +160,7 @@ public partial class App : Application
             desktop.ShutdownRequested += async (_, e) =>
             {
                 try { await HandleShutdownRequestedAsync(mainWindow, e); }
-                catch (Exception ex) { Console.Error.WriteLine($"Application shutdown failed: {ex}"); }
+                catch (Exception ex) { _logger.LogError(ex, "Application shutdown failed"); }
             };
 
             // Platform split:
@@ -198,7 +211,7 @@ public partial class App : Application
         _ = SafeOpenFilesAsync(_mainViewModel, paths);
     }
 
-    private static async Task SafeOpenFilesAsync(MainWindowViewModel vm, IReadOnlyList<string> paths)
+    private async Task SafeOpenFilesAsync(MainWindowViewModel vm, IReadOnlyList<string> paths)
     {
         try
         {
@@ -206,7 +219,7 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Opening files failed: {ex.Message}");
+            _logger.LogError(ex, "Opening {Count} files failed", paths.Count);
         }
     }
 
@@ -266,7 +279,7 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Failed to dispose single-instance coordinator: {ex.Message}");
+            _logger.LogWarning(ex, "Failed to dispose the single-instance coordinator");
         }
     }
 

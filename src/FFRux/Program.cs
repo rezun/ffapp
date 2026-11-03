@@ -1,4 +1,5 @@
 using Avalonia;
+using FFApp.Infrastructure.Logging;
 using FFApp.Infrastructure.SingleInstance;
 using FFRux.Infrastructure;
 
@@ -11,6 +12,8 @@ public static class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        using var log = AppLogging.CreateLogger(FFRuxPaths.Identity);
+
         var coordinator = SingleInstanceCoordinator.CreateFor(FFRuxPaths.Identity);
         if (!coordinator.TryAcquire())
         {
@@ -20,16 +23,21 @@ public static class Program
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine($"Failed to activate existing FFRux instance: {ex.Message}");
+                log.Error(ex, "Failed to activate the existing FFRux instance");
             }
             return 0;
         }
 
-        AppBuilder.Configure(() => new App(coordinator))
+        AppLogging.LogUnhandledExceptions(log);
+        AppLogging.LogStartup(log, FFRuxPaths.Identity);
+
+        AppBuilder.Configure(() => new App(coordinator, log))
             .UsePlatformDetect()
             .WithInterFont()
             .LogToTrace()
             .StartWithClassicDesktopLifetime(args);
+
+        log.Information("FFRux exited");
         return 0;
     }
 

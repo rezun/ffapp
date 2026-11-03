@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
 using FFApp.Infrastructure;
+using FFApp.Infrastructure.Logging;
 using FFApp.Tests.Builders;
 using FluentAssertions;
 using NSubstitute;
@@ -11,11 +12,13 @@ namespace FFApp.Tests.Infrastructure;
 public class QueueServiceTests
 {
     private readonly IJobExecutionService _mockExecution = Substitute.For<IJobExecutionService>();
+    private readonly IJobLogStore _jobLogs = Substitute.For<IJobLogStore>();
     private readonly QueueService _sut;
 
     public QueueServiceTests()
     {
-        _sut = new QueueService(_ => _mockExecution, TimeProvider.System);
+        _jobLogs.Start(Arg.Any<string>()).Returns(_ => JobLog.Discarding);
+        _sut = new QueueService(_ => _mockExecution, _jobLogs, TimeProvider.System);
         SetupDefaultExecution();
     }
 
@@ -42,6 +45,70 @@ public class QueueServiceTests
         var media = new TestMediaInfoBuilder().Build();
         var queued = new QueuedJob(job, media, [], new ValidationResult());
         return (id ?? Guid.NewGuid().ToString(), queued);
+    }
+
+    // --- Job logs ---
+
+    [Fact]
+    public async Task ExecuteAll_WritesEncoderOutputAndResultToTheJobLog()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"ffapp-queue-logs-{Guid.NewGuid():N}");
+        try
+        {
+            var store = new JobLogStore(
+                new JobLogOptions(directory, TimeSpan.FromDays(30), "FFApp tests"),
+                TimeProvider.System,
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<JobLogStore>.Instance);
+            var sut = new QueueService(_ => _mockExecution, store, TimeProvider.System);
+            _mockExecution.ExecuteAsync(
+                    Arg.Any<JobDefinition>(), Arg.Any<SourceMediaInfo>(), Arg.Any<Action<JobProgress>?>(),
+                    Arg.Any<Action<string>?>(), Arg.Any<ExecutionPauseState?>(), Arg.Any<CancellationToken>())
+                .Returns(call =>
+                {
+                    call.ArgAt<Action<string>?>(3)?.Invoke("frame=  42 fps=24");
+                    return Task.FromResult(new JobResult(call.Arg<JobDefinition>(), JobState.Completed, [], [], 83, ""));
+                });
+            var (id, job) = MakeQueueEntry("a");
+            sut.Enqueue([(id, job)]);
+            var started = new List<QueueItem>();
+            var uiLines = new List<string>();
+
+            await sut.ExecuteAllAsync(itemStarted: started.Add, logCallback: (_, line) => uiLines.Add(line));
+
+            var logPath = sut.Items.Single().LogPath;
+            logPath.Should().NotBeNull().And.StartWith(directory);
+            started.Single().LogPath.Should().Be(logPath, "the UI learns the path when the job starts");
+            uiLines.Should().Equal("frame=  42 fps=24");
+            var saved = await File.ReadAllTextAsync(logPath!);
+            saved.Should().Contain($"Source:    {job.Job.SourcePath}")
+                .And.Contain("frame=  42 fps=24")
+                .And.Contain("Result:    Completed")
+                .And.Contain("Elapsed:   00:01:23");
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ResetToPending_ClearsTheLogPath()
+    {
+        _jobLogs.Start(Arg.Any<string>()).Returns(_ => new JobLogStore(
+                new JobLogOptions(Path.Combine(Path.GetTempPath(), $"ffapp-queue-logs-{Guid.NewGuid():N}"), TimeSpan.FromDays(1), "t"),
+                TimeProvider.System,
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<JobLogStore>.Instance)
+            .Start("job"));
+        var (id, job) = MakeQueueEntry("a");
+        _sut.Enqueue([(id, job)]);
+        await _sut.ExecuteAllAsync();
+        var logPath = _sut.Items.Single().LogPath;
+        logPath.Should().NotBeNull();
+
+        _sut.ResetToPending([id]).Single().LogPath.Should().BeNull();
+
+        Directory.Delete(Path.GetDirectoryName(logPath!)!, recursive: true);
     }
 
     // --- Replace ---

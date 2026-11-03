@@ -19,6 +19,9 @@ public sealed record RemuxResult(
     long? OutputBytes = null)
 {
     public IReadOnlyList<string> Warnings { get; init; } = [];
+
+    /// <summary>The job's saved log file, or null when it could not be written.</summary>
+    public string? LogPath { get; init; }
 }
 
 public enum RemuxStage

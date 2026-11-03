@@ -12,4 +12,6 @@ public interface IDialogService
     Task<bool> ConfirmAsync(string title, string message);
     Task<string?> GetClipboardTextAsync();
     Task SetClipboardTextAsync(string text);
+    /// <summary>Opens the file in the app the system associates with it, such as a text editor for a log.</summary>
+    Task OpenWithDefaultAppAsync(string filePath);
 }

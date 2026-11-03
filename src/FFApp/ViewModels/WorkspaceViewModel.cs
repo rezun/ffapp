@@ -5,6 +5,8 @@ using CommunityToolkit.Mvvm.Messaging;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
 using FFApp.Services;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FFApp.ViewModels;
 
@@ -21,6 +23,7 @@ public partial class WorkspaceViewModel : ObservableObject,
     public VideoPreviewViewModel VideoPreview { get; }
 
     private SourceMediaInfo? _currentMediaInfo;
+    private readonly ILogger _logger;
     public OutputSettings? CurrentSettings { get; private set; }
     private SourceFileViewModel? _previousSource;
     private readonly IComparisonWindowService? _comparisonWindows;
@@ -41,8 +44,10 @@ public partial class WorkspaceViewModel : ObservableObject,
         JobListPanelViewModel jobList,
         VideoPreviewViewModel videoPreview,
         IMessenger messenger,
-        IComparisonWindowService? comparisonWindows = null)
+        IComparisonWindowService? comparisonWindows = null,
+        ILogger<WorkspaceViewModel>? logger = null)
     {
+        _logger = logger ?? NullLogger<WorkspaceViewModel>.Instance;
         SourceList = sourceList;
         OutputPath = outputPath;
         OutputSettings = outputSettings;
@@ -128,7 +133,7 @@ public partial class WorkspaceViewModel : ObservableObject,
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Opening comparison failed: {ex}");
+            _logger.LogError(ex, "Opening comparison failed");
             ComparisonStatus = $"Could not open comparison: {ex.Message}";
         }
     }

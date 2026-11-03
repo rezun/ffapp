@@ -1,5 +1,6 @@
 using Avalonia;
 using FFApp.Infrastructure;
+using FFApp.Infrastructure.Logging;
 using FFApp.Infrastructure.SingleInstance;
 
 namespace FFApp;
@@ -11,6 +12,8 @@ public static class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        using var log = AppLogging.CreateLogger(FFAppPaths.Identity);
+
         var coordinator = SingleInstanceCoordinator.CreateFor(FFAppPaths.Identity);
         if (!coordinator.TryAcquire())
         {
@@ -20,16 +23,21 @@ public static class Program
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine($"Failed to activate existing FFApp instance: {ex.Message}");
+                log.Error(ex, "Failed to activate the existing FFApp instance");
             }
             return 0;
         }
 
-        AppBuilder.Configure(() => new App(coordinator))
+        AppLogging.LogUnhandledExceptions(log);
+        AppLogging.LogStartup(log, FFAppPaths.Identity);
+
+        AppBuilder.Configure(() => new App(coordinator, log))
             .UsePlatformDetect()
             .WithInterFont()
             .LogToTrace()
             .StartWithClassicDesktopLifetime(args);
+
+        log.Information("FFApp exited");
         return 0;
     }
 

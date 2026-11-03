@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Reflection;
 using Avalonia;
 using Avalonia.Controls;
@@ -8,6 +7,8 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using FFApp.Core.Models;
 using FFApp.ViewModels;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FFApp.Views;
 
@@ -16,6 +17,9 @@ public partial class MainWindow : Window
     private bool _closingSaved;
     private bool _isClosing;
     internal bool IsCloseSaved => _closingSaved;
+
+    /// <summary>Set by <see cref="App"/> once the service provider exists, which is after the window is created.</summary>
+    public ILogger Logger { get; set; } = NullLogger<MainWindow>.Instance;
 
     public MainWindow()
     {
@@ -48,7 +52,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Window initialization failed: {ex}");
+            Logger.LogError(ex, "Window initialization failed");
         }
     }
 
@@ -93,7 +97,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Failed to persist theme preference: {ex}");
+            Logger.LogError(ex, "Failed to persist theme preference");
         }
     }
 
@@ -173,7 +177,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Failed to close comparisons: {ex}");
+            Logger.LogError(ex, "Failed to close comparisons");
             _isClosing = false;
             return false;
         }
@@ -214,7 +218,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Failed to save settings on close: {ex}");
+            Logger.LogError(ex, "Failed to save settings on close");
         }
         finally
         {

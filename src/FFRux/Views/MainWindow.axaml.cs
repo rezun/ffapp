@@ -2,12 +2,17 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Platform.Storage;
 using FFRux.ViewModels;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FFRux.Views;
 
 public partial class MainWindow : Window
 {
     private bool _closeConfirmed;
+
+    /// <summary>Set by <see cref="App"/> once the service provider exists, which is after the window is created.</summary>
+    public ILogger Logger { get; set; } = NullLogger<MainWindow>.Instance;
 
     public MainWindow()
     {
@@ -33,7 +38,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Closing FFRux failed: {ex}");
+            Logger.LogError(ex, "Closing FFRux failed");
         }
     }
 
@@ -57,7 +62,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Adding dropped files failed: {ex}");
+            Logger.LogError(ex, "Adding dropped files failed");
         }
     }
 }

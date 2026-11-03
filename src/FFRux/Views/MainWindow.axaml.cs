@@ -1,6 +1,9 @@
 using Avalonia.Controls;
 using Avalonia.Input;
+using System.Reflection;
 using Avalonia.Platform.Storage;
+using FFApp.Infrastructure;
+using FFRux.Infrastructure;
 using FFRux.ViewModels;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -19,6 +22,28 @@ public partial class MainWindow : Window
         InitializeComponent();
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
         AddHandler(DragDrop.DropEvent, OnDrop);
+
+        // NativeMenuItem is not a control, so x:Name generates no field; find the version entry instead.
+        var versionItem = NativeMenu.GetMenu(this)?.Items.OfType<NativeMenuItem>()
+            .FirstOrDefault(item => Equals(item.Header, "Info"))?.Menu?.Items.OfType<NativeMenuItem>()
+            .FirstOrDefault(item => Equals(item.Header, "FFRux"));
+        if (versionItem is not null && Assembly.GetExecutingAssembly().GetName().Version is { } version)
+            versionItem.Header = $"FFRux v{version.ToString(3)}";
+    }
+
+    // async void: NativeMenuItem.Click is a synchronous event; failures are caught and logged.
+    private async void OnOpenLogsFolder(object? sender, EventArgs e)
+    {
+        try
+        {
+            // The folder only exists once something was logged; create it so the file manager can open it.
+            var folder = Directory.CreateDirectory(AppPaths.LogDirectory(FFRuxPaths.Identity));
+            await Launcher.LaunchDirectoryInfoAsync(folder);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Opening the logs folder failed");
+        }
     }
 
     // async void: Avalonia lifecycle override — it must return void. Failures are caught and logged.

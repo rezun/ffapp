@@ -13,7 +13,21 @@
         MinWidth="1100" MinHeight="600"
         DragDrop.AllowDrop="True">
 
+    <!-- macOS shows this in the system menu bar; Windows and Linux show it in the NativeMenuBar below. -->
+    <NativeMenu.Menu>
+        <NativeMenu>
+            <NativeMenuItem Header="Info">
+                <NativeMenu>
+                    <NativeMenuItem Header="FFRux" IsEnabled="False" />
+                    <NativeMenuItemSeparator />
+                    <NativeMenuItem Header="Open logs folder" Click="OnOpenLogsFolder" />
+                </NativeMenu>
+            </NativeMenuItem>
+        </NativeMenu>
+    </NativeMenu.Menu>
+
     <DockPanel>
+        <NativeMenuBar DockPanel.Dock="Top" />
         <!-- Status bar -->
         <Border DockPanel.Dock="Bottom" Height="40" Padding="8,0" BorderBrush="{DynamicResource BorderSubtleBrush}"
                 BorderThickness="0,1,0,0">

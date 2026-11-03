@@ -69,6 +69,7 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
     private bool _isExpanded;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasCropSuggestion))]
     private bool _hasMedia;
 
     [ObservableProperty]
@@ -125,12 +126,28 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _cropDetectionStatus = "";
 
+    /// <summary>Black-bar crop suggested for the current source by sampling the whole video.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasCropSuggestion), nameof(CropSuggestionText))]
+    private CropRect? _suggestedCrop;
+
+    [ObservableProperty]
+    private bool _isAnalyzingCrop;
+
+    /// <summary>True while a suggestion exists and the user has not set a crop yet.</summary>
+    public bool HasCropSuggestion => HasMedia && SuggestedCrop is not null && !IsCropDirty;
+
+    public string CropSuggestionText => SuggestedCrop is { } crop
+        ? $"Black bars: crop to {crop.Width} x {crop.Height}"
+        : "";
+
     /// <summary>Explicitly set when the user modifies trim values.</summary>
     [ObservableProperty]
     private bool _isTrimDirty;
 
     /// <summary>Explicitly set when the user modifies crop values.</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasCropSuggestion))]
     private bool _isCropDirty;
 
     /// <summary>Guard to suppress dirty-marking during programmatic updates.</summary>
@@ -394,6 +411,19 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
         _suppressDirtyTracking = false;
         IsCropDirty = false;
         CropDetectionStatus = "";
+    }
+
+    [RelayCommand]
+    private void ApplySuggestedCrop()
+    {
+        if (SuggestedCrop is not { } crop)
+            return;
+
+        CropX = crop.X;
+        CropY = crop.Y;
+        CropW = crop.Width;
+        CropH = crop.Height;
+        CropDetectionStatus = $"Applied suggested crop {crop.Width} x {crop.Height} at {crop.X}, {crop.Y}";
     }
 
     private bool CanDetectCrop() =>

@@ -21,6 +21,10 @@ public partial class SourceListPanelViewModel : ObservableObject
     private readonly IMediaProbeService _mediaProbeService;
     private readonly IDialogService _dialogService;
     private readonly IMessenger _messenger;
+    private readonly ICropDetectionService? _cropDetectionService;
+
+    // Crop analysis decodes video; run one source at a time even across overlapping add batches.
+    private readonly SemaphoreSlim _cropAnalysisGate = new(1, 1);
 
     public ObservableCollection<SourceFileViewModel> Sources { get; } = [];
 
@@ -52,11 +56,13 @@ public partial class SourceListPanelViewModel : ObservableObject
     public SourceListPanelViewModel(
         IMediaProbeService mediaProbeService,
         IDialogService dialogService,
-        IMessenger messenger)
+        IMessenger messenger,
+        ICropDetectionService? cropDetectionService = null)
     {
         _mediaProbeService = mediaProbeService;
         _dialogService = dialogService;
         _messenger = messenger;
+        _cropDetectionService = cropDetectionService;
     }
 
     /// <summary>
@@ -81,17 +87,18 @@ public partial class SourceListPanelViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
+    // Concurrent executions keep the add buttons usable while crop analysis of an
+    // earlier batch is still running.
+    [RelayCommand(AllowConcurrentExecutions = true)]
     private async Task AddFilesAsync()
     {
         var paths = await _dialogService.OpenFilesAsync("Select media files");
         if (paths is null) return;
 
-        foreach (var path in paths)
-            await AddSinglePathAsync(path);
+        await AddPathsAndAnalyzeAsync(paths);
     }
 
-    [RelayCommand]
+    [RelayCommand(AllowConcurrentExecutions = true)]
     private async Task AddFolderAsync()
     {
         var folder = await _dialogService.OpenFolderAsync("Select media folder");
@@ -101,8 +108,7 @@ public partial class SourceListPanelViewModel : ObservableObject
             .Where(f => MediaFileExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))
             .OrderBy(f => f, StringComparer.OrdinalIgnoreCase);
 
-        foreach (var path in files)
-            await AddSinglePathAsync(path);
+        await AddPathsAndAnalyzeAsync(files);
     }
 
     private bool CanRemoveSelected => SelectedSources.Count > 0;
@@ -140,31 +146,74 @@ public partial class SourceListPanelViewModel : ObservableObject
     /// </summary>
     public async Task AddPathsAsync(IEnumerable<string> paths)
     {
+        var files = new List<string>();
         foreach (var path in paths)
         {
             if (Directory.Exists(path))
             {
-                var files = Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories)
+                files.AddRange(Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories)
                     .Where(f => MediaFileExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))
-                    .OrderBy(f => f, StringComparer.OrdinalIgnoreCase);
-
-                foreach (var file in files)
-                    await AddSinglePathAsync(file);
+                    .OrderBy(f => f, StringComparer.OrdinalIgnoreCase));
             }
             else if (File.Exists(path))
             {
-                await AddSinglePathAsync(path);
+                files.Add(path);
             }
+        }
+
+        await AddPathsAndAnalyzeAsync(files);
+    }
+
+    /// <summary>
+    /// Probes every path first so all sources become usable quickly, then looks for
+    /// black bars in the new sources one by one.
+    /// </summary>
+    private async Task AddPathsAndAnalyzeAsync(IEnumerable<string> paths)
+    {
+        var added = new List<SourceFileViewModel>();
+        foreach (var path in paths)
+        {
+            if (await AddSinglePathAsync(path) is { } source)
+                added.Add(source);
+        }
+
+        foreach (var source in added)
+            await SuggestCropAsync(source);
+    }
+
+    private async Task SuggestCropAsync(SourceFileViewModel source)
+    {
+        if (_cropDetectionService is null || source.MediaInfo is not { } mediaInfo)
+            return;
+
+        await _cropAnalysisGate.WaitAsync();
+        try
+        {
+            // The source may have been removed while waiting for an earlier analysis.
+            if (!Sources.Contains(source))
+                return;
+
+            source.IsAnalyzingCrop = true;
+            source.SuggestedCrop = await _cropDetectionService.SuggestAsync(mediaInfo);
+        }
+        catch (CropDetectionException ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Crop suggestion failed for {source.SourcePath}: {ex}");
+        }
+        finally
+        {
+            source.IsAnalyzingCrop = false;
+            _cropAnalysisGate.Release();
         }
     }
 
-    private async Task AddSinglePathAsync(string path, CancellationToken ct = default)
+    private async Task<SourceFileViewModel?> AddSinglePathAsync(string path, CancellationToken ct = default)
     {
-        if (!File.Exists(path)) return;
+        if (!File.Exists(path)) return null;
 
         // Don't add duplicates
         if (Sources.Any(s => string.Equals(s.SourcePath, path, StringComparison.OrdinalIgnoreCase)))
-            return;
+            return null;
 
         var vm = new SourceFileViewModel(path);
         vm.IsProbing = true;
@@ -185,9 +234,12 @@ public partial class SourceListPanelViewModel : ObservableObject
         {
             vm.SetError(ex.Message);
             vm.IsProbing = false;
+            UpdateStatus();
+            return null;
         }
 
         UpdateStatus();
+        return vm;
     }
 
     private void UpdateStatus()

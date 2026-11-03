@@ -9,7 +9,7 @@
     <Border Classes="card" Margin="8,8,8,0">
         <DockPanel>
             <!-- Header: always visible -->
-            <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto" Margin="8,6,8,4">
+            <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto,Auto" Margin="8,6,8,4">
                 <TextBlock Text="Preview and edit"
                            Classes="card-header" Margin="0"
                            VerticalAlignment="Center" />
@@ -18,7 +18,22 @@
                            Text="{Binding StatusText}"
                            VerticalAlignment="Center"
                            Margin="8,0,0,0" />
+                <TextBlock Grid.Column="2"
+                           Classes="caption secondary"
+                           Text="Checking for black bars..."
+                           IsVisible="{Binding IsAnalyzingCrop}"
+                           VerticalAlignment="Center"
+                           Margin="8,0" />
                 <Button Grid.Column="2"
+                        x:Name="CropSuggestionButton"
+                        Classes="xs warning"
+                        Content="{Binding CropSuggestionText}"
+                        ToolTip.Tip="Black bars were found in frames sampled across the whole source, and no crop is set. Click to apply the suggested crop."
+                        Command="{Binding ApplySuggestedCropCommand}"
+                        IsVisible="{Binding HasCropSuggestion}"
+                        VerticalAlignment="Center"
+                        Margin="8,0" />
+                <Button Grid.Column="3"
                         ToolTip.Tip="Show or hide the source preview and trim/crop controls."
                         Classes="sm"
                         Content="{Binding IsExpanded, Converter={x:Static vm:VideoPreviewViewModel.ExpandCollapseConverter}}"

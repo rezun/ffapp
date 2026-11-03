@@ -108,6 +108,45 @@ public sealed class VideoPreviewViewModelTests
         sut.CropDetectionStatus.Should().Be("Detected 1920 x 800 at 0, 140");
     }
 
+    [Fact]
+    public void CropSuggestion_IsShownUntilUserSetsCrop()
+    {
+        using var sut = new VideoPreviewViewModel(null);
+        sut.LoadMedia(CreateMediaInfo());
+        sut.HasMedia = true;
+
+        sut.SuggestedCrop = new CropRect(0, 140, 1920, 800);
+
+        sut.HasCropSuggestion.Should().BeTrue();
+        sut.CropSuggestionText.Should().Be("Black bars: crop to 1920 x 800");
+
+        sut.CropH = 1000;
+
+        sut.HasCropSuggestion.Should().BeFalse();
+
+        sut.ResetCropCommand.Execute(null);
+
+        sut.HasCropSuggestion.Should().BeTrue();
+    }
+
+    [Fact]
+    public void ApplySuggestedCrop_SetsCropAndHidesSuggestion()
+    {
+        using var sut = new VideoPreviewViewModel(null);
+        sut.LoadMedia(CreateMediaInfo());
+        sut.HasMedia = true;
+        sut.SuggestedCrop = new CropRect(0, 140, 1920, 800);
+
+        sut.ApplySuggestedCropCommand.Execute(null);
+
+        sut.CropY.Should().Be(140);
+        sut.CropW.Should().Be(1920);
+        sut.CropH.Should().Be(800);
+        sut.IsCropDirty.Should().BeTrue();
+        sut.HasCropSuggestion.Should().BeFalse();
+        sut.CropDetectionStatus.Should().Be("Applied suggested crop 1920 x 800 at 0, 140");
+    }
+
     private static SourceMediaInfo CreateMediaInfo() => new()
     {
         SourcePath = "/videos/movie.mkv",
@@ -127,5 +166,10 @@ public sealed class VideoPreviewViewModelTests
             Position = position;
             return Task.FromResult(result);
         }
+
+        public Task<CropRect?> SuggestAsync(
+            SourceMediaInfo mediaInfo,
+            CancellationToken ct = default) =>
+            Task.FromResult<CropRect?>(null);
     }
 }

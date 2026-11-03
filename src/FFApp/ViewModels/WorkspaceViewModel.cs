@@ -238,9 +238,13 @@ public partial class WorkspaceViewModel : ObservableObject,
         VideoPreview.LoadMedia(_currentMediaInfo);
 
         // 4. Restore per-file or global trim/crop values
+        if (_previousSource is not null)
+            _previousSource.PropertyChanged -= OnCurrentSourcePropertyChanged;
         _previousSource = SourceList.SelectedSource;
         if (_previousSource is not null)
         {
+            _previousSource.PropertyChanged += OnCurrentSourcePropertyChanged;
+
             // Per-file restore (respects "apply to all" flags internally)
             VideoPreview.RestoreTrimCropFromSource(_previousSource);
         }
@@ -257,7 +261,24 @@ public partial class WorkspaceViewModel : ObservableObject,
             VideoPreview.CropH = globalCropH;
         }
 
+        SyncCropSuggestion();
         RebuildAndPushJobContext();
+    }
+
+    // Crop analysis finishes after the source is loaded, so follow the shown source live.
+    private void OnCurrentSourcePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(SourceFileViewModel.SuggestedCrop)
+                           or nameof(SourceFileViewModel.IsAnalyzingCrop))
+        {
+            SyncCropSuggestion();
+        }
+    }
+
+    private void SyncCropSuggestion()
+    {
+        VideoPreview.SuggestedCrop = _previousSource?.SuggestedCrop;
+        VideoPreview.IsAnalyzingCrop = _previousSource?.IsAnalyzingCrop ?? false;
     }
 
     public void Receive(OutputSettingsChangedMessage message)

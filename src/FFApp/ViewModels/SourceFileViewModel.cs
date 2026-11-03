@@ -55,6 +55,13 @@ public partial class SourceFileViewModel : ObservableObject
     [ObservableProperty]
     private bool _isCropDirty;
 
+    /// <summary>Black-bar crop found by sampling the whole source, if any.</summary>
+    [ObservableProperty]
+    private CropRect? _suggestedCrop;
+
+    [ObservableProperty]
+    private bool _isAnalyzingCrop;
+
     public SourceFileViewModel(string sourcePath)
     {
         SourcePath = sourcePath;

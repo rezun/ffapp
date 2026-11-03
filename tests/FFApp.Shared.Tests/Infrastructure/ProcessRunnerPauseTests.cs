@@ -58,6 +58,49 @@ public sealed class ProcessRunnerPauseTests
     }
 
     [Fact]
+    public async Task WhilePaused_OtherProcessesCanStillStart()
+    {
+        // Regression: on macOS a stopped direct child made the runtime's SIGCHLD handler spin, so every
+        // Process.Start blocked until the encoder resumed (opening the logs folder froze FFApp).
+        if (OperatingSystem.IsWindows())
+            return;
+
+        var state = new ExecutionPauseState(TimeProvider.System);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        var firstOutput = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var command = new GeneratedCommand("/bin/sh",
+            ["-c", "i=0; while [ $i -lt 10 ]; do echo tick; sleep 0.1; i=$((i+1)); done; exit 3"],
+            "pause test", ProcessProtocol.Plain);
+        var run = new ProcessRunner(TimeProvider.System, new FFApp.Core.TranscodingPreferences()).RunAsync(
+            command, logCallback: _ => firstOutput.TrySetResult(), pauseState: state, ct: cts.Token);
+
+        try
+        {
+            await firstOutput.Task.WaitAsync(cts.Token);
+            state.Pause();
+            await Task.Delay(200, cts.Token);
+
+            var other = Task.Run(() =>
+            {
+                using var process = System.Diagnostics.Process.Start("/usr/bin/true")!;
+                process.WaitForExit();
+            }, cts.Token);
+            (await Task.WhenAny(other, Task.Delay(TimeSpan.FromSeconds(5), cts.Token))).Should().BeSameAs(other,
+                "starting a process must not wait for the paused encoder");
+
+            state.Resume();
+            var result = await run.WaitAsync(TimeSpan.FromSeconds(10));
+            result.ReturnCode.Should().Be(3, "the wrapper passes the encoder's exit code through");
+        }
+        finally
+        {
+            state.Resume();
+            await cts.CancelAsync();
+            await run.WaitAsync(TimeSpan.FromSeconds(10));
+        }
+    }
+
+    [Fact]
     public async Task PausedBeforeStartup_CancellationDoesNotLaunchProcess()
     {
         var state = new ExecutionPauseState(TimeProvider.System);

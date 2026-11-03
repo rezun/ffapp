@@ -24,9 +24,11 @@ public sealed class ProcessRunner(TimeProvider timeProvider, TranscodingPreferen
             await pauseState.WaitWhilePausedAsync(ct).ConfigureAwait(false);
 
         var useLowPriority = preferences.UseLowPriority && command.Protocol == ProcessProtocol.Ffmpeg;
+        var startInfo = CreateStartInfo(command, useLowPriority, OperatingSystem.IsWindows());
+        var wrapped = pauseState is not null && ProcessSuspension.NeedsWrapper;
         using var process = new Process
         {
-            StartInfo = CreateStartInfo(command, useLowPriority, OperatingSystem.IsWindows()),
+            StartInfo = wrapped ? ProcessSuspension.Wrap(startInfo) : startInfo,
             EnableRaisingEvents = true,
         };
 
@@ -45,8 +47,8 @@ public sealed class ProcessRunner(TimeProvider timeProvider, TranscodingPreferen
             else
                 pauseState.StartProcess(
                     () => process.Start(),
-                    () => ProcessSuspension.SetPaused(process, true),
-                    () => ProcessSuspension.SetPaused(process, false));
+                    () => ProcessSuspension.SetPaused(process, true, wrapped),
+                    () => ProcessSuspension.SetPaused(process, false, wrapped));
 
             if (useLowPriority && OperatingSystem.IsWindows())
             {

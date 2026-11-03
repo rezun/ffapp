@@ -188,6 +188,18 @@ public class AudioViewModelTests
         _sut.SelectedBitrateOption.Should().Be(128);
     }
 
+    [Theory]
+    [InlineData(384)]
+    [InlineData(512)]
+    [InlineData(768)]
+    public void SetAudioBitrate_MultichannelValue_SelectsListOption(int kbps)
+    {
+        _sut.AudioBitrate = kbps * 1000;
+
+        _sut.SelectedBitrateOption.Should().Be(kbps);
+        _sut.IsCustomBitrate.Should().BeFalse();
+    }
+
     [Fact]
     public void SetAudioBitrate_NonStandardValue_SetsCustomMode()
     {

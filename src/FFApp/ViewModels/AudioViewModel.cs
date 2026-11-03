@@ -97,9 +97,12 @@ public sealed partial class AudioViewModel : ObservableObject
     /// <summary>Default audio bitrate in bits per second (128 kbps).</summary>
     public const int DefaultBitrateBps = 128_000;
 
-    /// <summary>Predefined bitrate options in kbps, plus -1 as the "Custom" sentinel.</summary>
+    /// <summary>
+    /// Predefined bitrate options in kbps, plus -1 as the "Custom" sentinel. The steps above
+    /// 320 serve multichannel tracks: Opus allows up to 256 kbps per channel, so 7.1 needs room.
+    /// </summary>
     public static IReadOnlyList<int> AvailableBitrateOptions { get; } =
-        [32, 64, 96, 128, 160, 192, 256, 320, -1];
+        [32, 64, 96, 128, 160, 192, 256, 320, 384, 448, 512, 640, 768, -1];
 
     public bool IsCustomBitrate => SelectedBitrateOption == -1;
 

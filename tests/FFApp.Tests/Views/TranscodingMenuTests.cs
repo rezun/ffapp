@@ -52,4 +52,22 @@ public sealed class TranscodingMenuTests(QueueTestSession fixture)
             vm.LoadedSettings?.UseLowPriorityTranscoding.Should().BeTrue();
         }, CancellationToken.None);
     }
+
+    [Fact]
+    public async Task InfoMenu_OffersTheLogsFolder()
+    {
+        await fixture.Session.Dispatch(() =>
+        {
+            var window = new MainWindow();
+            var menu = NativeMenu.GetMenu(window)
+                ?? throw new InvalidOperationException("Missing main menu.");
+            var info = menu.Items.OfType<NativeMenuItem>().Single(i => Equals(i.Header, "Info")).Menu
+                ?? throw new InvalidOperationException("Missing info menu.");
+
+            var item = info.Items.OfType<NativeMenuItem>().Single(i => Equals(i.Header, "Open logs folder"));
+
+            // Not clicked here: that would open the real folder in the file manager.
+            item.IsEnabled.Should().BeTrue();
+        }, CancellationToken.None);
+    }
 }

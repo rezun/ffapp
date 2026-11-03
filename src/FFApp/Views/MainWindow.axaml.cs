@@ -6,6 +6,7 @@ using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using FFApp.Core.Models;
+using FFApp.Infrastructure;
 using FFApp.ViewModels;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -64,6 +65,21 @@ public partial class MainWindow : Window
         vm.RefreshComparisonStorageCommand.Execute(null);
         new ComparisonStorageWindow { DataContext = vm }.Show(this);
     }
+    // async void: NativeMenuItem.Click is a synchronous event; failures are caught and logged.
+    private async void OnOpenLogsFolder(object? sender, EventArgs e)
+    {
+        try
+        {
+            // The folder only exists once something was logged; create it so the file manager can open it.
+            var folder = Directory.CreateDirectory(AppPaths.LogDirectory(FFAppPaths.Identity));
+            await Launcher.LaunchDirectoryInfoAsync(folder);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Opening the logs folder failed");
+        }
+    }
+
     public void OnThemeDark(object? sender, EventArgs e) => SetTheme(ThemePreference.Dark);
     public void OnThemeLight(object? sender, EventArgs e) => SetTheme(ThemePreference.Light);
 

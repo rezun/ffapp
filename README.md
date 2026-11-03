@@ -67,7 +67,7 @@ FFApp and FFRux each keep two kinds of logs in their own log folder:
 | Linux | `$XDG_STATE_HOME/ffapp/logs`, `$XDG_STATE_HOME/ffrux/logs` (default `~/.local/state`) |
 
 - **`app-YYYYMMDD.log`**: app events and errors, one file per day, kept for 14 days.
-- **`jobs/`**: one file per encode or remux, named after its start time and output file. It contains the commands and the complete FFmpeg/mkvpropedit output, followed by the result. These logs are kept for 30 days. Use **Open log file** on a job (Log tab in FFApp, result bar in FFRux) to open one.
+- **`jobs/`**: one file per encode or remux, named after its start time and output file. It contains the commands and the complete FFmpeg/mkvpropedit output, followed by the result. These logs are kept for 30 days. Use **Open log file** on a job (Log tab in FFApp, result bar in FFRux) to open one, or **Info → Open logs folder** in FFApp to browse them all.
 
 ---
 

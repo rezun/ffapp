@@ -44,6 +44,8 @@
                 <NativeMenu>
                     <NativeMenuItem Header="FFApp"
                                     IsEnabled="False" />
+                    <NativeMenuItemSeparator />
+                    <NativeMenuItem Header="Open logs folder" Click="OnOpenLogsFolder" />
                 </NativeMenu>
             </NativeMenuItem>
         </NativeMenu>

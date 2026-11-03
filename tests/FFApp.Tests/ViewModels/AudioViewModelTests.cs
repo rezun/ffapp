@@ -104,7 +104,6 @@ public class AudioViewModelTests
     [InlineData(AudioCodec.Vorbis)]
     public void SampleRateOptions_AreSupportedBySelectedCodec(AudioCodec codec)
     {
-        _sut.MaxSourceSampleRate = 96000;
         _sut.SelectedAudioCodec = codec;
 
         _sut.AvailableSampleRateOptions.Should().StartWith(0);
@@ -115,7 +114,6 @@ public class AudioViewModelTests
     [Fact]
     public void SampleRateOptions_Opus_ContainAllSupportedRatesAndAuto()
     {
-        _sut.MaxSourceSampleRate = 96000;
         _sut.SelectedAudioCodec = AudioCodec.Opus;
 
         _sut.AvailableSampleRateOptions.Should().Equal(0, 8000, 12000, 16000, 24000, 48000);
@@ -124,7 +122,6 @@ public class AudioViewModelTests
     [Fact]
     public void SampleRateOptions_Mp3_DoNotOffer96Khz()
     {
-        _sut.MaxSourceSampleRate = 96000;
         _sut.SelectedAudioCodec = AudioCodec.Mp3;
 
         _sut.AvailableSampleRateOptions.Should().Contain(44100).And.Contain(48000).And.NotContain(96000);
@@ -133,7 +130,6 @@ public class AudioViewModelTests
     [Fact]
     public void CodecChange_ResetsUnsupportedSampleRateToAutoAndNotifiesOptions()
     {
-        _sut.MaxSourceSampleRate = 48000;
         _sut.SelectedSampleRate = 44100;
         using var monitor = _sut.Monitor();
 
@@ -148,7 +144,6 @@ public class AudioViewModelTests
     [Fact]
     public void CodecChange_PreservesSupportedSampleRate()
     {
-        _sut.MaxSourceSampleRate = 48000;
         _sut.SelectedSampleRate = 48000;
 
         _sut.SelectedAudioCodec = AudioCodec.Opus;
@@ -167,29 +162,6 @@ public class AudioViewModelTests
         _sut.SelectedSampleRate = rate;
 
         _sut.SelectedSampleRate.Should().Be(0);
-    }
-
-    [Fact]
-    public void SourceRateChange_CombinesSourceLimitWithCodecSupport()
-    {
-        _sut.SelectedAudioCodec = AudioCodec.Opus;
-        _sut.MaxSourceSampleRate = 48000;
-        _sut.SelectedSampleRate = 48000;
-
-        _sut.MaxSourceSampleRate = 44100;
-
-        _sut.AvailableSampleRateOptions.Should().Equal(0, 8000, 12000, 16000, 24000);
-        _sut.SelectedSampleRate.Should().Be(0);
-    }
-
-    [Fact]
-    public void UnknownSourceRate_StillOffersCodecSupportedRates()
-    {
-        _sut.MaxSourceSampleRate = 48000;
-        _sut.SelectedAudioCodec = AudioCodec.Opus;
-        _sut.MaxSourceSampleRate = 0;
-
-        _sut.AvailableSampleRateOptions.Should().Equal(0, 8000, 12000, 16000, 24000, 48000);
     }
 
     [Fact]

@@ -252,6 +252,20 @@ public class OutputSettingsViewModelTests
     }
 
     [Fact]
+    public void ApplySettings_SampleRateAboveSource_KeepsSelectionAfterSourceLoads()
+    {
+        var settings = new TestOutputSettingsBuilder().WithAudioReencode(AudioCodec.Opus, 128_000, sampleRate: 48000).Build();
+
+        _sut.ApplySettings(settings);
+        _sut.UpdateSourceInfo(new TestMediaInfoBuilder()
+            .WithAudioStreams(new AudioStreamInfo(1, "aac", SampleRate: 44100)).Build());
+
+        _sut.Audio.SelectedSampleRate.Should().Be(48000);
+        _sut.Audio.AvailableSampleRateOptions.Should().Contain(48000);
+        _sut.BuildSettings().AudioOptions.SampleRate.Should().Be(48000);
+    }
+
+    [Fact]
     public void BuildSettings_AfterContainerChange_ReflectsNewContainer()
     {
         _sut.Format.SelectedContainer = OutputContainer.Webm;

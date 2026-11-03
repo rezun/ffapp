@@ -153,10 +153,6 @@ public partial class OutputSettingsViewModel : ObservableObject
         Audio.UpdateTracks(mediaInfo, selectedAudioStreamIndices);
         Format.SourceHasVideo = mediaInfo.VideoStreams.Length > 0;
         Audio.AvailableAudioCodecs = Format.AvailableAudioCodecs;
-        Audio.MaxSourceSampleRate = mediaInfo.AudioStreams
-            .Select(s => s.SampleRate ?? 0)
-            .DefaultIfEmpty(0)
-            .Max();
 
         var hdrFormat = mediaInfo.PrimaryVideoStream?.HdrFormat ?? HdrFormat.Sdr;
         Hdr.UpdateForSource(hdrFormat);

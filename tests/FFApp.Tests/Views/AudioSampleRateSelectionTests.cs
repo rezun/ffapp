@@ -18,7 +18,6 @@ public sealed class AudioSampleRateSelectionTests(QueueTestSession fixture)
             {
                 AvailableAudioCodecs = [AudioCodec.Aac, AudioCodec.Mp3, AudioCodec.Opus, AudioCodec.Vorbis],
                 SelectedAudioMode = AudioMode.Reencode,
-                MaxSourceSampleRate = 96000,
                 SelectedSampleRate = 44100,
             };
             var view = new AudioView { DataContext = vm };

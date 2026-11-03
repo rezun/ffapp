@@ -146,20 +146,6 @@ public sealed partial class AudioViewModel : ObservableObject
         }
     }
 
-    private int _maxSourceSampleRate;
-
-    public int MaxSourceSampleRate
-    {
-        get => _maxSourceSampleRate;
-        set
-        {
-            if (!SetProperty(ref _maxSourceSampleRate, value))
-                return;
-
-            UpdateSampleRateOptions();
-        }
-    }
-
     partial void OnSelectedAudioCodecChanged(AudioCodec? value) => UpdateSampleRateOptions();
 
     partial void OnSelectedSampleRateChanged(int value)
@@ -175,8 +161,8 @@ public sealed partial class AudioViewModel : ObservableObject
         var codecRates = SelectedAudioCodec is { } codec
             ? CompatibilityData.AudioSampleRateOptions[codec]
             : [];
-        AvailableSampleRateOptions = [0, .. codecRates
-            .Where(rate => MaxSourceSampleRate <= 0 || rate <= MaxSourceSampleRate)];
+        // Only the codec limits the list; filtering by the source would drop a preset's rate.
+        AvailableSampleRateOptions = [0, .. codecRates];
         SelectedSampleRate = AvailableSampleRateOptions.Contains(selectedRate) ? selectedRate : 0;
     }
 

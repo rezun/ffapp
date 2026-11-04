@@ -26,7 +26,8 @@ public sealed record JobDefinition(
     KeyframeUnit KeyframeUnit = KeyframeUnit.Frames,
     PostProcessingOptions? PostProcessing = null,
     ImmutableArray<int>? SelectedAudioStreamIndices = null,
-    ColorMetadataSettings? ColorMetadata = null)
+    ColorMetadataSettings? ColorMetadata = null,
+    ImmutableArray<int>? SelectedSubtitleStreamIndices = null)
 {
     public ColorMetadataSettings ColorMetadata { get; init; } = ColorMetadata ?? new ColorMetadataSettings();
     public AudioOptions AudioOptions { get; init; } = AudioOptions ?? new AudioOptions();

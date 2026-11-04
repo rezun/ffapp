@@ -872,6 +872,57 @@ public class CommandBuilderTests
     }
 
     [Fact]
+    public void Build_SelectedSubtitleTracks_MapsOutUnselectedTracks()
+    {
+        var media = new TestMediaInfoBuilder().Build() with
+        {
+            SubtitleStreams = [new SubtitleStreamInfo(2, "subrip", "eng"), new SubtitleStreamInfo(4, "subrip", "deu")],
+        };
+        var job = DefaultJob() with { SelectedSubtitleStreamIndices = [4] };
+        var args = JoinArgs(_sut.Build(job, media)[0]);
+
+        args.Should().Contain("-map -0:2");
+        args.Should().NotContain("-map -0:4");
+        args.Should().Contain("-c:s mov_text");
+    }
+
+    [Fact]
+    public void Build_UnselectedUnsupportedSubtitle_DoesNotBlockMp4()
+    {
+        var media = new TestMediaInfoBuilder().Build() with
+        {
+            SubtitleStreams = [new SubtitleStreamInfo(2, "hdmv_pgs_subtitle", "eng"), new SubtitleStreamInfo(4, "subrip", "deu")],
+        };
+        var job = DefaultJob() with { SelectedSubtitleStreamIndices = [4] };
+        var args = JoinArgs(_sut.Build(job, media)[0]);
+
+        args.Should().Contain("-map -0:2");
+        args.Should().Contain("-c:s mov_text");
+    }
+
+    [Fact]
+    public void Build_NoSubtitleTracksSelected_MapsOutAllWithoutCodec()
+    {
+        var media = new TestMediaInfoBuilder().WithSubtitles("hdmv_pgs_subtitle").Build();
+        var job = DefaultJob() with { SelectedSubtitleStreamIndices = [] };
+        var args = JoinArgs(_sut.Build(job, media)[0]);
+
+        args.Should().Contain("-map -0:2");
+        args.Should().NotContain("-c:s");
+    }
+
+    [Fact]
+    public void Build_SelectedSubtitleTrackMissing_Throws()
+    {
+        var media = new TestMediaInfoBuilder().WithSubtitles().Build();
+        var job = DefaultJob() with { SelectedSubtitleStreamIndices = [9] };
+
+        var act = () => _sut.Build(job, media);
+
+        act.Should().Throw<CommandBuildException>();
+    }
+
+    [Fact]
     public void Build_NoSubtitles_DoesNotAddSubtitleCodec()
     {
         var args = JoinArgs(_sut.Build(DefaultJob(), DefaultMedia())[0]);

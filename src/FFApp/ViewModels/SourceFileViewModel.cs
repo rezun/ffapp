@@ -29,6 +29,8 @@ public partial class SourceFileViewModel : ObservableObject
 
     public ImmutableArray<int>? SelectedAudioStreamIndices { get; set; }
 
+    public ImmutableArray<int>? SelectedSubtitleStreamIndices { get; set; }
+
     // Per-file trim/crop settings (saved/restored on selection switch)
     [ObservableProperty]
     private double _trimInSeconds;

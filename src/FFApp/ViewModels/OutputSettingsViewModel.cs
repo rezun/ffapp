@@ -147,10 +147,13 @@ public partial class OutputSettingsViewModel : ObservableObject
     }
 
     public void UpdateSourceInfo(
-        SourceMediaInfo mediaInfo, ImmutableArray<int>? selectedAudioStreamIndices = null)
+        SourceMediaInfo mediaInfo,
+        ImmutableArray<int>? selectedAudioStreamIndices = null,
+        ImmutableArray<int>? selectedSubtitleStreamIndices = null)
     {
         _mediaInfo = mediaInfo;
         Audio.UpdateTracks(mediaInfo, selectedAudioStreamIndices);
+        StreamHandling.UpdateSubtitleTracks(mediaInfo, selectedSubtitleStreamIndices);
         Format.SourceHasVideo = mediaInfo.VideoStreams.Length > 0;
         Audio.AvailableAudioCodecs = Format.AvailableAudioCodecs;
 
@@ -363,7 +366,8 @@ public partial class OutputSettingsViewModel : ObservableObject
             return;
 
         var result = _validationService.Validate(
-            settings, AudioTrackSelection.Apply(_mediaInfo, Audio.SelectedAudioStreamIndices),
+            settings,
+            TrackSelection.Apply(_mediaInfo, Audio.SelectedAudioStreamIndices, StreamHandling.SelectedSubtitleStreamIndices),
             _trimmedDurationSeconds);
         var allIssues = result.Issues;
 

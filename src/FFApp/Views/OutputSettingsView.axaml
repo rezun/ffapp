@@ -605,16 +605,46 @@
                 <TextBlock DockPanel.Dock="Top" Text="Streams"
                            Classes="card-header" />
                 <Separator DockPanel.Dock="Top" />
-                <StackPanel Orientation="Horizontal" Spacing="16" Margin="8,4,8,6">
-                    <CheckBox Content="Remove image streams"
-                              ToolTip.Tip="Exclude attached images such as cover art. When unchecked, images are copied unchanged where supported by the output container."
-                              IsChecked="{Binding StreamHandling.RemoveImages}" />
-                    <CheckBox Content="Remove subtitle streams"
-                              ToolTip.Tip="Exclude all subtitle streams. When unchecked, supported subtitles are copied or converted as needed for the output container."
-                              IsChecked="{Binding StreamHandling.RemoveSubtitles}" />
-                    <CheckBox Content="Remove data streams"
-                              ToolTip.Tip="Exclude data streams such as timecode or auxiliary tracks. Only compatible containers can preserve these streams."
-                              IsChecked="{Binding StreamHandling.RemoveData}" />
+                <StackPanel Spacing="4" Margin="8,4,8,6">
+                    <StackPanel Orientation="Horizontal" Spacing="16">
+                        <CheckBox Content="Remove image streams"
+                                  ToolTip.Tip="Exclude attached images such as cover art. When unchecked, images are copied unchanged where supported by the output container."
+                                  IsChecked="{Binding StreamHandling.RemoveImages}" />
+                        <CheckBox Content="Remove subtitle streams"
+                                  ToolTip.Tip="Exclude all subtitle streams. When unchecked, the selected subtitles are copied or converted as needed for the output container."
+                                  IsChecked="{Binding StreamHandling.RemoveSubtitles}" />
+                        <CheckBox Content="Remove data streams"
+                                  ToolTip.Tip="Exclude data streams such as timecode or auxiliary tracks. Only compatible containers can preserve these streams."
+                                  IsChecked="{Binding StreamHandling.RemoveData}" />
+                    </StackPanel>
+
+                    <Grid ColumnDefinitions="85,*"
+                          IsVisible="{Binding StreamHandling.IsSubtitleTrackSelectionVisible}">
+                        <TextBlock Text="Subtitles" VerticalAlignment="Top" Margin="0,6,0,0" />
+                        <StackPanel Grid.Column="1" Spacing="4">
+                            <CheckBox Content="All" IsChecked="{Binding StreamHandling.AllSubtitleTracks}"
+                                ToolTip.Tip="Include every subtitle track. Turn off to choose individual tracks; this selection applies to the current source rather than the preset." />
+                            <StackPanel Orientation="Horizontal" Spacing="6"
+                                        IsVisible="{Binding StreamHandling.IsCustomSubtitleTrackSelection}">
+                                <Button Content="Select all" Command="{Binding StreamHandling.SelectAllSubtitleTracksCommand}"
+                                    ToolTip.Tip="Include all listed subtitle tracks in the current custom selection." />
+                                <Button Content="Deselect all" Command="{Binding StreamHandling.DeselectAllSubtitleTracksCommand}"
+                                    ToolTip.Tip="Exclude all listed subtitle tracks from the current custom selection." />
+                            </StackPanel>
+                            <ScrollViewer MaxHeight="180" IsVisible="{Binding StreamHandling.IsCustomSubtitleTrackSelection}"
+                                          HorizontalAlignment="Left"
+                                          IsScrollChainingEnabled="False">
+                                <ItemsControl ItemsSource="{Binding StreamHandling.SubtitleTracks}" Margin="0,0,8,0">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:SubtitleTrackViewModel">
+                                            <CheckBox Content="{Binding Label}" IsChecked="{Binding IsSelected}"
+                                                ToolTip.Tip="Include this subtitle track in the output. Unchecked tracks are excluded." />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </StackPanel>
+                    </Grid>
                 </StackPanel>
             </DockPanel>
         </Border>

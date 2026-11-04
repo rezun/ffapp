@@ -14,7 +14,8 @@ public sealed record JobContext(
     CropRect? Crop = null,
     string? OutputDirectory = null,
     string? OutputPresetName = null,
-    ImmutableArray<int>? SelectedAudioStreamIndices = null)
+    ImmutableArray<int>? SelectedAudioStreamIndices = null,
+    ImmutableArray<int>? SelectedSubtitleStreamIndices = null)
 {
     /// <summary>
     /// Effective duration in seconds accounting for trim points.

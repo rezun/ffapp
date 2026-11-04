@@ -193,7 +193,9 @@ public partial class JobListPanelViewModel : ObservableObject
         var settings = _currentContext.Settings;
 
         var validation = _validationService.Validate(
-            settings, AudioTrackSelection.Apply(mediaInfo, _currentContext.SelectedAudioStreamIndices), _currentContext.EffectiveDurationSeconds);
+            settings,
+            TrackSelection.Apply(mediaInfo, _currentContext.SelectedAudioStreamIndices, _currentContext.SelectedSubtitleStreamIndices),
+            _currentContext.EffectiveDurationSeconds);
         if (validation.HasErrors)
         {
             await _dialogService.ShowErrorAsync(
@@ -262,9 +264,11 @@ public partial class JobListPanelViewModel : ObservableObject
                 isAutoName: true, reservedOutputPaths: reservedOutputPaths);
 
             var job = FormatHelpers.BuildJobDefinition(
-                source.SourcePath, outputPath, settings, trimIn, trimOut, crop, source.SelectedAudioStreamIndices);
+                source.SourcePath, outputPath, settings, trimIn, trimOut, crop,
+                source.SelectedAudioStreamIndices, source.SelectedSubtitleStreamIndices);
 
-            var validation = _validationService.Validate(settings, AudioTrackSelection.Apply(mediaInfo, source.SelectedAudioStreamIndices));
+            var validation = _validationService.Validate(settings,
+                TrackSelection.Apply(mediaInfo, source.SelectedAudioStreamIndices, source.SelectedSubtitleStreamIndices));
 
             if (validation.HasErrors)
             {

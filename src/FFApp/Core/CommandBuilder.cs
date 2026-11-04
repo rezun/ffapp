@@ -94,7 +94,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         var mappingArgs = BuildMappingArguments(job, mediaInfo);
         var firstPassMappingArgs = UsesTwoPass(job)
             ? BuildMappingArguments(job, mediaInfo, includePictures: false) : mappingArgs;
-        mediaInfo = AudioTrackSelection.Apply(mediaInfo, job.SelectedAudioStreamIndices);
+        mediaInfo = TrackSelection.Apply(mediaInfo, job.SelectedAudioStreamIndices, job.SelectedSubtitleStreamIndices);
         var streamArgs = BuildStreamArguments(job, mediaInfo);
         var attachmentIndex = StreamCompatibilityPolicy.ShouldCopyDataStreams(job.Container, job.StreamHandling.RemoveData)
             ? mediaInfo.DataStreams.Count(stream => stream.IsAttachment) : 0;
@@ -284,6 +284,13 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
             job.StreamHandling.RemoveSubtitles);
         if (subtitlePolicy.Mode is SubtitleStreamMode.Remove)
             arguments.AddRange(["-map", "-0:s?"]);
+        else if (job.SelectedSubtitleStreamIndices is { } selectedSubtitles)
+        {
+            if (selectedSubtitles.Any(index => !mediaInfo.SubtitleStreams.Any(stream => stream.Index == index)))
+                throw new CommandBuildException("Selected subtitle track does not exist in the source.");
+            foreach (var stream in mediaInfo.SubtitleStreams.Where(stream => !selectedSubtitles.Contains(stream.Index)))
+                arguments.AddRange(["-map", $"-0:{stream.Index}"]);
+        }
 
         if (mediaInfo.DataStreams.Length > 0
             && !StreamCompatibilityPolicy.ShouldCopyDataStreams(job.Container, job.StreamHandling.RemoveData))

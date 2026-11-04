@@ -70,6 +70,7 @@ public partial class WorkspaceViewModel : ObservableObject,
         VideoPreview.PropertyChanged += OnVideoPreviewPropertyChanged;
         OutputSettings.PropertyChanged += OnOutputSettingsPropertyChanged;
         OutputSettings.Audio.PropertyChanged += OnAudioPropertyChanged;
+        OutputSettings.StreamHandling.PropertyChanged += OnStreamHandlingPropertyChanged;
         OutputPath.PropertyChanged += OnOutputPathContainerChanged;
         Preset.PropertyChanged += OnPresetPropertyChanged;
 
@@ -105,7 +106,8 @@ public partial class WorkspaceViewModel : ObservableObject,
             trimStart, trimEnd, crop,
             OutputDirectory: OutputPath.GetEffectiveDirectory(),
             OutputPresetName: OutputPath.PresetName,
-            SelectedAudioStreamIndices: OutputSettings.Audio.SelectedAudioStreamIndices);
+            SelectedAudioStreamIndices: OutputSettings.Audio.SelectedAudioStreamIndices,
+            SelectedSubtitleStreamIndices: OutputSettings.StreamHandling.SelectedSubtitleStreamIndices);
 
         _comparisonContext = context;
         OnPropertyChanged(nameof(CanCompare));
@@ -144,6 +146,16 @@ public partial class WorkspaceViewModel : ObservableObject,
         {
             if (SourceList.SelectedSource is { } source)
                 source.SelectedAudioStreamIndices = OutputSettings.Audio.SelectedAudioStreamIndices;
+            RebuildAndPushJobContext();
+        }
+    }
+
+    private void OnStreamHandlingPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(StreamHandlingViewModel.SelectedSubtitleStreamIndices))
+        {
+            if (SourceList.SelectedSource is { } source)
+                source.SelectedSubtitleStreamIndices = OutputSettings.StreamHandling.SelectedSubtitleStreamIndices;
             RebuildAndPushJobContext();
         }
     }
@@ -239,7 +251,9 @@ public partial class WorkspaceViewModel : ObservableObject,
         // 3. Load new media (resets trim/crop to source defaults)
         _currentMediaInfo = message.Value;
         OutputPath.UpdateFromSource(_currentMediaInfo);
-        OutputSettings.UpdateSourceInfo(_currentMediaInfo, SourceList.SelectedSource?.SelectedAudioStreamIndices);
+        OutputSettings.UpdateSourceInfo(_currentMediaInfo,
+            SourceList.SelectedSource?.SelectedAudioStreamIndices,
+            SourceList.SelectedSource?.SelectedSubtitleStreamIndices);
         VideoPreview.LoadMedia(_currentMediaInfo);
 
         // 4. Restore per-file or global trim/crop values

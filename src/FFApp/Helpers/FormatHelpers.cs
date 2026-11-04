@@ -201,7 +201,7 @@ public static class FormatHelpers
         return BuildJobDefinition(
             context.MediaInfo.SourcePath, outputPath, context.Settings,
             context.TrimStartSeconds, context.TrimEndSeconds, context.Crop,
-            context.SelectedAudioStreamIndices);
+            context.SelectedAudioStreamIndices, context.SelectedSubtitleStreamIndices);
     }
 
     public static string ResolveOutputPath(JobContext context) =>
@@ -218,7 +218,8 @@ public static class FormatHelpers
     public static JobDefinition BuildJobDefinition(
         string sourcePath, string outputPath, OutputSettings settings,
         double? trimStartSeconds = null, double? trimEndSeconds = null,
-        CropRect? crop = null, ImmutableArray<int>? selectedAudioStreamIndices = null) =>
+        CropRect? crop = null, ImmutableArray<int>? selectedAudioStreamIndices = null,
+        ImmutableArray<int>? selectedSubtitleStreamIndices = null) =>
         new(
             SourcePath: sourcePath,
             OutputPath: outputPath,
@@ -243,7 +244,8 @@ public static class FormatHelpers
             KeyframeInterval: settings.KeyframeInterval,
             KeyframeUnit: settings.KeyframeUnit,
             PostProcessing: settings.PostProcessing,
-            SelectedAudioStreamIndices: selectedAudioStreamIndices);
+            SelectedAudioStreamIndices: selectedAudioStreamIndices,
+            SelectedSubtitleStreamIndices: selectedSubtitleStreamIndices);
 
     public static string SuggestQueueOutputPath(
         string sourcePath,

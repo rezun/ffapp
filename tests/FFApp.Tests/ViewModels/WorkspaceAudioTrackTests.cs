@@ -35,7 +35,10 @@ public sealed class WorkspaceAudioTrackTests
             new CommandPreviewViewModel(commandBuilder), jobs, video, messenger);
 
         var media = new TestMediaInfoBuilder().WithAudioStreams(
-            new AudioStreamInfo(2, "aac", 128_000), new AudioStreamInfo(5, "aac", 128_000)).Build();
+            new AudioStreamInfo(2, "aac", 128_000), new AudioStreamInfo(5, "aac", 128_000)).Build() with
+        {
+            SubtitleStreams = [new SubtitleStreamInfo(6, "subrip", "eng"), new SubtitleStreamInfo(7, "subrip", "deu")],
+        };
         _first = new SourceFileViewModel("/test/first.mp4");
         _first.InitializeFromMediaInfo(media with { SourcePath = _first.SourcePath });
         _second = new SourceFileViewModel("/test/second.mp4");
@@ -112,6 +115,27 @@ public sealed class WorkspaceAudioTrackTests
         _workspace.Preset.Presets.Add(other);
         _workspace.Preset.SelectedPreset = other;
         _workspace.OutputSettings.Audio.SelectedAudioStreamIndices.GetValueOrDefault().Should().Equal(5);
+    }
+
+    [Fact]
+    public async Task SubtitleSelection_IsKeptPerSource_AndQueuedWithTheJob()
+    {
+        _workspace.OutputSettings.StreamHandling.AllSubtitleTracks = false;
+        _workspace.OutputSettings.StreamHandling.SubtitleTracks[0].IsSelected = false;
+        _first.SelectedSubtitleStreamIndices.GetValueOrDefault().Should().Equal(7);
+        _workspace.CommandPreview.CommandText.Should().Contain("-map -0:6");
+
+        _workspace.SourceList.SelectedSource = _second;
+        _workspace.OutputSettings.StreamHandling.AllSubtitleTracks.Should().BeTrue();
+        _workspace.CommandPreview.CommandText.Should().NotContain("-map -0:6");
+
+        _workspace.SourceList.SelectedSource = _first;
+        _workspace.OutputSettings.StreamHandling.SelectedSubtitleStreamIndices.GetValueOrDefault().Should().Equal(7);
+        await _workspace.JobList.CreateJobsForAllCommand.ExecuteAsync(null);
+        _workspace.JobList.Jobs.Should().HaveCount(2);
+        _workspace.JobList.Jobs[0].QueuedJob.Job.SelectedSubtitleStreamIndices.GetValueOrDefault().Should().Equal(7);
+        _workspace.JobList.Jobs[0].QueuedJob.Commands[0].DisplayString.Should().Contain("-map -0:6");
+        _workspace.JobList.Jobs[1].QueuedJob.Job.SelectedSubtitleStreamIndices.Should().BeNull();
     }
 
     [Fact]

@@ -92,6 +92,34 @@ public class OutputSettingsViewModelTests
             Arg.Is<SourceMediaInfo>(m => m.AudioStreams.Length == 1 && m.AudioStreams[0].Index == 5), Arg.Any<double?>());
     }
 
+    [Fact]
+    public void SubtitleTrackSelection_IsExcludedFromSettings_AndValidationReceivesOnlySelectedTracks()
+    {
+        var media = new TestMediaInfoBuilder().Build() with
+        {
+            SubtitleStreams = [new SubtitleStreamInfo(2, "hdmv_pgs_subtitle"), new SubtitleStreamInfo(4, "subrip")],
+        };
+        _sut.UpdateSourceInfo(media, selectedSubtitleStreamIndices: [4]);
+        _sut.StreamHandling.AllSubtitleTracks.Should().BeFalse();
+        _sut.StreamHandling.SubtitleTracks.Select(t => t.IsSelected).Should().Equal(false, true);
+        _validationService.Received().Validate(Arg.Any<OutputSettings>(),
+            Arg.Is<SourceMediaInfo>(m => m.SubtitleStreams.Length == 1 && m.SubtitleStreams[0].Index == 4), Arg.Any<double?>());
+
+        var settings = _sut.BuildSettings();
+        _sut.StreamHandling.SubtitleTracks[0].IsSelected = true;
+        _sut.BuildSettings().Should().Be(settings);
+        _sut.StreamHandling.SelectedSubtitleStreamIndices.GetValueOrDefault().Should().Equal(2, 4);
+    }
+
+    [Fact]
+    public void SubtitleTrackSelection_IsHiddenWhenSubtitlesAreRemoved()
+    {
+        _sut.UpdateSourceInfo(new TestMediaInfoBuilder().WithSubtitles().Build());
+        _sut.StreamHandling.IsSubtitleTrackSelectionVisible.Should().BeTrue();
+        _sut.StreamHandling.RemoveSubtitles = true;
+        _sut.StreamHandling.IsSubtitleTrackSelectionVisible.Should().BeFalse();
+    }
+
     private readonly IValidationService _validationService = Substitute.For<IValidationService>();
     private readonly IMessenger _messenger = Substitute.For<IMessenger>();
     private readonly IFfmpegCapabilityService _capabilityService = Substitute.For<IFfmpegCapabilityService>();

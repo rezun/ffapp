@@ -311,7 +311,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncInitia
         CommandPreview.ClearLog();
         ProgressPercent = 0;
         ProgressIsIndeterminate = true;
-        ProgressText = "Testing the combination…";
+        ProgressText = "Remuxing…";
         RemainingText = "";
         IsRunning = true;
         UpdateEditable();
@@ -761,11 +761,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncInitia
     {
         switch (progress.Stage)
         {
-            case RemuxStage.Testing:
-                ProgressIsIndeterminate = true;
-                ProgressText = "Testing the combination…";
-                RemainingText = "";
-                break;
             case RemuxStage.Remuxing:
                 ProgressIsIndeterminate = progress.Percentage is null;
                 ProgressPercent = progress.Percentage ?? 0;

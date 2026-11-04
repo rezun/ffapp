@@ -80,7 +80,7 @@
                            Text="{Binding EstimatedSizeText}" IsVisible="{Binding !IsRunning}" />
                 <Panel Grid.Column="2" VerticalAlignment="Center">
                     <Button Classes="accent" Content="Start remux" Command="{Binding StartCommand}" IsVisible="{Binding !IsRunning}"
-                            ToolTip.Tip="Write the output file. FFRux first tests the combination with a short remux." />
+                            ToolTip.Tip="Write the output file." />
                     <Button Classes="danger" Content="Cancel" Command="{Binding CancelCommand}" IsVisible="{Binding IsRunning}"
                             ToolTip.Tip="Stop FFmpeg. The incomplete file is deleted and an existing output file stays as it was." />
                 </Panel>

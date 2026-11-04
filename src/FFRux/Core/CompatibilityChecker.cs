@@ -120,7 +120,7 @@ public static class CompatibilityChecker
             if (!CodecRules.IsKnown(track.Kind, codec) && format.Format is OutputFormat.Mkv or OutputFormat.Mka)
             {
                 return new TrackCompatibility(CompatibilityLevel.Warning, "Unchecked codec",
-                    $"FFRux has no rule for {codecLabel}. The test remux before the start checks whether {format.Name} accepts it.");
+                    $"FFRux has no rule for {codecLabel}. FFmpeg decides at the start of the remux whether {format.Name} accepts it.");
             }
 
             return track.Source.IsBitmapSubtitle

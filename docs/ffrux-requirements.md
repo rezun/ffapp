@@ -222,7 +222,7 @@ Some muxers accept more than the table allows: MPEG-TS writes almost anything as
 | `prores`, `dnxhd`, `mjpeg` | ✓ | | ✓ | | |
 | `ffv1`, `theora` | ✓ | | | | |
 
-AV1 in MPEG-TS is written as an unknown data stream by FFmpeg 9, so it is not offered. Other video codecs get a warning in MKV ("FFRux has not checked this codec"); the trial mux decides.
+AV1 in MPEG-TS is written as an unknown data stream by FFmpeg 9, so it is not offered. Other video codecs get a warning in MKV ("FFRux has not checked this codec"); FFmpeg decides when the remux starts.
 
 **Audio**
 
@@ -353,7 +353,7 @@ mkvpropedit is optional. Without it, Matroska files are still written, without t
 The FFmpeg CLI cannot be asked whether a muxer accepts a codec, and it knows nothing about player support (the "Warning" level) or FFRux's own conversion choices. Compatibility therefore rests on three layers:
 
 1. **Rule table:** the matrix from section 4.3, kept as data rather than scattered conditions. It drives the live check in the UI and produces all four status levels with readable messages.
-2. **Trial mux before the start:** when the user starts a job, FFRux first remuxes about one second of the exact mapping into a temporary file. If FFmpeg rejects it, the job does not start and the FFmpeg error is shown. This catches problems no table knows about, such as broken sources.
+2. **No separate trial mux:** FFmpeg checks the mapping, codecs and container while it writes the output header, so the real remux rejects a bad combination as quickly as a test would. It writes into the hidden partial file, so a rejection leaves an existing output untouched; FFRux then reports that FFmpeg rejected the combination and shows the FFmpeg error. A one-second trial would add nothing but time: sparse subtitle tracks can make FFmpeg read many minutes of the sources before it ends.
 3. **Integration tests:** tests run every table entry against the real FFmpeg. Every compatible entry must mux and read back with the same codec; a list of combinations the muxers refuse must keep failing. Test sources are generated with FFmpeg (`lavfi` plus an encoder). Codecs without an FFmpeg encoder (PGS, VobSub, VC-1, Dolby Vision) still need small fixture files. A changed FFmpeg version shows up as failing tests. The first run found two wrong entries in the draft matrix (AV1 in MPEG-TS, MP2 in MP4).
 
 ## 9. User interface

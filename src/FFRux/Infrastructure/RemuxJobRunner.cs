@@ -13,12 +13,7 @@ public sealed class RemuxJobRunner(
     IJobLogStore jobLogs,
     TimeProvider timeProvider) : IRemuxJobRunner
 {
-    private const double TrialSeconds = 1;
     private const int ErrorLineCount = 4;
-
-    // A test remux of one second normally ends at once. Sparse subtitle tracks can make FFmpeg read
-    // far into a large file, so a slow test is skipped rather than treated as a failure.
-    private static readonly TimeSpan TrialTimeout = TimeSpan.FromSeconds(30);
 
     public async Task<RemuxResult> RunAsync(
         RemuxPlan plan,
@@ -107,13 +102,6 @@ public sealed class RemuxJobRunner(
         Action<string> log,
         CancellationToken ct)
     {
-        progress?.Invoke(new RemuxProgress(RemuxStage.Testing, null, elapsed()));
-        var trial = await RunTrialAsync(plan, log, ct);
-        if (ct.IsCancellationRequested)
-            return new RemuxResult(RemuxOutcome.Canceled, outputPath, elapsed());
-        if (trial is { } trialError)
-            return new RemuxResult(RemuxOutcome.Failed, outputPath, elapsed(), trialError);
-
         var partialPath = OutputPaths.PartialFile(outputPath);
         DeleteIfExists(partialPath);
         try
@@ -121,17 +109,27 @@ public sealed class RemuxJobRunner(
             var commands = commandBuilder.Build(plan, partialPath);
             log($"$ {commands.Ffmpeg.DisplayString}");
             var expected = RemuxCommandBuilder.ExpectedDurationSeconds(plan);
+            var wroteData = false;
+            progress?.Invoke(new RemuxProgress(RemuxStage.Remuxing, null, elapsed()));
             var remux = await processRunner.RunAsync(
                 commands.Ffmpeg,
                 expectedDurationSeconds: expected,
-                progressCallback: p => progress?.Invoke(new RemuxProgress(RemuxStage.Remuxing, p.Percentage, elapsed())),
+                progressCallback: p =>
+                {
+                    wroteData |= p.ProcessedSeconds > 0;
+                    progress?.Invoke(new RemuxProgress(RemuxStage.Remuxing, p.Percentage, elapsed()));
+                },
                 logCallback: log,
                 ct: ct);
 
             if (remux.State == JobState.Canceled || ct.IsCancellationRequested)
                 return Canceled();
+            // FFmpeg checks the mapping, codecs and container while writing the header, so a rejected
+            // combination fails before any data is written.
             if (remux.State != JobState.Completed)
-                return Failed($"FFmpeg stopped with exit code {remux.ReturnCode}.", remux.StderrOutput);
+                return Failed(wroteData
+                    ? $"FFmpeg stopped with exit code {remux.ReturnCode}."
+                    : "FFmpeg rejected this combination, so no output was written.", remux.StderrOutput);
 
             var warnings = new List<string>();
             if (commands.PostProcess is { } postProcess)
@@ -169,47 +167,6 @@ public sealed class RemuxJobRunner(
 
         RemuxResult Failed(string reason, string stderr) =>
             new(RemuxOutcome.Failed, outputPath, elapsed(), Describe(reason, stderr));
-    }
-
-    /// <summary>Remuxes one second into a temporary file. Returns the error, or null when the test passed or was skipped.</summary>
-    private async Task<string?> RunTrialAsync(RemuxPlan plan, Action<string> log, CancellationToken ct)
-    {
-        var trialPath = Path.Combine(Path.GetTempPath(), $"ffrux-test-{Guid.NewGuid():N}{plan.FormatInfo.Extension}");
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeout.CancelAfter(TrialTimeout);
-        try
-        {
-            var command = commandBuilder.Build(plan, trialPath, TrialSeconds).Ffmpeg;
-            log($"$ {command.DisplayString}");
-            ProcessExecutionResult result;
-            try
-            {
-                result = await processRunner.RunAsync(command, logCallback: log, ct: timeout.Token);
-            }
-            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
-            {
-                return TrialTimedOut();
-            }
-            if (ct.IsCancellationRequested)
-                return null;
-            if (result.State == JobState.Canceled)
-                return TrialTimedOut();
-            if (result.State != JobState.Completed)
-                return Describe("FFmpeg rejected this combination in a test remux, so the job did not start.", result.StderrOutput);
-
-            log("[FFRux] Test remux passed.");
-            return null;
-        }
-        finally
-        {
-            DeleteIfExists(trialPath);
-        }
-
-        string? TrialTimedOut()
-        {
-            log("[FFRux] The test remux took too long and was skipped.");
-            return null;
-        }
     }
 
     internal static string Describe(string reason, string stderr)

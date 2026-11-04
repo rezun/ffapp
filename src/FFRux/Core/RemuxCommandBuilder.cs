@@ -22,8 +22,7 @@ public sealed class RemuxCommandBuilder(ExecutablePathsConfig pathsConfig)
         "_STATISTICS_WRITING_DATE_UTC", "_STATISTICS_TAGS", "HANDLER_NAME", "VENDOR_ID");
 
     /// <param name="outputPath">Where FFmpeg writes; the job passes a temporary file next to the output.</param>
-    /// <param name="trialSeconds">Limits the output to a few seconds for the test remux before the start.</param>
-    public RemuxCommands Build(RemuxPlan plan, string outputPath, double? trialSeconds = null)
+    public RemuxCommands Build(RemuxPlan plan, string outputPath)
     {
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
@@ -70,8 +69,6 @@ public sealed class RemuxCommandBuilder(ExecutablePathsConfig pathsConfig)
         if (needsUnofficial)
             args.AddRange(["-strict", "unofficial"]);
         args.AddRange(["-max_muxing_queue_size", "4096"]);
-        if (trialSeconds is { } seconds)
-            args.AddRange(["-t", seconds.ToString(CultureInfo.InvariantCulture)]);
         args.AddRange(["-f", format.Muxer]);
         args.AddRange(format.MuxerArguments);
         args.Add(outputPath);

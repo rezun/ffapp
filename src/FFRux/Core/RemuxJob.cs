@@ -26,7 +26,6 @@ public sealed record RemuxResult(
 
 public enum RemuxStage
 {
-    Testing,
     Remuxing,
     PostProcessing,
 }
@@ -37,7 +36,7 @@ public sealed record RemuxProgress(RemuxStage Stage, double? Percentage, TimeSpa
 public interface IRemuxJobRunner
 {
     /// <summary>
-    /// Runs a test remux, the remux into a hidden partial file, mkvpropedit, and finally replaces the
+    /// Runs the remux into a hidden partial file, mkvpropedit, and finally replaces the
     /// output with the partial file. Cancelling at any point deletes the partial file and leaves an
     /// existing output file untouched.
     /// </summary>

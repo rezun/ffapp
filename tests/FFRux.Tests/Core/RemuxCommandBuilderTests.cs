@@ -163,15 +163,6 @@ public sealed class RemuxCommandBuilderTests
     }
 
     [Fact]
-    public void Build_TrialLimitsTheOutput()
-    {
-        var args = Sut.Build(Plan(OutputFormat.Mkv, Movie()), "/tmp/test.mkv", trialSeconds: 1).Args();
-
-        Value(args, "-t").Should().Be("1");
-        args.IndexOf("-t").Should().BeLessThan(args.IndexOf("-f"));
-    }
-
-    [Fact]
     public void Build_PostProcessesMatroskaOnlyWhenMkvpropeditExists()
     {
         Sut.Build(Plan(OutputFormat.Mkv, Movie()), "/out/a.mkv").PostProcess.Should().BeNull();

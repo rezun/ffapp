@@ -205,17 +205,15 @@ public sealed class RemuxIntegrationTests(FFmpegFixture ffmpeg)
         result.Outcome.Should().Be(RemuxOutcome.Completed);
         File.Exists(output).Should().BeTrue();
         File.Exists(OutputPaths.PartialFile(output)).Should().BeFalse();
-        log.Should().Contain("[FFRux] Test remux passed.");
 
         result.LogPath.Should().NotBeNull();
         var saved = await File.ReadAllTextAsync(result.LogPath!);
         saved.Should().Contain($"Output:    {output}")
-            .And.Contain("[FFRux] Test remux passed.")
             .And.Contain("Result:    Completed");
     }
 
     [FFmpegFact]
-    public async Task JobRunner_StopsWhenTheTestRemuxFails()
+    public async Task JobRunner_ReportsARejectedCombination()
     {
         // The rule table would block VP8 in MP4; the runner must still catch it on its own.
         var plan = await PlanAsync(OutputFormat.Mp4, ffmpeg.SourceFor("vp8")!);
@@ -224,8 +222,9 @@ public sealed class RemuxIntegrationTests(FFmpegFixture ffmpeg)
         var result = await Runner().RunAsync(plan with { OutputPath = output });
 
         result.Outcome.Should().Be(RemuxOutcome.Failed);
-        result.Error.Should().StartWith("FFmpeg rejected this combination in a test remux");
+        result.Error.Should().StartWith("FFmpeg rejected this combination");
         File.Exists(output).Should().BeFalse();
+        File.Exists(OutputPaths.PartialFile(output)).Should().BeFalse();
     }
 
     [FFmpegFact]

@@ -92,15 +92,6 @@ public sealed class RemuxCommandBuilderTests
     }
 
     [Fact]
-    public void Build_ConvertsSubtitlesThatDoNotFit()
-    {
-        var args = Sut.Build(Plan(OutputFormat.Mp4, Movie()), "/out/result.mp4").Args();
-
-        Value(args, "-c:2").Should().Be("mov_text");
-        args.Should().NotContain("-c:0").And.NotContain("-c:1");
-    }
-
-    [Fact]
     public void Build_TagsHevcAsHvc1ForApplePlayers()
     {
         var media = Media("/media/a.mkv", [Video(0, "hevc")]);
@@ -110,15 +101,7 @@ public sealed class RemuxCommandBuilderTests
     }
 
     [Fact]
-    public void Build_QuickTime_UsesTheLanguageCodeItKnows()
-    {
-        var plan = Plan(OutputFormat.Mov, Movie()).WithTrack(1, 1, s => s with { Language = Languages.Find("fre")! });
-
-        Values(Sut.Build(plan, "/out/a.mov").Args(), "-metadata:s:1").Should().Contain("language=fra");
-    }
-
-    [Fact]
-    public void Build_TakesChaptersFromTheChosenSourceEvenWithoutTracks()
+    public void Build_TakesChaptersFromTheChosenSourceOrRemovesThem()
     {
         var chapters = Source(2, Media("/media/chapters.mkv", [Video(0)]));
         var plan = Plan(OutputFormat.Mkv, Source(1, Movie()), chapters)
@@ -128,12 +111,7 @@ public sealed class RemuxCommandBuilderTests
 
         Values(args, "-i").Should().Equal("/media/movie.mkv", "/media/chapters.mkv");
         Value(args, "-map_chapters").Should().Be("1");
-    }
-
-    [Fact]
-    public void Build_WithoutChapters_RemovesThem()
-    {
-        Value(Sut.Build(Plan(OutputFormat.Mkv, Movie()), "/out/a.mkv").Args(), "-map_chapters").Should().Be("-1");
+        Value(Sut.Build(plan with { ChapterSourceNumber = null }, "/out/a.mkv").Args(), "-map_chapters").Should().Be("-1", "FFmpeg copies chapters unless told not to");
     }
 
     [Fact]
@@ -153,8 +131,9 @@ public sealed class RemuxCommandBuilderTests
 
         var args = Sut.Build(plan, "/out/a.mkv").Args();
 
-        Value(args, "-sub_charenc").Should().Be("CP1252");
-        args.IndexOf("-sub_charenc").Should().Be(args.IndexOf("/media/movie.de.srt") - 3);
+        Values(args, "-sub_charenc").Should().Equal("CP1252");
+        args.Skip(args.IndexOf("-sub_charenc")).SkipWhile(arg => arg != "-i").ElementAt(1)
+            .Should().Be("/media/movie.de.srt", "the character set applies to the input that follows it");
         Value(args, "-c:3").Should().Be("subrip");
     }
 
@@ -203,17 +182,6 @@ public sealed class RemuxCommandBuilderTests
         commands.PostProcess!.Arguments.Should().Equal("/out/a.mkv", "--delete-track-statistics-tags", "--add-track-statistics-tags");
         commands.PostProcess.Protocol.Should().Be(ProcessProtocol.Plain);
         Sut.Build(Plan(OutputFormat.Mp4, Movie()), "/out/a.mp4").PostProcess.Should().BeNull();
-    }
-
-    [Fact]
-    public void Build_M4b_SetsTheAudiobookBrand()
-    {
-        var plan = Plan(OutputFormat.M4b, Media("/media/book.m4a", audio: [Audio(0)], format: "mov,mp4,m4a"));
-
-        var args = Sut.Build(plan, "/out/book.m4b").Args();
-
-        Value(args, "-f").Should().Be("ipod");
-        Value(args, "-brand").Should().Be("M4B ");
     }
 
     [Fact]

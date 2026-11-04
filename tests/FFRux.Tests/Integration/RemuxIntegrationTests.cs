@@ -8,6 +8,7 @@ using FFApp.Infrastructure.Logging;
 using FFRux.Core;
 using FFRux.Core.Models;
 using FFRux.Infrastructure;
+using FFRux.Tests.Builders;
 using FluentAssertions;
 
 namespace FFRux.Tests.Integration;
@@ -50,29 +51,31 @@ public sealed class RemuxIntegrationTests(FFmpegFixture ffmpeg)
 
     // Combinations the muxers themselves refuse; FFRux marks them incompatible. If FFmpeg starts
     // accepting one of them, the rule table may be too strict and should be reviewed.
-    public static TheoryData<string, string> KnownRefusals()
+    public static TheoryData<string, OutputFormat> KnownRefusals()
     {
-        (string Codec, string Muxer)[] refusals =
+        (string Codec, OutputFormat Format)[] refusals =
         [
-            ("prores", "mp4"), ("av1", "mov"), ("vp9", "mov"), ("vp8", "mp4"), ("truehd", "mp4"),
-            ("eac3", "ipod"), ("mp3", "ipod"), ("flac", "mov"), ("opus", "mov"),
+            ("prores", OutputFormat.Mp4), ("av1", OutputFormat.Mov), ("vp9", OutputFormat.Mov), ("vp8", OutputFormat.Mp4),
+            ("truehd", OutputFormat.Mp4), ("eac3", OutputFormat.M4a), ("mp3", OutputFormat.M4a), ("flac", OutputFormat.Mov),
+            ("opus", OutputFormat.Mov),
         ];
-        var data = new TheoryData<string, string>();
-        foreach (var (codec, muxer) in refusals.Where(r => FFmpegFixture.CanEncode(r.Codec)))
-            data.Add(codec, muxer);
+        var data = new TheoryData<string, OutputFormat>();
+        foreach (var (codec, format) in refusals.Where(r => FFmpegFixture.CanEncode(r.Codec)))
+            data.Add(codec, format);
         return data;
     }
 
     [FFmpegTheory]
     [MemberData(nameof(KnownRefusals))]
-    public void KnownRefusals_StillFail(string codec, string muxer)
+    public async Task KnownRefusals_StillFailAndAreIncompatible(string codec, OutputFormat format)
     {
         var source = ffmpeg.SourceFor(codec) ?? throw new InvalidOperationException($"Could not create a {codec} source.");
 
         var (exitCode, _, _) = FFmpegFixture.Run(ffmpeg.Paths.FfmpegPath,
-            ["-nostdin", "-y", "-loglevel", "error", "-i", source, "-map", "0", "-c", "copy", "-f", muxer, ffmpeg.NewPath(".out")]);
+            ["-nostdin", "-y", "-loglevel", "error", "-i", source, "-map", "0", "-c", "copy", "-f", OutputFormats.Get(format).Muxer, ffmpeg.NewPath(".out")]);
 
         exitCode.Should().NotBe(0);
+        CompatibilityChecker.Check(await PlanAsync(format, source)).Status(1, 0).Level.Should().Be(CompatibilityLevel.Incompatible);
     }
 
     [FFmpegTheory]
@@ -117,25 +120,21 @@ public sealed class RemuxIntegrationTests(FFmpegFixture ffmpeg)
         disposition.GetProperty("forced").GetInt32().Should().Be(0);
     }
 
-    [FFmpegFact]
-    public async Task Mp4_StoresTheNameAsHandlerName()
+    // MP4 and QuickTime share FFmpeg's movenc muxer, but only QuickTime needs its own language codes
+    // and only MP4 stores the commentary flag.
+    [FFmpegTheory]
+    [InlineData(OutputFormat.Mp4, "fre", 1)]
+    [InlineData(OutputFormat.Mov, "fra", 0)]
+    public async Task Movenc_StoresTheNameAsHandlerNameAndTheLanguage(OutputFormat format, string language, int comment)
     {
-        var plan = (await PlanAsync(OutputFormat.Mp4, ffmpeg.SourceFor("aac")!))
+        var plan = (await PlanAsync(format, ffmpeg.SourceFor("aac")!))
             .WithAllTracks(s => s with { Name = "Stereo", Language = Languages.Find("fre")!, Flags = TrackFlags.Commentary });
 
         var stream = Streams(await RemuxAsync(plan))[0];
 
         stream.GetProperty("tags").GetProperty("handler_name").GetString().Should().Be("Stereo");
-        stream.GetProperty("tags").GetProperty("language").GetString().Should().Be("fre");
-        stream.GetProperty("disposition").GetProperty("comment").GetInt32().Should().Be(1);
-    }
-
-    [FFmpegFact]
-    public async Task QuickTime_StoresLanguagesThroughItsOwnCodes()
-    {
-        var plan = (await PlanAsync(OutputFormat.Mov, ffmpeg.SourceFor("aac")!)).WithAllTracks(s => s with { Language = Languages.Find("fre")! });
-
-        Streams(await RemuxAsync(plan))[0].GetProperty("tags").GetProperty("language").GetString().Should().Be("fra");
+        stream.GetProperty("tags").GetProperty("language").GetString().Should().Be(language);
+        stream.GetProperty("disposition").GetProperty("comment").GetInt32().Should().Be(comment);
     }
 
     [FFmpegTheory]
@@ -330,7 +329,4 @@ file static class PlanExtensions
 {
     public static RemuxPlan WithAllTracks(this RemuxPlan plan, Func<TrackSettings, TrackSettings> change) =>
         plan with { Tracks = [.. plan.Tracks.Select(track => track with { Settings = change(track.Settings) })] };
-
-    public static RemuxPlan WithTrack(this RemuxPlan plan, int sourceNumber, int streamIndex, Func<TrackSettings, TrackSettings> change) =>
-        Builders.TestPlans.WithTrack(plan, sourceNumber, streamIndex, change);
 }

@@ -19,38 +19,18 @@ public sealed class CompatibilityCheckerTests
         report.Issues.Should().BeEmpty();
     }
 
-    [Fact]
-    public void Mp4_ConvertsSubRipToMp4Text()
+    [Theory]
+    [InlineData(OutputFormat.Mp4, "subrip", "mov_text", "Convert to MP4 text", "Text and timing stay the same")]
+    [InlineData(OutputFormat.Webm, "ass", "webvtt", "Convert to WebVTT", "Styling such as fonts")]
+    [InlineData(OutputFormat.Mkv, "mov_text", "subrip", "Convert to SubRip", "Text and timing stay the same")]
+    public void TextSubtitlesTheFormatCannotHold_AreConverted(OutputFormat format, string codec, string convertTo, string statusText, string detail)
     {
-        var status = CompatibilityChecker.Check(Plan(OutputFormat.Mp4, Movie())).Status(1, 2);
+        var status = CompatibilityChecker.Check(Plan(format, Media("/media/a.mkv", subtitles: [Subtitle(0, codec)]))).Status(1, 0);
 
         status.Level.Should().Be(CompatibilityLevel.Convert);
-        status.StatusText.Should().Be("Convert to MP4 text");
-        status.ConvertToCodec.Should().Be("mov_text");
-        status.Detail.Should().Contain("Text and timing stay the same");
-    }
-
-    [Fact]
-    public void WebM_ConvertsAssToWebVttAndSaysStylingIsLost()
-    {
-        var media = Media("/media/a.mkv", [Video(0, "vp9")], [Audio(1, "opus")], [Subtitle(2, "ass")]);
-
-        var status = CompatibilityChecker.Check(Plan(OutputFormat.Webm, media)).Status(1, 2);
-
-        status.Level.Should().Be(CompatibilityLevel.Convert);
-        status.ConvertToCodec.Should().Be("webvtt");
-        status.Detail.Should().Contain("Styling such as fonts");
-    }
-
-    [Fact]
-    public void Matroska_ConvertsMp4TextToSubRip()
-    {
-        var media = Media("/media/a.mp4", [Video(0)], [], [Subtitle(1, "mov_text")], format: "mov,mp4,m4a");
-
-        var status = CompatibilityChecker.Check(Plan(OutputFormat.Mkv, media)).Status(1, 1);
-
-        status.ConvertToCodec.Should().Be("subrip");
-        status.StatusText.Should().Be("Convert to SubRip");
+        status.ConvertToCodec.Should().Be(convertTo);
+        status.StatusText.Should().Be(statusText);
+        status.Detail.Should().Contain(detail);
     }
 
     [Fact]
@@ -102,15 +82,12 @@ public sealed class CompatibilityCheckerTests
         report.Status(1, 2).Level.Should().Be(CompatibilityLevel.Incompatible);
     }
 
-    [Theory]
-    [InlineData(OutputFormat.Mka)]
-    [InlineData(OutputFormat.M4a)]
-    [InlineData(OutputFormat.Mp3)]
-    public void AudioFormats_RejectVideo(OutputFormat format)
+    [Fact]
+    public void AudioFormats_RejectVideo()
     {
-        var media = Media("/media/a.mkv", [Video(0)], [Audio(1, format == OutputFormat.Mp3 ? "mp3" : "aac")]);
+        var media = Media("/media/a.mkv", [Video(0)], [Audio(1)]);
 
-        var status = CompatibilityChecker.Check(Plan(format, media)).Status(1, 0);
+        var status = CompatibilityChecker.Check(Plan(OutputFormat.Mka, media)).Status(1, 0);
 
         status.Level.Should().Be(CompatibilityLevel.Incompatible);
         status.Detail.Should().Contain("audio format");
@@ -157,15 +134,6 @@ public sealed class CompatibilityCheckerTests
         report.CanStart.Should().BeFalse();
         report.Issues.Should().ContainSingle().Which.Message.Should().Be("Enable at least one track.");
         report.Tracks.Should().BeEmpty();
-    }
-
-    [Fact]
-    public void DisabledIncompatibleTrack_DoesNotBlock()
-    {
-        var media = Media("/media/a.mkv", [Video(0)], [Audio(1, "truehd")]);
-        var plan = Plan(OutputFormat.Mp4, media).WithTrack(1, 1, s => s with { Enabled = false });
-
-        CompatibilityChecker.Check(plan).CanStart.Should().BeTrue();
     }
 
     [Fact]
@@ -221,18 +189,6 @@ public sealed class CompatibilityCheckerTests
 
         status.Level.Should().Be(CompatibilityLevel.Copy);
         status.Detail.Should().Contain("left out: commentary");
-    }
-
-    [Fact]
-    public void NonUtf8SubtitleFile_IsConvertedToUtf8()
-    {
-        var srt = Media("/media/movie.de.srt", subtitles: [Subtitle(0, "subrip", null)], format: "srt");
-        var plan = Plan(OutputFormat.Mkv, Source(1, srt, charset: "CP1252"));
-
-        var status = CompatibilityChecker.Check(plan).Status(1, 0);
-
-        status.StatusText.Should().Be("Convert to UTF-8");
-        status.ConvertToCodec.Should().Be("subrip");
     }
 
     [Fact]

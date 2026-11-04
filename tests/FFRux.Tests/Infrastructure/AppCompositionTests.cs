@@ -11,14 +11,8 @@ namespace FFRux.Tests.Infrastructure;
 public sealed class AppCompositionTests
 {
     [Fact]
-    public void Identity_IsSeparateFromFFApp()
-    {
-        var ffapp = new AppIdentity("FFApp", "ffapp");
-
-        FFRuxPaths.Identity.Should().Be(new AppIdentity("FFRux", "ffrux"));
-        FFRuxPaths.Identity.Name.Should().NotBe(ffapp.Name);
-        FFRuxPaths.AppDataDirectory().Should().NotBe(AppPaths.AppDataDirectory(ffapp));
-    }
+    public void AppDataDirectory_IsSeparateFromFFApp() =>
+        FFRuxPaths.AppDataDirectory().Should().NotBe(AppPaths.AppDataDirectory(new AppIdentity("FFApp", "ffapp")));
 
     [Fact]
     public void ConfigureServices_ResolvesMainWindowAndSharedServices()

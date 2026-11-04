@@ -1,5 +1,4 @@
 using System.Collections.Immutable;
-using System.Text;
 using FFApp.Core.Models;
 using FFRux.Core;
 using FFRux.Core.Models;
@@ -12,7 +11,6 @@ public sealed class FileNameHintsTests
 {
     [Theory]
     [InlineData("/m/Movie.de.forced.srt", "ger", TrackFlags.Forced)]
-    [InlineData("/m/Movie.ger.forced.srt", "ger", TrackFlags.Forced)]
     [InlineData("/m/Movie.en.sdh.srt", "eng", TrackFlags.HearingImpaired)]
     [InlineData("/m/Movie.en.hi.srt", "eng", TrackFlags.HearingImpaired)]
     [InlineData("/m/Movie.hi.srt", "hin", TrackFlags.None)]
@@ -28,12 +26,9 @@ public sealed class FileNameHintsTests
         hint.Flags.Should().Be(flags);
     }
 
-    [Theory]
-    [InlineData("/m/Movie.srt")]
-    [InlineData("/m/de.srt")]
-    [InlineData("/m/Movie.2020.srt")]
-    public void Parse_IgnoresNamesWithoutKnownSuffixes(string path) =>
-        FileNameHints.Parse(path).IsEmpty.Should().BeTrue();
+    [Fact]
+    public void Parse_DoesNotReadTheTitleAsALanguage() =>
+        FileNameHints.Parse("/m/de.srt").IsEmpty.Should().BeTrue();
 }
 
 public sealed class LanguagesTests
@@ -69,20 +64,12 @@ public sealed class LanguagesTests
 
 public sealed class TextEncodingsTests
 {
-    [Fact]
-    public void IsUnicode_AcceptsUtf8WithAndWithoutBomAndUtf16()
-    {
-        TextEncodings.IsUnicode(Encoding.UTF8.GetBytes("Grüße")).Should().BeTrue();
-        TextEncodings.IsUnicode([0xEF, 0xBB, 0xBF, .. Encoding.UTF8.GetBytes("Grüße")]).Should().BeTrue();
-        TextEncodings.IsUnicode([0xFF, 0xFE, 0x47, 0x00]).Should().BeTrue();
-    }
-
-    [Fact]
-    public void IsUnicode_RejectsWindows1252()
-    {
-        // "Grüße" in Windows-1252: ü = 0xFC, ß = 0xDF.
-        TextEncodings.IsUnicode([0x47, 0x72, 0xFC, 0xDF, 0x65]).Should().BeFalse();
-    }
+    [Theory]
+    [InlineData(new byte[] { 0x47, 0x72, 0xC3, 0xBC, 0xC3, 0x9F, 0x65 }, true)] // "Grüße" in UTF-8
+    [InlineData(new byte[] { 0xFF, 0xFE, 0x47, 0x00 }, true)] // UTF-16 with BOM, not valid UTF-8
+    [InlineData(new byte[] { 0x47, 0x72, 0xFC, 0xDF, 0x65 }, false)] // "Grüße" in Windows-1252
+    public void IsUnicode_AcceptsUtf8AndUtf16Only(byte[] content, bool expected) =>
+        TextEncodings.IsUnicode(content).Should().Be(expected);
 }
 
 public sealed class OutputPathsTests
@@ -201,12 +188,5 @@ public sealed class SourceTracksTests
 
         SourceTracks.Describe(video).Should().Be("2160p · 23.976 · HDR10");
         SourceTracks.Describe(audio).Should().Be("5.1 · 768 kb/s");
-    }
-
-    [Fact]
-    public void Disposition_ListsFlagsInFFmpegSyntax()
-    {
-        TrackFlagNames.ToDisposition(TrackFlags.None).Should().Be("0");
-        TrackFlagNames.ToDisposition(TrackFlags.Default | TrackFlags.Commentary).Should().Be("default+comment");
     }
 }

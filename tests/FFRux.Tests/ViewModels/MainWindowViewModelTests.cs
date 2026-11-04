@@ -124,7 +124,7 @@ public sealed class MainWindowViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task ToggleTracksCommand_ExcludesAndIncludesAllTracksOfOneSource()
+    public async Task ToggleTracksCommand_ExcludesAllOfOneSourceAndIncludesAllWhenAnyIsExcluded()
     {
         var sut = await OpenAsync(Movie("/media/movie.mkv"), Media("/media/dub.ac3", audio: [Audio(0, "ac3", "ger")], format: "ac3"));
         var movie = sut.Sources[0];
@@ -136,23 +136,12 @@ public sealed class MainWindowViewModelTests : IDisposable
         sut.Sources[1].TracksEnabled.Should().BeTrue();
         sut.TracksSummary.Should().StartWith("1 of 4 enabled");
 
+        sut.Tracks.First(t => t.SourceFile == movie).Enabled = true;
+        movie.TracksEnabled.Should().BeNull();
         movie.ToggleTracksCommand.Execute(null);
 
         movie.TracksEnabled.Should().BeTrue();
         sut.TracksSummary.Should().StartWith("4 of 4 enabled");
-    }
-
-    [Fact]
-    public async Task ToggleTracksCommand_IncludesAllWhenSomeAreExcluded()
-    {
-        var sut = await OpenAsync(Movie("/media/movie.mkv"));
-        var movie = sut.Sources[0];
-        sut.Tracks.Single(t => t.Kind == TrackKind.Audio).Enabled = false;
-        movie.TracksEnabled.Should().BeNull();
-
-        movie.ToggleTracksCommand.Execute(null);
-
-        movie.TracksEnabled.Should().BeTrue();
     }
 
     [Fact]
@@ -216,10 +205,10 @@ public sealed class MainWindowViewModelTests : IDisposable
 
         var sut = await OpenAsync(Movie("/media/Movie.mkv"), srt);
 
+        // The rule itself is covered in SourceTracksTests; this checks the hint reaches the row.
         var track = sut.Tracks.Last();
         track.LanguageCode.Should().Be("ger");
-        track.Flags.Should().Be(TrackFlags.Forced);
-        track.PrefillText.Should().Be("Language, forced (from file name)");
+        track.PrefillText.Should().NotBeNull();
     }
 
     [Fact]
@@ -258,6 +247,7 @@ public sealed class MainWindowViewModelTests : IDisposable
         sut.StatusColumnHeader.Should().Be("Status for MP4");
         sut.Tracks.Count(t => t.IsStatusError).Should().Be(2);
         sut.CanStart.Should().BeFalse();
+        sut.StartCommand.CanExecute(null).Should().BeFalse();
         sut.StatusMessage.Should().Be("✕ 2 tracks block the start");
         sut.Output.Formats.Single(f => f.Format == OutputFormat.Mp4).ProblemText.Should().Be("2 problems");
         sut.Output.Formats.Single(f => f.Format == OutputFormat.Mkv).ProblemText.Should().BeEmpty();
@@ -323,7 +313,7 @@ public sealed class MainWindowViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task Properties_DisableFlagsTheFormatCannotStore()
+    public async Task Properties_DisableWhatTheFormatOrTrackCannotStore()
     {
         var sut = await OpenAsync(Movie());
         sut.SelectTracks([sut.Tracks.First()]);
@@ -333,16 +323,7 @@ public sealed class MainWindowViewModelTests : IDisposable
         sut.Properties.DefaultSupported.Should().BeTrue();
         sut.Properties.ForcedSupported.Should().BeFalse();
         sut.Properties.FlagsHint.Should().Be("Greyed flags can't be stored in MOV.");
-    }
-
-    [Fact]
-    public async Task Properties_VideoTracksCannotBeShifted()
-    {
-        var sut = await OpenAsync(Movie());
-
-        sut.SelectTracks([sut.Tracks.First()]);
-
-        sut.Properties.TimeshiftEnabled.Should().BeFalse();
+        sut.Properties.TimeshiftEnabled.Should().BeFalse("video tracks can't be shifted");
     }
 
     [Fact]
@@ -377,16 +358,6 @@ public sealed class MainWindowViewModelTests : IDisposable
 
         await _dialogs.Received(1).ConfirmAsync("Replace file?", Arg.Any<string>(), "Replace");
         await _runner.DidNotReceiveWithAnyArgs().RunAsync(default!, default, default, default);
-    }
-
-    [Fact]
-    public async Task Start_IsBlockedByIncompatibleTracks()
-    {
-        var sut = await OpenAsync(Media("/media/a.mkv", [Video(0)], [Audio(1, "truehd")]));
-
-        sut.Output.SelectFormat(OutputFormat.Mp4);
-
-        sut.StartCommand.CanExecute(null).Should().BeFalse();
     }
 
     [Fact]

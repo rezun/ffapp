@@ -39,6 +39,8 @@ public sealed class ProcessRunnerPriorityTests
     [InlineData(true)]
     public async Task RunAsync_AppliesPriorityToActualProcess(bool withPauseState)
     {
+        // nice is Unix-only; Windows priority is not observable this way. xUnit v2 has no runtime skip
+        // here (no Xunit.SkippableFact), so this passes vacuously on Windows.
         if (OperatingSystem.IsWindows())
             return;
 

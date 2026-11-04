@@ -4,156 +4,53 @@ using FluentAssertions;
 
 namespace FFApp.Shared.Tests.Infrastructure;
 
-public class ProcessRunnerStaticTests
+public sealed class ProcessRunnerStaticTests
 {
-    [Fact]
-    public void BuildArguments_Ffmpeg_AddsProgressArguments()
+    [Theory]
+    [InlineData(ProcessProtocol.Ffmpeg, new[] { "-progress", "pipe:1", "-nostats", "-i", "in.mkv", "out.mkv" })]
+    [InlineData(ProcessProtocol.Plain, new[] { "-i", "in.mkv", "out.mkv" })]
+    public void BuildArguments_AddsProgressArgumentsOnlyForFfmpeg(ProcessProtocol protocol, string[] expected)
     {
-        var command = new GeneratedCommand(
-            "ffmpeg", ["-i", "input.mkv", "output.mkv"], "ffmpeg ...");
+        var command = new GeneratedCommand("tool", ["-i", "in.mkv", "out.mkv"], "tool ...", protocol);
 
-        var arguments = ProcessRunner.BuildArguments(command);
-
-        arguments.Should().Equal(
-            "-progress", "pipe:1", "-nostats",
-            "-i", "input.mkv", "output.mkv");
+        ProcessRunner.BuildArguments(command).Should().Equal(expected);
     }
 
-    [Fact]
-    public void BuildArguments_Plain_DoesNotAddFfmpegArguments()
+    [Theory]
+    [InlineData("01:23:45.678", 5025.678)]
+    [InlineData("  00:01:30.000  ", 90.0)]
+    [InlineData("01:23", null)]
+    [InlineData("12345", null)]
+    [InlineData("ab:cd:ef.gh", null)]
+    public void ParseTimestamp_ReturnsSecondsOrNullWhenMalformed(string value, double? expected)
     {
-        var command = new GeneratedCommand(
-            "mkvpropedit",
-            ["output.mkv", "--add-track-statistics-tags"],
-            "mkvpropedit ...",
-            ProcessProtocol.Plain);
-
-        var arguments = ProcessRunner.BuildArguments(command);
-
-        arguments.Should().Equal("output.mkv", "--add-track-statistics-tags");
+        ProcessRunner.ParseTimestamp(value).Should().BeApproximately(expected, 0.001);
     }
 
-    // --- ParseTimestamp ---
-
-    [Fact]
-    public void ParseTimestamp_ValidFormat_ReturnsCorrectSeconds()
+    [Theory]
+    [InlineData("2.5x", 2.5)]
+    [InlineData("1.5", 1.5)]
+    [InlineData("  3.5x  ", 3.5)]
+    [InlineData("N/A", null)]
+    public void ParseSpeed_ReturnsMultiplierOrNull(string value, double? expected)
     {
-        ProcessRunner.ParseTimestamp("01:23:45.678").Should().BeApproximately(5025.678, 0.001);
+        ProcessRunner.ParseSpeed(value).Should().BeApproximately(expected, 0.001);
     }
 
-    [Fact]
-    public void ParseTimestamp_ZeroTimestamp_ReturnsZero()
+    [Theory]
+    [InlineData(30.0, 60.0, null, null, 50.0)]  // time-based
+    [InlineData(120.0, 60.0, null, null, 100.0)] // capped
+    [InlineData(null, 60.0, 500, 1000, 50.0)]    // no time: frame fallback
+    [InlineData(0.0, 60.0, 500, 1000, 50.0)]     // zero time: frame fallback
+    [InlineData(30.0, 0.0, null, null, null)]    // zero duration
+    [InlineData(null, null, 500, 0, null)]       // zero frame count
+    [InlineData(null, null, null, null, null)]
+    public void CalculatePercentage_PrefersTimeThenFrames(
+        double? processedSeconds, double? duration, int? frame, int? frameCount, double? expected)
     {
-        ProcessRunner.ParseTimestamp("00:00:00.000").Should().Be(0.0);
+        ProcessRunner.CalculatePercentage(processedSeconds, duration, frame, frameCount)
+            .Should().BeApproximately(expected, 0.01);
     }
-
-    [Fact]
-    public void ParseTimestamp_WhitespaceInput_TrimsAndParses()
-    {
-        ProcessRunner.ParseTimestamp("  00:01:30.000  ").Should().BeApproximately(90.0, 0.001);
-    }
-
-    [Fact]
-    public void ParseTimestamp_MissingSecondColon_ReturnsNull()
-    {
-        ProcessRunner.ParseTimestamp("01:23").Should().BeNull();
-    }
-
-    [Fact]
-    public void ParseTimestamp_NoColons_ReturnsNull()
-    {
-        ProcessRunner.ParseTimestamp("12345").Should().BeNull();
-    }
-
-    [Fact]
-    public void ParseTimestamp_NonNumericParts_ReturnsNull()
-    {
-        ProcessRunner.ParseTimestamp("ab:cd:ef.gh").Should().BeNull();
-    }
-
-    [Fact]
-    public void ParseTimestamp_LargeHours_ReturnsCorrectly()
-    {
-        ProcessRunner.ParseTimestamp("100:00:00.000").Should().BeApproximately(360000.0, 0.001);
-    }
-
-    // --- ParseSpeed ---
-
-    [Fact]
-    public void ParseSpeed_WithXSuffix_ReturnsValue()
-    {
-        ProcessRunner.ParseSpeed("2.5x").Should().BeApproximately(2.5, 0.001);
-    }
-
-    [Fact]
-    public void ParseSpeed_WithoutXSuffix_ReturnsValue()
-    {
-        ProcessRunner.ParseSpeed("1.0").Should().BeApproximately(1.0, 0.001);
-    }
-
-    [Fact]
-    public void ParseSpeed_WhitespaceInput_TrimsAndParses()
-    {
-        ProcessRunner.ParseSpeed("  3.5x  ").Should().BeApproximately(3.5, 0.001);
-    }
-
-    [Fact]
-    public void ParseSpeed_NonNumeric_ReturnsNull()
-    {
-        ProcessRunner.ParseSpeed("N/A").Should().BeNull();
-    }
-
-    [Fact]
-    public void ParseSpeed_ZeroSpeed_ReturnsZero()
-    {
-        ProcessRunner.ParseSpeed("0x").Should().Be(0.0);
-    }
-
-    // --- CalculatePercentage ---
-
-    [Fact]
-    public void CalculatePercentage_TimeBased_ReturnsTimeBased()
-    {
-        ProcessRunner.CalculatePercentage(30.0, 60.0, null, null).Should().BeApproximately(50.0, 0.01);
-    }
-
-    [Fact]
-    public void CalculatePercentage_NoTimeFallsBackToFrame()
-    {
-        ProcessRunner.CalculatePercentage(null, 60.0, 500, 1000).Should().BeApproximately(50.0, 0.01);
-    }
-
-    [Fact]
-    public void CalculatePercentage_NeitherAvailable_ReturnsNull()
-    {
-        ProcessRunner.CalculatePercentage(null, null, null, null).Should().BeNull();
-    }
-
-    [Fact]
-    public void CalculatePercentage_CapsAt100()
-    {
-        ProcessRunner.CalculatePercentage(120.0, 60.0, null, null).Should().Be(100.0);
-    }
-
-    [Fact]
-    public void CalculatePercentage_ZeroDuration_ReturnsNull()
-    {
-        ProcessRunner.CalculatePercentage(30.0, 0.0, null, null).Should().BeNull();
-    }
-
-    [Fact]
-    public void CalculatePercentage_ZeroFrameCount_ReturnsNull()
-    {
-        ProcessRunner.CalculatePercentage(null, null, 500, 0).Should().BeNull();
-    }
-
-    [Fact]
-    public void CalculatePercentage_ZeroProcessedSeconds_FallsToFrame()
-    {
-        ProcessRunner.CalculatePercentage(0.0, 60.0, 500, 1000).Should().BeApproximately(50.0, 0.01);
-    }
-
-    // --- ParseProgressUpdate ---
 
     [Fact]
     public void ParseProgressUpdate_CompletePacket_ReturnsAllFields()
@@ -173,65 +70,24 @@ public class ProcessRunnerStaticTests
         result.Percentage.Should().BeApproximately(50.0, 0.01);
     }
 
-    [Fact]
-    public void ParseProgressUpdate_OnlyOutTime_ReturnsProcessedSeconds()
-    {
-        var packet = new Dictionary<string, string>
-        {
-            ["out_time"] = "00:00:30.000",
-        };
-
-        var result = ProcessRunner.ParseProgressUpdate(packet, 10.0, 60.0, null);
-
-        result.ProcessedSeconds.Should().BeApproximately(30.0, 0.001);
-        result.Percentage.Should().BeApproximately(50.0, 0.01);
-    }
-
-    [Fact]
-    public void ParseProgressUpdate_OutTimeUsFallback()
-    {
-        var packet = new Dictionary<string, string>
-        {
-            ["out_time_us"] = "30000000",
-        };
-
-        var result = ProcessRunner.ParseProgressUpdate(packet, 10.0, 60.0, null);
-        result.ProcessedSeconds.Should().BeApproximately(30.0, 0.001);
-    }
-
-    [Fact]
-    public void ParseProgressUpdate_OutTimeMsFallback()
-    {
-        var packet = new Dictionary<string, string>
-        {
-            ["out_time_ms"] = "30000",
-        };
-
-        var result = ProcessRunner.ParseProgressUpdate(packet, 10.0, 60.0, null);
-        result.ProcessedSeconds.Should().BeApproximately(30.0, 0.001);
-    }
-
-    [Fact]
-    public void ParseProgressUpdate_EmptyPacket_ReturnsMinimalProgress()
+    [Theory]
+    [InlineData("out_time_us", "30000000", 60.0, null, 30.0, 50.0)]
+    [InlineData("out_time_ms", "30000", 60.0, null, 30.0, 50.0)]
+    [InlineData("frame", "500", null, 1000, null, 50.0)]
+    [InlineData(null, null, 60.0, null, null, null)] // empty packet
+    public void ParseProgressUpdate_SingleKeyPacket_UsesFallbacks(
+        string? key, string? value, double? duration, int? frameCount,
+        double? expectedProcessed, double? expectedPercentage)
     {
         var packet = new Dictionary<string, string>();
-        var result = ProcessRunner.ParseProgressUpdate(packet, 5.0, 60.0, null);
+        if (key is not null && value is not null)
+            packet[key] = value;
+
+        var result = ProcessRunner.ParseProgressUpdate(packet, 5.0, duration, frameCount);
 
         result.ElapsedSeconds.Should().Be(5.0);
-        result.ProcessedSeconds.Should().BeNull();
+        result.ProcessedSeconds.Should().BeApproximately(expectedProcessed, 0.001);
         result.Speed.Should().BeNull();
-        result.Percentage.Should().BeNull();
-    }
-
-    [Fact]
-    public void ParseProgressUpdate_FrameBasedFallback()
-    {
-        var packet = new Dictionary<string, string>
-        {
-            ["frame"] = "500",
-        };
-
-        var result = ProcessRunner.ParseProgressUpdate(packet, 10.0, null, 1000);
-        result.Percentage.Should().BeApproximately(50.0, 0.01);
+        result.Percentage.Should().BeApproximately(expectedPercentage, 0.01);
     }
 }

@@ -62,6 +62,7 @@ public sealed class ProcessRunnerPauseTests
     {
         // Regression: on macOS a stopped direct child made the runtime's SIGCHLD handler spin, so every
         // Process.Start blocked until the encoder resumed (opening the logs folder froze FFApp).
+        // Unix-only (SIGSTOP/SIGCHLD). xUnit v2 has no runtime skip here, so this passes vacuously on Windows.
         if (OperatingSystem.IsWindows())
             return;
 

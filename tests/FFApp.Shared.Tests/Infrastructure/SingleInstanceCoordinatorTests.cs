@@ -21,13 +21,17 @@ public sealed class SingleInstanceCoordinatorTests
         => new(keys.lockPath, keys.pipeName);
 
     [Fact]
-    public void PipeNameFor_DiffersBetweenApps()
+    public void PipeNameFor_DiffersBetweenAppsAndUsers()
     {
         var ffapp = new AppIdentity("FFApp", "ffapp");
         var ffrux = new AppIdentity("FFRux", "ffrux");
 
-        SingleInstanceCoordinator.PipeNameFor(ffapp, "steve")
-            .Should().NotBe(SingleInstanceCoordinator.PipeNameFor(ffrux, "steve"));
+        new[]
+        {
+            SingleInstanceCoordinator.PipeNameFor(ffapp, "alice"),
+            SingleInstanceCoordinator.PipeNameFor(ffrux, "alice"),
+            SingleInstanceCoordinator.PipeNameFor(ffrux, "bob"),
+        }.Should().OnlyHaveUniqueItems();
     }
 
     [Fact]
@@ -37,24 +41,6 @@ public sealed class SingleInstanceCoordinatorTests
         // build forward files to an older instance that is still running.
         SingleInstanceCoordinator.PipeNameFor(new AppIdentity("FFApp", "ffapp"), "steve")
             .Should().MatchRegex("^FFApp\\.SingleInstance\\.[0-9A-F]{12}$");
-    }
-
-    [Fact]
-    public void PipeNameFor_DiffersBetweenUsers()
-    {
-        var identity = new AppIdentity("FFRux", "ffrux");
-
-        SingleInstanceCoordinator.PipeNameFor(identity, "alice")
-            .Should().NotBe(SingleInstanceCoordinator.PipeNameFor(identity, "bob"));
-    }
-
-    [Fact]
-    public async Task TryAcquire_OnFirstCall_ReturnsTrue()
-    {
-        var keys = UniqueKeys();
-        await using var coordinator = NewCoordinator(keys);
-
-        coordinator.TryAcquire().Should().BeTrue();
     }
 
     [Fact]

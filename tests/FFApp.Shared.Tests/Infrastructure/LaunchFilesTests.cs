@@ -6,14 +6,6 @@ namespace FFApp.Shared.Tests.Infrastructure;
 public sealed class LaunchFilesTests
 {
     [Fact]
-    public void IsInsideRuntimeDirectory_RejectsAppsOwnAssembly()
-    {
-        var ownAssembly = typeof(LaunchFiles).Assembly.Location;
-
-        LaunchFiles.IsInsideRuntimeDirectory(ownAssembly).Should().BeTrue();
-    }
-
-    [Fact]
     public void IsInsideRuntimeDirectory_AcceptsPathOutsideBaseDirectory()
     {
         // Pick a path that is guaranteed to live outside AppContext.BaseDirectory.
@@ -25,20 +17,13 @@ public sealed class LaunchFilesTests
     [Fact]
     public void IsInsideRuntimeDirectory_RelativeDllName_RejectedWhenResolvedIntoRuntimeDir()
     {
-        // This is the exact macOS `dotnet run` scenario: NSApplication hands
-        // the managed assembly over as a relative path "<App>.dll". When the
-        // CWD resolves it into the runtime directory, the filter must catch it.
-        var runtimeDir = Path.GetDirectoryName(typeof(LaunchFiles).Assembly.Location)!;
-        var previous = Environment.CurrentDirectory;
-        try
-        {
-            Environment.CurrentDirectory = runtimeDir;
-            LaunchFiles.IsInsideRuntimeDirectory("FFApp.Desktop.dll").Should().BeTrue();
-        }
-        finally
-        {
-            Environment.CurrentDirectory = previous;
-        }
+        // This is the macOS `dotnet run` scenario: NSApplication hands the managed assembly over as a
+        // relative path "<App>.dll" that the CWD resolves into the runtime directory. Build the relative
+        // path from the current CWD instead of changing it, since CWD is process-wide and tests run in parallel.
+        var relative = Path.GetRelativePath(Environment.CurrentDirectory, typeof(LaunchFiles).Assembly.Location);
+        Path.IsPathRooted(relative).Should().BeFalse();
+
+        LaunchFiles.IsInsideRuntimeDirectory(relative).Should().BeTrue();
     }
 
     [Fact]

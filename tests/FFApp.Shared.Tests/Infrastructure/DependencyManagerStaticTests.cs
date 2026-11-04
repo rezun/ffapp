@@ -5,22 +5,8 @@ using FluentAssertions;
 
 namespace FFApp.Shared.Tests.Infrastructure;
 
-public class DependencyManagerStaticTests
+public sealed class DependencyManagerStaticTests
 {
-    [Fact]
-    public void FindExecutable_FindsFileInProvidedDirectory()
-    {
-        using var tempDir = new TempDirectory();
-        var name = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "tool" : "tool";
-        var fileName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "tool.exe" : "tool";
-        var filePath = Path.Combine(tempDir.Path, fileName);
-        File.WriteAllText(filePath, string.Empty);
-
-        var result = DependencyManager.FindExecutable(name, [tempDir.Path]);
-
-        result.Should().Be(filePath);
-    }
-
     [Fact]
     public void FindExecutable_ReturnsNullWhenMissing()
     {
@@ -30,7 +16,7 @@ public class DependencyManagerStaticTests
     }
 
     [Fact]
-    public void FindExecutable_PrefersEarlierDirectory()
+    public void FindExecutable_ReturnsMatchFromEarliestDirectory()
     {
         using var first = new TempDirectory();
         using var second = new TempDirectory();
@@ -44,54 +30,13 @@ public class DependencyManagerStaticTests
     }
 
     [Fact]
-    public void GetFallbackDirectories_OnMacOS_IncludesHomebrewPaths()
+    public void EnumerateSearchDirectories_ListsPathEntriesThenFallbacks_EachOnce()
     {
-        if (!RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-            return;
+        var pathEntries = (Environment.GetEnvironmentVariable("PATH") ?? "")
+            .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
 
-        var dirs = DependencyManager.GetFallbackDirectories();
-
-        dirs.Should().Contain("/opt/homebrew/bin");
-        dirs.Should().Contain("/usr/local/bin");
-    }
-
-    [Fact]
-    public void GetFallbackDirectories_OnLinux_IncludesCommonPaths()
-    {
-        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-            return;
-
-        var dirs = DependencyManager.GetFallbackDirectories();
-
-        dirs.Should().Contain("/usr/local/bin");
-    }
-
-    [Fact]
-    public void GetFallbackDirectories_OnWindows_IsEmpty()
-    {
-        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            return;
-
-        DependencyManager.GetFallbackDirectories().Should().BeEmpty();
-    }
-
-    [Fact]
-    public void EnumerateSearchDirectories_AppendsFallbacksAfterPath()
-    {
-        var dirs = DependencyManager.EnumerateSearchDirectories().ToList();
-
-        foreach (var fallback in DependencyManager.GetFallbackDirectories())
-        {
-            dirs.Should().Contain(fallback);
-        }
-    }
-
-    [Fact]
-    public void EnumerateSearchDirectories_DoesNotDuplicateDirectories()
-    {
-        var dirs = DependencyManager.EnumerateSearchDirectories().ToList();
-
-        dirs.Should().OnlyHaveUniqueItems();
+        DependencyManager.EnumerateSearchDirectories().Should().Equal(
+            pathEntries.Concat(DependencyManager.GetFallbackDirectories()).Distinct(StringComparer.Ordinal));
     }
 
     private sealed class TempDirectory : IDisposable

@@ -33,17 +33,13 @@ public sealed class QueueTestCollection : ICollectionFixture<QueueTestSession>;
 [Collection("Queue UI")]
 public sealed class QueueSelectionStyleTests(QueueTestSession fixture)
 {
+    // The selected-row override ignores the state color, so one plain state and Failed
+    // (which adds the failure line) cover every row shape in both themes.
     [Theory]
     [InlineData(false, JobState.Pending)]
-    [InlineData(false, JobState.Running)]
-    [InlineData(false, JobState.Completed)]
     [InlineData(false, JobState.Failed)]
-    [InlineData(false, JobState.Canceled)]
     [InlineData(true, JobState.Pending)]
-    [InlineData(true, JobState.Running)]
-    [InlineData(true, JobState.Completed)]
     [InlineData(true, JobState.Failed)]
-    [InlineData(true, JobState.Canceled)]
     public async Task SelectedRow_UsesThemeSelectionColors_AndRestoresColorsOnDeselect(
         bool dark, JobState state)
     {

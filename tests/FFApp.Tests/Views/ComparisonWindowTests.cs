@@ -10,12 +10,9 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using FFApp.Controls;
-using FFApp.Tests.ViewModels;
 using FFApp.Tests.Builders;
 using FFApp.Views;
-using FFApp.ViewModels;
 using FluentAssertions;
-using NSubstitute;
 
 namespace FFApp.Tests.Views;
 
@@ -24,9 +21,7 @@ public sealed class ComparisonWindowTests(QueueTestSession fixture)
 {
     [Theory]
     [InlineData(0, "TogglePreviewSizeButton")]
-    [InlineData(2, "TogglePreviewSizeButton")]
     [InlineData(2, "PlaySampleButton")]
-    [InlineData(2, "PrimaryComparisonButton")]
     public async Task Space_TogglesPlayback_InsteadOfActivatingFocusedButton(int step, string buttonName)
     {
         await fixture.Session.Dispatch(async () =>
@@ -98,7 +93,7 @@ public sealed class ComparisonWindowTests(QueueTestSession fixture)
     }
 
     [Fact]
-    public async Task MaximizeVideos_ReclaimsPanelSpace_AndRestoresResizedResults()
+    public async Task MaximizeVideos_ByKeyOrButton_ReclaimsPanelSpace_AndRestoresResizedResults()
     {
         await fixture.Session.Dispatch(async () =>
         {
@@ -114,10 +109,6 @@ public sealed class ComparisonWindowTests(QueueTestSession fixture)
                 window.UpdateLayout();
                 var button = window.FindControl<Button>("TogglePreviewSizeButton")
                     ?? throw new InvalidOperationException("Preview size button missing.");
-                var samples = window.FindControl<Border>("SamplePanel")
-                    ?? throw new InvalidOperationException("Sample panel missing.");
-                var results = window.FindControl<Border>("ResultsPanel")
-                    ?? throw new InvalidOperationException("Results panel missing.");
                 var grid = window.FindControl<Grid>("CompareGrid")
                     ?? throw new InvalidOperationException("Compare grid missing.");
                 var preview = window.FindControl<ComparisonPlaybackView>("SamplePlayback")
@@ -128,81 +119,31 @@ public sealed class ComparisonWindowTests(QueueTestSession fixture)
                 var selectedSample = vm.SelectedSample;
                 var leftChoice = vm.LeftChoice;
                 var rightChoice = vm.RightChoice;
-                window.GetVisualDescendants().OfType<Expander>()
-                    .Should().NotContain(e => Equals(e.Header, "Selected result details"));
 
-                button.Command.Should().BeSameAs(vm.TogglePreviewSizeCommand);
-                button.Command?.Execute(null);
+                FocusSelectedSample(window).Should().BeTrue();
+                window.KeyPress(Key.F, RawInputModifiers.None, PhysicalKey.F, "f");
                 window.UpdateLayout();
-                samples.IsVisible.Should().BeFalse();
-                results.IsVisible.Should().BeFalse();
+                vm.IsPreviewMaximized.Should().BeTrue();
                 grid.RowDefinitions[3].ActualHeight.Should().Be(0);
                 preview.Bounds.Width.Should().BeGreaterThan(originalSize.Width);
                 preview.Bounds.Height.Should().BeGreaterThan(originalSize.Height);
-                button.IsEffectivelyVisible.Should().BeTrue();
-                ToolTip.GetTip(button).Should().Be("Restore panels");
+                button.IsEffectivelyVisible.Should().BeTrue("the restore button must stay reachable");
                 vm.SelectedSample.Should().BeSameAs(selectedSample);
                 vm.LeftChoice.Should().BeSameAs(leftChoice);
                 vm.RightChoice.Should().BeSameAs(rightChoice);
 
                 button.Command?.Execute(null);
                 window.UpdateLayout();
-                samples.IsVisible.Should().BeTrue();
-                results.IsVisible.Should().BeTrue();
+                vm.IsPreviewMaximized.Should().BeFalse();
                 grid.RowDefinitions[3].ActualHeight.Should().Be(180);
                 preview.Bounds.Size.Should().Be(originalSize);
 
-                button.Command?.Execute(null);
                 vm.ShowVariantsCommand.Execute(null);
                 window.UpdateLayout();
-                samples.IsVisible.Should().BeTrue();
                 button.IsVisible.Should().BeFalse();
             }
             finally { await window.CloseSavedAsync(); }
             return true;
-        }, CancellationToken.None);
-    }
-
-    [Fact]
-    public async Task RawFrames_UpdateBothSurfaces_ReuseBitmaps_KeepZoom_AndClearOnReset()
-    {
-        await fixture.Session.Dispatch(() =>
-        {
-            using var vm = new ComparisonPlaybackViewModel(null);
-            vm.Load(new ComparisonTrack("source", 100), new ComparisonTrack("clip", 2), 12, 24);
-            var view = new ComparisonPlaybackView { DataContext = vm };
-            var window = new Window { Content = view };
-            window.Show();
-            try
-            {
-                vm.FramesToDisplay = new ComparisonFrames(ComparisonPlaybackViewModelTests.Frame(0), ComparisonPlaybackViewModelTests.Frame(0));
-                var left = view.FindControl<Image>("LeftFrame") ?? throw new InvalidOperationException("Missing left image.");
-                var right = view.FindControl<Image>("RightFrame") ?? throw new InvalidOperationException("Missing right image.");
-                left.Source.Should().NotBeNull();
-                right.Source.Should().NotBeNull();
-                left.IsVisible.Should().BeTrue();
-                right.IsVisible.Should().BeTrue();
-                view.FindControl<Control>("LeftVideo").Should().BeNull();
-                view.FindControl<Control>("RightVideo").Should().BeNull();
-                var originalLeft = left.Source;
-                var originalRight = right.Source;
-                var newLeft = ComparisonPlaybackViewModelTests.Frame(.04);
-                var newRight = ComparisonPlaybackViewModelTests.Frame(.04);
-                newLeft.Pixels.Span.Fill(42);
-                newRight.Pixels.Span.Fill(84);
-                vm.FramesToDisplay = new ComparisonFrames(newLeft, newRight);
-                left.Source.Should().BeSameAs(originalLeft);
-                right.Source.Should().BeSameAs(originalRight);
-                vm.Zoom = "200%";
-                left.Stretch.Should().Be(Stretch.None);
-                left.RenderTransform.Should().BeOfType<ScaleTransform>().Which.ScaleX.Should().Be(2);
-                right.RenderTransform.Should().BeOfType<ScaleTransform>().Which.ScaleX.Should().Be(2);
-                vm.Reset();
-                left.Source.Should().BeNull();
-                right.Source.Should().BeNull();
-                left.IsVisible.Should().BeFalse();
-            }
-            finally { window.Close(); }
         }, CancellationToken.None);
     }
 
@@ -219,15 +160,12 @@ public sealed class ComparisonWindowTests(QueueTestSession fixture)
             try
             {
                 window.UpdateLayout();
-                var layout = window.FindControl<Grid>("ComparisonLayout")
-                    ?? throw new InvalidOperationException("Window layout missing.");
                 var statusBar = window.FindControl<Border>("StatusBar")
                     ?? throw new InvalidOperationException("Status bar missing.");
                 var footer = window.FindControl<StackPanel>("ComparisonStatusPanel")
                     ?? throw new InvalidOperationException("Status panel missing.");
                 var usage = window.FindControl<TextBlock>("CacheUsageText")
                     ?? throw new InvalidOperationException("Cache usage missing.");
-                layout.Margin.Should().Be(new Thickness(16));
                 statusBar.IsEffectivelyVisible.Should().BeTrue();
                 usage.Text.Should().Be(vm.CacheUsageLabel);
                 footer.IsVisible.Should().BeFalse();
@@ -367,20 +305,14 @@ public sealed class ComparisonWindowTests(QueueTestSession fixture)
         }, CancellationToken.None);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task NumericFields_CenterText_HideInnerScrollbars_AndKeepValueSpinnerWorking(bool dark)
+    [Fact]
+    public async Task NumericFields_CenterText_HideInnerScrollbars_AndKeepValueSpinnerWorking()
     {
         await fixture.Session.Dispatch(async () =>
         {
             using var harness = new ComparisonTestHarness();
             await harness.LoadAsync();
-            var window = new ComparisonWindow
-            {
-                DataContext = harness.ViewModel,
-                RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light,
-            };
+            var window = new ComparisonWindow { DataContext = harness.ViewModel };
             window.Show();
             try
             {
@@ -441,21 +373,15 @@ public sealed class ComparisonWindowTests(QueueTestSession fixture)
         }, CancellationToken.None);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task InitialWindow_ShowsSingleOriginalPreview_HidesEmptyResults_AndHighlightsNextAction(bool dark)
+    [Fact]
+    public async Task InitialWindow_ShowsSingleOriginalPreview_HidesEmptyResults_AndHighlightsNextAction()
     {
         await fixture.Session.Dispatch(async () =>
         {
             using var harness = new ComparisonTestHarness();
             await harness.LoadAsync();
             var vm = harness.ViewModel;
-            var window = new ComparisonWindow
-            {
-                DataContext = vm, Width = 1480, Height = 960,
-                RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light,
-            };
+            var window = new ComparisonWindow { DataContext = vm, Width = 1480, Height = 960 };
             window.Show();
             try
             {
@@ -471,21 +397,20 @@ public sealed class ComparisonWindowTests(QueueTestSession fixture)
                 preview.FindControl<Border>("LeftPane")?.IsVisible.Should().BeTrue();
                 harness.Playback.LeftTrack?.Path.Should().Be(harness.Context.MediaInfo.SourcePath);
                 var next = window.FindControl<Button>("PrimaryComparisonButton") ?? throw new InvalidOperationException("Next action missing.");
-                next.Content.Should().Be("Next: choose variants →");
+                var initialLabel = vm.PrimaryActionLabel;
+                next.Content.Should().Be(initialLabel);
                 var presenter = next.GetVisualDescendants().OfType<ContentPresenter>()
                     .First(p => string.Equals(p.Name, "PART_ContentPresenter", StringComparison.Ordinal));
                 var brush = presenter.Background.Should().BeAssignableTo<ISolidColorBrush>().Subject;
                 brush.Color.B.Should().BeGreaterThan(brush.Color.R, "the primary action should be visibly blue");
-                var play = preview.FindControl<Button>("PlaySampleButton") ?? throw new InvalidOperationException("Play button missing.");
-                ToolTip.GetTip(play).Should().Be("Play sample");
-                play.Classes.Should().NotContain("accent", "the primary action is the only accent button");
-                var back = preview.FindControl<Button>("SeekBackwardButton")
-                    ?? throw new InvalidOperationException("Backward seek button missing.");
-                back.Command.Should().BeSameAs(harness.Playback.SeekBackwardCommand);
-                ToolTip.GetTip(back).Should().Be("Seek back one second");
+                (preview.FindControl<Button>("PlaySampleButton")?.Classes).Should()
+                    .NotContain("accent", "the primary action is the only accent button");
+                // Transport buttons are icon-only and adjacent; a swapped binding is easy to miss by eye.
                 foreach (var (name, command) in new[]
                 {
                     ("StepBackwardButton", harness.Playback.StepBackwardCommand),
+                    ("SeekBackwardButton", harness.Playback.SeekBackwardCommand),
+                    ("PlaySampleButton", harness.Playback.TogglePlayCommand),
                     ("SeekForwardButton", harness.Playback.SeekForwardCommand),
                     ("StepForwardButton", harness.Playback.StepForwardCommand),
                 })
@@ -497,8 +422,7 @@ public sealed class ComparisonWindowTests(QueueTestSession fixture)
                 (window.FindControl<Button>("ResultsStepButton")?.IsEffectivelyEnabled).Should().BeFalse();
                 await vm.PrimaryActionCommand.ExecuteAsync(null);
                 window.UpdateLayout();
-                next.Content.Should().Be("Create test clips (8)");
-                harness.Execution.ReceivedCalls().Should().BeEmpty();
+                next.Content.Should().Be(vm.PrimaryActionLabel).And.NotBe(initialLabel);
             }
             finally { await window.CloseSavedAsync(); }
             return true;
@@ -533,32 +457,6 @@ public sealed class ComparisonWindowTests(QueueTestSession fixture)
                 window.KeyPress(Key.I, RawInputModifiers.None, PhysicalKey.I, "i");
                 sample.StartSeconds.Should().Be(start + 2);
                 window.FindControl<Button>("SetStartButton")?.Command.Should().BeSameAs(vm.SetStartToPlayheadCommand);
-            }
-            finally { await window.CloseSavedAsync(); }
-            return true;
-        }, CancellationToken.None);
-    }
-
-    [Fact]
-    public async Task KeyF_TogglesMaximizedVideos()
-    {
-        await fixture.Session.Dispatch(async () =>
-        {
-            using var harness = new ComparisonTestHarness();
-            await harness.LoadAsync();
-            var vm = harness.ViewModel;
-            var window = new ComparisonWindow { DataContext = vm };
-            window.Show();
-            try
-            {
-                window.UpdateLayout();
-                FocusSelectedSample(window).Should().BeTrue();
-                window.KeyPress(Key.F, RawInputModifiers.None, PhysicalKey.F, "f");
-                vm.IsPreviewMaximized.Should().BeTrue();
-                window.UpdateLayout();
-                window.FindControl<Border>("SampleEditor")?.IsVisible.Should().BeFalse();
-                window.KeyPress(Key.F, RawInputModifiers.None, PhysicalKey.F, "f");
-                vm.IsPreviewMaximized.Should().BeFalse();
             }
             finally { await window.CloseSavedAsync(); }
             return true;

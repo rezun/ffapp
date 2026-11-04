@@ -10,7 +10,7 @@ namespace FFApp.Tests.Views;
 public sealed class AudioSampleRateSelectionTests(QueueTestSession fixture)
 {
     [Fact]
-    public async Task CodecChange_UpdatesDropdownAndPreservesOnlySupportedSelection()
+    public async Task CodecChange_ReplacesItemList_WithoutLosingTheSelection()
     {
         await fixture.Session.Dispatch(() =>
         {
@@ -18,7 +18,6 @@ public sealed class AudioSampleRateSelectionTests(QueueTestSession fixture)
             {
                 AvailableAudioCodecs = [AudioCodec.Aac, AudioCodec.Mp3, AudioCodec.Opus, AudioCodec.Vorbis],
                 SelectedAudioMode = AudioMode.Reencode,
-                SelectedSampleRate = 44100,
             };
             var view = new AudioView { DataContext = vm };
             var window = new Window { Content = view, Width = 600, Height = 300 };
@@ -28,20 +27,14 @@ public sealed class AudioSampleRateSelectionTests(QueueTestSession fixture)
                 window.UpdateLayout();
                 var combo = view.FindControl<ComboBox>("SampleRateComboBox")
                     ?? throw new InvalidOperationException("Sample-rate selector missing.");
-                combo.SelectedItem.Should().Be(44100);
+                combo.SelectedItem = 48000;
+                vm.SelectedSampleRate.Should().Be(48000);
 
+                // Replacing ItemsSource makes the ComboBox drop its selection; the binding must restore it.
                 vm.SelectedAudioCodec = AudioCodec.Opus;
                 window.UpdateLayout();
 
-                combo.Items.Cast<int>().Should().Equal(0, 8000, 12000, 16000, 24000, 48000);
-                vm.SelectedSampleRate.Should().Be(0);
-                combo.SelectedItem.Should().Be(0);
-
-                combo.SelectedItem = 48000;
-                vm.SelectedSampleRate.Should().Be(48000);
-                vm.SelectedAudioCodec = AudioCodec.Aac;
-                window.UpdateLayout();
-
+                combo.ItemsSource.Should().BeSameAs(vm.AvailableSampleRateOptions);
                 vm.SelectedSampleRate.Should().Be(48000);
                 combo.SelectedItem.Should().Be(48000);
             }

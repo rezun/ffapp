@@ -18,13 +18,13 @@ namespace FFApp.Tests.Views;
 [Collection("Queue UI")]
 public sealed class OptionTooltipsTests(QueueTestSession fixture)
 {
+    // One row per codec quality template (H.264 and H.265 share one) and per tone-map engine.
+    // The strategy panels are standalone views, covered by SupportingSettingsViews below.
     [Theory]
     [InlineData(VideoCodec.H264, EncodingStrategy.TargetQuality, ToneMapEngine.Standard)]
-    [InlineData(VideoCodec.H265, EncodingStrategy.TargetQuality, ToneMapEngine.Standard)]
     [InlineData(VideoCodec.Av1, EncodingStrategy.TargetQuality, ToneMapEngine.Standard)]
     [InlineData(VideoCodec.Vp9, EncodingStrategy.TargetQuality, ToneMapEngine.Standard)]
     [InlineData(VideoCodec.H264, EncodingStrategy.TargetBitrate, ToneMapEngine.Libplacebo)]
-    [InlineData(VideoCodec.H264, EncodingStrategy.TargetFileSize, ToneMapEngine.Standard)]
     public async Task OutputOptions_HaveHelpInEachDistinctSettingsPanel(
         VideoCodec codec, EncodingStrategy strategy, ToneMapEngine engine)
     {
@@ -38,7 +38,6 @@ public sealed class OptionTooltipsTests(QueueTestSession fixture)
             var builder = codec switch
             {
                 VideoCodec.H264 => new TestOutputSettingsBuilder(),
-                VideoCodec.H265 => new TestOutputSettingsBuilder().WithH265(),
                 VideoCodec.Av1 => new TestOutputSettingsBuilder().WithAv1().WithAv1FilmGrain(8),
                 VideoCodec.Vp9 => new TestOutputSettingsBuilder().WithVp9(),
                 _ => throw new ArgumentOutOfRangeException(nameof(codec)),

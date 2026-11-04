@@ -117,6 +117,41 @@ public sealed class ComparisonPlaybackViewTests(QueueTestSession fixture)
         }, CancellationToken.None);
     }
 
+    [Fact]
+    public async Task RawFrames_UpdateBothSurfaces_ReuseBitmaps_KeepZoom_AndClearOnReset()
+    {
+        await fixture.Session.Dispatch(() =>
+        {
+            using var vm = Comparison();
+            var (window, view) = Show(vm);
+            try
+            {
+                vm.FramesToDisplay = new ComparisonFrames(Frame(2, 2), Frame(2, 2));
+                var left = Find<Image>(view, "LeftFrame");
+                var right = Find<Image>(view, "RightFrame");
+                left.Source.Should().NotBeNull();
+                right.Source.Should().NotBeNull();
+                left.IsVisible.Should().BeTrue();
+                right.IsVisible.Should().BeTrue();
+                var originalLeft = left.Source;
+                var originalRight = right.Source;
+                vm.FramesToDisplay = new ComparisonFrames(Frame(2, 2), Frame(2, 2));
+                left.Source.Should().BeSameAs(originalLeft);
+                right.Source.Should().BeSameAs(originalRight);
+                vm.Zoom = "200%";
+                left.Stretch.Should().Be(Stretch.None);
+                left.RenderTransform.Should().BeOfType<ScaleTransform>().Which.ScaleX.Should().Be(2);
+                right.RenderTransform.Should().BeOfType<ScaleTransform>().Which.ScaleX.Should().Be(2);
+                vm.Reset();
+                left.Source.Should().BeNull();
+                right.Source.Should().BeNull();
+                left.IsVisible.Should().BeFalse();
+            }
+            finally { window.Close(); }
+            return true;
+        }, CancellationToken.None);
+    }
+
     private static ComparisonPlaybackViewModel Comparison()
     {
         var vm = new ComparisonPlaybackViewModel(null);

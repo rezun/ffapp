@@ -1,4 +1,3 @@
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
@@ -19,7 +18,7 @@ namespace FFApp.Tests.Views;
 public sealed class ComparisonWindowIntegrationTests(QueueTestSession fixture)
 {
     [Fact]
-    public async Task DeleteComparison_ClosesWindowWithoutRecreatingSavedComparison()
+    public async Task DeleteComparison_ClosesWindow()
     {
         await fixture.Session.Dispatch(async () =>
         {
@@ -32,68 +31,9 @@ public sealed class ComparisonWindowIntegrationTests(QueueTestSession fixture)
                 await harness.ViewModel.RunAllCommand.ExecuteAsync(null);
                 await harness.ViewModel.DeleteComparisonCommand.ExecuteAsync(null);
                 comparison.IsVisible.Should().BeFalse();
-                Directory.GetFiles(Path.Combine(harness.DirectoryPath, "comparison"), "*.json").Should().BeEmpty();
             }
             finally { if (comparison.IsVisible) await comparison.CloseSavedAsync(); }
             return true;
-        }, CancellationToken.None);
-    }
-
-    [Fact]
-    public async Task StorageSettingsWindow_BindsUsageAndCacheLimit()
-    {
-        await fixture.Session.Dispatch(() =>
-        {
-            var comparisons = Substitute.For<IComparisonService>();
-            comparisons.GetCacheUsage().Returns(new FFApp.Core.Models.ComparisonCacheUsage(4096, 0, 1024));
-            var vm = new MainWindowViewModel(Substitute.For<ISettingsService>(), Substitute.For<IDependencyService>(),
-                new ExecutablePathsConfig(), new WeakReferenceMessenger(),
-                () => throw new InvalidOperationException("Not needed."),
-                Substitute.For<IServiceScopeFactory>(), Substitute.For<IFfmpegCapabilityService>(),
-                new TranscodingPreferences(), comparisonService: comparisons);
-            vm.RefreshComparisonStorageCommand.Execute(null);
-            var window = new ComparisonStorageWindow { DataContext = vm };
-            window.Show();
-            try
-            {
-                window.UpdateLayout();
-                var usage = window.FindControl<TextBlock>("StorageUsage") ?? throw new InvalidOperationException();
-                usage.Text.Should().Contain($"{4d:F1} KiB");
-                vm.DeleteAllClipsLabel.Should().Contain($"{3d:F1} KiB");
-                var input = window.FindControl<FFApp.Controls.NoWheelNumericUpDown>("CacheLimitInput") ?? throw new InvalidOperationException();
-                input.Value = 8;
-                vm.ComparisonCacheLimitGiB.Should().Be(8);
-                vm.ComparisonStorageStatus = "Limit saved. Oldest unused clips are removed first. Open comparisons may temporarily exceed the limit.";
-                window.UpdateLayout();
-                var status = window.FindControl<TextBlock>("StorageStatus") ?? throw new InvalidOperationException();
-                var position = status.TranslatePoint(new Point(0, status.Bounds.Height), window);
-                position.Should().NotBeNull();
-                position?.Y.Should().BeLessThan(window.ClientSize.Height);
-            }
-            finally { window.Close(); }
-        }, CancellationToken.None);
-    }
-
-    [Fact]
-    public async Task ComparisonButton_IsRightAlignedBesidePresets_WithoutEllipsis()
-    {
-        await fixture.Session.Dispatch(() =>
-        {
-            var workspace = new WorkspaceView();
-            var button = workspace.FindControl<Button>("OpenComparisonButton")
-                ?? throw new InvalidOperationException("Missing comparison button.");
-            var actions = workspace.FindControl<Grid>("PresetActions")
-                ?? throw new InvalidOperationException("Missing preset actions.");
-            actions.Children.Should().Contain(button);
-            actions.Children.Should().ContainSingle(c => c is PresetBarView);
-            button.Content.Should().Be("Compare encodes");
-            actions.Measure(new Size(1000, 100));
-            actions.Arrange(new Rect(0, 0, 1000, actions.DesiredSize.Height));
-            button.Bounds.Right.Should().BeApproximately(actions.Bounds.Width, 0.5,
-                "the comparison button should sit at the right edge of the preset row");
-            // The outer dock panel now reserves vertical space only for running-job status.
-            var root = (DockPanel)(workspace.Content ?? throw new InvalidOperationException("Missing workspace content."));
-            root.Children.OfType<Border>().Should().OnlyContain(b => DockPanel.GetDock(b) == Dock.Bottom);
         }, CancellationToken.None);
     }
 

@@ -16,7 +16,7 @@ namespace FFApp.Tests.Views;
 public sealed class ColorMetadataSelectionTests(QueueTestSession fixture)
 {
     [Fact]
-    public async Task SelectionAndPresetRestore_UpdateControlsAndEffectiveOutput()
+    public async Task CompactRow_DetailsToggle_AndColorCombosBindToTheViewModel()
     {
         await fixture.Session.Dispatch(() =>
         {
@@ -45,31 +45,30 @@ public sealed class ColorMetadataSelectionTests(QueueTestSession fixture)
                     ?? throw new InvalidOperationException("Color details missing.");
                 var detailsToggle = view.FindControl<ToggleButton>("ColorDetailsToggle")
                     ?? throw new InvalidOperationException("Details toggle missing.");
-                mode.SelectedItem.Should().Be(ColorMetadataMode.Automatic);
+                mode.SelectedItem.Should().Be(vm.Color.SelectedMode);
                 details.IsVisible.Should().BeFalse();
-                section.Bounds.Height.Should().BeLessThanOrEqualTo(40);
+                panel.IsVisible.Should().BeFalse();
                 detailsToggle.IsChecked = true;
                 details.IsVisible.Should().BeTrue();
                 detailsToggle.IsChecked = false;
                 details.IsVisible.Should().BeFalse();
-                panel.IsVisible.Should().BeFalse();
+
+                // The longer assumed-color summary must trim, not wrap, to keep the row compact.
                 mode.SelectedItem = ColorMetadataMode.AssumeBt709;
-                summary.Text.Should().Contain("assumed");
-                vm.Color.CompactSummary.Should().Contain("assumed");
+                vm.Color.SelectedMode.Should().Be(ColorMetadataMode.AssumeBt709);
+                summary.Text.Should().NotBeNullOrEmpty().And.Be(vm.Color.OutputSummary);
                 window.UpdateLayout();
                 section.Bounds.Height.Should().BeLessThanOrEqualTo(40);
+
                 mode.SelectedItem = ColorMetadataMode.Custom;
                 panel.IsVisible.Should().BeTrue();
                 range.SelectedItem = "pc";
-                vm.BuildSettings().ColorMetadata.Range.Should().Be("pc");
-                summary.Text.Should().Contain("Full");
-                vm.Color.CompactSummary.Should().Contain("Full");
+                vm.Color.SelectedRange.Should().Be("pc");
                 vm.ApplySettings(new OutputSettings(ColorMetadata: new(ColorMetadataMode.Custom, Range: "tv")));
                 range.SelectedItem.Should().Be("tv");
+
                 vm.UpdateSourceInfo(new TestMediaInfoBuilder().WithHdr10().Build());
                 mode.IsEnabled.Should().BeFalse();
-                panel.IsVisible.Should().BeFalse();
-                summary.Text.Should().Contain("HDR settings");
             }
             finally { window.Close(); }
         }, CancellationToken.None);

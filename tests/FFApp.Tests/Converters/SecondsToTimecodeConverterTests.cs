@@ -2,9 +2,9 @@ using System.Globalization;
 using FFApp.Converters;
 using FluentAssertions;
 
-namespace FFApp.Tests.Views;
+namespace FFApp.Tests.Converters;
 
-public sealed class TimecodeConverterTests
+public sealed class SecondsToTimecodeConverterTests
 {
     private readonly SecondsToTimecodeConverter _converter = new();
 

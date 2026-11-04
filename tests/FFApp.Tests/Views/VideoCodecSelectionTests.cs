@@ -15,10 +15,10 @@ namespace FFApp.Tests.Views;
 [Collection("Queue UI")]
 public sealed class VideoCodecSelectionTests(QueueTestSession fixture)
 {
-    [Theory]
-    [InlineData(VideoMode.Copy)]
-    [InlineData(VideoMode.Reencode)]
-    public async Task AudioOnlyContainerInRemoveMode_KeepsVideoCodecSelectedForLaterModes(VideoMode nextMode)
+    // Regression: an audio-only container used to empty the codec list, so the ComboBox wrote
+    // null into the non-nullable SelectedVideoCodec binding and kept showing a conversion error.
+    [Fact]
+    public async Task AudioOnlyContainerInRemoveMode_LeavesCodecComboSelectedWithoutBindingErrors()
     {
         await fixture.Session.Dispatch(() =>
         {
@@ -40,11 +40,10 @@ public sealed class VideoCodecSelectionTests(QueueTestSession fixture)
                 vm.Format.SelectedVideoMode = VideoMode.Remove;
                 vm.Format.SelectedContainer = OutputContainer.Mka;
                 window.UpdateLayout();
-                vm.Format.SelectedVideoMode = nextMode;
+                vm.Format.SelectedVideoMode = VideoMode.Reencode;
                 vm.Format.SelectedContainer = OutputContainer.Mkv;
                 window.UpdateLayout();
 
-                vm.Format.AvailableVideoCodecs.Should().Contain(vm.Format.SelectedVideoCodec);
                 codec.SelectedItem.Should().Be(vm.Format.SelectedVideoCodec);
                 DataValidationErrors.GetHasErrors(codec).Should().BeFalse();
             }

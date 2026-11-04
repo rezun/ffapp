@@ -196,6 +196,33 @@ Applies to serializers, binary parsers, streaming pipelines, and I/O code with v
 - Use source-generated regexes (`[GeneratedRegex]`) for all regular expressions by default, where possible.
 - Fall back to pre-compiling with `RegexOptions.Compiled` if source generation is not an option (e.g. dynamic patterns, unsupported features).
 
+## Testing
+
+Tests exist to catch regressions that would otherwise go unnoticed or be expensive. They are not a coverage exercise, and every test is code we have to maintain. Before writing a test, ask: *Would this fail for a reason I care about? Would I notice the bug quickly without it? How expensive would the bug be?* If the bug would be obvious within seconds of opening the app, do not write the test.
+
+**Test:**
+
+- Pure logic with many combinations: FFmpeg/remux command building, validation and compatibility rules, track selection.
+- Parsing of external input (ffprobe output, logs). Use real captured output as fixtures.
+- Persistence formats (settings, presets, job logs), so updates do not lose user data.
+- State machines and concurrency: the job queue, single-instance coordination, encoder lifecycle.
+- ViewModel logic that makes a real decision (fallbacks, derived defaults, which options are offered), not logic that only passes values through.
+
+**Do not test:**
+
+- Views, XAML, bindings, layout, styling, control trees, or which controls exist. UI changes must not require test changes. Check UI by running the app.
+- Plain property pass-through, `PropertyChanged` notifications, command wiring, or `CanExecute` toggles that simply mirror a property.
+- Framework or library behavior (Avalonia, CommunityToolkit, DI registration, `System.Text.Json` defaults).
+- Trivial formatting helpers, constants, or display strings.
+- Implementation details: private call order, exact mock interactions, internal collection shapes. Assert on observable results.
+
+**How:**
+
+- Test behavior through the public surface. A refactoring that keeps behavior the same must keep the tests green.
+- Prefer one `[Theory]` with representative cases over many near-identical `[Fact]`s.
+- When a bug is fixed, add one regression test for it if it falls into the "Test" list above.
+- Do not add tests by reflex alongside every change. A feature that is purely UI ships without new tests.
+
 ## UI text
 
 Use sentence case for buttons, menu items, tabs, headings, field labels, dropdown options, and dialog titles: capitalize the first word, proper names, and abbreviations. For example: `Copy template`, `Compare encodes`, `Video codec`, and `HDR mode`. Preserve names and technical notation such as FFmpeg, Matroska, AV1, HDR, and BT.709. Apply this rule to static XAML labels and dynamically generated UI text alike.

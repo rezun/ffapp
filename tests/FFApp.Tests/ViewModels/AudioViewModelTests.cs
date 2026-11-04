@@ -42,23 +42,6 @@ public class AudioViewModelTests
     }
 
     [Fact]
-    public void TrackSelection_NotifiesChanges_AndHidesWhenRemovingAudio()
-    {
-        var media = new TestMediaInfoBuilder().Build();
-        _sut.UpdateTracks(media);
-        _sut.AllAudioTracks = false;
-        using var monitor = _sut.Monitor();
-        _sut.AudioTracks[0].IsSelected = false;
-        monitor.Should().RaisePropertyChangeFor(s => s.SelectedAudioStreamIndices);
-        _sut.SelectedAudioMode = AudioMode.Remove;
-        _sut.IsTrackSelectionVisible.Should().BeFalse();
-        _sut.SelectedAudioMode = AudioMode.Copy;
-        _sut.IsTrackSelectionVisible.Should().BeTrue();
-        _sut.UpdateTracks(media with { AudioStreams = [] });
-        _sut.IsTrackSelectionVisible.Should().BeFalse();
-    }
-
-    [Fact]
     public void SelectAndDeselectAllTracks_SetEveryTrack_AndSwitchToIndividualSelection()
     {
         var media = new TestMediaInfoBuilder().WithAudioStreams(

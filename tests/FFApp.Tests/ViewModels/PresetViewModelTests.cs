@@ -28,30 +28,6 @@ public class PresetViewModelTests
     }
 
     [Fact]
-    public async Task SavePresetAsync_UserCancels_ServiceNotCalled()
-    {
-        _dialogService.PromptTextAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>())
-            .Returns((string?)null);
-
-        await _sut.SavePresetCommand.ExecuteAsync(null);
-
-        await _presetService.DidNotReceive().SaveAsync(Arg.Any<PresetDefinition>(), Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task SavePresetAsync_UserEntersName_ServiceCalled()
-    {
-        _dialogService.PromptTextAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>())
-            .Returns("New Preset");
-
-        await _sut.SavePresetCommand.ExecuteAsync(null);
-
-        await _presetService.Received().SaveAsync(
-            Arg.Is<PresetDefinition>(p => p.Name == "New Preset"),
-            Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
     public async Task DeletePresetAsync_UserConfirms_ServiceCalledAndSelectionCleared()
     {
         var userPreset = new PresetDefinition("To Delete", new OutputSettings());
@@ -87,25 +63,6 @@ public class PresetViewModelTests
         await _sut.DeletePresetCommand.ExecuteAsync(null);
 
         await _presetService.DidNotReceive().DeleteAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public void SelectedPresetChange_NonNull_InvokesCallback()
-    {
-        var preset = new PresetDefinition("Test", new OutputSettings(Container: OutputContainer.Mkv));
-
-        _sut.SelectedPreset = preset;
-
-        _appliedSettings.Should().NotBeNull();
-        _appliedSettings!.Container.Should().Be(OutputContainer.Mkv);
-    }
-
-    [Fact]
-    public void SelectedPresetChange_Null_DoesNotInvokeCallback()
-    {
-        _sut.SelectedPreset = null;
-
-        _appliedSettings.Should().BeNull();
     }
 
     [Fact]

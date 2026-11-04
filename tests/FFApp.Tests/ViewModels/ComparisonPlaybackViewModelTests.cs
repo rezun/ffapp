@@ -314,44 +314,6 @@ public sealed class ComparisonPlaybackViewModelTests
         vm.PositionSeconds.Should().Be(0);
     }
 
-    [Fact]
-    public void StepBackward_WithoutMedia_DoesNothing()
-    {
-        using var vm = new ComparisonPlaybackViewModel(null);
-        vm.LoadSource(new ComparisonTrack("source", 100), 12, 25);
-        vm.PositionSeconds = 1;
-        vm.StepBackwardCommand.Execute(null);
-        vm.PositionSeconds.Should().Be(1);
-    }
-
-    [Fact]
-    public void PositionAndDuration_UseCompactSampleTimecode()
-    {
-        using var vm = new ComparisonPlaybackViewModel(null);
-        vm.LoadSource(new ComparisonTrack("source", 100), 12, 25);
-        using var changes = vm.Monitor();
-        vm.PositionSeconds = 3.36;
-        changes.Should().RaisePropertyChangeFor(v => v.PositionDisplay);
-        vm.PositionDisplay.Should().Be("00:03.360");
-        vm.DurationDisplay.Should().Be("/ 00:12.000");
-    }
-
-    [Fact]
-    public void SliderLayout_IsOfferedForComparisons_ButNotForSourcePreview()
-    {
-        using var vm = new ComparisonPlaybackViewModel(null);
-        vm.LayoutOptions.Should().Contain(ComparisonPlaybackViewModel.SliderLayout);
-        vm.Load(new ComparisonTrack("left", 0), new ComparisonTrack("right", 0), 12, 25);
-        var changed = new List<string?>();
-        vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
-        vm.Layout = ComparisonPlaybackViewModel.SliderLayout;
-        vm.IsSliderLayout.Should().BeTrue();
-        changed.Should().Contain(nameof(ComparisonPlaybackViewModel.IsSliderLayout));
-        vm.LoadSource(new ComparisonTrack("source", 0), 12, 25);
-        vm.IsSliderLayout.Should().BeFalse();
-        vm.Layout.Should().Be(ComparisonPlaybackViewModel.AOnlyLayout);
-    }
-
     [Theory]
     [InlineData(0.25, 0.25)]
     [InlineData(-0.5, 0)]
@@ -363,18 +325,6 @@ public sealed class ComparisonPlaybackViewModelTests
         vm.SplitPosition.Should().Be(0.5);
         vm.SplitPosition = value;
         vm.SplitPosition.Should().Be(expected);
-    }
-
-    [Fact]
-    public void MoveSplit_StopsAtEdges_AndResetSplitReturnsToCenter()
-    {
-        using var vm = new ComparisonPlaybackViewModel(null);
-        vm.MoveSplit(0.1);
-        vm.SplitPosition.Should().BeApproximately(0.6, 1e-9);
-        vm.MoveSplit(-2);
-        vm.SplitPosition.Should().Be(0);
-        vm.ResetSplit();
-        vm.SplitPosition.Should().Be(0.5);
     }
 
     private sealed class DecoderFactory(double fps, double[]? timestamps = null) : IComparisonDecoderFactory

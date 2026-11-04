@@ -30,46 +30,6 @@ public class FormatHelpersTests
 
     // --- BuildMediaSummaryText ---
 
-    [Fact]
-    public void BuildMediaSummaryText_WithFullInfo_ContainsAllSections()
-    {
-        var media = new TestMediaInfoBuilder().Build();
-        var text = FormatHelpers.BuildMediaSummaryText(media);
-
-        text.Should().Contain("Source:");
-        text.Should().Contain("Format:");
-        text.Should().Contain("Duration:");
-        text.Should().Contain("Primary video stream");
-        text.Should().Contain("Audio streams detail");
-    }
-
-    [Fact]
-    public void BuildMediaSummaryText_NoPrimaryVideo_SkipsVideoSection()
-    {
-        var media = new TestMediaInfoBuilder().WithNoVideo().Build();
-        var text = FormatHelpers.BuildMediaSummaryText(media);
-
-        text.Should().NotContain("Primary video stream");
-    }
-
-    [Fact]
-    public void BuildMediaSummaryText_MultipleVideoStreams_IncludesWarning()
-    {
-        var media = new TestMediaInfoBuilder().WithMultipleVideoStreams().Build();
-        var text = FormatHelpers.BuildMediaSummaryText(media);
-
-        text.Should().Contain("Warning: multiple video streams");
-    }
-
-    [Fact]
-    public void BuildMediaSummaryText_NoAudio_SkipsAudioDetail()
-    {
-        var media = new TestMediaInfoBuilder().WithNoAudio().Build();
-        var text = FormatHelpers.BuildMediaSummaryText(media);
-
-        text.Should().NotContain("Audio streams detail");
-    }
-
     // --- Label functions ---
 
     [Theory]

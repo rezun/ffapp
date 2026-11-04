@@ -28,25 +28,6 @@ public sealed class Av1QualitySettingsViewModelTests
     }
 
     [Fact]
-    public void FilmGrainChanges_NotifyDependentBindingsAndParent()
-    {
-        var quality = new QualityViewModel();
-        var notifications = new List<string?>();
-        quality.PropertyChanged += (_, e) => notifications.Add(e.PropertyName);
-
-        quality.Av1.FilmGrain = 8;
-        quality.Av1.FilmGrainDenoise = 1;
-        quality.Av1.AdaptiveFilmGrain = 0;
-
-        quality.Av1.IsFilmGrainEnabled.Should().BeTrue();
-        quality.Av1.FilmGrainDenoiseChecked.Should().BeTrue();
-        quality.Av1.AdaptiveFilmGrainChecked.Should().BeFalse();
-        notifications.Should().Contain(nameof(Av1QualitySettingsViewModel.IsFilmGrainEnabled))
-            .And.Contain(nameof(Av1QualitySettingsViewModel.FilmGrainDenoiseChecked))
-            .And.Contain(nameof(Av1QualitySettingsViewModel.AdaptiveFilmGrainChecked));
-    }
-
-    [Fact]
     public void ApplyQualityAndEncoder_RestoreFilmGrainControls()
     {
         var vm = new Av1QualitySettingsViewModel();

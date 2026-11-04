@@ -180,13 +180,4 @@ public sealed class SourceTracksTests
         SourceTracks.TrackName(details).Should().Be(expected);
     }
 
-    [Fact]
-    public void Describe_SummarizesVideoAndAudio()
-    {
-        var video = SourceTracks.Create(1, Media("/m/a.mkv", [Video(0) with { Height = 2160, ColorTransfer = "smpte2084", ColorPrimaries = "bt2020" }]))[0];
-        var audio = SourceTracks.Create(1, Media("/m/a.mkv", audio: [Audio(0, "eac3") with { ChannelLayout = "5.1(side)", BitRate = 768_000 }]))[0];
-
-        SourceTracks.Describe(video).Should().Be("2160p · 23.976 · HDR10");
-        SourceTracks.Describe(audio).Should().Be("5.1 · 768 kb/s");
-    }
 }

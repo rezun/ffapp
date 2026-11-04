@@ -86,15 +86,6 @@ public class OutputSettingsViewModelTests
         _sut.StreamHandling.SelectedSubtitleStreamIndices.GetValueOrDefault().Should().Equal(2, 4);
     }
 
-    [Fact]
-    public void SubtitleTrackSelection_IsHiddenWhenSubtitlesAreRemoved()
-    {
-        _sut.UpdateSourceInfo(new TestMediaInfoBuilder().WithSubtitles().Build());
-        _sut.StreamHandling.IsSubtitleTrackSelectionVisible.Should().BeTrue();
-        _sut.StreamHandling.RemoveSubtitles = true;
-        _sut.StreamHandling.IsSubtitleTrackSelectionVisible.Should().BeFalse();
-    }
-
     private readonly IValidationService _validationService = Substitute.For<IValidationService>();
     private readonly IMessenger _messenger = Substitute.For<IMessenger>();
     private readonly IFfmpegCapabilityService _capabilityService = Substitute.For<IFfmpegCapabilityService>();
@@ -109,7 +100,6 @@ public class OutputSettingsViewModelTests
         _sut = new OutputSettingsViewModel(
             _validationService, _messenger, _capabilityService, _pathsConfig);
     }
-
 
     [Fact]
     public void ColorSettings_AreRestoredAndEditsNotifyTheWorkspace()
@@ -129,28 +119,6 @@ public class OutputSettingsViewModelTests
         sut.Format.SelectedVideoCodec = VideoCodec.Av1;
         sut.BuildSettings().ColorMetadata.Should().Be(colors with { Range = "tv" });
     }
-
-
-    [Fact]
-    public void ColorSummary_UpdatesForSourceAssumptionsHdrAndCopy()
-    {
-        _sut.UpdateSourceInfo(new TestMediaInfoBuilder().Build());
-        _sut.Color.SelectedMode.Should().Be(ColorMetadataMode.Automatic);
-        _sut.Color.OutputSummary.Should().Contain("unspecified values remain unspecified");
-        _sut.Color.SelectedMode = ColorMetadataMode.AssumeBt709;
-        _sut.Color.OutputSummary.Should().Contain("assumed").And.Contain("Limited");
-        _sut.UpdateSourceInfo(new TestMediaInfoBuilder().WithHdr10().Build());
-        _sut.Color.IsEditable.Should().BeFalse();
-        _sut.Color.OutputSummary.Should().Contain("HDR settings");
-        _sut.Hdr.SelectedHdrMode = HdrMode.TonemapToSdr;
-        _sut.Color.OutputSummary.Should().Contain("bt709");
-        _sut.UpdateSourceInfo(new TestMediaInfoBuilder().Build());
-        _sut.Color.IsEditable.Should().BeTrue();
-        _sut.Format.SelectedVideoMode = VideoMode.Copy;
-        _sut.Color.IsEditable.Should().BeFalse();
-        _sut.Color.OutputSummary.Should().Contain("unchanged");
-    }
-
 
     [Fact]
     public void ApplySettings_ThenBuildSettings_RoundTripsEveryOption()

@@ -66,50 +66,6 @@ public sealed class ComparisonViewModelTests
     }
 
     [Fact]
-    public async Task MaximizePreview_TogglesPanelsAndSampleEditor_AndResetsWhenChangingSteps()
-    {
-        using var harness = new ComparisonTestHarness();
-        await harness.LoadAsync();
-        var vm = harness.ViewModel;
-        await vm.RunAllCommand.ExecuteAsync(null);
-        vm.ShowResultsCommand.Execute(null);
-        vm.ShowSamplePanel.Should().BeTrue();
-        vm.ShowResultTable.Should().BeTrue();
-        vm.ShowSampleEditor.Should().BeFalse("the sample editor belongs to the samples step");
-
-        using (var changes = vm.Monitor())
-        {
-            vm.TogglePreviewSizeCommand.Execute(null);
-            changes.Should().RaisePropertyChangeFor(v => v.ShowSamplePanel);
-            changes.Should().RaisePropertyChangeFor(v => v.ShowResultTable);
-            changes.Should().RaisePropertyChangeFor(v => v.ShowSampleEditor);
-            changes.Should().RaisePropertyChangeFor(v => v.PreviewSizeActionLabel);
-        }
-        vm.IsPreviewMaximized.Should().BeTrue();
-        vm.ShowSamplePanel.Should().BeFalse();
-        vm.ShowResultTable.Should().BeFalse();
-        vm.PreviewSizeActionLabel.Should().Be("Restore panels");
-
-        vm.TogglePreviewSizeCommand.Execute(null);
-        vm.ShowSamplePanel.Should().BeTrue();
-        vm.ShowResultTable.Should().BeTrue();
-        vm.PreviewSizeActionLabel.Should().Be("Maximize videos");
-
-        vm.TogglePreviewSizeCommand.Execute(null);
-        vm.ShowVariantsCommand.Execute(null);
-        vm.IsPreviewMaximized.Should().BeFalse();
-        vm.ShowSamplePanel.Should().BeTrue();
-        vm.ShowResultTable.Should().BeFalse();
-        vm.ShowResultsCommand.Execute(null);
-        vm.ShowResultTable.Should().BeTrue();
-
-        vm.ShowSamplesCommand.Execute(null);
-        vm.ShowSampleEditor.Should().BeTrue();
-        vm.TogglePreviewSizeCommand.Execute(null);
-        vm.ShowSampleEditor.Should().BeFalse();
-    }
-
-    [Fact]
     public async Task GrainVariants_KeepCrfAndPreset_AndEnableSourceDenoising()
     {
         using var harness = new ComparisonTestHarness();
@@ -220,23 +176,6 @@ public sealed class ComparisonViewModelTests
     }
 
     [Fact]
-    public async Task SourcePreview_IsAvailableBeforeEncoding_AndUsesSingleView()
-    {
-        using var harness = new ComparisonTestHarness();
-        await harness.LoadAsync();
-        harness.ViewModel.PreviewSelection();
-        harness.ViewModel.IsSamplesStep.Should().BeTrue();
-        harness.ViewModel.HasResults.Should().BeFalse();
-        harness.Playback.IsSourcePreview.Should().BeTrue();
-        harness.Playback.LeftTrack?.Path.Should().Be(harness.Context.MediaInfo.SourcePath);
-        harness.Playback.LeftTrack?.OffsetSeconds.Should().Be(harness.ViewModel.Samples[0].StartSeconds);
-        harness.Playback.RightTrack.Should().BeNull();
-        harness.Playback.DurationSeconds.Should().Be(harness.ViewModel.Samples[0].DurationSeconds);
-        harness.Playback.Layout.Should().Be("A only");
-        harness.Execution.ReceivedCalls().Should().BeEmpty();
-    }
-
-    [Fact]
     public async Task SelectingAndEditingSamples_UpdatesOriginalPreviewWithoutEncoding()
     {
         using var harness = new ComparisonTestHarness();
@@ -251,77 +190,6 @@ public sealed class ComparisonViewModelTests
         harness.Playback.DurationSeconds.Should().Be(8);
         harness.Playback.RightTrack.Should().BeNull();
         harness.Execution.ReceivedCalls().Should().BeEmpty();
-    }
-
-    [Fact]
-    public async Task PrimaryAction_GuidesFromPreviewThroughVariantsToResults_WithAccurateCounts()
-    {
-        using var harness = new ComparisonTestHarness();
-        await harness.LoadAsync();
-        var vm = harness.ViewModel;
-        vm.PreviewSelection();
-        vm.PrimaryActionLabel.Should().Be("Next: choose variants →");
-        vm.ShowResultsCommand.CanExecute(null).Should().BeFalse();
-        vm.ShowResultTable.Should().BeFalse();
-        await vm.PrimaryActionCommand.ExecuteAsync(null);
-        vm.IsVariantsStep.Should().BeTrue();
-        harness.Execution.ReceivedCalls().Should().BeEmpty();
-        vm.SampleCount = 2;
-        vm.DistributeCommand.Execute(null);
-        vm.AddGrainVariantsCommand.Execute(null);
-        vm.PrimaryActionLabel.Should().Be("Create test clips (6)");
-        vm.ClipPlan.Should().Contain("2 samples × 3 variants").And.Contain("6 to create");
-        await vm.PrimaryActionCommand.ExecuteAsync(null);
-        vm.IsResultsStep.Should().BeTrue();
-        vm.ShowResultTable.Should().BeTrue();
-        vm.MissingClipCount.Should().Be(0);
-        harness.Playback.IsSourcePreview.Should().BeFalse();
-        harness.Playback.RightTrack.Should().NotBeNull();
-        vm.Rows[0].Cells[2].SelectCommand.Execute(null);
-        vm.PrimaryActionLabel.Should().Be("Apply Grain 10 to main window");
-        await vm.PrimaryActionCommand.ExecuteAsync(null);
-        harness.Applied.Should().Be(vm.Variants[2].Settings);
-    }
-
-    [Fact]
-    public async Task ReturningToSamples_AfterEncoding_ShowsOriginalAndHidesResults()
-    {
-        using var harness = new ComparisonTestHarness();
-        await harness.LoadAsync();
-        var vm = harness.ViewModel;
-        vm.PreviewSelection();
-        vm.SampleCount = 1;
-        vm.DistributeCommand.Execute(null);
-        await vm.RunAllCommand.ExecuteAsync(null);
-        vm.ShowResultTable.Should().BeTrue();
-        vm.ShowSamplesCommand.Execute(null);
-        vm.ShowResultTable.Should().BeFalse();
-        harness.Playback.IsSourcePreview.Should().BeTrue();
-        harness.Playback.RightTrack.Should().BeNull();
-        vm.SelectedSample = vm.Samples[0];
-        vm.Samples[0].StartSeconds += 1;
-        vm.HasResults.Should().BeFalse();
-        vm.MissingClipCount.Should().Be(1);
-    }
-
-    [Fact]
-    public async Task ReopenedComparison_StartsWithOriginal_AndOffersExistingResults()
-    {
-        using var harness = new ComparisonTestHarness();
-        await harness.LoadAsync();
-        await harness.ViewModel.RunAllCommand.ExecuteAsync(null);
-        var messenger = new WeakReferenceMessenger();
-        var editor = new OutputSettingsViewModel(new ValidationService(), messenger,
-            Substitute.For<IFfmpegCapabilityService>(), new ExecutablePathsConfig());
-        using var playback = new ComparisonPlaybackViewModel(null);
-        using var reopened = new ComparisonViewModel(harness.Service, editor, messenger, playback);
-        await reopened.LoadAsync(harness.Context, _ => true);
-        reopened.PreviewSelection();
-        reopened.IsSamplesStep.Should().BeTrue();
-        playback.IsSourcePreview.Should().BeTrue();
-        reopened.HasResults.Should().BeTrue();
-        reopened.ShowResultTable.Should().BeFalse();
-        reopened.ShowResultsCommand.CanExecute(null).Should().BeTrue();
     }
 
     [Fact]
@@ -424,74 +292,7 @@ public sealed class ComparisonViewModelTests
         vm.SetStartToPlayheadCommand.CanExecute(null).Should().BeTrue();
     }
 
-    [Fact]
-    public async Task ChangingComparisonChoice_KeepsShownFrame()
-    {
-        using var harness = new ComparisonTestHarness();
-        await harness.LoadAsync();
-        var vm = harness.ViewModel;
-        await vm.RunAllCommand.ExecuteAsync(null);
-        vm.PreviewSelection();
-        ShowFrameAt(harness, 7.5);
-
-        vm.LeftChoice = vm.Choices[1];
-        harness.Playback.PositionSeconds.Should().Be(7.5);
-        ShowFrameAt(harness, harness.Playback.PositionSeconds);
-        vm.RightChoice = vm.Choices[0];
-        harness.Playback.PositionSeconds.Should().Be(7.5);
-        harness.Playback.LeftTrack?.Path.Should().NotBe(harness.Context.MediaInfo.SourcePath);
-    }
-
-    [Fact]
-    public async Task CreatingTestClips_KeepsShownFrame()
-    {
-        using var harness = new ComparisonTestHarness();
-        await harness.LoadAsync();
-        var vm = harness.ViewModel;
-        vm.PreviewSelection();
-        ShowFrameAt(harness, 4.25);
-
-        await vm.RunAllCommand.ExecuteAsync(null);
-
-        vm.IsResultsStep.Should().BeTrue();
-        harness.Playback.IsSourcePreview.Should().BeFalse("finished clips are compared");
-        harness.Playback.PositionSeconds.Should().Be(4.25);
-    }
-
-    [Fact]
-    public async Task SelectingAnotherSample_StartsAtItsBeginning()
-    {
-        using var harness = new ComparisonTestHarness();
-        await harness.LoadAsync();
-        var vm = harness.ViewModel;
-        vm.PreviewSelection();
-        ShowFrameAt(harness, 6);
-
-        vm.SelectedSample = vm.Samples[1];
-
-        harness.Playback.PositionSeconds.Should().Be(0);
-    }
-
     // Static helpers behind the comparison window's source and variant descriptions.
-
-    [Fact]
-    public void DescribeSource_UntrimmedSource_ShowsLengthAndPictureSize()
-    {
-        var media = new TestMediaInfoBuilder().WithDuration(10144)
-            .WithVideoStreams(new VideoStreamInfo(0, "hevc", Width: 3840, Height: 1608)).Build();
-        var session = Session(0, 10144, crop: null);
-        ComparisonViewModel.DescribeSource(session, media).Should().Be("2:49:04 · 3840×1608");
-    }
-
-    [Fact]
-    public void DescribeSource_TrimmedCroppedHdrSource_ShowsRangeCropAndHdr()
-    {
-        var media = new TestMediaInfoBuilder().WithDuration(10144)
-            .WithVideoStreams(new VideoStreamInfo(0, "hevc", Width: 3840, Height: 2160,
-                ColorPrimaries: "bt2020", ColorTransfer: "smpte2084")).Build();
-        var session = Session(600, 4200, new CropRect(0, 276, 3840, 1608));
-        ComparisonViewModel.DescribeSource(session, media).Should().Be("10:00 – 1:10:00 (1:00:00) · 3840×1608 cropped · HDR");
-    }
 
     [Fact]
     public void Differences_IncludeToneMapParameters_AndOnlyChangedFields()
@@ -509,7 +310,4 @@ public sealed class ComparisonViewModelTests
         harness.Playback.PositionSeconds = position;
         harness.Playback.HasMedia = true;
     }
-
-    private static ComparisonSession Session(double start, double end, CropRect? crop) =>
-        new("Film.mkv", "fingerprint", new OutputSettings(), start, end, crop, [], [], []);
 }

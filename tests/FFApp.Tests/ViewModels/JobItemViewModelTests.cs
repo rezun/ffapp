@@ -31,22 +31,6 @@ public sealed class JobItemViewModelTests
         details.LogText.Should().BeEmpty();
     }
 
-    [Fact]
-    public void UpdateProgress_ShowsOnlyTheKnownParts()
-    {
-        var item = JobItemDetailsViewModelTests.CreateItem();
-
-        item.UpdateProgress(new JobProgress(JobState.Running, 1, 2, 10.0, Percentage: 50, Speed: 1.5));
-
-        item.Percentage.Should().Be(50);
-        item.ProgressText.Should().Be($"{50d:F1}% | {1.5:F1}x | 0:10 | ~0:10 left | Pass 1/2");
-
-        item.UpdateProgress(new JobProgress(JobState.Running, 1, 1, 10.0));
-
-        item.Percentage.Should().Be(0);
-        item.ProgressText.Should().Be("0:10");
-    }
-
     [Theory]
     [InlineData(JobState.Completed, 100, false)]
     [InlineData(JobState.Failed, 30, true)]

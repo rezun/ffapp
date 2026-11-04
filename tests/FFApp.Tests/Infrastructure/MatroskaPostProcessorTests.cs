@@ -37,23 +37,14 @@ public class MatroskaPostProcessorTests
             "--add-track-statistics-tags");
     }
 
-    [Fact]
-    public void BuildCommand_Disabled_ReturnsNull()
+    [Theory]
+    [InlineData(OutputContainer.Mkv, false)]
+    [InlineData(OutputContainer.Mp4, true)]
+    public void BuildCommand_DisabledOrNonMatroskaContainer_ReturnsNull(OutputContainer container, bool statistics)
     {
         var sut = new MatroskaPostProcessor(new ExecutablePathsConfig());
         var job = new TestJobDefinitionBuilder()
-            .WithOutputSettings(settings => settings.WithContainer(OutputContainer.Mkv))
-            .Build();
-
-        sut.BuildCommand(job).Should().BeNull();
-    }
-
-    [Fact]
-    public void BuildCommand_NonMatroskaContainer_ReturnsNull()
-    {
-        var sut = new MatroskaPostProcessor(new ExecutablePathsConfig());
-        var job = new TestJobDefinitionBuilder()
-            .WithOutputSettings(settings => settings.WithMatroskaStatistics())
+            .WithOutputSettings(settings => settings.WithContainer(container).WithMatroskaStatistics(statistics))
             .Build();
 
         sut.BuildCommand(job).Should().BeNull();

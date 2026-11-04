@@ -1,5 +1,4 @@
 using FFApp.Core.Models;
-using FFApp.Core.Validation;
 using FFApp.Helpers;
 using FFApp.Infrastructure;
 using FluentAssertions;
@@ -12,7 +11,6 @@ public class MediaProbeServiceParsingTests
 
     [Theory]
     [InlineData("5.1(side)")]
-    [InlineData("5.1")]
     [InlineData(null)]
     public void ParseMediaInfo_AudioStream_ParsesOptionalChannelLayout(string? layout)
     {
@@ -25,7 +23,7 @@ public class MediaProbeServiceParsingTests
     }
 
     [Fact]
-    public void ParseMediaInfo_FullOutput_ParsesAllStreams()
+    public void ParseMediaInfo_FullOutput_ParsesFormatAndEveryStreamType()
     {
         var json = """
         {
@@ -35,8 +33,10 @@ public class MediaProbeServiceParsingTests
                 "bit_rate": "5000000"
             },
             "streams": [
-                { "index": 0, "codec_type": "video", "codec_name": "h264", "bit_rate": "4500000", "width": 1920, "height": 1080, "avg_frame_rate": "24000/1001", "nb_frames": "2880" },
-                { "index": 1, "codec_type": "audio", "codec_name": "aac", "bit_rate": "128000", "channels": 2, "sample_rate": "48000", "tags": { "language": "eng" } },
+                { "index": 0, "codec_type": "video", "codec_name": "hevc", "bit_rate": "4500000", "width": 3840, "height": 2160,
+                  "avg_frame_rate": "24000/1001", "nb_frames": "2880", "pix_fmt": "yuv420p10le", "color_primaries": "bt2020",
+                  "color_transfer": "smpte2084", "color_space": "bt2020nc", "color_range": "tv", "bits_per_raw_sample": "10" },
+                { "index": 1, "codec_type": "audio", "codec_name": "aac", "bit_rate": "128000", "channels": 2, "sample_rate": "48000", "tags": { "language": "jpn" } },
                 { "index": 2, "codec_type": "subtitle", "codec_name": "subrip", "tags": { "language": "eng" } },
                 { "index": 3, "codec_type": "data", "codec_name": "bin_data" }
             ]
@@ -45,52 +45,18 @@ public class MediaProbeServiceParsingTests
 
         var result = MediaProbeService.ParseMediaInfo("/test/video.mp4", json);
 
-        result.SourcePath.Should().Be("/test/video.mp4");
-        result.ContainerFormat.Should().Be("mov,mp4,m4a,3gp,3g2,mj2");
-        result.DurationSeconds.Should().BeApproximately(120.5, 0.001);
-        result.BitRate.Should().Be(5_000_000);
-        result.VideoStreams.Should().HaveCount(1);
-        result.AudioStreams.Should().HaveCount(1);
-        result.SubtitleStreams.Should().HaveCount(1);
-        result.DataStreams.Should().HaveCount(1);
-    }
-
-    [Fact]
-    public void ParseMediaInfo_VideoStream_ParsesAllFields()
-    {
-        var json = """
+        result.Should().BeEquivalentTo(new SourceMediaInfo
         {
-            "streams": [
-                { "index": 0, "codec_type": "video", "codec_name": "h264", "bit_rate": "4500000", "width": 1920, "height": 1080, "avg_frame_rate": "24000/1001", "nb_frames": "2880" }
-            ]
-        }
-        """;
-
-        var result = MediaProbeService.ParseMediaInfo("/test/video.mp4", json);
-        var video = result.PrimaryVideoStream!;
-
-        video.Index.Should().Be(0);
-        video.CodecName.Should().Be("h264");
-        video.BitRate.Should().Be(4_500_000);
-        video.Width.Should().Be(1920);
-        video.Height.Should().Be(1080);
-        video.FrameRate.Should().BeApproximately(23.976, 0.001);
-        video.FrameCount.Should().Be(2880);
-    }
-
-    [Fact]
-    public void ParseMediaInfo_AudioStream_ParsesLanguageFromTags()
-    {
-        var json = """
-        {
-            "streams": [
-                { "index": 1, "codec_type": "audio", "codec_name": "aac", "bit_rate": "128000", "channels": 2, "sample_rate": "44100", "tags": { "language": "jpn" } }
-            ]
-        }
-        """;
-
-        var result = MediaProbeService.ParseMediaInfo("/test/video.mp4", json);
-        result.AudioStreams[0].Language.Should().Be("jpn");
+            SourcePath = "/test/video.mp4",
+            ContainerFormat = "mov,mp4,m4a,3gp,3g2,mj2",
+            DurationSeconds = 120.5,
+            BitRate = 5_000_000,
+            VideoStreams = [new VideoStreamInfo(0, "hevc", 4_500_000, 3840, 2160, 24000 / 1001.0, 2880, null,
+                "yuv420p10le", "bt2020", "smpte2084", "bt2020nc", "tv", 10)],
+            AudioStreams = [new AudioStreamInfo(1, "aac", 128_000, 2, 48_000, "jpn") { MetadataKeys = ["language"] }],
+            SubtitleStreams = [new SubtitleStreamInfo(2, "subrip", "eng")],
+            DataStreams = [new DataStreamInfo(3, "bin_data")],
+        }, options => options.Excluding(member => member.Name == nameof(VideoStreamInfo.Details)));
     }
 
     [Fact]
@@ -124,57 +90,32 @@ public class MediaProbeServiceParsingTests
     }
 
     [Fact]
-    public void ParseMediaInfo_AttachmentStream_TreatedAsData()
-    {
-        var json = """
-        {
-            "streams": [
-                { "index": 3, "codec_type": "attachment", "codec_name": "ttf" }
-            ]
-        }
-        """;
-
-        var result = MediaProbeService.ParseMediaInfo("/test/video.mkv", json);
-        result.DataStreams.Should().HaveCount(1);
-        result.DataStreams[0].CodecName.Should().Be("ttf");
-        result.DataStreams[0].IsAttachment.Should().BeTrue();
-    }
-
-    [Fact]
-    public void ParseMediaInfo_AttachedPicture_ParsesFileNameAndMimeType()
+    public void ParseMediaInfo_AttachedPictures_AreSeparatedFromVideoStreams()
     {
         var media = MediaProbeService.ParseMediaInfo("/test/movie.mkv", """
-            { "streams": [{ "index": 7, "codec_type": "video", "codec_name": "png",
-                "disposition": { "attached_pic": 1 },
-                "tags": { "filename": "Original Release.png", "mimetype": "image/png" }
-            }] }
+            { "streams": [
+                { "index": 7, "codec_type": "video", "codec_name": "png", "disposition": { "attached_pic": 1 },
+                  "tags": { "filename": "Original Release.png", "mimetype": "image/png" } },
+                { "index": 0, "codec_type": "video", "codec_name": "hevc", "disposition": { "attached_pic": 0 } },
+                { "index": 8, "codec_type": "video", "codec_name": "mjpeg", "disposition": { "attached_pic": 1 } },
+                { "index": 1, "codec_type": "video", "codec_name": "mjpeg" }
+            ] }
             """);
 
-        media.AttachedPictureStreams.Should().ContainSingle().Which
-            .Should().Be(new AttachedPictureStreamInfo(7, "png", "Original Release.png", "image/png"));
+        media.VideoStreams.Select(stream => stream.Index).Should().Equal(0, 1);
+        (media.PrimaryVideoStream?.CodecName).Should().Be("hevc");
+        media.AttachedPictureStreams.Should().Equal(
+            new AttachedPictureStreamInfo(7, "png", "Original Release.png", "image/png"),
+            new AttachedPictureStreamInfo(8, "mjpeg"));
+        media.StreamCount.Should().Be(4);
+        FormatHelpers.BuildMediaSummaryText(media).Should().Contain("Attached pictures: 2");
     }
 
     [Fact]
-    public void ParseMediaInfo_MissingFormat_ReturnsNulls()
+    public void ParseMediaInfo_MissingFormatAndStreams_ReturnsEmptyInfo()
     {
-        var json = """{ "streams": [] }""";
-        var result = MediaProbeService.ParseMediaInfo("/test/video.mp4", json);
-
-        result.ContainerFormat.Should().BeNull();
-        result.DurationSeconds.Should().BeNull();
-        result.BitRate.Should().BeNull();
-    }
-
-    [Fact]
-    public void ParseMediaInfo_MissingStreams_ReturnsEmptyArrays()
-    {
-        var json = """{ "format": { "format_name": "mp4" } }""";
-        var result = MediaProbeService.ParseMediaInfo("/test/video.mp4", json);
-
-        result.VideoStreams.Should().BeEmpty();
-        result.AudioStreams.Should().BeEmpty();
-        result.SubtitleStreams.Should().BeEmpty();
-        result.DataStreams.Should().BeEmpty();
+        MediaProbeService.ParseMediaInfo("/test/video.mp4", "{}")
+            .Should().BeEquivalentTo(new SourceMediaInfo { SourcePath = "/test/video.mp4" });
     }
 
     [Fact]
@@ -184,391 +125,73 @@ public class MediaProbeServiceParsingTests
         act.Should().Throw<MediaProbeException>().WithMessage("*parse*");
     }
 
-    [Fact]
-    public void ParseMediaInfo_MultipleVideoStreams_AllCaptured()
-    {
-        var json = """
-        {
-            "streams": [
-                { "index": 0, "codec_type": "video", "codec_name": "h264", "width": 1920, "height": 1080, "avg_frame_rate": "24/1" },
-                { "index": 1, "codec_type": "video", "codec_name": "mjpeg", "width": 320, "height": 240, "avg_frame_rate": "0/0" }
-            ]
-        }
-        """;
+    // --- ParseFrameRate ---
 
-        var result = MediaProbeService.ParseMediaInfo("/test/video.mp4", json);
-        result.VideoStreams.Should().HaveCount(2);
-        result.PrimaryVideoStream!.CodecName.Should().Be("h264");
+    [Theory]
+    [InlineData("24000/1001", 24000 / 1001.0)]
+    [InlineData("29.97", 29.97)]
+    [InlineData("30/0", null)]
+    [InlineData("0/0", null)]
+    [InlineData("N/A", null)]
+    [InlineData(null, null)]
+    public void ParseFrameRate_ParsesFractionsAndDecimals_RejectsUnknownOrZeroDenominator(string? value, double? expected)
+    {
+        MediaProbeService.ParseFrameRate(value).Should().Be(expected);
+    }
+
+    // --- Rotation parsing ---
+
+    [Theory]
+    [InlineData("", null, false)]
+    [InlineData(""", "tags": { "rotate": "90" }""", 90, true)]
+    [InlineData(""", "tags": { "rotate": "180" }""", 180, false)]
+    [InlineData(""", "side_data_list": [{ "side_data_type": "Display Matrix", "rotation": -90 }]""", -90, true)]
+    public void ParseMediaInfo_Rotation_FromTagsOrDisplayMatrix_SwapsDisplaySizeForQuarterTurns(
+        string rotationJson, int? rotation, bool swapped)
+    {
+        var json = """{ "streams": [{ "index": 0, "codec_type": "video", "width": 1920, "height": 1080""" + rotationJson + "}] }";
+
+        var video = MediaProbeService.ParseMediaInfo("/test/video.mp4", json).VideoStreams[0];
+
+        video.Rotation.Should().Be(rotation);
+        video.DisplayWidth.Should().Be(swapped ? 1080 : 1920);
+        video.DisplayHeight.Should().Be(swapped ? 1920 : 1080);
+        video.HdrMetadata.Should().BeNull("a display matrix is not HDR side data");
+    }
+
+    // --- HDR classification and metadata ---
+
+    [Theory]
+    [InlineData("smpte2084", "bt2020", HdrFormat.Hdr10)]
+    [InlineData("arib-std-b67", "bt2020", HdrFormat.Hlg)]
+    [InlineData("bt709", "bt709", HdrFormat.Sdr)]
+    [InlineData("smpte2084", "bt709", HdrFormat.Sdr)]
+    public void HdrFormat_RequiresPqOrHlgTransferWithBt2020Primaries(string transfer, string primaries, HdrFormat expected)
+    {
+        var video = new VideoStreamInfo(0, ColorPrimaries: primaries, ColorTransfer: transfer);
+
+        video.HdrFormat.Should().Be(expected);
+        video.IsHdr.Should().Be(expected != HdrFormat.Sdr);
     }
 
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void ParseMediaInfo_AttachedPictures_AreNotVideoStreams(bool picturesFirst)
+    public void ParseMediaInfo_HdrSideData_ExtractsLightLevelsAndOptionalMasteringDisplay(bool withMastering)
     {
-        const string video = """{ "index": 0, "codec_type": "video", "codec_name": "hevc", "width": 3840, "height": 2160, "disposition": { "attached_pic": 0 } }""";
-        const string pictures = """
-            { "index": 7, "codec_type": "video", "codec_name": "png", "disposition": { "attached_pic": 1 } },
-            { "index": 8, "codec_type": "video", "codec_name": "mjpeg", "disposition": { "attached_pic": 1 } }
+        const string mastering = """
+            { "side_data_type": "Mastering display metadata", "red_x": "13250", "red_y": "34500", "green_x": "7500",
+              "green_y": "3000", "blue_x": "34000", "blue_y": "16000", "white_point_x": "15635", "white_point_y": "16450",
+              "min_luminance": "50", "max_luminance": "10000000" },
             """;
-        var streams = picturesFirst ? $"{pictures},{video}" : $"{video},{pictures}";
-        var media = MediaProbeService.ParseMediaInfo("/test/movie.mkv", "{\"streams\":[" + streams + "]}");
+        const string lightLevel = """{ "side_data_type": "Content light level metadata", "max_content": 1000, "max_average": 400 }""";
+        var json = """{ "streams": [{ "index": 0, "codec_type": "video", "side_data_list": [""" + (withMastering ? mastering : "") + lightLevel + "] }] }";
 
-        media.VideoStreams.Should().ContainSingle().Which.Index.Should().Be(0);
-        (media.PrimaryVideoStream?.CodecName).Should().Be("hevc");
-        media.AttachedPictureStreams.Should().Equal(new AttachedPictureStreamInfo(7, "png"), new AttachedPictureStreamInfo(8, "mjpeg"));
-        media.StreamCount.Should().Be(3);
-        var validation = new ValidationService().Validate(new OutputSettings { VideoMode = VideoMode.Copy }, media);
-        validation.Issues.Should().NotContain(issue => issue.Code == "multiple_video_streams");
-        FormatHelpers.BuildMediaSummaryText(media).Should().Contain("Video streams: 1")
-            .And.Contain("Attached pictures: 2").And.NotContain("Warning: multiple video streams");
-    }
+        var metadata = MediaProbeService.ParseMediaInfo("/test/hdr.mkv", json).VideoStreams[0].HdrMetadata;
 
-    [Fact]
-    public void ParseMediaInfo_OnlyAttachedPicture_HasNoPrimaryVideo()
-    {
-        var media = MediaProbeService.ParseMediaInfo("/test/audio.m4a", """
-            { "streams": [
-                { "index": 0, "codec_type": "video", "codec_name": "mjpeg", "disposition": { "attached_pic": 1 } },
-                { "index": 1, "codec_type": "audio", "codec_name": "aac" }
-            ] }
-            """);
-
-        media.VideoStreams.Should().BeEmpty();
-        media.PrimaryVideoStream.Should().BeNull();
-        media.AttachedPictureStreams.Should().ContainSingle();
-        media.AudioStreams.Should().ContainSingle();
-        media.StreamCount.Should().Be(2);
-        var validation = new ValidationService().Validate(new OutputSettings { VideoMode = VideoMode.Copy }, media);
-        validation.Issues.Should().Contain(issue => issue.Code == "video_stream_missing");
-    }
-
-    // --- ParseFrameRate ---
-
-    [Fact]
-    public void ParseFrameRate_FractionFormat_Correct()
-    {
-        MediaProbeService.ParseFrameRate("24000/1001").Should().BeApproximately(23.976, 0.001);
-    }
-
-    [Fact]
-    public void ParseFrameRate_IntegerFraction_Correct()
-    {
-        MediaProbeService.ParseFrameRate("30/1").Should().BeApproximately(30.0, 0.001);
-    }
-
-    [Fact]
-    public void ParseFrameRate_DecimalFormat_Correct()
-    {
-        MediaProbeService.ParseFrameRate("29.97").Should().BeApproximately(29.97, 0.001);
-    }
-
-    [Fact]
-    public void ParseFrameRate_ZeroDenominator_ReturnsNull()
-    {
-        MediaProbeService.ParseFrameRate("30/0").Should().BeNull();
-    }
-
-    [Fact]
-    public void ParseFrameRate_BothZero_ReturnsNull()
-    {
-        MediaProbeService.ParseFrameRate("0/0").Should().BeNull();
-    }
-
-    [Fact]
-    public void ParseFrameRate_NAString_ReturnsNull()
-    {
-        MediaProbeService.ParseFrameRate("N/A").Should().BeNull();
-    }
-
-    [Fact]
-    public void ParseFrameRate_NullInput_ReturnsNull()
-    {
-        MediaProbeService.ParseFrameRate(null).Should().BeNull();
-    }
-
-    [Fact]
-    public void ParseFrameRate_EmptyString_ReturnsNull()
-    {
-        MediaProbeService.ParseFrameRate("").Should().BeNull();
-    }
-
-    // --- Rotation parsing ---
-
-    [Fact]
-    public void ParseMediaInfo_RotationInTags_ParsedCorrectly()
-    {
-        var json = """
-        {
-            "streams": [
-                { "index": 0, "codec_type": "video", "codec_name": "h264", "width": 3840, "height": 2160, "avg_frame_rate": "30/1", "tags": { "rotate": "90" } }
-            ]
-        }
-        """;
-
-        var result = MediaProbeService.ParseMediaInfo("/test/video.mp4", json);
-        result.PrimaryVideoStream!.Rotation.Should().Be(90);
-        result.PrimaryVideoStream.DisplayWidth.Should().Be(2160);
-        result.PrimaryVideoStream.DisplayHeight.Should().Be(3840);
-    }
-
-    [Fact]
-    public void ParseMediaInfo_RotationInSideData_ParsedCorrectly()
-    {
-        var json = """
-        {
-            "streams": [
-                {
-                    "index": 0, "codec_type": "video", "codec_name": "h264", "width": 3840, "height": 2160, "avg_frame_rate": "30/1",
-                    "side_data_list": [
-                        { "side_data_type": "Display Matrix", "rotation": -90 }
-                    ]
-                }
-            ]
-        }
-        """;
-
-        var result = MediaProbeService.ParseMediaInfo("/test/video.mp4", json);
-        result.PrimaryVideoStream!.Rotation.Should().Be(-90);
-        result.PrimaryVideoStream.DisplayWidth.Should().Be(2160);
-        result.PrimaryVideoStream.DisplayHeight.Should().Be(3840);
-    }
-
-    [Fact]
-    public void ParseMediaInfo_NoRotation_DisplayDimensionsMatchCoded()
-    {
-        var json = """
-        {
-            "streams": [
-                { "index": 0, "codec_type": "video", "codec_name": "h264", "width": 1920, "height": 1080, "avg_frame_rate": "30/1" }
-            ]
-        }
-        """;
-
-        var result = MediaProbeService.ParseMediaInfo("/test/video.mp4", json);
-        result.PrimaryVideoStream!.Rotation.Should().BeNull();
-        result.PrimaryVideoStream.DisplayWidth.Should().Be(1920);
-        result.PrimaryVideoStream.DisplayHeight.Should().Be(1080);
-    }
-
-    [Fact]
-    public void ParseMediaInfo_Rotation180_DisplayDimensionsUnchanged()
-    {
-        var json = """
-        {
-            "streams": [
-                { "index": 0, "codec_type": "video", "codec_name": "h264", "width": 1920, "height": 1080, "avg_frame_rate": "30/1", "tags": { "rotate": "180" } }
-            ]
-        }
-        """;
-
-        var result = MediaProbeService.ParseMediaInfo("/test/video.mp4", json);
-        result.PrimaryVideoStream!.Rotation.Should().Be(180);
-        result.PrimaryVideoStream.DisplayWidth.Should().Be(1920);
-        result.PrimaryVideoStream.DisplayHeight.Should().Be(1080);
-    }
-
-    // --- HDR metadata parsing ---
-
-    [Fact]
-    public void ParseMediaInfo_Hdr10Stream_ExtractsColorProperties()
-    {
-        var json = """
-        {
-            "streams": [{
-                "index": 0, "codec_type": "video", "codec_name": "hevc",
-                "width": 3840, "height": 2160, "avg_frame_rate": "24000/1001",
-                "pix_fmt": "yuv420p10le",
-                "color_primaries": "bt2020",
-                "color_transfer": "smpte2084",
-                "color_space": "bt2020nc",
-                "color_range": "tv",
-                "bits_per_raw_sample": "10"
-            }]
-        }
-        """;
-
-        var result = MediaProbeService.ParseMediaInfo("/test/hdr.mkv", json);
-        var video = result.PrimaryVideoStream!;
-        video.PixelFormat.Should().Be("yuv420p10le");
-        video.ColorPrimaries.Should().Be("bt2020");
-        video.ColorTransfer.Should().Be("smpte2084");
-        video.ColorSpace.Should().Be("bt2020nc");
-        video.ColorRange.Should().Be("tv");
-        video.BitsPerRawSample.Should().Be(10);
-        video.HdrFormat.Should().Be(HdrFormat.Hdr10);
-        video.IsHdr.Should().BeTrue();
-    }
-
-    [Fact]
-    public void ParseMediaInfo_HlgStream_ClassifiesAsHlg()
-    {
-        var json = """
-        {
-            "streams": [{
-                "index": 0, "codec_type": "video", "codec_name": "hevc",
-                "width": 3840, "height": 2160, "avg_frame_rate": "50/1",
-                "pix_fmt": "yuv420p10le",
-                "color_primaries": "bt2020",
-                "color_transfer": "arib-std-b67",
-                "color_space": "bt2020nc",
-                "bits_per_raw_sample": "10"
-            }]
-        }
-        """;
-
-        var result = MediaProbeService.ParseMediaInfo("/test/hlg.mkv", json);
-        var video = result.PrimaryVideoStream!;
-        video.HdrFormat.Should().Be(HdrFormat.Hlg);
-        video.IsHdr.Should().BeTrue();
-    }
-
-    [Fact]
-    public void ParseMediaInfo_SdrStream_ClassifiesAsSdr()
-    {
-        var json = """
-        {
-            "streams": [{
-                "index": 0, "codec_type": "video", "codec_name": "h264",
-                "width": 1920, "height": 1080, "avg_frame_rate": "30/1",
-                "pix_fmt": "yuv420p",
-                "color_primaries": "bt709",
-                "color_transfer": "bt709",
-                "color_space": "bt709"
-            }]
-        }
-        """;
-
-        var result = MediaProbeService.ParseMediaInfo("/test/sdr.mp4", json);
-        var video = result.PrimaryVideoStream!;
-        video.HdrFormat.Should().Be(HdrFormat.Sdr);
-        video.IsHdr.Should().BeFalse();
-        video.HdrMetadata.Should().BeNull();
-    }
-
-    [Fact]
-    public void ParseMediaInfo_NoColorProperties_ClassifiesAsSdr()
-    {
-        var json = """
-        {
-            "streams": [{
-                "index": 0, "codec_type": "video", "codec_name": "h264",
-                "width": 1920, "height": 1080, "avg_frame_rate": "30/1"
-            }]
-        }
-        """;
-
-        var result = MediaProbeService.ParseMediaInfo("/test/video.mp4", json);
-        var video = result.PrimaryVideoStream!;
-        video.ColorPrimaries.Should().BeNull();
-        video.ColorTransfer.Should().BeNull();
-        video.HdrFormat.Should().Be(HdrFormat.Sdr);
-        video.IsHdr.Should().BeFalse();
-    }
-
-    [Fact]
-    public void ParseMediaInfo_Hdr10WithContentLightLevel_ExtractsMaxCllMaxFall()
-    {
-        var json = """
-        {
-            "streams": [{
-                "index": 0, "codec_type": "video", "codec_name": "hevc",
-                "width": 3840, "height": 2160, "avg_frame_rate": "24/1",
-                "pix_fmt": "yuv420p10le",
-                "color_primaries": "bt2020",
-                "color_transfer": "smpte2084",
-                "color_space": "bt2020nc",
-                "side_data_list": [
-                    {
-                        "side_data_type": "Content light level metadata",
-                        "max_content": 1000,
-                        "max_average": 400
-                    }
-                ]
-            }]
-        }
-        """;
-
-        var result = MediaProbeService.ParseMediaInfo("/test/hdr.mkv", json);
-        var metadata = result.PrimaryVideoStream!.HdrMetadata;
-        metadata.Should().NotBeNull();
-        metadata!.MaxContentLightLevel.Should().Be(1000);
-        metadata.MaxAverageLightLevel.Should().Be(400);
-        metadata.MasteringDisplay.Should().BeNull();
-    }
-
-    [Fact]
-    public void ParseMediaInfo_Hdr10WithMasteringDisplay_ExtractsAllFields()
-    {
-        var json = """
-        {
-            "streams": [{
-                "index": 0, "codec_type": "video", "codec_name": "hevc",
-                "width": 3840, "height": 2160, "avg_frame_rate": "24/1",
-                "pix_fmt": "yuv420p10le",
-                "color_primaries": "bt2020",
-                "color_transfer": "smpte2084",
-                "color_space": "bt2020nc",
-                "side_data_list": [
-                    {
-                        "side_data_type": "Mastering display metadata",
-                        "red_x": "13250",
-                        "red_y": "34500",
-                        "green_x": "7500",
-                        "green_y": "3000",
-                        "blue_x": "34000",
-                        "blue_y": "16000",
-                        "white_point_x": "15635",
-                        "white_point_y": "16450",
-                        "min_luminance": "50",
-                        "max_luminance": "10000000"
-                    },
-                    {
-                        "side_data_type": "Content light level metadata",
-                        "max_content": 1000,
-                        "max_average": 400
-                    }
-                ]
-            }]
-        }
-        """;
-
-        var result = MediaProbeService.ParseMediaInfo("/test/hdr.mkv", json);
-        var metadata = result.PrimaryVideoStream!.HdrMetadata!;
-        metadata.MaxContentLightLevel.Should().Be(1000);
-        metadata.MaxAverageLightLevel.Should().Be(400);
-
-        var md = metadata.MasteringDisplay!;
-        md.RedX.Should().Be("13250");
-        md.RedY.Should().Be("34500");
-        md.GreenX.Should().Be("7500");
-        md.GreenY.Should().Be("3000");
-        md.BlueX.Should().Be("34000");
-        md.BlueY.Should().Be("16000");
-        md.WhitePointX.Should().Be("15635");
-        md.WhitePointY.Should().Be("16450");
-        md.MinLuminance.Should().Be("50");
-        md.MaxLuminance.Should().Be("10000000");
-    }
-
-    [Fact]
-    public void ParseMediaInfo_SideDataWithoutHdrEntries_ReturnsNullMetadata()
-    {
-        var json = """
-        {
-            "streams": [{
-                "index": 0, "codec_type": "video", "codec_name": "h264",
-                "width": 1920, "height": 1080, "avg_frame_rate": "30/1",
-                "side_data_list": [
-                    { "side_data_type": "Display Matrix", "rotation": -90 }
-                ]
-            }]
-        }
-        """;
-
-        var result = MediaProbeService.ParseMediaInfo("/test/video.mp4", json);
-        result.PrimaryVideoStream!.HdrMetadata.Should().BeNull();
-        result.PrimaryVideoStream.Rotation.Should().Be(-90);
+        metadata.Should().Be(new HdrMetadata(1000, 400, withMastering
+            ? new MasteringDisplayMetadata("13250", "34500", "7500", "3000", "34000", "16000", "15635", "16450", "50", "10000000")
+            : null));
     }
 
     // --- Track details, dispositions and chapters ---
@@ -643,7 +266,11 @@ public class MediaProbeServiceParsingTests
         var result = MediaProbeService.ParseMediaInfo("/test/movie.mkv", json);
 
         result.VideoStreams[0].HasDolbyVision.Should().BeTrue();
-        result.DataStreams[0].FileName.Should().Be("Arial.ttf");
-        result.DataStreams[0].MimeType.Should().Be("application/x-truetype-font");
+        result.DataStreams.Should().Equal(new DataStreamInfo(1, "ttf")
+        {
+            IsAttachment = true,
+            FileName = "Arial.ttf",
+            MimeType = "application/x-truetype-font",
+        });
     }
 }

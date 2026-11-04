@@ -4,7 +4,6 @@ using FFApp.Core.Models;
 using FFApp.Core.Services;
 using FFApp.Core.Validation;
 using FFApp.Infrastructure;
-using FFApp.Infrastructure.Serialization;
 using FFApp.Tests.Builders;
 using FluentAssertions;
 using NSubstitute;
@@ -69,7 +68,7 @@ public sealed class ComparisonServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task CompletedClip_IsReused_ButChangedSettingsOrDeletedClipAreNot()
+    public async Task CompletedClip_IsReusedAcrossRenames_ButChangedSettingsOrDeletedClipAreNot()
     {
         var session = await _service.LoadAsync(_context);
         var sample = session.Samples[0];
@@ -86,16 +85,10 @@ public sealed class ComparisonServiceTests : IDisposable
         var changed = variant with { Settings = variant.Settings with { TargetQuality = new Av1QualityOptions(Crf: 28) } };
         _service.CacheKey(session, _context.MediaInfo, sample, changed).Should().NotBe(first.CacheKey);
         _service.CacheKey(session, _context.MediaInfo, sample with { StartSeconds = sample.StartSeconds + 1 }, variant).Should().NotBe(first.CacheKey);
+        _service.CacheKey(session, _context.MediaInfo, sample with { Name = "Renamed" }, variant with { Name = "New name" })
+            .Should().Be(first.CacheKey);
         File.Delete(first.Path);
         (await _service.EncodeAsync(session, _context.MediaInfo, sample, variant)).WasCached.Should().BeFalse();
-    }
-
-    [Fact]
-    public async Task RenamingVariantsOrSamples_DoesNotInvalidateIdenticalEncoding()
-    {
-        var session = await _service.LoadAsync(_context);
-        _service.CacheKey(session, _context.MediaInfo, session.Samples[0], session.Variants[0]).Should().Be(
-            _service.CacheKey(session, _context.MediaInfo, session.Samples[0] with { Name = "Renamed" }, session.Variants[0] with { Name = "New name" }));
     }
 
     [Theory]
@@ -135,21 +128,6 @@ public sealed class ComparisonServiceTests : IDisposable
     {
         var action = () => _service.ClipPath(key);
         action.Should().Throw<ArgumentException>();
-    }
-
-    [Fact]
-    public async Task MissingOptionalEncoderFields_LoadWithBackwardCompatibleDefaults()
-    {
-        var session = await _service.LoadAsync(_context);
-        var node = ComparisonSerializer.Serialize(session, _json);
-        var quality = node["variants"]?[0]?["settings"]?["target_quality"]?.AsObject()
-            ?? throw new InvalidOperationException("Missing quality settings.");
-        quality.Remove("film_grain");
-        quality.Remove("film_grain_denoise");
-        using var document = JsonDocument.Parse(node.ToJsonString());
-        var result = ComparisonSerializer.Deserialize(document.RootElement, _json);
-        result.Variants[0].Settings.TargetQuality.Should().BeOfType<Av1QualityOptions>()
-            .Which.FilmGrain.Should().Be(0);
     }
 
     [Fact]

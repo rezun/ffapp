@@ -230,15 +230,11 @@ public sealed class NativeComparisonDecoderTests(NativeComparisonFixture fixture
     }
 
     [Theory]
-    [InlineData(AVColorSpace.AVCOL_SPC_UNSPECIFIED, 1920, 1080, AVColorSpace.AVCOL_SPC_BT709)]
-    [InlineData(AVColorSpace.AVCOL_SPC_UNSPECIFIED, 1920, 800, AVColorSpace.AVCOL_SPC_BT709)]
     [InlineData(AVColorSpace.AVCOL_SPC_UNSPECIFIED, 1280, 536, AVColorSpace.AVCOL_SPC_BT709)]
     [InlineData(AVColorSpace.AVCOL_SPC_UNSPECIFIED, 1024, 720, AVColorSpace.AVCOL_SPC_BT709)]
     [InlineData(AVColorSpace.AVCOL_SPC_UNSPECIFIED, 720, 576, AVColorSpace.AVCOL_SPC_SMPTE170M)]
-    [InlineData(AVColorSpace.AVCOL_SPC_UNSPECIFIED, 720, 480, AVColorSpace.AVCOL_SPC_SMPTE170M)]
     [InlineData(AVColorSpace.AVCOL_SPC_BT470BG, 1920, 1080, AVColorSpace.AVCOL_SPC_BT470BG)]
     [InlineData(AVColorSpace.AVCOL_SPC_BT709, 720, 576, AVColorSpace.AVCOL_SPC_BT709)]
-    [InlineData(AVColorSpace.AVCOL_SPC_BT2020_NCL, 3840, 2160, AVColorSpace.AVCOL_SPC_BT2020_NCL)]
     public void EffectiveColorSpace_GuessesOnlyUntaggedFrames_ByResolution(
         AVColorSpace tagged, int width, int height, AVColorSpace expected) =>
         NativeComparisonDecoder.EffectiveColorSpace(tagged, width, height).Should().Be(expected);

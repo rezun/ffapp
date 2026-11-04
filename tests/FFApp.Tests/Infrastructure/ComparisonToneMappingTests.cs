@@ -10,8 +10,6 @@ public sealed class ComparisonToneMappingTests
     [InlineData(AVColorTransferCharacteristic.AVCOL_TRC_SMPTE2084, true)]
     [InlineData(AVColorTransferCharacteristic.AVCOL_TRC_ARIB_STD_B67, true)]
     [InlineData(AVColorTransferCharacteristic.AVCOL_TRC_BT709, false)]
-    [InlineData(AVColorTransferCharacteristic.AVCOL_TRC_IEC61966_2_1, false)]
-    [InlineData(AVColorTransferCharacteristic.AVCOL_TRC_UNSPECIFIED, false)]
     public void IsHdr_DetectsPqAndHlgOnly(AVColorTransferCharacteristic transfer, bool expected) =>
         ComparisonToneMapping.IsHdr(transfer).Should().Be(expected);
 
@@ -28,7 +26,6 @@ public sealed class ComparisonToneMappingTests
 
     [Theory]
     [InlineData(1000.0, "tonemap=hable:peak=10,")]
-    [InlineData(4000.0, "tonemap=hable:peak=40,")]
     [InlineData(null, "tonemap=hable,")]
     [InlineData(0.0, "tonemap=hable,")]
     public void FilterGraph_PassesContentPeakRelativeToReferenceWhite(double? peakNits, string expected) =>

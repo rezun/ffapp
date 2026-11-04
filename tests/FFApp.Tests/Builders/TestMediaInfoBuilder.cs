@@ -6,9 +6,9 @@ namespace FFApp.Tests.Builders;
 public class TestMediaInfoBuilder
 {
     private string _sourcePath = "/test/source.mp4";
-    private string? _containerFormat = "mov,mp4,m4a,3gp,3g2,mj2";
+    private readonly string? _containerFormat = "mov,mp4,m4a,3gp,3g2,mj2";
     private double? _durationSeconds = 60.0;
-    private int? _bitRate = 5_000_000;
+    private readonly int? _bitRate = 5_000_000;
     private ImmutableArray<string> _metadataKeys = [];
     private ImmutableArray<VideoStreamInfo> _videoStreams = [new(0, "h264", 4_500_000, 1920, 1080, 23.976, 1439)];
     private ImmutableArray<AudioStreamInfo> _audioStreams = [new(1, "aac", 128_000, 2, 48000, "eng")];
@@ -33,8 +33,6 @@ public class TestMediaInfoBuilder
     public TestMediaInfoBuilder WithSourcePath(string path) { _sourcePath = path; return this; }
     public TestMediaInfoBuilder WithDuration(double? seconds) { _durationSeconds = seconds; return this; }
     public TestMediaInfoBuilder WithNoDuration() => WithDuration(null);
-    public TestMediaInfoBuilder WithBitRate(int? bitRate) { _bitRate = bitRate; return this; }
-    public TestMediaInfoBuilder WithContainerFormat(string? format) { _containerFormat = format; return this; }
     public TestMediaInfoBuilder WithMetadataKeys(params string[] keys) { _metadataKeys = [.. keys]; return this; }
 
     public TestMediaInfoBuilder WithAttachedPictures()
@@ -88,13 +86,6 @@ public class TestMediaInfoBuilder
     {
         var video = _videoStreams.Length > 0 ? _videoStreams[0] : new VideoStreamInfo(0);
         _videoStreams = [video with { MetadataKeys = [.. keys] }];
-        return this;
-    }
-
-    public TestMediaInfoBuilder WithVideoResolution(int width, int height)
-    {
-        var v = _videoStreams.Length > 0 ? _videoStreams[0] : new VideoStreamInfo(0);
-        _videoStreams = [v with { Width = width, Height = height }];
         return this;
     }
 

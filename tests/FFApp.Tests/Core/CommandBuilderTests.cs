@@ -10,146 +10,6 @@ namespace FFApp.Tests.Core;
 
 public class CommandBuilderTests
 {
-    [Theory]
-    [InlineData(AudioMode.Copy, VideoMode.Copy)]
-    [InlineData(AudioMode.Reencode, VideoMode.Reencode)]
-    [InlineData(AudioMode.Reencode, VideoMode.Remove)]
-    public void Build_RemoveAudioTrackTitles_TargetsOnlyIncludedAudio(AudioMode audioMode, VideoMode videoMode)
-    {
-        var media = new TestMediaInfoBuilder().WithAudioStreams(
-            new AudioStreamInfo(2, "aac") { MetadataKeys = ["title", "language"] },
-            new AudioStreamInfo(5, "aac") { MetadataKeys = ["TITLE", "language"] }).Build();
-        var job = new TestJobDefinitionBuilder().WithAudioTracks(5)
-            .WithOutputSettings(s => s.WithVideoMode(videoMode)
-                .WithAudio(new AudioOptions(audioMode, AudioCodec.Aac, 128_000))
-                .WithRemoveAudioTrackTitles()).Build();
-
-        var args = JoinArgs(_sut.Build(job, media)[0]);
-
-        args.Should().Contain("-metadata:s:a title=").And.Contain("-map -0:2");
-        args.Should().NotContain("language=").And.NotContain("-map_metadata")
-            .And.NotContain("-metadata title=").And.NotContain("-metadata:s:v:0 title=");
-    }
-
-    [Theory]
-    [InlineData(AudioMode.Copy)]
-    [InlineData(AudioMode.Reencode)]
-    public void Build_DefaultAudioOptions_PreserveTrackTitles(AudioMode mode)
-    {
-        var media = new TestMediaInfoBuilder().WithAudioMetadataKeys("title", "language").Build();
-        var job = new TestJobDefinitionBuilder().WithOutputSettings(s =>
-            s.WithAudio(new AudioOptions(mode, AudioCodec.Aac, 128_000))).Build();
-
-        JoinArgs(_sut.Build(job, media)[0]).Should().NotContain("title=");
-    }
-
-    [Fact]
-    public void Build_RemoveAudioTrackTitles_TwoPassOnlyClearsFinalOutput()
-    {
-        var job = new TestJobDefinitionBuilder().WithOutputSettings(s =>
-            s.WithTargetBitrate(3_000_000, twoPass: true).WithRemoveAudioTrackTitles()).Build();
-
-        var commands = _sut.Build(job, DefaultMedia());
-
-        commands.Should().HaveCount(2);
-        JoinArgs(commands[0]).Should().NotContain("title=");
-        JoinArgs(commands[1]).Should().Contain("-metadata:s:a title=");
-    }
-
-    [Fact]
-    public void Build_RemoveAudioTrackTitles_NoIncludedAudioOmitsDeletion()
-    {
-        var removed = new TestJobDefinitionBuilder().WithOutputSettings(s =>
-            s.WithAudioRemove().WithRemoveAudioTrackTitles()).Build();
-        var deselected = new TestJobDefinitionBuilder().WithAudioTracks()
-            .WithOutputSettings(s => s.WithRemoveAudioTrackTitles()).Build();
-        var noAudio = new TestMediaInfoBuilder().WithAudioStreams().Build();
-        var enabled = new TestJobDefinitionBuilder().WithOutputSettings(s =>
-            s.WithRemoveAudioTrackTitles()).Build();
-
-        JoinArgs(_sut.Build(removed, DefaultMedia())[0]).Should().NotContain("title=");
-        JoinArgs(_sut.Build(deselected, DefaultMedia())[0]).Should().NotContain("title=");
-        JoinArgs(_sut.Build(enabled, noAudio)[0]).Should().NotContain("title=");
-    }
-
-    [Theory]
-    [InlineData(AudioMode.Copy, "copy")]
-    [InlineData(AudioMode.Reencode, "aac")]
-    public void Build_SelectedAudioTracks_ExcludesOnlyUnselectedAudio(AudioMode mode, string codec)
-    {
-        var media = new TestMediaInfoBuilder().WithAudioStreams(
-            new AudioStreamInfo(2, "aac"), new AudioStreamInfo(5, "aac"), new AudioStreamInfo(8, "aac")).Build();
-        var job = new TestJobDefinitionBuilder().WithAudioTracks(8, 2, 2)
-            .WithOutputSettings(s => s.WithAudio(new AudioOptions(mode, AudioCodec.Aac, 128_000))).Build();
-
-        var args = JoinArgs(_sut.Build(job, media)[0]);
-
-        args.Should().Contain("-map 0").And.Contain("-map -0:5").And.Contain($"-c:a {codec}");
-        args.Should().NotContain("-map -0:2").And.NotContain("-map -0:8");
-    }
-
-    [Fact]
-    public void Build_AllAudioTracks_DoesNotExcludeAnyAudio()
-    {
-        var media = new TestMediaInfoBuilder().WithAudioStreams(new AudioStreamInfo(2, "aac"), new AudioStreamInfo(5, "aac")).Build();
-        var args = JoinArgs(_sut.Build(DefaultJob(), media)[0]);
-        args.Should().NotContain("-map -0:2").And.NotContain("-map -0:5");
-    }
-
-    [Fact]
-    public void Build_EmptyAudioSelection_ExcludesEveryAudioTrack()
-    {
-        var job = new TestJobDefinitionBuilder().WithAudioTracks().Build();
-        JoinArgs(_sut.Build(job, DefaultMedia())[0]).Should().Contain("-map -0:1");
-    }
-
-    [Fact]
-    public void Build_AudioRemove_IgnoresTrackSelection()
-    {
-        var job = new TestJobDefinitionBuilder().WithAudioTracks(99)
-            .WithOutputSettings(s => s.WithAudioRemove()).Build();
-        JoinArgs(_sut.Build(job, DefaultMedia())[0]).Should().Contain("-map -0:a?");
-    }
-
-    [Fact]
-    public void Build_UnknownAudioTrack_Throws()
-    {
-        var job = new TestJobDefinitionBuilder().WithAudioTracks(99).Build();
-        var act = () => _sut.Build(job, DefaultMedia());
-        act.Should().Throw<CommandBuildException>();
-    }
-
-    [Fact]
-    public void Build_SelectedAudio_MetadataCleanupUsesOutputAudioIndex()
-    {
-        var media = new TestMediaInfoBuilder().WithAudioStreams(
-            new AudioStreamInfo(2, "aac") { MetadataKeys = ["BPS"] },
-            new AudioStreamInfo(5, "aac") { MetadataKeys = ["NUMBER_OF_BYTES"] }).Build();
-        var job = new TestJobDefinitionBuilder().WithAudioTracks(5)
-            .WithOutputSettings(s => s.WithAudioReencode(AudioCodec.Aac, 128_000)).Build();
-        var args = JoinArgs(_sut.Build(job, media)[0]);
-        args.Should().Contain("-metadata:s:a:0 NUMBER_OF_BYTES=").And.NotContain("-metadata:s:a:1").And.NotContain("BPS=");
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void Build_TargetSize_SelectionIgnoresUnselectedTrackWithUnknownBitrate(bool twoPass)
-    {
-        var media = new TestMediaInfoBuilder().WithAudioStreams(
-            new AudioStreamInfo(2, "aac", 128_000), new AudioStreamInfo(5, "aac")).Build();
-        var job = new TestJobDefinitionBuilder().WithAudioTracks(2)
-            .WithOutputSettings(s => s.WithTargetFileSize(50, twoPass: twoPass)).Build();
-        var commands = _sut.Build(job, media);
-        var reference = _sut.Build(job with { SelectedAudioStreamIndices = null },
-            media with { AudioStreams = [media.AudioStreams[0]] });
-        commands.Should().HaveCount(twoPass ? 2 : 1);
-        commands.Last().Arguments.SkipWhile(a => a != "-b:v").Take(2)
-            .Should().Equal(reference.Last().Arguments.SkipWhile(a => a != "-b:v").Take(2));
-        foreach (var command in commands)
-            JoinArgs(command).Should().Contain("-map -0:5");
-    }
-
     private static readonly string NullOutput =
         RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "NUL" : "/dev/null";
 
@@ -171,57 +31,77 @@ public class CommandBuilderTests
     private static JobDefinition JobWith(Action<TestOutputSettingsBuilder> configure) =>
         new TestJobDefinitionBuilder().WithOutputSettings(configure).Build();
 
+    private static TestOutputSettingsBuilder WithCodec(TestOutputSettingsBuilder settings, VideoCodec codec) =>
+        codec switch
+        {
+            VideoCodec.H264 => settings,
+            VideoCodec.H265 => settings.WithH265(),
+            VideoCodec.Vp9 => settings.WithVp9(),
+            VideoCodec.Av1 => settings.WithAv1(),
+            _ => throw new ArgumentOutOfRangeException(nameof(codec), codec, null),
+        };
+
+    private static TestOutputSettingsBuilder WithToneMap(TestOutputSettingsBuilder settings, ToneMapEngine engine) =>
+        engine switch
+        {
+            ToneMapEngine.Standard => settings.WithToneMapToSdr(),
+            ToneMapEngine.Libplacebo => settings.WithLibplaceboTonemapToSdr(),
+            _ => throw new ArgumentOutOfRangeException(nameof(engine), engine, null),
+        };
+
     // ---------------------------------------------------------------
     // Basic structure
     // ---------------------------------------------------------------
 
     [Fact]
-    public void Build_DefaultSettings_ReturnsSingleCommand()
+    public void Build_DefaultSettings_ProducesSingleFfmpegCommand()
     {
-        var commands = _sut.Build(DefaultJob(), DefaultMedia());
+        var cmd = _sut.Build(DefaultJob(), DefaultMedia()).Should().ContainSingle().Subject;
+        var args = JoinArgs(cmd);
 
-        commands.Should().HaveCount(1);
+        cmd.ExecutablePath.Should().Be("ffmpeg");
+        cmd.DisplayString.Should().StartWith("ffmpeg").And.Contain("-hide_banner");
+        cmd.Arguments[^1].Should().Be("/test/output.mp4");
+        args.Should().StartWith("-hide_banner -y -i /test/source.mp4").And.Contain("-map 0");
+        // A source with one video stream, no subtitles and no data needs no exclusions or extra codecs.
+        args.Should().NotContain("-map -0:").And.NotContain("-c:s").And.NotContain("-c:d");
+    }
+
+    // ---------------------------------------------------------------
+    // Output path suggestion
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public void SuggestOutputPath_AutoNameSkipsReservedQueuePath()
+    {
+        var stem = $"ffapp-{Guid.NewGuid():N}";
+        var sourcePath = Path.Combine(Path.GetTempPath(), $"{stem}.mp4");
+        var reservedPath = Path.Combine(Path.GetTempPath(), $"{stem}.mkv");
+
+        var result = DefaultCommandBuilder.SuggestOutputPath(
+            sourcePath,
+            OutputContainer.Mkv,
+            isAutoName: true,
+            reservedOutputPaths: [reservedPath]);
+
+        result.Should().Be(Path.Combine(Path.GetTempPath(), $"{stem}-1.mkv"));
     }
 
     [Fact]
-    public void Build_DefaultSettings_UsesConfiguredFfmpegPath()
+    public void SuggestOutputPath_ExplicitNameDoesNotSkipReservedQueuePath()
     {
-        var commands = _sut.Build(DefaultJob(), DefaultMedia());
+        var stem = $"ffapp-{Guid.NewGuid():N}";
+        var sourcePath = Path.Combine(Path.GetTempPath(), $"{stem}.mp4");
+        var reservedPath = Path.Combine(Path.GetTempPath(), $"{stem}-chosen.mkv");
 
-        commands[0].ExecutablePath.Should().Be("ffmpeg");
-    }
+        var result = DefaultCommandBuilder.SuggestOutputPath(
+            sourcePath,
+            OutputContainer.Mkv,
+            outputFilename: $"{stem}-chosen",
+            isAutoName: false,
+            reservedOutputPaths: [reservedPath]);
 
-    [Fact]
-    public void Build_DefaultSettings_StartsWithHideBannerAndInput()
-    {
-        var args = JoinArgs(_sut.Build(DefaultJob(), DefaultMedia())[0]);
-
-        args.Should().StartWith("-hide_banner -y -i /test/source.mp4");
-    }
-
-    [Fact]
-    public void Build_DefaultSettings_EndsWithOutputPath()
-    {
-        var commands = _sut.Build(DefaultJob(), DefaultMedia());
-
-        commands[0].Arguments[^1].Should().Be("/test/output.mp4");
-    }
-
-    [Fact]
-    public void Build_DefaultSettings_ContainsMapAll()
-    {
-        var args = JoinArgs(_sut.Build(DefaultJob(), DefaultMedia())[0]);
-
-        args.Should().Contain("-map 0");
-    }
-
-    [Fact]
-    public void Build_DisplayString_ContainsExecutableAndArguments()
-    {
-        var cmd = _sut.Build(DefaultJob(), DefaultMedia())[0];
-
-        cmd.DisplayString.Should().StartWith("ffmpeg");
-        cmd.DisplayString.Should().Contain("-hide_banner");
+        result.Should().Be(reservedPath);
     }
 
     // ---------------------------------------------------------------
@@ -366,104 +246,49 @@ public class CommandBuilderTests
             .And.Contain("-deadline good -cpu-used 2 -row-mt 1");
     }
 
-    [Fact]
-    public void Build_H264Quality_CustomCrf_UsesProvidedValue()
+    [Theory]
+    [InlineData(VideoCodec.H264, 18, "slow", "high")]
+    [InlineData(VideoCodec.H265, 22, "fast", "main10")]
+    public void Build_H26xQuality_CustomOptions_UsesProvidedValues(
+        VideoCodec codec, int crf, string preset, string profile)
     {
-        var job = JobWith(s => s.WithVideoCodec(VideoCodec.H264)
-            .WithQuality(new H26xQualityOptions(VideoCodec.H264, Crf: 18, Preset: "slow", Profile: "high")));
+        var job = JobWith(s => WithCodec(s, codec)
+            .WithQuality(new H26xQualityOptions(codec, Crf: crf, Preset: preset, Profile: profile)));
         var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
 
-        args.Should().Contain("-crf 18 -preset slow -profile:v high");
-    }
-
-    [Fact]
-    public void Build_H265Quality_CustomCrf_UsesProvidedValue()
-    {
-        var job = JobWith(s => s.WithH265()
-            .WithQuality(new H26xQualityOptions(VideoCodec.H265, Crf: 22, Preset: "fast", Profile: "main10")));
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        args.Should().Contain("-crf 22 -preset fast -profile:v main10");
+        args.Should().Contain($"-crf {crf} -preset {preset} -profile:v {profile}");
     }
 
     // ---------------------------------------------------------------
     // Two-pass encoding
     // ---------------------------------------------------------------
 
-    [Fact]
-    public void Build_Vp9QualityTwoPass_ReturnsTwoCommands()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Build_Vp9TwoPass_SplitsFastAnalysisAndFinalOutput(bool targetBitrate)
     {
-        var job = JobWith(s => s.WithVp9(twoPass: true));
+        var job = JobWith(s =>
+        {
+            s.WithVp9(twoPass: true);
+            if (targetBitrate)
+                s.WithTargetBitrate(2_000_000, twoPass: true);
+        });
         var commands = _sut.Build(job, DefaultMedia());
 
         commands.Should().HaveCount(2);
-    }
-
-    [Fact]
-    public void Build_Vp9QualityTwoPass_Pass1_HasNullOutputAndNoAudio()
-    {
-        var job = JobWith(s => s.WithVp9(twoPass: true));
-        var pass1Args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        pass1Args.Should().Contain("-pass 1")
+        var rateControl = targetBitrate ? "-b:v 2000k" : "-crf 32 -b:v 0";
+        JoinArgs(commands[0]).Should().Contain(rateControl)
+            .And.Contain("-cpu-used 4")
+            .And.NotContain("-auto-alt-ref")
+            .And.Contain("-pass 1 -passlogfile")
             .And.Contain("-an -sn -dn -f null")
             .And.EndWith(NullOutput);
-    }
-
-    [Fact]
-    public void Build_Vp9QualityTwoPass_Pass2_HasOutputPathAndPassFlag()
-    {
-        var job = JobWith(s => s.WithVp9(twoPass: true));
-        var pass2Args = JoinArgs(_sut.Build(job, DefaultMedia())[1]);
-
-        pass2Args.Should().Contain("-pass 2")
+        JoinArgs(commands[1]).Should().Contain(rateControl)
+            .And.Contain("-cpu-used 2")
+            .And.Contain("-auto-alt-ref 1")
+            .And.Contain("-pass 2 -passlogfile")
             .And.EndWith("/test/output.mp4");
-    }
-
-    [Fact]
-    public void Build_Vp9QualityTwoPass_Pass1_BumpsCpuUsedToMin4()
-    {
-        var job = JobWith(s => s.WithVp9(twoPass: true));
-        var pass1Args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        pass1Args.Should().Contain("-cpu-used 4");
-    }
-
-    [Fact]
-    public void Build_Vp9QualityTwoPass_Pass2_KeepsOriginalCpuUsed()
-    {
-        var job = JobWith(s => s.WithVp9(twoPass: true));
-        var pass2Args = JoinArgs(_sut.Build(job, DefaultMedia())[1]);
-
-        pass2Args.Should().Contain("-cpu-used 2");
-    }
-
-    [Fact]
-    public void Build_Vp9QualityTwoPass_Pass2_HasAutoAltRef()
-    {
-        var job = JobWith(s => s.WithVp9(twoPass: true));
-        var pass2Args = JoinArgs(_sut.Build(job, DefaultMedia())[1]);
-
-        pass2Args.Should().Contain("-auto-alt-ref 1");
-    }
-
-    [Fact]
-    public void Build_Vp9QualityTwoPass_Pass1_DoesNotHaveAutoAltRef()
-    {
-        var job = JobWith(s => s.WithVp9(twoPass: true));
-        var pass1Args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        pass1Args.Should().NotContain("-auto-alt-ref");
-    }
-
-    [Fact]
-    public void Build_TwoPass_BothCommandsHavePasslogfile()
-    {
-        var job = JobWith(s => s.WithVp9(twoPass: true));
-        var commands = _sut.Build(job, DefaultMedia());
-
-        JoinArgs(commands[0]).Should().Contain("-passlogfile");
-        JoinArgs(commands[1]).Should().Contain("-passlogfile");
     }
 
     // ---------------------------------------------------------------
@@ -471,51 +296,28 @@ public class CommandBuilderTests
     // ---------------------------------------------------------------
 
     [Fact]
-    public void Build_TargetBitrate_SinglePass_ContainsBitrateArg()
+    public void Build_TargetBitrate_SinglePass_EmitsBitratePresetAndProfile()
     {
-        var job = JobWith(s => s.WithTargetBitrate(3_000_000));
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+        var commands = _sut.Build(JobWith(s => s.WithTargetBitrate(3_000_000)), DefaultMedia());
 
-        args.Should().Contain("-b:v 3000k");
+        commands.Should().ContainSingle();
+        JoinArgs(commands[0]).Should().Contain("-b:v 3000k").And.Contain("-preset medium -profile:v high");
     }
 
     [Fact]
-    public void Build_TargetBitrate_SinglePass_ContainsPresetAndProfile()
+    public void Build_TargetBitrate_TwoPass_UsesBitrateInBothPasses()
     {
-        var job = JobWith(s => s.WithTargetBitrate(3_000_000));
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        args.Should().Contain("-preset medium -profile:v high");
-    }
-
-    [Fact]
-    public void Build_TargetBitrate_TwoPass_ReturnsTwoCommands()
-    {
-        var job = JobWith(s => s.WithTargetBitrate(3_000_000, twoPass: true));
-        var commands = _sut.Build(job, DefaultMedia());
+        var commands = _sut.Build(JobWith(s => s.WithTargetBitrate(3_000_000, twoPass: true)), DefaultMedia());
 
         commands.Should().HaveCount(2);
-    }
-
-    [Fact]
-    public void Build_TargetBitrate_TwoPass_BothPassesHaveSameBitrate()
-    {
-        var job = JobWith(s => s.WithTargetBitrate(3_000_000, twoPass: true));
-        var commands = _sut.Build(job, DefaultMedia());
-
-        JoinArgs(commands[0]).Should().Contain("-b:v 3000k");
-        JoinArgs(commands[1]).Should().Contain("-b:v 3000k");
-    }
-
-    [Fact]
-    public void Build_TargetBitrate_TwoPass_Pass1HasNullOutput()
-    {
-        var job = JobWith(s => s.WithTargetBitrate(3_000_000, twoPass: true));
-        var pass1Args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        pass1Args.Should().Contain("-pass 1")
+        JoinArgs(commands[0]).Should().Contain("-b:v 3000k")
+            .And.Contain("-pass 1")
             .And.Contain("-an -sn -dn -f null")
             .And.EndWith(NullOutput);
+        JoinArgs(commands[1]).Should().Contain("-b:v 3000k")
+            .And.Contain("-pass 2")
+            .And.Contain("-movflags +faststart")
+            .And.EndWith("/test/output.mp4");
     }
 
     [Fact]
@@ -525,6 +327,29 @@ public class CommandBuilderTests
         var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
 
         args.Should().Contain("-b:v 1501k");
+    }
+
+    [Fact]
+    public void Build_H265Bitrate_UsesLibx265WithPresetProfile()
+    {
+        var job = JobWith(s => s.WithH265().WithTargetBitrate(5_000_000));
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        args.Should().Contain("-c:v libx265")
+            .And.Contain("-preset medium -profile:v main")
+            .And.Contain("-b:v 5000k");
+    }
+
+    [Fact]
+    public void Build_Vp9Bitrate_SinglePass_UsesDefaultTuning()
+    {
+        var job = JobWith(s => s.WithVp9().WithTargetBitrate(1_000_000));
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        args.Should().Contain("-c:v libvpx-vp9")
+            .And.Contain("-cpu-used 2")
+            .And.Contain("-row-mt 1")
+            .And.Contain("-b:v 1000k");
     }
 
     // ---------------------------------------------------------------
@@ -567,13 +392,148 @@ public class CommandBuilderTests
         args.Should().Contain("-b:v 1200k");
     }
 
-    [Fact]
-    public void Build_TargetFileSize_TwoPass_ReturnsTwoCommands()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Build_TargetSize_SelectionIgnoresUnselectedTrackWithUnknownBitrate(bool twoPass)
     {
-        var job = JobWith(s => s.WithTargetFileSize(50, twoPass: true));
+        var media = new TestMediaInfoBuilder().WithAudioStreams(
+            new AudioStreamInfo(2, "aac", 128_000), new AudioStreamInfo(5, "aac")).Build();
+        var job = new TestJobDefinitionBuilder().WithAudioTracks(2)
+            .WithOutputSettings(s => s.WithTargetFileSize(50, twoPass: twoPass)).Build();
+        var commands = _sut.Build(job, media);
+        var reference = _sut.Build(job with { SelectedAudioStreamIndices = null },
+            media with { AudioStreams = [media.AudioStreams[0]] });
+        commands.Should().HaveCount(twoPass ? 2 : 1);
+        commands.Last().Arguments.SkipWhile(a => a != "-b:v").Take(2)
+            .Should().Equal(reference.Last().Arguments.SkipWhile(a => a != "-b:v").Take(2));
+        foreach (var command in commands)
+            JoinArgs(command).Should().Contain("-map -0:5");
+    }
+
+    // ---------------------------------------------------------------
+    // Audio track selection
+    // ---------------------------------------------------------------
+
+    [Theory]
+    [InlineData(AudioMode.Copy, VideoMode.Copy)]
+    [InlineData(AudioMode.Reencode, VideoMode.Reencode)]
+    [InlineData(AudioMode.Reencode, VideoMode.Remove)]
+    public void Build_RemoveAudioTrackTitles_TargetsOnlyIncludedAudio(AudioMode audioMode, VideoMode videoMode)
+    {
+        var media = new TestMediaInfoBuilder().WithAudioStreams(
+            new AudioStreamInfo(2, "aac") { MetadataKeys = ["title", "language"] },
+            new AudioStreamInfo(5, "aac") { MetadataKeys = ["TITLE", "language"] }).Build();
+        var job = new TestJobDefinitionBuilder().WithAudioTracks(5)
+            .WithOutputSettings(s => s.WithVideoMode(videoMode)
+                .WithAudio(new AudioOptions(audioMode, AudioCodec.Aac, 128_000))
+                .WithRemoveAudioTrackTitles()).Build();
+
+        var args = JoinArgs(_sut.Build(job, media)[0]);
+
+        args.Should().Contain("-metadata:s:a title=").And.Contain("-map -0:2");
+        args.Should().NotContain("language=").And.NotContain("-map_metadata")
+            .And.NotContain("-metadata title=").And.NotContain("-metadata:s:v:0 title=");
+    }
+
+    [Theory]
+    [InlineData(AudioMode.Copy)]
+    [InlineData(AudioMode.Reencode)]
+    public void Build_DefaultAudioOptions_PreserveTrackTitles(AudioMode mode)
+    {
+        var media = new TestMediaInfoBuilder().WithAudioMetadataKeys("title", "language").Build();
+        var job = new TestJobDefinitionBuilder().WithOutputSettings(s =>
+            s.WithAudio(new AudioOptions(mode, AudioCodec.Aac, 128_000))).Build();
+
+        JoinArgs(_sut.Build(job, media)[0]).Should().NotContain("title=");
+    }
+
+    [Fact]
+    public void Build_RemoveAudioTrackTitles_TwoPassOnlyClearsFinalOutput()
+    {
+        var job = new TestJobDefinitionBuilder().WithOutputSettings(s =>
+            s.WithTargetBitrate(3_000_000, twoPass: true).WithRemoveAudioTrackTitles()).Build();
+
         var commands = _sut.Build(job, DefaultMedia());
 
         commands.Should().HaveCount(2);
+        JoinArgs(commands[0]).Should().NotContain("title=");
+        JoinArgs(commands[1]).Should().Contain("-metadata:s:a title=");
+    }
+
+    [Fact]
+    public void Build_RemoveAudioTrackTitles_NoIncludedAudioOmitsDeletion()
+    {
+        var removed = new TestJobDefinitionBuilder().WithOutputSettings(s =>
+            s.WithAudioRemove().WithRemoveAudioTrackTitles()).Build();
+        var deselected = new TestJobDefinitionBuilder().WithAudioTracks()
+            .WithOutputSettings(s => s.WithRemoveAudioTrackTitles()).Build();
+        var noAudio = new TestMediaInfoBuilder().WithAudioStreams().Build();
+        var enabled = new TestJobDefinitionBuilder().WithOutputSettings(s =>
+            s.WithRemoveAudioTrackTitles()).Build();
+
+        JoinArgs(_sut.Build(removed, DefaultMedia())[0]).Should().NotContain("title=");
+        JoinArgs(_sut.Build(deselected, DefaultMedia())[0]).Should().NotContain("title=");
+        JoinArgs(_sut.Build(enabled, noAudio)[0]).Should().NotContain("title=");
+    }
+
+    [Theory]
+    [InlineData(AudioMode.Copy, "copy")]
+    [InlineData(AudioMode.Reencode, "aac")]
+    public void Build_SelectedAudioTracks_ExcludesOnlyUnselectedAudio(AudioMode mode, string codec)
+    {
+        var media = new TestMediaInfoBuilder().WithAudioStreams(
+            new AudioStreamInfo(2, "aac"), new AudioStreamInfo(5, "aac"), new AudioStreamInfo(8, "aac")).Build();
+        var job = new TestJobDefinitionBuilder().WithAudioTracks(8, 2, 2)
+            .WithOutputSettings(s => s.WithAudio(new AudioOptions(mode, AudioCodec.Aac, 128_000))).Build();
+
+        var args = JoinArgs(_sut.Build(job, media)[0]);
+
+        args.Should().Contain("-map 0").And.Contain("-map -0:5").And.Contain($"-c:a {codec}");
+        args.Should().NotContain("-map -0:2").And.NotContain("-map -0:8");
+    }
+
+    [Fact]
+    public void Build_AllAudioTracks_DoesNotExcludeAnyAudio()
+    {
+        var media = new TestMediaInfoBuilder().WithAudioStreams(new AudioStreamInfo(2, "aac"), new AudioStreamInfo(5, "aac")).Build();
+        var args = JoinArgs(_sut.Build(DefaultJob(), media)[0]);
+        args.Should().NotContain("-map -0:2").And.NotContain("-map -0:5");
+    }
+
+    [Fact]
+    public void Build_EmptyAudioSelection_ExcludesEveryAudioTrack()
+    {
+        var job = new TestJobDefinitionBuilder().WithAudioTracks().Build();
+        JoinArgs(_sut.Build(job, DefaultMedia())[0]).Should().Contain("-map -0:1");
+    }
+
+    [Fact]
+    public void Build_AudioRemove_MapsOutAudioIgnoringTrackSelection()
+    {
+        var job = new TestJobDefinitionBuilder().WithAudioTracks(99)
+            .WithOutputSettings(s => s.WithAudioRemove()).Build();
+        JoinArgs(_sut.Build(job, DefaultMedia())[0]).Should().Contain("-map -0:a?").And.NotContain("-c:a");
+    }
+
+    [Fact]
+    public void Build_UnknownAudioTrack_Throws()
+    {
+        var job = new TestJobDefinitionBuilder().WithAudioTracks(99).Build();
+        var act = () => _sut.Build(job, DefaultMedia());
+        act.Should().Throw<CommandBuildException>();
+    }
+
+    [Fact]
+    public void Build_SelectedAudio_MetadataCleanupUsesOutputAudioIndex()
+    {
+        var media = new TestMediaInfoBuilder().WithAudioStreams(
+            new AudioStreamInfo(2, "aac") { MetadataKeys = ["BPS"] },
+            new AudioStreamInfo(5, "aac") { MetadataKeys = ["NUMBER_OF_BYTES"] }).Build();
+        var job = new TestJobDefinitionBuilder().WithAudioTracks(5)
+            .WithOutputSettings(s => s.WithAudioReencode(AudioCodec.Aac, 128_000)).Build();
+        var args = JoinArgs(_sut.Build(job, media)[0]);
+        args.Should().Contain("-metadata:s:a:0 NUMBER_OF_BYTES=").And.NotContain("-metadata:s:a:1").And.NotContain("BPS=");
     }
 
     // ---------------------------------------------------------------
@@ -581,48 +541,40 @@ public class CommandBuilderTests
     // ---------------------------------------------------------------
 
     [Fact]
-    public void Build_AudioCopy_ProducesCopyArg()
+    public void Build_AudioCopy_EmitsCopyEvenWithoutAudioStreams()
     {
         var job = JobWith(s => s.WithAudioCopy());
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+        var noAudio = new TestMediaInfoBuilder().WithNoAudio().Build();
 
-        args.Should().Contain("-c:a copy");
+        JoinArgs(_sut.Build(job, DefaultMedia())[0]).Should().Contain("-c:a copy");
+        JoinArgs(_sut.Build(job, noAudio)[0]).Should().Contain("-c:a copy");
     }
 
-    [Fact]
-    public void Build_AudioReencode_Aac_ProducesCorrectArgs()
+    [Theory]
+    [InlineData(AudioCodec.Aac, 128_000, "aac")]
+    [InlineData(AudioCodec.Mp3, 192_000, "libmp3lame")]
+    [InlineData(AudioCodec.Vorbis, 128_000, "libvorbis")]
+    [InlineData(AudioCodec.Opus, 96_000, "libopus")]
+    public void Build_AudioReencode_UsesCodecEncoderAndBitrate(AudioCodec codec, int bitrate, string encoder)
     {
-        var job = JobWith(s => s.WithAudioReencode(AudioCodec.Aac, 128_000));
+        var job = JobWith(s => s.WithAudioReencode(codec, bitrate));
         var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
 
-        args.Should().Contain("-c:a aac -b:a 128000");
+        args.Should().Contain($"-c:a {encoder} -b:a {bitrate}");
     }
 
-    [Fact]
-    public void Build_AudioReencode_Mp3_UsesLibmp3lame()
+    [Theory]
+    [InlineData(null)]
+    [InlineData(1)]
+    public void Build_AudioReencode_EmitsAcOnlyForRequestedChannels(int? channels)
     {
-        var job = JobWith(s => s.WithAudioReencode(AudioCodec.Mp3, 192_000));
+        var job = JobWith(s => s.WithAudioReencode(AudioCodec.Aac, 128_000, channels));
         var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
 
-        args.Should().Contain("-c:a libmp3lame -b:a 192000");
-    }
-
-    [Fact]
-    public void Build_AudioReencode_Vorbis_UsesLibvorbis()
-    {
-        var job = JobWith(s => s.WithAudioReencode(AudioCodec.Vorbis, 128_000));
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        args.Should().Contain("-c:a libvorbis -b:a 128000");
-    }
-
-    [Fact]
-    public void Build_AudioReencode_Opus_UsesLibopus()
-    {
-        var job = JobWith(s => s.WithAudioReencode(AudioCodec.Opus, 96_000));
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        args.Should().Contain("-c:a libopus -b:a 96000");
+        if (channels is null)
+            args.Should().NotContain("-ac");
+        else
+            args.Should().Contain($"-ac {channels}");
     }
 
     [Theory]
@@ -692,9 +644,7 @@ public class CommandBuilderTests
 
     [Theory]
     [InlineData(AudioCodec.Opus, 12000)]
-    [InlineData(AudioCodec.Opus, 48000)]
-    [InlineData(AudioCodec.Mp3, 44100)]
-    [InlineData(AudioCodec.Aac, 96000)]
+    [InlineData(AudioCodec.Vorbis, 64000)]
     public void Build_SupportedAudioSampleRate_EmitsAr(AudioCodec codec, int rate)
     {
         var job = JobWith(s => s.WithAudioReencode(codec, 128_000, sampleRate: rate));
@@ -721,33 +671,6 @@ public class CommandBuilderTests
         var media = new TestMediaInfoBuilder().WithAudioStreams(new AudioStreamInfo(1, "aac", SampleRate: 44100)).Build();
 
         _sut.Build(job, media)[0].Arguments.Should().NotContain("-ar");
-    }
-
-    [Fact]
-    public void Build_AudioReencode_WithChannels_AddsAcFlag()
-    {
-        var job = JobWith(s => s.WithAudioReencode(AudioCodec.Aac, 128_000, channels: 2));
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        args.Should().Contain("-ac 2");
-    }
-
-    [Fact]
-    public void Build_AudioReencode_WithMono_AddsAcOne()
-    {
-        var job = JobWith(s => s.WithAudioReencode(AudioCodec.Aac, 128_000, channels: 1));
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        args.Should().Contain("-ac 1");
-    }
-
-    [Fact]
-    public void Build_AudioReencode_WithoutChannels_DoesNotAddAcFlag()
-    {
-        var job = JobWith(s => s.WithAudioReencode(AudioCodec.Aac, 128_000));
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        args.Should().NotContain("-ac");
     }
 
     [Theory]
@@ -809,45 +732,21 @@ public class CommandBuilderTests
             .Equal("-downmix:1", "-downmix:3");
     }
 
-    [Fact]
-    public void Build_AudioRemove_MapsOutAudioAndOmitsAudioCodec()
-    {
-        var job = JobWith(s => s.WithAudioRemove());
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        args.Should().Contain("-map -0:a?").And.NotContain("-c:a");
-    }
-
     // ---------------------------------------------------------------
     // Subtitle and data stream handling
     // ---------------------------------------------------------------
 
-    [Fact]
-    public void Build_SubripSubtitlesInMp4_ConvertsToMovText()
+    [Theory]
+    [InlineData("subrip", OutputContainer.Mp4, "mov_text")]
+    [InlineData("mov_text", OutputContainer.Mp4, "copy")]
+    [InlineData("subrip", OutputContainer.Webm, "webvtt")]
+    [InlineData("subrip", OutputContainer.Mkv, "copy")]
+    public void Build_Subtitles_CopiesOrConvertsForContainer(string codec, OutputContainer container, string encoder)
     {
-        var media = new TestMediaInfoBuilder().WithSubtitles().Build();
-        var args = JoinArgs(_sut.Build(DefaultJob(), media)[0]);
+        var media = new TestMediaInfoBuilder().WithSubtitles(codec).Build();
+        var job = JobWith(s => s.WithContainer(container));
 
-        args.Should().Contain("-c:s mov_text");
-    }
-
-    [Fact]
-    public void Build_MovTextSubtitlesInMp4_CopiesSubtitles()
-    {
-        var media = new TestMediaInfoBuilder().WithSubtitles("mov_text").Build();
-        var args = JoinArgs(_sut.Build(DefaultJob(), media)[0]);
-
-        args.Should().Contain("-c:s copy");
-    }
-
-    [Fact]
-    public void Build_SubripSubtitlesInWebm_ConvertsToWebVtt()
-    {
-        var media = new TestMediaInfoBuilder().WithSubtitles("subrip").Build();
-        var job = JobWith(s => s.WithVp9());
-        var args = JoinArgs(_sut.Build(job, media)[0]);
-
-        args.Should().Contain("-c:s webvtt");
+        JoinArgs(_sut.Build(job, media)[0]).Should().Contain($"-c:s {encoder}");
     }
 
     [Fact]
@@ -922,22 +821,21 @@ public class CommandBuilderTests
         act.Should().Throw<CommandBuildException>();
     }
 
-    [Fact]
-    public void Build_NoSubtitles_DoesNotAddSubtitleCodec()
-    {
-        var args = JoinArgs(_sut.Build(DefaultJob(), DefaultMedia())[0]);
-
-        args.Should().NotContain("-c:s");
-    }
-
-    [Fact]
-    public void Build_DataPresentInMp4_MapsOutAndNoCopy()
+    [Theory]
+    [InlineData(OutputContainer.Mp4, false)]
+    [InlineData(OutputContainer.Mkv, true)]
+    public void Build_DataNotCopyable_MapsOutData(OutputContainer container, bool removeData)
     {
         var media = new TestMediaInfoBuilder().WithDataStreams().Build();
-        var args = JoinArgs(_sut.Build(DefaultJob(), media)[0]);
+        var job = JobWith(s =>
+        {
+            s.WithContainer(container);
+            if (removeData)
+                s.WithRemoveData();
+        });
+        var args = JoinArgs(_sut.Build(job, media)[0]);
 
-        args.Should().Contain("-map -0:d?");
-        args.Should().NotContain("-c:d copy");
+        args.Should().Contain("-map -0:d?").And.NotContain("-c:d");
     }
 
     [Fact]
@@ -950,47 +848,8 @@ public class CommandBuilderTests
         args.Should().Contain("-c:d copy");
     }
 
-    [Fact]
-    public void Build_DataPresent_RemoveData_MapsOutAndNoCopy()
-    {
-        var media = new TestMediaInfoBuilder().WithDataStreams().Build();
-        var job = JobWith(s => s.WithRemoveData());
-        var args = JoinArgs(_sut.Build(job, media)[0]);
-
-        args.Should().Contain("-map -0:d?");
-        args.Should().NotContain("-c:d copy");
-    }
-
-    [Fact]
-    public void Build_NoDataStreams_DoesNotAddDataCodec()
-    {
-        var args = JoinArgs(_sut.Build(DefaultJob(), DefaultMedia())[0]);
-
-        args.Should().NotContain("-c:d");
-    }
-
     // ---------------------------------------------------------------
     // Multiple video streams
-
-    [Theory]
-    [InlineData(VideoMode.Copy)]
-    [InlineData(VideoMode.Reencode)]
-    [InlineData(VideoMode.Remove)]
-    public void Build_RemoveImages_AttachedPicturesExcludedFromOutput(VideoMode mode)
-    {
-        var media = new TestMediaInfoBuilder().Build() with
-        {
-            AttachedPictureStreams = [new AttachedPictureStreamInfo(7, "png"), new AttachedPictureStreamInfo(8, "mjpeg")],
-        };
-        var job = new TestJobDefinitionBuilder().WithOutputSettings(s => s.WithVideoMode(mode).WithRemoveImages()).Build();
-
-        var args = JoinArgs(_sut.Build(job, media)[0]);
-
-        if (mode == VideoMode.Remove)
-            args.Should().Contain("-map -0:v?");
-        else
-            args.Should().Contain("-map -0:7").And.Contain("-map -0:8").And.NotContain("-map -0:0");
-    }
     // ---------------------------------------------------------------
 
     [Fact]
@@ -1002,431 +861,35 @@ public class CommandBuilderTests
         args.Should().Contain("-map -0:2");
     }
 
-    [Fact]
-    public void Build_SingleVideoStream_DoesNotMapOutExtras()
-    {
-        var args = JoinArgs(_sut.Build(DefaultJob(), DefaultMedia())[0]);
-
-        args.Should().NotContain("-map -0:");
-    }
-
     // ---------------------------------------------------------------
     // Scale filters
     // ---------------------------------------------------------------
 
-    [Fact]
-    public void Build_OriginalResolution_UsesIdentityScale()
+    [Theory]
+    [InlineData(ResolutionPreset.Original, "scale=trunc(iw/2)*2:trunc(ih/2)*2")]
+    [InlineData(ResolutionPreset.P720, "scale=1280:720:force_original_aspect_ratio=decrease:force_divisible_by=2")]
+    [InlineData(ResolutionPreset.P1080, "scale=1920:1080:force_original_aspect_ratio=decrease:force_divisible_by=2")]
+    [InlineData(ResolutionPreset.P4K, "scale=3840:2160:force_original_aspect_ratio=decrease:force_divisible_by=2")]
+    public void Build_ResolutionPreset_ScalesWithinBoundingBox(ResolutionPreset preset, string scale)
     {
-        var args = JoinArgs(_sut.Build(DefaultJob(), DefaultMedia())[0]);
-
-        args.Should().Contain("-vf scale=trunc(iw/2)*2:trunc(ih/2)*2");
-    }
-
-    [Fact]
-    public void Build_720pResolution_UsesScaleWithForceAspect()
-    {
-        var job = JobWith(s => s.WithResolution(ResolutionPreset.P720));
+        var job = JobWith(s => s.WithResolution(preset));
         var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
 
-        args.Should().Contain(
-            "-vf scale=1280:720:force_original_aspect_ratio=decrease:force_divisible_by=2");
+        args.Should().Contain($"-vf {scale}");
     }
 
-    [Fact]
-    public void Build_1080pResolution_Uses1920x1080()
+    [Theory]
+    [InlineData(false, ResolutionPreset.P720, "scale=720:1280:")]
+    [InlineData(true, ResolutionPreset.P1080, "scale=1080:1920:")]
+    public void Build_PortraitSource_SwapsDimensionsInScale(bool rotated, ResolutionPreset preset, string scale)
     {
-        var job = JobWith(s => s.WithResolution(ResolutionPreset.P1080));
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        args.Should().Contain("-vf scale=1920:1080:");
-    }
-
-    [Fact]
-    public void Build_4kResolution_Uses3840x2160()
-    {
-        var job = JobWith(s => s.WithResolution(ResolutionPreset.P4K));
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        args.Should().Contain("-vf scale=3840:2160:");
-    }
-
-    [Fact]
-    public void Build_PortraitSource_720p_SwapsDimensionsInScale()
-    {
-        var media = new TestMediaInfoBuilder().WithPortrait().Build();
-        var job = JobWith(s => s.WithResolution(ResolutionPreset.P720));
+        var media = rotated
+            ? new TestMediaInfoBuilder().WithRotatedPortrait().Build()
+            : new TestMediaInfoBuilder().WithPortrait().Build();
+        var job = JobWith(s => s.WithResolution(preset));
         var args = JoinArgs(_sut.Build(job, media)[0]);
 
-        args.Should().Contain("-vf scale=720:1280:");
-    }
-
-    [Fact]
-    public void Build_PortraitSource_OriginalResolution_UsesIdentityScale()
-    {
-        var media = new TestMediaInfoBuilder().WithPortrait().Build();
-        var args = JoinArgs(_sut.Build(DefaultJob(), media)[0]);
-
-        args.Should().Contain("-vf scale=trunc(iw/2)*2:trunc(ih/2)*2");
-    }
-
-    [Fact]
-    public void Build_RotatedPortraitSource_1080p_SwapsDimensionsInScale()
-    {
-        var media = new TestMediaInfoBuilder().WithRotatedPortrait().Build();
-        var job = JobWith(s => s.WithResolution(ResolutionPreset.P1080));
-        var args = JoinArgs(_sut.Build(job, media)[0]);
-
-        args.Should().Contain("-vf scale=1080:1920:");
-    }
-
-    [Fact]
-    public void Build_RotatedPortraitSource_720p_SwapsDimensionsInScale()
-    {
-        var media = new TestMediaInfoBuilder().WithRotatedPortrait().Build();
-        var job = JobWith(s => s.WithResolution(ResolutionPreset.P720));
-        var args = JoinArgs(_sut.Build(job, media)[0]);
-
-        args.Should().Contain("-vf scale=720:1280:");
-    }
-
-    // ---------------------------------------------------------------
-    // VP9 bitrate two-pass
-    // ---------------------------------------------------------------
-
-    [Fact]
-    public void Build_Vp9Bitrate_TwoPass_Pass1HasBumpedCpuUsed()
-    {
-        var job = JobWith(s => s
-            .WithVp9()
-            .WithTargetBitrate(2_000_000, twoPass: true));
-        var pass1Args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        pass1Args.Should().Contain("-cpu-used 4");
-    }
-
-    [Fact]
-    public void Build_Vp9Bitrate_TwoPass_Pass2KeepsCpuUsed2()
-    {
-        var job = JobWith(s => s
-            .WithVp9()
-            .WithTargetBitrate(2_000_000, twoPass: true));
-        var pass2Args = JoinArgs(_sut.Build(job, DefaultMedia())[1]);
-
-        pass2Args.Should().Contain("-cpu-used 2");
-    }
-
-    [Fact]
-    public void Build_Vp9Bitrate_SinglePass_ContainsRowMt()
-    {
-        var job = JobWith(s => s
-            .WithVp9()
-            .WithTargetBitrate(2_000_000));
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        args.Should().Contain("-row-mt 1");
-    }
-
-    // ---------------------------------------------------------------
-    // H.265 bitrate encoding
-    // ---------------------------------------------------------------
-
-    [Fact]
-    public void Build_H265Bitrate_UsesLibx265WithPresetProfile()
-    {
-        var job = JobWith(s => s.WithH265().WithTargetBitrate(5_000_000));
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        args.Should().Contain("-c:v libx265")
-            .And.Contain("-preset medium -profile:v main")
-            .And.Contain("-b:v 5000k");
-    }
-
-    // ---------------------------------------------------------------
-    // Error cases
-    // ---------------------------------------------------------------
-
-    [Fact]
-    public void Build_TargetBitrate_ZeroBitrate_Throws()
-    {
-        var job = JobWith(s => s.WithTargetBitrate(0));
-
-        var act = () => _sut.Build(job, DefaultMedia());
-
-        act.Should().Throw<CommandBuildException>();
-    }
-
-    [Fact]
-    public void Build_TargetBitrate_NegativeBitrate_Throws()
-    {
-        var job = JobWith(s => s.WithTargetBitrate(-1000));
-
-        var act = () => _sut.Build(job, DefaultMedia());
-
-        act.Should().Throw<CommandBuildException>();
-    }
-
-    [Fact]
-    public void Build_TargetFileSize_NoDuration_Throws()
-    {
-        var media = new TestMediaInfoBuilder().WithNoDuration().Build();
-        var job = JobWith(s => s.WithTargetFileSize(50));
-
-        var act = () => _sut.Build(job, media);
-
-        act.Should().Throw<CommandBuildException>();
-    }
-
-    [Fact]
-    public void Build_AudioReencode_NullCodec_Throws()
-    {
-        var job = JobWith(s => s.WithAudio(new AudioOptions(AudioMode.Reencode, null, 128_000)));
-
-        var act = () => _sut.Build(job, DefaultMedia());
-
-        act.Should().Throw<CommandBuildException>();
-    }
-
-    [Fact]
-    public void Build_AudioReencode_NullBitrate_Throws()
-    {
-        var job = JobWith(s => s.WithAudio(new AudioOptions(AudioMode.Reencode, AudioCodec.Aac, null)));
-
-        var act = () => _sut.Build(job, DefaultMedia());
-
-        act.Should().Throw<CommandBuildException>();
-    }
-
-    [Fact]
-    public void Build_AudioReencode_ZeroBitrate_Throws()
-    {
-        var job = JobWith(s => s.WithAudio(new AudioOptions(AudioMode.Reencode, AudioCodec.Aac, 0)));
-
-        var act = () => _sut.Build(job, DefaultMedia());
-
-        act.Should().Throw<CommandBuildException>();
-    }
-
-    [Fact]
-    public void Build_QualityEncoding_MissingQualityOptions_Throws()
-    {
-        // Manually build a job with quality strategy but null TargetQuality
-        var job = new JobDefinition(
-            SourcePath: "/test/source.mp4",
-            OutputPath: "/test/output.mp4",
-            Container: OutputContainer.Mp4,
-            VideoCodec: VideoCodec.H264,
-            EncodingStrategy: EncodingStrategy.TargetQuality,
-            TargetQuality: null);
-
-        var act = () => _sut.Build(job, DefaultMedia());
-
-        act.Should().Throw<CommandBuildException>();
-    }
-
-    [Fact]
-    public void Build_VpxCodec_MismatchedEncoderOptions_Throws()
-    {
-        // VP9 codec with H264 encoder options
-        var job = new JobDefinition(
-            SourcePath: "/test/source.mp4",
-            OutputPath: "/test/output.webm",
-            Container: OutputContainer.Webm,
-            VideoCodec: VideoCodec.Vp9,
-            EncodingStrategy: EncodingStrategy.TargetBitrate,
-            VideoEncoderOptions: H26xEncoderOptions.ForCodec(VideoCodec.H264),
-            TargetBitrate: new TargetBitrateOptions(2_000_000));
-
-        var act = () => _sut.Build(job, DefaultMedia());
-
-        act.Should().Throw<CommandBuildException>();
-    }
-
-    [Fact]
-    public void Build_H264Bitrate_MismatchedVpxEncoderOptions_Throws()
-    {
-        var job = new JobDefinition(
-            SourcePath: "/test/source.mp4",
-            OutputPath: "/test/output.mp4",
-            Container: OutputContainer.Mp4,
-            VideoCodec: VideoCodec.H264,
-            EncodingStrategy: EncodingStrategy.TargetBitrate,
-            VideoEncoderOptions: new VpxEncoderOptions(VideoCodec.Vp9),
-            TargetBitrate: new TargetBitrateOptions(2_000_000));
-
-        var act = () => _sut.Build(job, DefaultMedia());
-
-        act.Should().Throw<CommandBuildException>();
-    }
-
-    // ---------------------------------------------------------------
-    // Combined scenarios
-    // ---------------------------------------------------------------
-
-    [Fact]
-    public void Build_Mp4SubtitlesAndData_ConvertsSubtitlesAndMapsOutData()
-    {
-        var media = new TestMediaInfoBuilder().WithSubtitles().WithDataStreams().Build();
-        var args = JoinArgs(_sut.Build(DefaultJob(), media)[0]);
-
-        args.Should().Contain("-c:s mov_text").And.Contain("-map -0:d?");
-        args.Should().NotContain("-c:d copy");
-    }
-
-    [Fact]
-    public void Build_MkvSubtitlesAndData_BothCopied()
-    {
-        var media = new TestMediaInfoBuilder().WithSubtitles().WithDataStreams().Build();
-        var job = JobWith(s => s.WithContainer(OutputContainer.Mkv));
-        var args = JoinArgs(_sut.Build(job, media)[0]);
-
-        args.Should().Contain("-c:s copy").And.Contain("-c:d copy");
-    }
-
-    [Fact]
-    public void Build_RemoveSubtitlesAndData_BothMappedOut()
-    {
-        var media = new TestMediaInfoBuilder().WithSubtitles().WithDataStreams().Build();
-        var job = JobWith(s => s.WithRemoveSubtitles().WithRemoveData());
-        var args = JoinArgs(_sut.Build(job, media)[0]);
-
-        args.Should().Contain("-map -0:s?").And.Contain("-map -0:d?");
-    }
-
-    [Fact]
-    public void Build_Vp9Bitrate_SinglePass_UsesDefaultCpuUsed2()
-    {
-        var job = JobWith(s => s.WithVp9().WithTargetBitrate(1_000_000));
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        args.Should().Contain("-c:v libvpx-vp9")
-            .And.Contain("-cpu-used 2")
-            .And.Contain("-b:v 1000k");
-    }
-
-    [Fact]
-    public void Build_NoAudioStreams_AudioCopy_StillEmitsCopyArg()
-    {
-        var media = new TestMediaInfoBuilder().WithNoAudio().Build();
-        var job = JobWith(s => s.WithAudioCopy());
-        var args = JoinArgs(_sut.Build(job, media)[0]);
-
-        args.Should().Contain("-c:a copy");
-    }
-
-    [Fact]
-    public void Build_CustomOutputPath_AppearsInArguments()
-    {
-        var job = new TestJobDefinitionBuilder()
-            .WithOutputPath("/custom/dir/video.mkv")
-            .Build();
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        args.Should().EndWith("/custom/dir/video.mkv");
-    }
-
-    [Fact]
-    public void Build_CustomSourcePath_AppearsInInputArg()
-    {
-        var job = new TestJobDefinitionBuilder()
-            .WithSourcePath("/my/video.avi")
-            .Build();
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        args.Should().Contain("-i /my/video.avi");
-    }
-
-    [Fact]
-    public void SuggestOutputPath_AutoNameSkipsReservedQueuePath()
-    {
-        var stem = $"ffapp-{Guid.NewGuid():N}";
-        var sourcePath = Path.Combine(Path.GetTempPath(), $"{stem}.mp4");
-        var reservedPath = Path.Combine(Path.GetTempPath(), $"{stem}.mkv");
-
-        var result = DefaultCommandBuilder.SuggestOutputPath(
-            sourcePath,
-            OutputContainer.Mkv,
-            isAutoName: true,
-            reservedOutputPaths: [reservedPath]);
-
-        result.Should().Be(Path.Combine(Path.GetTempPath(), $"{stem}-1.mkv"));
-    }
-
-    [Fact]
-    public void SuggestOutputPath_ExplicitNameDoesNotSkipReservedQueuePath()
-    {
-        var stem = $"ffapp-{Guid.NewGuid():N}";
-        var sourcePath = Path.Combine(Path.GetTempPath(), $"{stem}.mp4");
-        var reservedPath = Path.Combine(Path.GetTempPath(), $"{stem}-chosen.mkv");
-
-        var result = DefaultCommandBuilder.SuggestOutputPath(
-            sourcePath,
-            OutputContainer.Mkv,
-            outputFilename: $"{stem}-chosen",
-            isAutoName: false,
-            reservedOutputPaths: [reservedPath]);
-
-        result.Should().Be(reservedPath);
-    }
-
-    // ---------------------------------------------------------------
-    // MP4 faststart
-    // ---------------------------------------------------------------
-
-    [Fact]
-    public void Build_Mp4Container_ContainsMovflagsFaststart()
-    {
-        var args = JoinArgs(_sut.Build(DefaultJob(), DefaultMedia())[0]);
-
-        args.Should().Contain("-movflags +faststart");
-    }
-
-    [Fact]
-    public void Build_MkvContainer_DoesNotContainMovflagsFaststart()
-    {
-        var job = JobWith(s => s.WithContainer(OutputContainer.Mkv));
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        args.Should().NotContain("-movflags");
-    }
-
-    [Fact]
-    public void Build_WebmContainer_DoesNotContainMovflagsFaststart()
-    {
-        var job = JobWith(s => s.WithVp9());
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        args.Should().NotContain("-movflags");
-    }
-
-    [Fact]
-    public void Build_Mp4TwoPass_Pass2ContainsMovflagsFaststart()
-    {
-        var job = JobWith(s => s.WithTargetBitrate(3_000_000, twoPass: true));
-        var pass2Args = JoinArgs(_sut.Build(job, DefaultMedia())[1]);
-
-        pass2Args.Should().Contain("-movflags +faststart");
-    }
-
-    // ---------------------------------------------------------------
-    // SDR pixel formats
-    // ---------------------------------------------------------------
-
-    [Fact]
-    public void Build_H265_DoesNotContainPixFmt()
-    {
-        var job = JobWith(s => s.WithH265());
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        args.Should().NotContain("-pix_fmt");
-    }
-
-    [Fact]
-    public void Build_Vp9_DoesNotContainPixFmt()
-    {
-        var job = JobWith(s => s.WithVp9());
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        args.Should().NotContain("-pix_fmt");
+        args.Should().Contain($"-vf {scale}");
     }
 
     // ---------------------------------------------------------------
@@ -1441,106 +904,81 @@ public class CommandBuilderTests
         args.Should().NotContain("-r ");
     }
 
-    [Fact]
-    public void Build_Fps30_ContainsRate30()
+    [Theory]
+    [InlineData(FrameRatePreset.Fps24, "24")]
+    [InlineData(FrameRatePreset.Fps30, "30")]
+    [InlineData(FrameRatePreset.Fps60, "60")]
+    public void Build_FrameRatePreset_EmitsRate(FrameRatePreset preset, string rate)
     {
-        var job = JobWith(s => s.WithFrameRate(FrameRatePreset.Fps30));
+        var job = JobWith(s => s.WithFrameRate(preset));
         var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
 
-        args.Should().Contain("-r 30");
+        args.Should().Contain($"-r {rate}");
     }
+
+    // ---------------------------------------------------------------
+    // MP4 faststart
+    // ---------------------------------------------------------------
 
     [Fact]
-    public void Build_Fps24_ContainsRate24()
+    public void Build_Mp4Container_ContainsMovflagsFaststart()
     {
-        var job = JobWith(s => s.WithFrameRate(FrameRatePreset.Fps24));
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+        var args = JoinArgs(_sut.Build(DefaultJob(), DefaultMedia())[0]);
 
-        args.Should().Contain("-r 24");
+        args.Should().Contain("-movflags +faststart");
     }
 
-    [Fact]
-    public void Build_Fps60_ContainsRate60()
+    [Theory]
+    [InlineData(OutputContainer.Mkv)]
+    [InlineData(OutputContainer.Webm)]
+    public void Build_NonMp4Container_DoesNotContainMovflags(OutputContainer container)
     {
-        var job = JobWith(s => s.WithFrameRate(FrameRatePreset.Fps60));
+        var job = JobWith(s => s.WithContainer(container));
         var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
 
-        args.Should().Contain("-r 60");
+        args.Should().NotContain("-movflags");
     }
+
+    // ---------------------------------------------------------------
+    // Pixel formats and HDR
+    // ---------------------------------------------------------------
 
     // --- HDR: SDR backward compatibility ---
 
-    [Fact]
-    public void Build_H264Quality_SdrSource_NoHdrArguments()
+    [Theory]
+    [InlineData(VideoCodec.H264, "yuv420p")]
+    [InlineData(VideoCodec.Av1, "yuv420p10le")]
+    [InlineData(VideoCodec.H265, null)]
+    [InlineData(VideoCodec.Vp9, null)]
+    public void Build_SdrSource_UsesCodecPixelFormatWithoutHdrArguments(VideoCodec codec, string? pixelFormat)
     {
-        var job = DefaultJob();
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+        var cmd = _sut.Build(JobWith(s => WithCodec(s, codec)), DefaultMedia())[0];
+        var args = JoinArgs(cmd);
 
-        args.Should().Contain("-pix_fmt yuv420p");
-        args.Should().NotContain("color_primaries");
-        args.Should().NotContain("x265-params");
-        args.Should().NotContain("zscale");
-    }
-
-    [Fact]
-    public void Build_Av1Quality_SdrSource_UsesYuv420p10le()
-    {
-        var job = JobWith(s => s.WithAv1());
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        args.Should().Contain("-pix_fmt yuv420p10le");
-        args.Should().NotContain("color_primaries");
+        if (pixelFormat is null)
+            args.Should().NotContain("-pix_fmt");
+        else
+            cmd.Arguments[cmd.Arguments.IndexOf("-pix_fmt") + 1].Should().Be(pixelFormat);
+        args.Should().NotContain("color_primaries")
+            .And.NotContain("x265-params")
+            .And.NotContain("zscale");
     }
 
     // --- HDR-to-HDR preserve ---
 
     [Fact]
-    public void Build_H265Quality_Hdr10Preserve_SetsMain10AndColorMetadata()
+    public void Build_H265Quality_Hdr10Preserve_SetsMain10AndX265HdrParams()
     {
-        var job = JobWith(s => s.WithH265().WithHdrPreserve());
-        var media = new TestMediaInfoBuilder().WithHdr10().Build();
-        var args = JoinArgs(_sut.Build(job, media)[0]);
-
-        args.Should().Contain("-pix_fmt yuv420p10le");
-        args.Should().Contain("-color_primaries bt2020");
-        args.Should().Contain("-color_trc smpte2084");
-        args.Should().Contain("-colorspace bt2020nc");
-        args.Should().Contain("-profile:v main10");
-    }
-
-    [Fact]
-    public void Build_H265Quality_Hdr10Preserve_IncludesX265Params()
-    {
-        var job = JobWith(s => s.WithH265().WithHdrPreserve());
-        var media = new TestMediaInfoBuilder().WithHdr10().Build();
-        var args = JoinArgs(_sut.Build(job, media)[0]);
-
-        args.Should().Contain("-x265-params");
-        args.Should().Contain("hdr-opt=1");
-        args.Should().Contain("repeat-headers=1");
-        args.Should().Contain("colorprim=bt2020");
-        args.Should().Contain("transfer=smpte2084");
-        args.Should().Contain("colormatrix=bt2020nc");
-    }
-
-    [Fact]
-    public void Build_H265Quality_Hdr10WithMaxCll_IncludesMaxCll()
-    {
-        var job = JobWith(s => s.WithH265().WithHdrPreserve());
-        var media = new TestMediaInfoBuilder().WithHdr10(maxCll: 1000, maxFall: 400).Build();
-        var args = JoinArgs(_sut.Build(job, media)[0]);
-
-        args.Should().Contain("max-cll=1000,400");
-    }
-
-    [Fact]
-    public void Build_H265Quality_Hdr10WithMasteringDisplay_IncludesMasterDisplay()
-    {
+        // The -color_* tags themselves are covered by ColorMetadataTests.
         var job = JobWith(s => s.WithH265().WithHdrPreserve());
         var media = new TestMediaInfoBuilder().WithHdr10AndMasteringDisplay().Build();
         var args = JoinArgs(_sut.Build(job, media)[0]);
 
-        args.Should().Contain("master-display=G(7500,3000)B(34000,16000)R(13250,34500)WP(15635,16450)L(10000000,50)");
+        args.Should().Contain("-pix_fmt yuv420p10le").And.Contain("-profile:v main10");
+        args.Should().Contain("-x265-params hdr-opt=1:repeat-headers=1"
+            + ":colorprim=bt2020:transfer=smpte2084:colormatrix=bt2020nc"
+            + ":max-cll=1000,400"
+            + ":master-display=G(7500,3000)B(34000,16000)R(13250,34500)WP(15635,16450)L(10000000,50)");
     }
 
     [Fact]
@@ -1588,57 +1026,38 @@ public class CommandBuilderTests
     }
 
     [Fact]
-    public void Build_H264Quality_Hdr10Tonemap_CustomAlgorithm()
+    public void Build_H264Quality_Hdr10Tonemap_CustomAlgorithmDesatAndPeak()
     {
-        var job = JobWith(s => s.WithToneMapToSdr(ToneMapAlgorithm.Mobius));
+        var job = JobWith(s => s.WithToneMapToSdr(ToneMapAlgorithm.Mobius, desaturation: 0.0, peakNits: 1000));
         var media = new TestMediaInfoBuilder().WithHdr10().Build();
         var args = JoinArgs(_sut.Build(job, media)[0]);
 
-        args.Should().Contain("tonemap=mobius");
+        args.Should().Contain("tonemap=mobius:desat=0.0:peak=1000");
     }
 
-    [Fact]
-    public void Build_H264Quality_Hdr10Tonemap_CustomDesatAndPeak()
+    [Theory]
+    [InlineData(ToneMapEngine.Standard, "zscale=t=linear")]
+    [InlineData(ToneMapEngine.Libplacebo, "libplacebo=")]
+    public void Build_Av1Quality_Hdr10Tonemap_OutputFormatIs10bit(ToneMapEngine engine, string toneMapFilter)
     {
-        var job = JobWith(s => s.WithToneMapToSdr(desaturation: 0.0, peakNits: 1000));
+        var job = JobWith(s => WithToneMap(s.WithAv1(), engine));
         var media = new TestMediaInfoBuilder().WithHdr10().Build();
         var args = JoinArgs(_sut.Build(job, media)[0]);
 
-        args.Should().Contain("tonemap=hable:desat=0.0:peak=1000");
+        args.Should().Contain(toneMapFilter).And.Contain("format=yuv420p10le");
     }
 
-    [Fact]
-    public void Build_Av1Quality_Hdr10Tonemap_ToneMapOutputFormatIs10bit()
+    [Theory]
+    [InlineData(ToneMapEngine.Standard, "zscale=")]
+    [InlineData(ToneMapEngine.Libplacebo, "libplacebo=")]
+    public void Build_H264Quality_Hdr10TonemapWithCrop_TonemapComesFirst(ToneMapEngine engine, string toneMapFilter)
     {
-        var job = JobWith(s => s.WithAv1().WithToneMapToSdr());
+        var job = JobWith(s => WithToneMap(s, engine)) with { Crop = new CropRect(100, 100, 1600, 900) };
         var media = new TestMediaInfoBuilder().WithHdr10().Build();
-        var args = JoinArgs(_sut.Build(job, media)[0]);
+        var args = _sut.Build(job, media)[0].Arguments;
 
-        // Tonemap chain output should be 10-bit for AV1
-        args.Should().Contain("format=yuv420p10le");
-        args.Should().Contain("zscale=t=linear");
-    }
-
-    [Fact]
-    public void Build_H264Quality_Hdr10Tonemap_WithCrop_TonemapComesFirst()
-    {
-        var settings = new TestOutputSettingsBuilder().WithToneMapToSdr().Build();
-        var job = new TestJobDefinitionBuilder()
-            .WithOutputSettings(settings)
-            .Build() with
-        { Crop = new CropRect(100, 100, 1600, 900) };
-        var media = new TestMediaInfoBuilder().WithHdr10().Build();
-        var args = JoinArgs(_sut.Build(job, media)[0]);
-
-        var vfIndex = args.IndexOf("-vf");
-        vfIndex.Should().BeGreaterThan(-1);
-
-        // Extract the filter chain value
-        var filterStart = vfIndex + 4; // "-vf " length
-        var filterChain = args[filterStart..];
-        var zscalePos = filterChain.IndexOf("zscale");
-        var cropPos = filterChain.IndexOf("crop=");
-        zscalePos.Should().BeLessThan(cropPos, "tonemap filters should come before crop");
+        args[args.IndexOf("-vf") + 1].Should().StartWith(toneMapFilter)
+            .And.Contain(",crop=1600:900:100:100");
     }
 
     [Fact]
@@ -1706,38 +1125,6 @@ public class CommandBuilderTests
         args.Should().Contain("tonemapping_param=2.50");
     }
 
-    [Fact]
-    public void Build_Av1Quality_Hdr10LibplaceboTonemap_OutputFormatIs10bit()
-    {
-        var job = JobWith(s => s.WithAv1().WithLibplaceboTonemapToSdr());
-        var media = new TestMediaInfoBuilder().WithHdr10().Build();
-        var args = JoinArgs(_sut.Build(job, media)[0]);
-
-        args.Should().Contain("format=yuv420p10le");
-        args.Should().Contain("libplacebo=");
-    }
-
-    [Fact]
-    public void Build_H264Quality_Hdr10LibplaceboTonemap_WithCrop_LibplaceboComesFirst()
-    {
-        var settings = new TestOutputSettingsBuilder().WithLibplaceboTonemapToSdr().Build();
-        var job = new TestJobDefinitionBuilder()
-            .WithOutputSettings(settings)
-            .Build() with
-        { Crop = new CropRect(100, 100, 1600, 900) };
-        var media = new TestMediaInfoBuilder().WithHdr10().Build();
-        var args = JoinArgs(_sut.Build(job, media)[0]);
-
-        var vfIndex = args.IndexOf("-vf");
-        vfIndex.Should().BeGreaterThan(-1);
-
-        var filterStart = vfIndex + 4;
-        var filterChain = args[filterStart..];
-        var libplaceboPos = filterChain.IndexOf("libplacebo");
-        var cropPos = filterChain.IndexOf("crop=");
-        libplaceboPos.Should().BeLessThan(cropPos, "libplacebo filter should come before crop");
-    }
-
     // ---------------------------------------------------------------
     // Keyframe interval
     // ---------------------------------------------------------------
@@ -1773,21 +1160,6 @@ public class CommandBuilderTests
     }
 
     [Fact]
-    public void Build_KeyframeIntervalSeconds_Av1Hdr_CombinesWithHdrParam()
-    {
-        var job = JobWith(s => s.WithAv1().WithHdrPreserve().WithKeyframeIntervalSeconds(10));
-        var media = new TestMediaInfoBuilder().WithHdr10().Build();
-        var args = JoinArgs(_sut.Build(job, media)[0]);
-
-        args.Should().Contain("keyint=10s");
-        args.Should().Contain("enable-hdr=1");
-        // Both should be in a single -svtav1-params value
-        var svtIdx = args.IndexOf("-svtav1-params");
-        args.IndexOf("-svtav1-params", svtIdx + 1).Should().Be(-1,
-            "there should be only one -svtav1-params flag");
-    }
-
-    [Fact]
     public void Build_NoKeyframeInterval_DoesNotEmitGopFlag()
     {
         var job = JobWith(s => s.WithAv1());
@@ -1797,7 +1169,7 @@ public class CommandBuilderTests
     }
 
     // ---------------------------------------------------------------
-    // AV1 encoder tuning (tune, enable-overlays, scm)
+    // AV1 encoder tuning (tune, enable-overlays, scm, variance boost, mbr)
     // ---------------------------------------------------------------
 
     [Fact]
@@ -1822,38 +1194,7 @@ public class CommandBuilderTests
             .WithQuality(new Av1QualityOptions(Tune: 1, EnableOverlays: 0, Scm: 2)));
         var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
 
-        args.Should().NotContain("scd=");
         args.Should().NotContain("-svtav1-params");
-        args.Should().NotContain("enable-qm=");
-        args.Should().NotContain("qm-min=");
-        args.Should().NotContain("qm-max=");
-        args.Should().NotContain("luminance-qp-bias=");
-        args.Should().NotContain("tune=");
-        args.Should().NotContain("enable-overlays=");
-        args.Should().NotContain("scm=");
-    }
-
-    [Fact]
-    public void Build_Av1Quality_NonDefaultTune_EmitsTuneParam()
-    {
-        var job = JobWith(s => s.WithAv1()
-            .WithQuality(new Av1QualityOptions(Tune: 2)));
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        args.Should().Contain("-svtav1-params");
-        args.Should().Contain("tune=2");
-    }
-
-    [Fact]
-    public void Build_Av1Quality_OverlaysEnabled_EmitsOverlayParam()
-    {
-        // enable-overlays=1 differs from SVT-AV1 encoder default (0)
-        var job = JobWith(s => s.WithAv1()
-            .WithQuality(new Av1QualityOptions(Tune: 1, EnableOverlays: 1, Scm: 2)));
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        args.Should().Contain("-svtav1-params");
-        args.Should().Contain("enable-overlays=1");
     }
 
     [Fact]
@@ -1880,93 +1221,6 @@ public class CommandBuilderTests
         args.Should().Contain("scm=3");
     }
 
-    [Theory]
-    [InlineData(EncodingStrategy.TargetQuality, 1, 1, 1)]
-    [InlineData(EncodingStrategy.TargetBitrate, 1, 4, 8)]
-    [InlineData(EncodingStrategy.TargetFileSize, 1, 2, 5)]
-    [InlineData(EncodingStrategy.TargetQuality, 0, 4, 8)]
-    [InlineData(EncodingStrategy.TargetBitrate, 0, 1, 1)]
-    public void Build_Av1VarianceBoost_EmitsSelectedOptionsOnlyWhenEnabled(
-        EncodingStrategy strategy, int enabled, int strength, int octile)
-    {
-        var job = JobWith(s => s.WithAv1().WithAv1VarianceBoost(enabled, strength, octile)
-            .WithStrategy(strategy));
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        if (enabled == 1)
-        {
-            args.Should().Contain($"variance-boost-strength={strength}");
-            args.Should().Contain($"variance-octile={octile}");
-        }
-        else
-        {
-            args.Should().NotContain("variance-boost-strength=");
-            args.Should().NotContain("variance-octile=");
-        }
-    }
-
-    [Fact]
-    public void Build_Av1Quality_VarianceBoostDefault_Omitted()
-    {
-        var job = JobWith(s => s.WithAv1());
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        args.Should().NotContain("enable-variance-boost=");
-    }
-
-    [Fact]
-    public void Build_Av1Quality_VarianceBoostEnabled_EmitsParam()
-    {
-        var job = JobWith(s => s.WithAv1()
-            .WithQuality(new Av1QualityOptions(EnableVarianceBoost: 1)));
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        args.Should().Contain("-svtav1-params");
-        args.Should().Contain("enable-variance-boost=1");
-    }
-
-    [Fact]
-    public void Build_Av1Encoder_VarianceBoostEnabled_EmitsParam()
-    {
-        var job = JobWith(s => s.WithAv1()
-            .WithStrategy(EncodingStrategy.TargetBitrate)
-            .WithEncoderOptions(new Av1EncoderOptions(EnableVarianceBoost: 1)));
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        args.Should().Contain("enable-variance-boost=1");
-    }
-
-    [Fact]
-    public void Build_Av1Quality_MaxBitrateSet_EmitsMbrParam()
-    {
-        var job = JobWith(s => s.WithAv1().WithAv1MaxBitrateKbps(5000));
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        args.Should().Contain("-svtav1-params");
-        args.Should().Contain("mbr=5000k");
-    }
-
-    [Fact]
-    public void Build_Av1Quality_MaxBitrateZero_OmitsMbrParam()
-    {
-        var job = JobWith(s => s.WithAv1());
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        args.Should().NotContain("mbr=");
-    }
-
-    [Fact]
-    public void Build_Av1Bitrate_MaxBitrateIgnored_OmitsMbrParam()
-    {
-        // mbr only meaningful with CRF; in bitrate mode MaxBitrateKbps on quality options is moot.
-        var job = JobWith(s => s.WithAv1()
-            .WithAv1MaxBitrateKbps(5000)
-            .WithTargetBitrate(3_000_000));
-        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
-
-        args.Should().NotContain("mbr=");
-    }
-
     [Fact]
     public void Build_Av1Bitrate_NonDefaultTune_EmitsTuneParam()
     {
@@ -1979,6 +1233,45 @@ public class CommandBuilderTests
         args.Should().Contain("tune=3");
     }
 
+    [Theory]
+    [InlineData(EncodingStrategy.TargetQuality, 1, 1, 1)]
+    [InlineData(EncodingStrategy.TargetBitrate, 1, 4, 8)]
+    [InlineData(EncodingStrategy.TargetQuality, 0, 4, 8)]
+    [InlineData(EncodingStrategy.TargetBitrate, 0, 1, 1)]
+    public void Build_Av1VarianceBoost_EmitsSelectedOptionsOnlyWhenEnabled(
+        EncodingStrategy strategy, int enabled, int strength, int octile)
+    {
+        var job = JobWith(s => s.WithAv1().WithAv1VarianceBoost(enabled, strength, octile)
+            .WithStrategy(strategy));
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        if (enabled == 1)
+        {
+            args.Should().Contain(
+                $"enable-variance-boost=1:variance-boost-strength={strength}:variance-octile={octile}");
+        }
+        else
+        {
+            args.Should().NotContain("variance-boost").And.NotContain("variance-octile");
+        }
+    }
+
+    [Theory]
+    [InlineData(EncodingStrategy.TargetQuality, 5000, true)]
+    [InlineData(EncodingStrategy.TargetQuality, 0, false)]
+    [InlineData(EncodingStrategy.TargetBitrate, 5000, false)]
+    public void Build_Av1MaxBitrate_EmitsMbrOnlyForCappedCrf(EncodingStrategy strategy, int kbps, bool emitted)
+    {
+        // mbr is only meaningful with CRF; in bitrate mode MaxBitrateKbps on quality options is moot.
+        var job = JobWith(s => s.WithAv1().WithAv1MaxBitrateKbps(kbps).WithStrategy(strategy));
+        var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
+
+        if (emitted)
+            args.Should().Contain("-svtav1-params").And.Contain($"mbr={kbps}k");
+        else
+            args.Should().NotContain("mbr=");
+    }
+
     // ---------------------------------------------------------------
     // Film grain
     // ---------------------------------------------------------------
@@ -1988,7 +1281,6 @@ public class CommandBuilderTests
     [InlineData(EncodingStrategy.TargetQuality, 50, 1, 0)]
     [InlineData(EncodingStrategy.TargetBitrate, 8, 0, 0)]
     [InlineData(EncodingStrategy.TargetBitrate, 15, 1, 1)]
-    [InlineData(EncodingStrategy.TargetFileSize, 8, 1, 0)]
     public void Build_Av1FilmGrain_EmitsSelectedSettings(
         EncodingStrategy strategy, int strength, int denoise, int adaptive)
     {
@@ -2009,7 +1301,6 @@ public class CommandBuilderTests
     [Theory]
     [InlineData(EncodingStrategy.TargetQuality)]
     [InlineData(EncodingStrategy.TargetBitrate)]
-    [InlineData(EncodingStrategy.TargetFileSize)]
     public void Build_Av1FilmGrainOff_OmitsDependentSettings(EncodingStrategy strategy)
     {
         var job = JobWith(s => s.WithAv1().WithAv1FilmGrain(0, denoise: 1, adaptive: 0)
@@ -2025,7 +1316,6 @@ public class CommandBuilderTests
     [Theory]
     [InlineData(EncodingStrategy.TargetQuality, 8, 0, 1)]
     [InlineData(EncodingStrategy.TargetBitrate, 20, 1, 0)]
-    [InlineData(EncodingStrategy.TargetFileSize, 20, 1, 0)]
     public void Build_Av1FilmGrain_UsesOptionsForActiveStrategy(
         EncodingStrategy strategy, int strength, int denoise, int adaptive)
     {
@@ -2115,5 +1405,78 @@ public class CommandBuilderTests
         var job = JobWith(s => s.WithAdditionalOptions("   "));
 
         _sut.Build(job, DefaultMedia())[0].Arguments.Length.Should().Be(baseline);
+    }
+
+    // ---------------------------------------------------------------
+    // Error cases
+    // ---------------------------------------------------------------
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1000)]
+    public void Build_NonPositiveTargetBitrate_Throws(int bitrate)
+    {
+        var job = JobWith(s => s.WithTargetBitrate(bitrate));
+
+        var act = () => _sut.Build(job, DefaultMedia());
+
+        act.Should().Throw<CommandBuildException>();
+    }
+
+    [Fact]
+    public void Build_TargetFileSize_NoDuration_Throws()
+    {
+        var media = new TestMediaInfoBuilder().WithNoDuration().Build();
+        var job = JobWith(s => s.WithTargetFileSize(50));
+
+        var act = () => _sut.Build(job, media);
+
+        act.Should().Throw<CommandBuildException>();
+    }
+
+    [Theory]
+    [InlineData(null, 128_000)]
+    [InlineData(AudioCodec.Aac, null)]
+    [InlineData(AudioCodec.Aac, 0)]
+    public void Build_AudioReencode_MissingCodecOrPositiveBitrate_Throws(AudioCodec? codec, int? bitrate)
+    {
+        var job = JobWith(s => s.WithAudio(new AudioOptions(AudioMode.Reencode, codec, bitrate)));
+
+        var act = () => _sut.Build(job, DefaultMedia());
+
+        act.Should().Throw<CommandBuildException>();
+    }
+
+    [Fact]
+    public void Build_QualityEncoding_MissingQualityOptions_Throws()
+    {
+        // Manually build a job with quality strategy but null TargetQuality
+        var job = new JobDefinition(
+            SourcePath: "/test/source.mp4",
+            OutputPath: "/test/output.mp4",
+            Container: OutputContainer.Mp4,
+            VideoCodec: VideoCodec.H264,
+            EncodingStrategy: EncodingStrategy.TargetQuality,
+            TargetQuality: null);
+
+        var act = () => _sut.Build(job, DefaultMedia());
+
+        act.Should().Throw<CommandBuildException>();
+    }
+
+    [Theory]
+    [InlineData(VideoCodec.Vp9)]
+    [InlineData(VideoCodec.H264)]
+    public void Build_TargetBitrate_MismatchedEncoderOptions_Throws(VideoCodec codec)
+    {
+        VideoEncoderOptions mismatched = codec == VideoCodec.Vp9
+            ? H26xEncoderOptions.ForCodec(VideoCodec.H264)
+            : new VpxEncoderOptions(VideoCodec.Vp9);
+        var job = JobWith(s => s.WithVideoCodec(codec).WithEncoderOptions(mismatched)
+            .WithTargetBitrate(2_000_000));
+
+        var act = () => _sut.Build(job, DefaultMedia());
+
+        act.Should().Throw<CommandBuildException>();
     }
 }

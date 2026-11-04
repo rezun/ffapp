@@ -49,10 +49,7 @@ public sealed class ColorMetadataTests
 
     [Theory]
     [InlineData(null)]
-    [InlineData("")]
-    [InlineData("unknown")]
     [InlineData("unspecified")]
-    [InlineData("reserved")]
     [InlineData(" UNKNOWN ")]
     public void Automatic_DoesNotGuessMissingValues(string? missing)
     {

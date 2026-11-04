@@ -90,6 +90,21 @@ public sealed class AttachedPictureCommandTests
     }
 
     [Theory]
+    [InlineData(VideoMode.Copy)]
+    [InlineData(VideoMode.Reencode)]
+    [InlineData(VideoMode.Remove)]
+    public void RemoveImages_Mp4ExcludesPicturesFromOutput(VideoMode mode)
+    {
+        var job = new TestJobDefinitionBuilder().WithOutputSettings(s => s.WithVideoMode(mode).WithRemoveImages()).Build();
+        var args = string.Join(' ', _sut.Build(job, Media())[0].Arguments);
+
+        if (mode == VideoMode.Remove)
+            args.Should().Contain("-map -0:v?");
+        else
+            args.Should().Contain("-map -0:7").And.Contain("-map -0:8").And.NotContain("-map -0:0");
+    }
+
+    [Theory]
     [InlineData(false, 1)]
     [InlineData(true, 0)]
     public void Matroska_ImageMetadataDoesNotOverwriteOtherAttachments(bool removeData, int imageAttachmentIndex)

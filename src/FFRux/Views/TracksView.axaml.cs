@@ -25,6 +25,8 @@ public partial class TracksView : UserControl
         TrackList.AddHandler(PointerMovedEvent, OnRowMoved, RoutingStrategies.Tunnel);
         TrackList.AddHandler(PointerReleasedEvent, OnRowReleased, RoutingStrategies.Tunnel);
         TrackList.AddHandler(PointerCaptureLostEvent, (_, _) => EndDrag(), RoutingStrategies.Tunnel);
+        // Tunnel so Space reaches us before the ListBox uses it for selection.
+        TrackList.AddHandler(KeyDownEvent, OnTrackListKeyDown, RoutingStrategies.Tunnel);
     }
 
     private MainWindowViewModel? ViewModel => DataContext as MainWindowViewModel;
@@ -35,6 +37,16 @@ public partial class TracksView : UserControl
 
     private void OnSelectionChanged(object? sender, SelectionChangedEventArgs e) =>
         ViewModel?.SelectTracks([.. TrackList.SelectedItems?.OfType<TrackViewModel>() ?? []]);
+
+    // Space toggles every selected track; Ctrl+Space and the like keep their ListBox meaning.
+    private void OnTrackListKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Space || e.KeyModifiers != KeyModifiers.None || e.Source is CheckBox)
+            return;
+        if (ViewModel?.ToggleSelectedTracksCommand is { } toggle && toggle.CanExecute(null))
+            toggle.Execute(null);
+        e.Handled = true;
+    }
 
     private void OnRowPressed(object? sender, PointerPressedEventArgs e)
     {

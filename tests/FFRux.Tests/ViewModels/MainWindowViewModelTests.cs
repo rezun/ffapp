@@ -123,6 +123,60 @@ public sealed class MainWindowViewModelTests : IDisposable
         sut.Output.OutputPath.Should().Be("/media/movie (remux).mkv");
     }
 
+    [Fact]
+    public async Task ToggleTracksCommand_ExcludesAndIncludesAllTracksOfOneSource()
+    {
+        var sut = await OpenAsync(Movie("/media/movie.mkv"), Media("/media/dub.ac3", audio: [Audio(0, "ac3", "ger")], format: "ac3"));
+        var movie = sut.Sources[0];
+
+        movie.ToggleTracksCommand.Execute(null);
+
+        movie.TracksEnabled.Should().BeFalse();
+        sut.Tracks.Where(t => t.SourceFile == movie).Should().OnlyContain(t => !t.Enabled);
+        sut.Sources[1].TracksEnabled.Should().BeTrue();
+        sut.TracksSummary.Should().StartWith("1 of 4 enabled");
+
+        movie.ToggleTracksCommand.Execute(null);
+
+        movie.TracksEnabled.Should().BeTrue();
+        sut.TracksSummary.Should().StartWith("4 of 4 enabled");
+    }
+
+    [Fact]
+    public async Task ToggleTracksCommand_IncludesAllWhenSomeAreExcluded()
+    {
+        var sut = await OpenAsync(Movie("/media/movie.mkv"));
+        var movie = sut.Sources[0];
+        sut.Tracks.Single(t => t.Kind == TrackKind.Audio).Enabled = false;
+        movie.TracksEnabled.Should().BeNull();
+
+        movie.ToggleTracksCommand.Execute(null);
+
+        movie.TracksEnabled.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ToggleSelectedTracksCommand_TogglesTheSelection()
+    {
+        var sut = await OpenAsync(Movie("/media/movie.mkv"));
+        var audio = sut.Tracks.Single(t => t.Kind == TrackKind.Audio);
+        var subtitle = sut.Tracks.Single(t => t.Kind == TrackKind.Subtitle);
+        sut.ToggleSelectedTracksCommand.CanExecute(null).Should().BeFalse();
+
+        sut.SelectTracks([audio, subtitle]);
+        sut.ToggleSelectedTracksCommand.Execute(null);
+
+        audio.Enabled.Should().BeFalse();
+        subtitle.Enabled.Should().BeFalse();
+        sut.Tracks.Single(t => t.Kind == TrackKind.Video).Enabled.Should().BeTrue();
+
+        subtitle.Enabled = true;
+        sut.ToggleSelectedTracksCommand.Execute(null);
+
+        audio.Enabled.Should().BeTrue();
+        subtitle.Enabled.Should().BeTrue();
+    }
+
     private static string Describe(object row) => row switch
     {
         TrackGroupViewModel group => group.Label,

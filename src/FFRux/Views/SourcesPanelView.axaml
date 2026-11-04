@@ -34,12 +34,18 @@
                                  MaxHeight="320" Margin="0,0,0,0">
                             <ListBox.ItemTemplate>
                                 <DataTemplate x:DataType="vm:SourceViewModel">
-                                    <Grid ColumnDefinitions="Auto,*" ToolTip.Tip="{Binding Path}">
-                                        <Border Classes="marker" VerticalAlignment="Top" Margin="0,1,8,0"
+                                    <Grid ColumnDefinitions="Auto,Auto,*" ToolTip.Tip="{Binding Path}">
+                                        <!-- OneWay: the command decides the new state, so a mixed source becomes all included -->
+                                        <CheckBox IsChecked="{Binding TracksEnabled, Mode=OneWay}" Command="{Binding ToggleTracksCommand}"
+                                                  IsVisible="{Binding HasTracks}" VerticalAlignment="Top" MinWidth="0" Padding="0"
+                                                  Margin="0,0,6,0"
+                                                  AutomationProperties.Name="Include all tracks"
+                                                  ToolTip.Tip="Include or exclude all tracks of this source." />
+                                        <Border Grid.Column="1" Classes="marker" VerticalAlignment="Top" Margin="0,1,8,0"
                                                 Background="{Binding MarkerIndex, Converter={x:Static conv:MarkerBrushConverter.Instance}}">
                                             <TextBlock Text="{Binding Number}" />
                                         </Border>
-                                        <StackPanel Grid.Column="1" Spacing="1">
+                                        <StackPanel Grid.Column="2" Spacing="1">
                                             <TextBlock Text="{Binding FileName}" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Classes="caption secondary" Text="{Binding Summary}" TextWrapping="Wrap"
                                                        IsVisible="{Binding !IsError}" />

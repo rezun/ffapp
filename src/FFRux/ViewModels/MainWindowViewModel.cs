@@ -130,7 +130,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncInitia
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsEditable))]
     [NotifyCanExecuteChangedFor(nameof(AddSourcesCommand), nameof(RemoveSourceCommand), nameof(RemoveAllSourcesCommand),
-        nameof(StartCommand), nameof(CancelCommand), nameof(MoveSelectedUpCommand), nameof(MoveSelectedDownCommand))]
+        nameof(StartCommand), nameof(CancelCommand), nameof(MoveSelectedUpCommand), nameof(MoveSelectedDownCommand),
+        nameof(ToggleSelectedTracksCommand))]
     private bool _isRunning;
 
     [ObservableProperty]
@@ -231,6 +232,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncInitia
         Properties.Select(tracks, Output.FormatInfo);
         MoveSelectedUpCommand.NotifyCanExecuteChanged();
         MoveSelectedDownCommand.NotifyCanExecuteChanged();
+        ToggleSelectedTracksCommand.NotifyCanExecuteChanged();
     }
 
     [RelayCommand(CanExecute = nameof(CanAddSources))]
@@ -285,6 +287,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncInitia
             return;
         MoveTrack(track, group[index]);
     }
+
+    [RelayCommand(CanExecute = nameof(CanToggleSelected))]
+    private void ToggleSelectedTracks() => TrackViewModel.ToggleEnabled(Properties.Tracks);
+
+    private bool CanToggleSelected() => !IsRunning && Properties.HasSelection;
 
     [RelayCommand(CanExecute = nameof(CanStartJob))]
     private async Task StartAsync()
@@ -467,6 +474,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncInitia
                 IsEditable = IsEditable,
             };
             row.Changed += OnTrackChanged;
+            source.AddTrack(row);
             _groups[track.Kind].Add(row);
         }
     }

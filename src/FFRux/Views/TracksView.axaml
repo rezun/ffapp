@@ -134,7 +134,7 @@
                                     <Grid Classes="track-row" Classes.off="{Binding !Enabled}"
                                           ColumnDefinitions="28,26,88,64,1.3*,124,*,196">
                                         <CheckBox IsChecked="{Binding Enabled}" IsEnabled="{Binding IsEditable}" MinWidth="0" Padding="0"
-                                                  AutomationProperties.Name="Include track" ToolTip.Tip="Include this track in the output." />
+                                                  AutomationProperties.Name="Include track" ToolTip.Tip="Include this track in the output (Space)." />
                                         <Border Grid.Column="1" Classes="marker"
                                                 Background="{Binding MarkerIndex, Converter={x:Static conv:MarkerBrushConverter.Instance}}">
                                             <TextBlock Text="{Binding SourceNumber}" />

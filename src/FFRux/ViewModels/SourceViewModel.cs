@@ -1,5 +1,6 @@
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using FFApp.Core.Models;
 using FFRux.Core;
 using FFRux.Core.Models;
@@ -9,6 +10,8 @@ namespace FFRux.ViewModels;
 /// <summary>One added file in the source list, with its numbered marker.</summary>
 public sealed partial class SourceViewModel : ObservableObject
 {
+    private readonly List<TrackViewModel> _tracks = [];
+
     private SourceViewModel(string path, SourceMediaInfo? info, string? error)
     {
         Path = path;
@@ -23,6 +26,16 @@ public sealed partial class SourceViewModel : ObservableObject
     public string? Error { get; }
     public bool IsError => Error is not null;
     public string FileName => System.IO.Path.GetFileName(Path);
+
+    /// <summary>The rows in the track table that come from this file.</summary>
+    public IReadOnlyList<TrackViewModel> Tracks => _tracks;
+
+    public bool HasTracks => _tracks.Count > 0;
+
+    /// <summary>True when every track is included, false when none is, null when some are.</summary>
+    public bool? TracksEnabled => _tracks.All(track => track.Enabled) ? true
+        : _tracks.Any(track => track.Enabled) ? null
+        : false;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(MarkerIndex))]
@@ -67,6 +80,22 @@ public sealed partial class SourceViewModel : ObservableObject
             MediaInfo = MediaInfo,
             SubtitleCharset = IsStandaloneTextSubtitle && Encoding != TextEncodings.Utf8 ? Encoding.Charset : null,
         };
+
+    public void AddTrack(TrackViewModel track)
+    {
+        ArgumentNullException.ThrowIfNull(track);
+        _tracks.Add(track);
+        track.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(TrackViewModel.Enabled))
+                OnPropertyChanged(nameof(TracksEnabled));
+        };
+        OnPropertyChanged(nameof(HasTracks));
+        OnPropertyChanged(nameof(TracksEnabled));
+    }
+
+    [RelayCommand]
+    private void ToggleTracks() => TrackViewModel.ToggleEnabled(_tracks);
 
     partial void OnEncodingChanged(TextEncoding value) => Changed?.Invoke(this, EventArgs.Empty);
 

@@ -99,6 +99,15 @@ public sealed partial class TrackViewModel : ObservableObject
 
     public RemuxTrack ToModel() => new(Track, ToSettings());
 
+    /// <summary>Includes all tracks unless all of them are already included; then excludes them all.</summary>
+    public static void ToggleEnabled(IReadOnlyList<TrackViewModel> tracks)
+    {
+        ArgumentNullException.ThrowIfNull(tracks);
+        var enable = !tracks.All(track => track.Enabled);
+        foreach (var track in tracks)
+            track.Enabled = enable;
+    }
+
     public bool HasFlag(TrackFlags flag) => Flags.HasFlag(flag);
 
     public void SetFlag(TrackFlags flag, bool value) => Flags = value ? Flags | flag : Flags & ~flag;

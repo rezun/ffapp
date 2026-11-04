@@ -95,6 +95,8 @@ All tracks of all sources appear in one list, grouped by type (video, audio, sub
 ### 2.2 Enabling tracks
 
 - Every track can be enabled or disabled with one click.
+- Space toggles the selected tracks in the track list: if any of them is disabled, all are enabled; otherwise all are disabled.
+- Each source in the source list has a checkbox for all of its tracks. It shows a mixed state when only some are enabled; clicking it then enables all of them.
 - New tracks are enabled by default.
 - At least one track must be enabled to start a job.
 

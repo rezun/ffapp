@@ -79,119 +79,6 @@ public static class FormatHelpers
         return sb.ToString().TrimEnd();
     }
 
-    public static string FormatDependencyStatus(DependencyStatus status)
-    {
-        return $"{FormatSingleDependency(status.Ffmpeg)}\n" +
-               $"{FormatSingleDependency(status.Ffprobe)}\n" +
-               $"{FormatSingleDependency(status.Mkvpropedit)}";
-    }
-
-    public static string FormatValidationResult(ValidationResult result)
-    {
-        if (result.Issues.Length == 0)
-            return "Current settings are valid for the loaded source.";
-
-        var lines = new List<string>();
-        if (result.HasErrors)
-        {
-            lines.Add("Errors");
-            lines.AddRange(result.Errors.Select(i => $"- {i.Message}"));
-        }
-        if (result.HasWarnings)
-        {
-            if (lines.Count > 0) lines.Add("");
-            lines.Add("Warnings");
-            lines.AddRange(result.Warnings.Select(i => $"- {i.Message}"));
-        }
-        return string.Join('\n', lines);
-    }
-
-    public static string FormatCommandPreviewText(IReadOnlyList<GeneratedCommand> commands, bool singleCommand = false)
-    {
-        if (commands.Count == 0) return "";
-        if (commands.Count == 1) return commands[0].DisplayString;
-        if (singleCommand)
-            return string.Join(" && ", commands.Select(c => c.DisplayString));
-
-        var sections = new List<string>();
-        for (int i = 0; i < commands.Count; i++)
-        {
-            sections.Add($"Pass {i + 1}");
-            sections.Add(commands[i].DisplayString);
-        }
-        return string.Join("\n\n", sections);
-    }
-
-    public static string FormatJobProgress(JobProgress progress)
-    {
-        var parts = new List<string>
-        {
-            $"State: {JobStateLabel(progress.State)}",
-        };
-        if (progress.PassCount > 1)
-            parts.Add($"Pass: {progress.PassIndex} of {progress.PassCount}");
-        parts.Add($"Elapsed: {FormatPreciseDuration(progress.ElapsedSeconds)}");
-        parts.Add($"Processed: {FormatPreciseDuration(progress.ProcessedSeconds)}");
-        parts.Add($"Progress: {FormatPercentage(progress.Percentage)}");
-        parts.Add($"Speed: {FormatSpeed(progress.Speed)}");
-        return string.Join(" | ", parts);
-    }
-
-    public static string FormatJobResultSummary(JobResult result) =>
-        $"State: {JobStateLabel(result.State)} | " +
-        $"Elapsed: {FormatPreciseDuration(result.ElapsedSeconds)} | " +
-        $"Commands run: {result.ProcessResults.Length} of {result.Commands.Length}";
-
-    public static string FormatQueueSummary(IEnumerable<QueueItem> items)
-    {
-        var list = items.ToList();
-        if (list.Count == 0) return "Queue is empty.";
-
-        var counts = Enum.GetValues<JobState>()
-            .ToDictionary(s => s, s => list.Count(i => i.State == s));
-
-        return $"Items: {list.Count} | " +
-               $"Pending: {counts[JobState.Pending]} | " +
-               $"Running: {counts[JobState.Running]} | " +
-               $"Completed: {counts[JobState.Completed]} | " +
-               $"Failed: {counts[JobState.Failed]} | " +
-               $"Canceled: {counts[JobState.Canceled]}";
-    }
-
-    public static string FormatQueueItemLabel(QueueItem item)
-    {
-        var progress = "";
-        if (item.Progress?.Percentage is { } pct)
-            progress = $" | {FormatPercentage(pct)}";
-
-        return $"{Path.GetFileName(item.QueuedJob.Job.SourcePath)} -> " +
-               $"{Path.GetFileName(item.QueuedJob.Job.OutputPath)} | " +
-               $"{JobStateLabel(item.State)}{progress}";
-    }
-
-    public static string FormatQueueItemDetails(QueueItem item)
-    {
-        var lines = new List<string>
-        {
-            $"Source: {item.QueuedJob.Job.SourcePath}",
-            $"Output: {item.QueuedJob.Job.OutputPath}",
-            $"State: {JobStateLabel(item.State)}",
-            $"Passes: {item.QueuedJob.Commands.Length}"
-        };
-
-        if (item.Progress is not null)
-            lines.Add(FormatJobProgress(item.Progress));
-        else if (item.Result is not null)
-            lines.Add(FormatJobResultSummary(item.Result));
-
-        if (item.QueuedJob.Validation.HasWarnings)
-            lines.Add($"Warnings: {item.QueuedJob.Validation.Warnings.Length}");
-        if (item.FailureMessage is not null)
-            lines.Add($"Failure: {item.FailureMessage}");
-
-        return string.Join('\n', lines);
-    }
-
     public static JobDefinition BuildJobDefinition(
         JobContext context,
         IReadOnlyCollection<string>? reservedOutputPaths = null)
@@ -247,16 +134,6 @@ public static class FormatHelpers
             SelectedAudioStreamIndices: selectedAudioStreamIndices,
             SelectedSubtitleStreamIndices: selectedSubtitleStreamIndices);
 
-    public static string SuggestQueueOutputPath(
-        string sourcePath,
-        OutputContainer container,
-        HashSet<string> reservedOutputs) =>
-        DefaultCommandBuilder.SuggestOutputPath(
-            sourcePath,
-            container,
-            isAutoName: true,
-            reservedOutputPaths: reservedOutputs);
-
     public static string VideoCodecLabel(VideoCodec codec) =>
         CompatibilityData.VideoCodecLabel(codec);
 
@@ -267,16 +144,6 @@ public static class FormatHelpers
         AudioCodec.Vorbis => "Vorbis",
         AudioCodec.Opus => "Opus",
         _ => codec.ToString()
-    };
-
-    public static string JobStateLabel(JobState state) => state switch
-    {
-        JobState.Pending => "Pending",
-        JobState.Running => "Running",
-        JobState.Completed => "Completed",
-        JobState.Failed => "Failed",
-        JobState.Canceled => "Canceled",
-        _ => state.ToString()
     };
 
     public static string ContainerLabel(OutputContainer container) => container switch
@@ -415,28 +282,11 @@ public static class FormatHelpers
 
     // --- Private helpers ---
 
-    private static string FormatSingleDependency(ExecutableValidation validation)
-    {
-        if (validation.IsValid)
-        {
-            var version = validation.VersionOutput?.Split('\n', 2)[0] ?? "Validated";
-            return $"{validation.Name}: ready at {validation.Path}\n{version}";
-        }
-        return $"{validation.Name}: {validation.Error ?? "Not configured"}";
-    }
-
     private static string FormatDuration(double? seconds)
     {
         if (seconds is null) return "Unknown";
         var ts = TimeSpan.FromSeconds(seconds.Value);
         return $"{(int)ts.TotalHours:D2}:{ts.Minutes:D2}:{ts.Seconds:D2}";
-    }
-
-    private static string FormatPreciseDuration(double? seconds)
-    {
-        if (seconds is null) return "Unknown";
-        var ts = TimeSpan.FromSeconds(seconds.Value);
-        return $"{(int)ts.TotalHours:D2}:{ts.Minutes:D2}:{ts.Seconds:D2}.{ts.Milliseconds / 100}";
     }
 
     private static string FormatBitrate(int? bitRate) =>
@@ -457,10 +307,4 @@ public static class FormatHelpers
         1 => "1 channel",
         _ => $"{channels} channels"
     };
-
-    private static string FormatPercentage(double? value) =>
-        value is null ? "Unknown" : $"{value:F1}%";
-
-    private static string FormatSpeed(double? value) =>
-        value is null ? "Unknown" : $"{value:F2}x";
 }

@@ -1,4 +1,3 @@
-using System.Collections.Immutable;
 using FFApp.Core.Models;
 using FFApp.Helpers;
 using FFApp.Tests.Builders;
@@ -61,160 +60,6 @@ public class FormatHelpersTests
         text.Should().NotContain("Audio streams detail");
     }
 
-    // --- FormatValidationResult ---
-
-    [Fact]
-    public void FormatValidationResult_NoIssues_ReturnsValidMessage()
-    {
-        var result = new ValidationResult();
-        FormatHelpers.FormatValidationResult(result).Should().Contain("valid");
-    }
-
-    [Fact]
-    public void FormatValidationResult_WithErrors_ListsErrors()
-    {
-        var result = new ValidationResult
-        {
-            Issues = [new(ValidationSeverity.Error, "E001", "Something is wrong")],
-        };
-        var text = FormatHelpers.FormatValidationResult(result);
-
-        text.Should().Contain("Errors");
-        text.Should().Contain("Something is wrong");
-    }
-
-    [Fact]
-    public void FormatValidationResult_WithWarnings_ListsWarnings()
-    {
-        var result = new ValidationResult
-        {
-            Issues = [new(ValidationSeverity.Warning, "W001", "Be careful")],
-        };
-        var text = FormatHelpers.FormatValidationResult(result);
-
-        text.Should().Contain("Warnings");
-        text.Should().Contain("Be careful");
-    }
-
-    [Fact]
-    public void FormatValidationResult_BothErrorsAndWarnings_SeparatesSections()
-    {
-        var result = new ValidationResult
-        {
-            Issues =
-            [
-                new(ValidationSeverity.Error, "E001", "Bad thing"),
-                new(ValidationSeverity.Warning, "W001", "Watch out"),
-            ],
-        };
-        var text = FormatHelpers.FormatValidationResult(result);
-
-        text.Should().Contain("Errors");
-        text.Should().Contain("Warnings");
-        var errorsIndex = text.IndexOf("Errors");
-        var warningsIndex = text.IndexOf("Warnings");
-        errorsIndex.Should().BeLessThan(warningsIndex);
-    }
-
-    // --- FormatCommandPreviewText ---
-
-    [Fact]
-    public void FormatCommandPreviewText_SingleCommand_ReturnsDisplayString()
-    {
-        var commands = new[] { MakeCommand("ffmpeg -i input.mp4 output.mp4") };
-        FormatHelpers.FormatCommandPreviewText(commands).Should().Be("ffmpeg -i input.mp4 output.mp4");
-    }
-
-    [Fact]
-    public void FormatCommandPreviewText_TwoPass_ShowsPassHeaders()
-    {
-        var commands = new[]
-        {
-            MakeCommand("ffmpeg -pass 1"),
-            MakeCommand("ffmpeg -pass 2"),
-        };
-        var text = FormatHelpers.FormatCommandPreviewText(commands);
-
-        text.Should().Contain("Pass 1");
-        text.Should().Contain("Pass 2");
-    }
-
-    [Fact]
-    public void FormatCommandPreviewText_SingleCommandFlag_JoinsWithAnd()
-    {
-        var commands = new[]
-        {
-            MakeCommand("cmd1"),
-            MakeCommand("cmd2"),
-        };
-        var text = FormatHelpers.FormatCommandPreviewText(commands, singleCommand: true);
-        text.Should().Be("cmd1 && cmd2");
-    }
-
-    [Fact]
-    public void FormatCommandPreviewText_EmptyList_ReturnsEmpty()
-    {
-        FormatHelpers.FormatCommandPreviewText(Array.Empty<GeneratedCommand>()).Should().BeEmpty();
-    }
-
-    // --- FormatJobProgress ---
-
-    [Fact]
-    public void FormatJobProgress_AllFields_FormatsCorrectly()
-    {
-        var progress = new JobProgress(JobState.Running, 1, 2, 30.0, 15.0, 50.0, 2.0);
-        var text = FormatHelpers.FormatJobProgress(progress);
-
-        text.Should().Contain("Running");
-        text.Should().Contain("Pass: 1 of 2");
-        text.Should().MatchRegex(@"50[\.,]0%");
-        text.Should().MatchRegex(@"2[\.,]00x");
-    }
-
-    // --- FormatJobResultSummary ---
-
-    [Fact]
-    public void FormatJobResultSummary_FormatsStateAndElapsed()
-    {
-        var result = new JobResult(
-            new TestJobDefinitionBuilder().Build(),
-            JobState.Completed,
-            [MakeCommand("cmd")],
-            [new ProcessExecutionResult(MakeCommand("cmd"), JobState.Completed, 0, 60.0, "")],
-            60.0,
-            "");
-
-        var text = FormatHelpers.FormatJobResultSummary(result);
-        text.Should().Contain("Completed");
-        text.Should().Contain("1 of 1");
-    }
-
-    // --- FormatQueueSummary ---
-
-    [Fact]
-    public void FormatQueueSummary_EmptyQueue_ReturnsEmptyMessage()
-    {
-        FormatHelpers.FormatQueueSummary([]).Should().Contain("empty");
-    }
-
-    [Fact]
-    public void FormatQueueSummary_MixedStates_ReturnsCorrectCounts()
-    {
-        var items = new[]
-        {
-            MakeQueueItem(JobState.Pending),
-            MakeQueueItem(JobState.Completed),
-            MakeQueueItem(JobState.Completed),
-            MakeQueueItem(JobState.Failed),
-        };
-        var text = FormatHelpers.FormatQueueSummary(items);
-
-        text.Should().Contain("Items: 4");
-        text.Should().Contain("Pending: 1");
-        text.Should().Contain("Completed: 2");
-        text.Should().Contain("Failed: 1");
-    }
-
     // --- Label functions ---
 
     [Theory]
@@ -248,17 +93,6 @@ public class FormatHelpersTests
         FormatHelpers.ResolutionPresetLabel(preset).Should().Be(expected);
     }
 
-    [Theory]
-    [InlineData(JobState.Pending, "Pending")]
-    [InlineData(JobState.Running, "Running")]
-    [InlineData(JobState.Completed, "Completed")]
-    [InlineData(JobState.Failed, "Failed")]
-    [InlineData(JobState.Canceled, "Canceled")]
-    public void JobStateLabel_AllValues_ReturnExpected(JobState state, string expected)
-    {
-        FormatHelpers.JobStateLabel(state).Should().Be(expected);
-    }
-
     // --- BuildJobDefinition ---
 
     [Fact]
@@ -279,18 +113,5 @@ public class FormatHelpersTests
         job.VideoCodec.Should().Be(VideoCodec.H265);
         job.EncodingStrategy.Should().Be(EncodingStrategy.TargetBitrate);
         job.ResolutionPreset.Should().Be(ResolutionPreset.P720);
-    }
-
-    // --- Helpers ---
-
-    private static GeneratedCommand MakeCommand(string display) =>
-        new("ffmpeg", [], display);
-
-    private static QueueItem MakeQueueItem(JobState state)
-    {
-        var job = new TestJobDefinitionBuilder().Build();
-        var media = new TestMediaInfoBuilder().Build();
-        var queued = new QueuedJob(job, media, [], new ValidationResult());
-        return new QueueItem(Guid.NewGuid().ToString(), queued, state);
     }
 }

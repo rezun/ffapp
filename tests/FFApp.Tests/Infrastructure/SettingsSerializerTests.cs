@@ -1,7 +1,7 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using FFApp.Core.Models;
 using FFApp.Infrastructure.Serialization;
-using FFApp.Tests.Builders;
 using FluentAssertions;
 
 namespace FFApp.Tests.Infrastructure;
@@ -11,29 +11,174 @@ public class SettingsSerializerTests
     private static OutputSettings RoundTrip(OutputSettings settings)
     {
         var json = SettingsSerializer.SerializeOutputSettings(settings);
-        var element = JsonDocument.Parse(json.ToJsonString()).RootElement;
-        return SettingsSerializer.DeserializeOutputSettings(element);
+        using var document = JsonDocument.Parse(json.ToJsonString());
+        return SettingsSerializer.DeserializeOutputSettings(document.RootElement);
     }
 
-    [Theory]
-    [InlineData(ColorMetadataMode.Automatic)]
-    [InlineData(ColorMetadataMode.AssumeBt709)]
-    [InlineData(ColorMetadataMode.Custom)]
-    public void RoundTrip_ColorMetadata_PreservesModeAndManualValues(ColorMetadataMode mode)
+    private static OutputSettings Deserialize(string json)
     {
-        var colors = new ColorMetadataSettings(mode, "bt470bg", "gamma28", "bt470bg", "pc");
-        RoundTrip(new OutputSettings(ColorMetadata: colors)).ColorMetadata.Should().Be(colors);
+        using var document = JsonDocument.Parse(json);
+        return SettingsSerializer.DeserializeOutputSettings(document.RootElement);
+    }
+
+    // What "{}" decodes to: every field at its default, with encoder options derived from quality.
+    private static readonly OutputSettings DecodedDefaults = new(
+        VideoEncoderOptions: new H26xEncoderOptions(VideoCodec.H264, Profile: "high"));
+
+    // --- Round trip ---
+
+    // Every field differs from its default somewhere in this set, so a field the serializer
+    // forgets to write or read breaks at least one row. Values are already in the normalized
+    // form the decoder produces (e.g. no audio codec unless re-encoding).
+    private static readonly OutputSettings H264Settings = new(
+        Container: OutputContainer.Mp4,
+        VideoCodec: VideoCodec.H264,
+        EncodingStrategy: EncodingStrategy.TargetFileSize,
+        ResolutionPreset: ResolutionPreset.P1440,
+        FrameRatePreset: FrameRatePreset.Fps50,
+        VideoEncoderOptions: new H26xEncoderOptions(VideoCodec.H264, "veryslow", "baseline", "-refs 4"),
+        AudioOptions: new AudioOptions(AudioMode.Reencode, AudioCodec.Aac, 192_000, AudioChannels: 2,
+            SampleRate: 96_000, RemoveTrackTitles: true),
+        StreamHandling: new StreamHandlingOptions(RemoveSubtitles: true, RemoveData: true, RemoveImages: true),
+        TargetFileSize: new TargetFileSizeOptions(100, TwoPass: true, MuxingOverheadRatio: 0.02,
+            AbsoluteOverheadBytes: 1_000_000),
+        TargetBitrate: new TargetBitrateOptions(5_000_000, TwoPass: true),
+        TargetQuality: new H26xQualityOptions(VideoCodec.H264, Crf: 18, Preset: "slow", Profile: "high"),
+        KeyframeInterval: 120,
+        ColorMetadata: new ColorMetadataSettings(ColorMetadataMode.Custom, "bt470bg", "gamma28", "bt470bg", "pc"));
+
+    public static TheoryData<OutputSettings> FullyPopulatedSettings => new()
+    {
+        H264Settings,
+        new OutputSettings(
+            Container: OutputContainer.Mkv,
+            VideoCodec: VideoCodec.H265,
+            EncodingStrategy: EncodingStrategy.TargetBitrate,
+            VideoEncoderOptions: new H26xEncoderOptions(VideoCodec.H265, "slow", "main10", "-tune grain"),
+            AudioOptions: new AudioOptions(AudioMode.Reencode, AudioCodec.Opus, 128_000, AudioChannels: 6),
+            TargetQuality: new H26xQualityOptions(VideoCodec.H265, Crf: 24, Preset: "fast", Profile: "main10"),
+            HdrMode: HdrMode.TonemapToSdr,
+            ToneMapSettings: new ToneMapSettings(Algorithm: ToneMapAlgorithm.Mobius, Desaturation: 0.5, PeakNits: 1000),
+            PostProcessing: new PostProcessingOptions(RecalculateMatroskaStatistics: true),
+            ColorMetadata: new ColorMetadataSettings(ColorMetadataMode.AssumeBt709)),
+        new OutputSettings(
+            Container: OutputContainer.Webm,
+            VideoCodec: VideoCodec.Vp9,
+            VideoEncoderOptions: new VpxEncoderOptions(VideoCodec.Vp9, CpuUsed: 6, TileColumns: 2, TileRows: 1,
+                AdditionalOptions: "-lag-in-frames 25"),
+            AudioOptions: new AudioOptions(AudioMode.Reencode, AudioCodec.Opus, 64_000, SampleRate: 12_000),
+            TargetQuality: new Vp9QualityOptions(Quality: 40, TwoPass: true),
+            HdrMode: HdrMode.TonemapToSdr,
+            ToneMapSettings: new ToneMapSettings(ToneMapEngine.Libplacebo,
+                LibplaceboAlgorithm: LibplaceboToneMapAlgorithm.Bt2446a, GamutMode: GamutMode.Darken,
+                Saturation: 1.2, ContrastRecovery: 0.5, PeakDetect: false, TonemappingParam: 2.5)),
+        new OutputSettings(
+            Container: OutputContainer.Mkv,
+            VideoCodec: VideoCodec.Av1,
+            VideoEncoderOptions: new Av1EncoderOptions(Preset: 8, Tune: 4, EnableOverlays: 1, Scm: 1,
+                EnableVarianceBoost: 1, AdditionalOptions: "-g 240", FilmGrain: 50, FilmGrainDenoise: 1,
+                AdaptiveFilmGrain: 0, VarianceBoostStrength: 3, VarianceOctile: 1),
+            AudioOptions: new AudioOptions(AudioMode.Copy, RemoveTrackTitles: true),
+            TargetQuality: new Av1QualityOptions(Crf: 25, Preset: 4, Tune: 2, EnableOverlays: 0, Scm: 3,
+                MaxBitrateKbps: 4500, EnableVarianceBoost: 1, FilmGrain: 15, FilmGrainDenoise: 1,
+                AdaptiveFilmGrain: 0, VarianceBoostStrength: 4, VarianceOctile: 8),
+            KeyframeInterval: 5,
+            KeyframeUnit: KeyframeUnit.Seconds),
+        new OutputSettings(Container: OutputContainer.Mkv, VideoMode: VideoMode.Copy, VideoCodec: VideoCodec.Av1,
+            AudioOptions: new AudioOptions(AudioMode.Remove)),
+        new OutputSettings(Container: OutputContainer.Mka, VideoMode: VideoMode.Remove, VideoCodec: VideoCodec.H264),
+    };
+
+    [Theory]
+    [MemberData(nameof(FullyPopulatedSettings))]
+    public void RoundTrip_PreservesEverySetting(OutputSettings original)
+    {
+        RoundTrip(original).Should().Be(original);
     }
 
     [Fact]
-    public void Deserialize_OldPreset_DefaultsToSourceColorsWithoutGuessing()
+    public void RoundTrip_AudioCopy_ClearsReencodeFields()
     {
-        var json = SettingsSerializer.SerializeOutputSettings(new OutputSettings());
-        json.Remove("color_metadata");
-        using var doc = JsonDocument.Parse(json.ToJsonString());
-        SettingsSerializer.DeserializeOutputSettings(doc.RootElement).ColorMetadata
-            .Should().Be(new ColorMetadataSettings());
+        var original = new OutputSettings(AudioOptions: new AudioOptions(
+            AudioMode.Copy, AudioCodec.Aac, 192_000, AudioChannels: 2, SampleRate: 48_000));
+
+        RoundTrip(original).AudioOptions.Should().Be(new AudioOptions(AudioMode.Copy));
     }
+
+    [Fact]
+    public void RoundTrip_PresetDefinition_PreservesNameAndSettings()
+    {
+        var preset = new PresetDefinition("My Preset", H264Settings);
+        var json = SettingsSerializer.SerializePreset(preset);
+        using var document = JsonDocument.Parse(json.ToJsonString());
+
+        SettingsSerializer.DeserializePreset(document.RootElement).Should().Be(preset);
+    }
+
+    // --- Missing fields (settings written by older versions) ---
+
+    public static TheoryData<string, OutputSettings> PartialSettings => new()
+    {
+        { "{}", DecodedDefaults },
+        // Settings written before video_mode existed were always re-encodes.
+        { """{ "video_codec": "h264" }""", DecodedDefaults },
+        {
+            """{ "container": "mkv", "audio_options": { "mode": "reencode", "codec": "opus", "bitrate": 128000, "remix_to_stereo": true } }""",
+            DecodedDefaults with
+            {
+                Container = OutputContainer.Mkv,
+                AudioOptions = new AudioOptions(AudioMode.Reencode, AudioCodec.Opus, 128_000, AudioChannels: 2),
+            }
+        },
+        {
+            """{ "video_encoder_options": { "codec": "h264", "preset": "slow", "profile": "high" } }""",
+            DecodedDefaults with { VideoEncoderOptions = new H26xEncoderOptions(VideoCodec.H264, "slow", "high") }
+        },
+        {
+            """{ "video_codec": "av1", "container": "mkv", "target_quality": { "crf": 30, "preset": 6 }, "video_encoder_options": { "preset": 7 } }""",
+            DecodedDefaults with
+            {
+                Container = OutputContainer.Mkv,
+                VideoCodec = VideoCodec.Av1,
+                TargetQuality = new Av1QualityOptions(),
+                VideoEncoderOptions = new Av1EncoderOptions(Preset: 7),
+            }
+        },
+    };
+
+    [Theory]
+    [MemberData(nameof(PartialSettings))]
+    public void Deserialize_MissingFields_UseDefaults(string json, OutputSettings expected)
+    {
+        Deserialize(json).Should().Be(expected);
+    }
+
+    public static TheoryData<string, VideoEncoderOptions> SettingsWithoutEncoderOptions => new()
+    {
+        {
+            """{ "target_quality": { "crf": 18, "preset": "slow", "profile": "high" } }""",
+            new H26xEncoderOptions(VideoCodec.H264, "slow", "high")
+        },
+        {
+            """
+            { "video_codec": "av1", "container": "mkv", "video_encoder_options": null,
+              "target_quality": { "crf": 26, "preset": 4, "tune": 2, "enable_overlays": 0, "scm": 1,
+                "enable_variance_boost": 1, "variance_boost_strength": 4, "variance_octile": 8,
+                "film_grain": 12, "film_grain_denoise": 1, "adaptive_film_grain": 0 } }
+            """,
+            new Av1EncoderOptions(Preset: 4, Tune: 2, EnableOverlays: 0, Scm: 1, EnableVarianceBoost: 1,
+                FilmGrain: 12, FilmGrainDenoise: 1, AdaptiveFilmGrain: 0, VarianceBoostStrength: 4, VarianceOctile: 8)
+        },
+    };
+
+    [Theory]
+    [MemberData(nameof(SettingsWithoutEncoderOptions))]
+    public void Deserialize_MissingEncoderOptions_DerivesThemFromQuality(string json, VideoEncoderOptions expected)
+    {
+        Deserialize(json).VideoEncoderOptions.Should().Be(expected);
+    }
+
+    // --- Invalid input ---
 
     [Theory]
     [InlineData("mode", "999")]
@@ -45,779 +190,30 @@ public class SettingsSerializerTests
     public void Deserialize_InvalidColorSettings_AreRejected(string field, string value)
     {
         var json = SettingsSerializer.SerializeOutputSettings(new OutputSettings());
-        var colors = json["color_metadata"] as System.Text.Json.Nodes.JsonObject
+        var colors = json["color_metadata"] as JsonObject
             ?? throw new InvalidOperationException("Missing color settings.");
         colors[field] = value;
-        using var doc = JsonDocument.Parse(json.ToJsonString());
-        var decode = () => SettingsSerializer.DeserializeOutputSettings(doc.RootElement);
+
+        var decode = () => Deserialize(json.ToJsonString());
+
         decode.Should().Throw<SettingsDecodeException>();
     }
 
-    // --- Round-trip tests ---
-
-    public static TheoryData<OutputSettings> NonReencodeVideoSettings => new()
-    {
-        new OutputSettings(Container: OutputContainer.Mkv, VideoMode: VideoMode.Copy, VideoCodec: VideoCodec.Av1),
-        new OutputSettings(Container: OutputContainer.Mka, VideoMode: VideoMode.Remove, VideoCodec: VideoCodec.H264),
-    };
-
     [Theory]
-    [MemberData(nameof(NonReencodeVideoSettings))]
-    public void RoundTrip_CopyAndRemoveVideoModes_PreserveSettingsExactly(OutputSettings original)
+    [InlineData("""{ "container": "avi" }""")]
+    [InlineData("""{ "container": "webm", "video_codec": "h264" }""")]
+    public void Deserialize_UnknownOrIncompatibleValues_AreRejected(string json)
     {
-        RoundTrip(original).Should().Be(original);
-    }
+        var decode = () => Deserialize(json);
 
-    [Fact]
-    public void Deserialize_MissingVideoMode_DefaultsToReencode()
-    {
-        var json = SettingsSerializer.SerializeOutputSettings(new OutputSettings(VideoMode: VideoMode.Copy));
-        json.Remove("video_mode");
-        using var doc = JsonDocument.Parse(json.ToJsonString());
-
-        SettingsSerializer.DeserializeOutputSettings(doc.RootElement).VideoMode
-            .Should().Be(VideoMode.Reencode);
+        decode.Should().Throw<SettingsDecodeException>();
     }
 
     [Theory]
-    [InlineData(AudioMode.Copy, true)]
-    [InlineData(AudioMode.Reencode, true)]
-    [InlineData(AudioMode.Remove, true)]
-    [InlineData(AudioMode.Copy, false)]
-    public void RoundTrip_RemoveAudioTrackTitles_PreservesChoice(AudioMode mode, bool enabled)
-    {
-        var original = new TestOutputSettingsBuilder()
-            .WithAudio(new AudioOptions(mode, AudioCodec.Aac, 128_000))
-            .WithRemoveAudioTrackTitles(enabled).Build();
-
-        RoundTrip(original).AudioOptions.RemoveTrackTitles.Should().Be(enabled);
-    }
-
-    [Fact]
-    public void Deserialize_MissingRemoveAudioTrackTitles_PreservesTitles()
-    {
-        var json = SettingsSerializer.SerializeOutputSettings(
-            new TestOutputSettingsBuilder().WithRemoveAudioTrackTitles().Build());
-        var audio = json["audio_options"] as System.Text.Json.Nodes.JsonObject
-            ?? throw new InvalidOperationException("Audio settings missing.");
-        audio.Remove("remove_track_titles");
-        using var document = JsonDocument.Parse(json.ToJsonString());
-
-        SettingsSerializer.DeserializeOutputSettings(document.RootElement)
-            .AudioOptions.RemoveTrackTitles.Should().BeFalse();
-    }
-
-    [Theory]
-    [InlineData(AudioCodec.Opus, 12000)]
-    [InlineData(AudioCodec.Opus, 24000)]
-    [InlineData(AudioCodec.Opus, 48000)]
-    [InlineData(AudioCodec.Mp3, 44100)]
-    [InlineData(AudioCodec.Aac, 96000)]
-    [InlineData(AudioCodec.Opus, null)]
-    public void RoundTrip_AudioSampleRate_PreservesExplicitOrAutoValue(AudioCodec codec, int? rate)
-    {
-        var original = new TestOutputSettingsBuilder().WithAudioReencode(codec, 128_000, sampleRate: rate).Build();
-
-        RoundTrip(original).AudioOptions.SampleRate.Should().Be(rate);
-    }
-
-    [Fact]
-    public void Deserialize_MissingAudioSampleRate_DefaultsToAuto()
-    {
-        var json = SettingsSerializer.SerializeOutputSettings(
-            new TestOutputSettingsBuilder().WithAudioReencode(AudioCodec.Opus, 128_000).Build());
-        var audio = json["audio_options"] as System.Text.Json.Nodes.JsonObject
-            ?? throw new InvalidOperationException("Audio settings missing.");
-        audio.Remove("sample_rate");
-        using var document = JsonDocument.Parse(json.ToJsonString());
-
-        SettingsSerializer.DeserializeOutputSettings(document.RootElement).AudioOptions.SampleRate.Should().BeNull();
-    }
-
-    [Fact]
-    public void RoundTrip_DefaultOutputSettings_Identical()
-    {
-        var original = new OutputSettings();
-        var result = RoundTrip(original);
-
-        result.Container.Should().Be(original.Container);
-        result.VideoCodec.Should().Be(original.VideoCodec);
-        result.EncodingStrategy.Should().Be(original.EncodingStrategy);
-        result.ResolutionPreset.Should().Be(original.ResolutionPreset);
-    }
-
-    [Fact]
-    public void RoundTrip_H264Quality_PreservesAllFields()
-    {
-        var original = new TestOutputSettingsBuilder()
-            .WithQuality(new H26xQualityOptions(VideoCodec.H264, Crf: 18, Preset: "slow", Profile: "high"))
-            .Build();
-
-        var result = RoundTrip(original);
-
-        result.TargetQuality.Should().BeOfType<H26xQualityOptions>();
-        var q = (H26xQualityOptions)result.TargetQuality;
-        q.Codec.Should().Be(VideoCodec.H264);
-        q.Crf.Should().Be(18);
-        q.Preset.Should().Be("slow");
-        q.Profile.Should().Be("high");
-    }
-
-    [Fact]
-    public void RoundTrip_H265Quality_PreservesAllFields()
-    {
-        var original = new TestOutputSettingsBuilder()
-            .WithH265()
-            .WithQuality(new H26xQualityOptions(VideoCodec.H265, Crf: 24, Preset: "fast", Profile: "main10"))
-            .Build();
-
-        var result = RoundTrip(original);
-
-        result.TargetQuality.Should().BeOfType<H26xQualityOptions>();
-        var q = (H26xQualityOptions)result.TargetQuality;
-        q.Codec.Should().Be(VideoCodec.H265);
-        q.Crf.Should().Be(24);
-        q.Preset.Should().Be("fast");
-        q.Profile.Should().Be("main10");
-    }
-
-    [Fact]
-    public void RoundTrip_Vp9Quality_PreservesQualityAndTwoPass()
-    {
-        var original = new TestOutputSettingsBuilder()
-            .WithVp9(twoPass: true)
-            .WithQuality(new Vp9QualityOptions(Quality: 40, TwoPass: true))
-            .Build();
-
-        var result = RoundTrip(original);
-
-        result.TargetQuality.Should().BeOfType<Vp9QualityOptions>();
-        var q = (Vp9QualityOptions)result.TargetQuality;
-        q.Quality.Should().Be(40);
-        q.TwoPass.Should().BeTrue();
-    }
-
-    [Fact]
-    public void RoundTrip_TargetFileSize_PreservesAllFields()
-    {
-        var original = new TestOutputSettingsBuilder()
-            .WithTargetFileSize(100, twoPass: true, overhead: 0.02)
-            .Build();
-
-        var result = RoundTrip(original);
-
-        result.TargetFileSize.TargetSizeMb.Should().Be(100);
-        result.TargetFileSize.TwoPass.Should().BeTrue();
-        result.TargetFileSize.MuxingOverheadRatio.Should().BeApproximately(0.02, 0.0001);
-    }
-
-    [Fact]
-    public void RoundTrip_TargetBitrate_PreservesAllFields()
-    {
-        var original = new TestOutputSettingsBuilder()
-            .WithTargetBitrate(5_000_000, twoPass: true)
-            .Build();
-
-        var result = RoundTrip(original);
-
-        result.TargetBitrate.VideoBitrate.Should().Be(5_000_000);
-        result.TargetBitrate.TwoPass.Should().BeTrue();
-    }
-
-    [Fact]
-    public void RoundTrip_AudioReencode_PreservesCodecAndBitrate()
-    {
-        var original = new TestOutputSettingsBuilder()
-            .WithAudioReencode(AudioCodec.Aac, 192_000, channels: 2)
-            .Build();
-
-        var result = RoundTrip(original);
-
-        result.AudioOptions.Mode.Should().Be(AudioMode.Reencode);
-        result.AudioOptions.Codec.Should().Be(AudioCodec.Aac);
-        result.AudioOptions.Bitrate.Should().Be(192_000);
-        result.AudioOptions.AudioChannels.Should().Be(2);
-    }
-
-    [Fact]
-    public void RoundTrip_AudioCopy_ClearsReencodeFields()
-    {
-        var original = new TestOutputSettingsBuilder()
-            .WithAudioCopy()
-            .Build();
-
-        var result = RoundTrip(original);
-
-        result.AudioOptions.Mode.Should().Be(AudioMode.Copy);
-        result.AudioOptions.Codec.Should().BeNull();
-        result.AudioOptions.Bitrate.Should().BeNull();
-        result.AudioOptions.AudioChannels.Should().BeNull();
-    }
-
-    [Fact]
-    public void RoundTrip_StreamHandling_PreservesFlags()
-    {
-        var original = new TestOutputSettingsBuilder()
-            .WithStreamHandling(new StreamHandlingOptions(
-                RemoveSubtitles: true, RemoveData: true, RemoveImages: true))
-            .Build();
-
-        var result = RoundTrip(original);
-
-        result.StreamHandling.RemoveSubtitles.Should().BeTrue();
-        result.StreamHandling.RemoveData.Should().BeTrue();
-        result.StreamHandling.RemoveImages.Should().BeTrue();
-    }
-
-    [Fact]
-    public void RoundTrip_DefaultStreamHandling_PreservesImages()
-    {
-        RoundTrip(new OutputSettings()).StreamHandling.RemoveImages.Should().BeFalse();
-    }
-
-    [Theory]
-    [InlineData("{}")]
-    [InlineData("{\"stream_handling\":{\"remove_data\":true}}")]
-    public void Deserialize_MissingRemoveImages_DefaultsToPreservingImages(string json)
-    {
-        using var doc = JsonDocument.Parse(json);
-        SettingsSerializer.DeserializeOutputSettings(doc.RootElement).StreamHandling.RemoveImages.Should().BeFalse();
-    }
-
-    [Fact]
-    public void RoundTrip_MatroskaPostProcessing_PreservesFlag()
-    {
-        var original = new TestOutputSettingsBuilder()
-            .WithContainer(OutputContainer.Mkv)
-            .WithMatroskaStatistics()
-            .Build();
-
-        var result = RoundTrip(original);
-
-        result.PostProcessing.RecalculateMatroskaStatistics.Should().BeTrue();
-    }
-
-    [Fact]
-    public void RoundTrip_VpxEncoderOptions_PreservesCpuUsed()
-    {
-        var original = new TestOutputSettingsBuilder()
-            .WithVp9()
-            .WithEncoderOptions(new VpxEncoderOptions(VideoCodec.Vp9, CpuUsed: 6))
-            .Build();
-
-        var result = RoundTrip(original);
-
-        result.VideoEncoderOptions.Should().BeOfType<VpxEncoderOptions>();
-        var opts = (VpxEncoderOptions)result.VideoEncoderOptions!;
-        opts.Codec.Should().Be(VideoCodec.Vp9);
-        opts.CpuUsed.Should().Be(6);
-    }
-
-    [Fact]
-    public void RoundTrip_H264EncoderOptions_PreservesPresetProfile()
-    {
-        var original = new TestOutputSettingsBuilder()
-            .WithEncoderOptions(new H26xEncoderOptions(VideoCodec.H264, Preset: "veryslow", Profile: "baseline"))
-            .Build();
-
-        var result = RoundTrip(original);
-
-        result.VideoEncoderOptions.Should().BeOfType<H26xEncoderOptions>();
-        var opts = (H26xEncoderOptions)result.VideoEncoderOptions!;
-        opts.Codec.Should().Be(VideoCodec.H264);
-        opts.Preset.Should().Be("veryslow");
-        opts.Profile.Should().Be("baseline");
-    }
-
-    [Fact]
-    public void RoundTrip_ResolutionPreset_Preserved()
-    {
-        var original = new TestOutputSettingsBuilder()
-            .WithResolution(ResolutionPreset.P1440)
-            .Build();
-
-        var result = RoundTrip(original);
-        result.ResolutionPreset.Should().Be(ResolutionPreset.P1440);
-    }
-
-    [Fact]
-    public void RoundTrip_Container_Mkv()
-    {
-        var original = new TestOutputSettingsBuilder()
-            .WithContainer(OutputContainer.Mkv)
-            .Build();
-
-        var result = RoundTrip(original);
-        result.Container.Should().Be(OutputContainer.Mkv);
-    }
-
-    // --- Deserialize edge cases ---
-
-    [Fact]
-    public void Deserialize_EmptyObject_UsesDefaults()
-    {
-        var element = JsonDocument.Parse("{}").RootElement;
-        var result = SettingsSerializer.DeserializeOutputSettings(element);
-
-        result.Container.Should().Be(OutputContainer.Mp4);
-        result.VideoCodec.Should().Be(VideoCodec.H264);
-        result.EncodingStrategy.Should().Be(EncodingStrategy.TargetQuality);
-    }
-
-    [Fact]
-    public void Deserialize_MissingFields_UsesDefaults()
-    {
-        var json = """{ "container": "mp4" }""";
-        var element = JsonDocument.Parse(json).RootElement;
-        var result = SettingsSerializer.DeserializeOutputSettings(element);
-
-        result.VideoCodec.Should().Be(VideoCodec.H264);
-        result.TargetFileSize.TargetSizeMb.Should().Be(50);
-        result.TargetBitrate.VideoBitrate.Should().Be(3_000_000);
-        result.PostProcessing.RecalculateMatroskaStatistics.Should().BeFalse();
-    }
-
-    [Fact]
-    public void Deserialize_IncompatibleContainerCodec_ThrowsSettingsDecodeException()
-    {
-        var json = """{ "container": "webm", "video_codec": "h264" }""";
-        var element = JsonDocument.Parse(json).RootElement;
-
-        var act = () => SettingsSerializer.DeserializeOutputSettings(element);
-        act.Should().Throw<SettingsDecodeException>();
-    }
-
-    [Fact]
-    public void Deserialize_InvalidEnum_ThrowsSettingsDecodeException()
-    {
-        var json = """{ "container": "avi" }""";
-        var element = JsonDocument.Parse(json).RootElement;
-
-        var act = () => SettingsSerializer.DeserializeOutputSettings(element);
-        act.Should().Throw<SettingsDecodeException>();
-    }
-
-    // --- Preset serialization ---
-
-    [Fact]
-    public void RoundTrip_PresetDefinition_PreservesNameAndSettings()
-    {
-        var preset = new PresetDefinition("My Preset", new OutputSettings());
-        var json = SettingsSerializer.SerializePreset(preset);
-        var element = JsonDocument.Parse(json.ToJsonString()).RootElement;
-        var result = SettingsSerializer.DeserializePreset(element);
-
-        result.Name.Should().Be("My Preset");
-        result.Settings.Container.Should().Be(OutputContainer.Mp4);
-    }
-
-    [Fact]
-    public void SerializePreset_ContainsSchemaVersion()
-    {
-        var preset = new PresetDefinition("Test");
-        var json = SettingsSerializer.SerializePreset(preset);
-
-        json["schema_version"]!.GetValue<int>().Should().Be(SettingsSerializer.PresetSchemaVersion);
-    }
-
-    [Fact]
-    public void DeserializePreset_EmptyName_ThrowsPresetDecodeException()
-    {
-        var json = """{ "name": "", "schema_version": 1, "settings": {} }""";
-        var element = JsonDocument.Parse(json).RootElement;
-
-        var act = () => SettingsSerializer.DeserializePreset(element);
-        act.Should().Throw<PresetDecodeException>();
-    }
-
-    [Fact]
-    public void DeserializePreset_WrongSchemaVersion_ThrowsPresetDecodeException()
-    {
-        var json = """{ "name": "Test", "schema_version": 999, "settings": {} }""";
-        var element = JsonDocument.Parse(json).RootElement;
-
-        var act = () => SettingsSerializer.DeserializePreset(element);
-        act.Should().Throw<PresetDecodeException>();
-    }
-
-    // --- HDR settings ---
-
-    [Fact]
-    public void RoundTrip_HdrPreserveWithDefaults_PreservesValues()
-    {
-        var settings = new TestOutputSettingsBuilder()
-            .WithH265()
-            .WithHdrPreserve()
-            .Build();
-
-        var result = RoundTrip(settings);
-
-        result.HdrMode.Should().Be(HdrMode.Preserve);
-        result.ToneMapSettings.Algorithm.Should().Be(ToneMapAlgorithm.Hable);
-        result.ToneMapSettings.Desaturation.Should().Be(2.0);
-        result.ToneMapSettings.PeakNits.Should().BeNull();
-    }
-
-    [Fact]
-    public void RoundTrip_ToneMapToSdrWithCustomSettings_PreservesValues()
-    {
-        var settings = new TestOutputSettingsBuilder()
-            .WithToneMapToSdr(ToneMapAlgorithm.Mobius, desaturation: 0.5, peakNits: 1000)
-            .Build();
-
-        var result = RoundTrip(settings);
-
-        result.HdrMode.Should().Be(HdrMode.TonemapToSdr);
-        result.ToneMapSettings.Algorithm.Should().Be(ToneMapAlgorithm.Mobius);
-        result.ToneMapSettings.Desaturation.Should().Be(0.5);
-        result.ToneMapSettings.PeakNits.Should().Be(1000);
-    }
-
-    [Fact]
-    public void Deserialize_MissingHdrFields_ReturnsDefaults()
-    {
-        var json = """{ "video_codec": "h265" }""";
-        var element = JsonDocument.Parse(json).RootElement;
-
-        var result = SettingsSerializer.DeserializeOutputSettings(element);
-
-        result.HdrMode.Should().Be(HdrMode.Preserve);
-        result.ToneMapSettings.Algorithm.Should().Be(ToneMapAlgorithm.Hable);
-        result.ToneMapSettings.Desaturation.Should().Be(2.0);
-        result.ToneMapSettings.PeakNits.Should().BeNull();
-        result.ToneMapSettings.Engine.Should().Be(ToneMapEngine.Standard);
-        result.ToneMapSettings.LibplaceboAlgorithm.Should().Be(LibplaceboToneMapAlgorithm.Auto);
-        result.ToneMapSettings.GamutMode.Should().Be(GamutMode.Perceptual);
-        result.ToneMapSettings.Saturation.Should().Be(1.0);
-        result.ToneMapSettings.ContrastRecovery.Should().Be(0.3);
-        result.ToneMapSettings.PeakDetect.Should().BeTrue();
-        result.ToneMapSettings.TonemappingParam.Should().BeNull();
-    }
-
-    [Fact]
-    public void RoundTrip_LibplaceboToneMap_PreservesAllFields()
-    {
-        var settings = new TestOutputSettingsBuilder()
-            .WithLibplaceboTonemapToSdr(
-                algorithm: LibplaceboToneMapAlgorithm.Bt2446a,
-                gamutMode: GamutMode.Darken,
-                saturation: 1.2,
-                contrastRecovery: 0.5,
-                peakDetect: false,
-                tonemappingParam: 2.5)
-            .Build();
-
-        var result = RoundTrip(settings);
-
-        result.HdrMode.Should().Be(HdrMode.TonemapToSdr);
-        result.ToneMapSettings.Engine.Should().Be(ToneMapEngine.Libplacebo);
-        result.ToneMapSettings.LibplaceboAlgorithm.Should().Be(LibplaceboToneMapAlgorithm.Bt2446a);
-        result.ToneMapSettings.GamutMode.Should().Be(GamutMode.Darken);
-        result.ToneMapSettings.Saturation.Should().BeApproximately(1.2, 0.0001);
-        result.ToneMapSettings.ContrastRecovery.Should().BeApproximately(0.5, 0.0001);
-        result.ToneMapSettings.PeakDetect.Should().BeFalse();
-        result.ToneMapSettings.TonemappingParam.Should().BeApproximately(2.5, 0.0001);
-    }
-
-    // --- Keyframe interval ---
-
-    [Fact]
-    public void RoundTrip_KeyframeIntervalFrames_PreservesValues()
-    {
-        var original = new TestOutputSettingsBuilder()
-            .WithKeyframeInterval(120)
-            .Build();
-
-        var result = RoundTrip(original);
-
-        result.KeyframeInterval.Should().Be(120);
-        result.KeyframeUnit.Should().Be(KeyframeUnit.Frames);
-    }
-
-    [Fact]
-    public void RoundTrip_KeyframeIntervalSeconds_PreservesValues()
-    {
-        var original = new TestOutputSettingsBuilder()
-            .WithAv1()
-            .WithKeyframeIntervalSeconds(5)
-            .Build();
-
-        var result = RoundTrip(original);
-
-        result.KeyframeInterval.Should().Be(5);
-        result.KeyframeUnit.Should().Be(KeyframeUnit.Seconds);
-    }
-
-    [Fact]
-    public void Deserialize_MissingKeyframeFields_ReturnsDefaults()
-    {
-        var json = """{ "video_codec": "av1", "container": "mkv" }""";
-        var element = JsonDocument.Parse(json).RootElement;
-
-        var result = SettingsSerializer.DeserializeOutputSettings(element);
-
-        result.KeyframeInterval.Should().BeNull();
-        result.KeyframeUnit.Should().Be(KeyframeUnit.Frames);
-    }
-
-    [Theory]
-    [InlineData("target_quality", "variance_boost_strength", 0)]
     [InlineData("target_quality", "variance_boost_strength", 5)]
     [InlineData("target_quality", "variance_octile", 0)]
-    [InlineData("target_quality", "variance_octile", 9)]
     [InlineData("video_encoder_options", "variance_boost_strength", 0)]
-    [InlineData("video_encoder_options", "variance_boost_strength", 5)]
-    [InlineData("video_encoder_options", "variance_octile", 0)]
     [InlineData("video_encoder_options", "variance_octile", 9)]
-    public void Deserialize_InvalidVarianceBoostOptions_Throws(string section, string property, int value)
-    {
-        var json = $$"""
-        { "video_codec": "av1", "container": "mkv", "{{section}}": { "{{property}}": {{value}} } }
-        """;
-        var element = JsonDocument.Parse(json).RootElement;
-
-        var act = () => SettingsSerializer.DeserializeOutputSettings(element);
-
-        act.Should().Throw<SettingsDecodeException>();
-    }
-
-    [Fact]
-    public void Deserialize_WithoutEncoderOptions_CopiesVarianceBoostFromQuality()
-    {
-        var json = """
-        { "video_codec": "av1", "container": "mkv",
-          "target_quality": { "variance_boost_strength": 4, "variance_octile": 8 } }
-        """;
-        var result = SettingsSerializer.DeserializeOutputSettings(JsonDocument.Parse(json).RootElement);
-
-        var encoder = result.VideoEncoderOptions.Should().BeOfType<Av1EncoderOptions>().Subject;
-        encoder.VarianceBoostStrength.Should().Be(4);
-        encoder.VarianceOctile.Should().Be(8);
-    }
-
-    // --- AV1 encoder options ---
-
-    [Fact]
-    public void RoundTrip_Av1Quality_PreservesAllFields()
-    {
-        var original = new TestOutputSettingsBuilder()
-            .WithAv1()
-            .WithQuality(new Av1QualityOptions(
-                Crf: 25, Preset: 4, Tune: 2, EnableOverlays: 0, Scm: 3,
-                MaxBitrateKbps: 4500, EnableVarianceBoost: 1, VarianceBoostStrength: 4, VarianceOctile: 8,
-                FilmGrain: 15, FilmGrainDenoise: 1, AdaptiveFilmGrain: 0))
-            .Build();
-
-        var result = RoundTrip(original);
-
-        result.TargetQuality.Should().BeOfType<Av1QualityOptions>();
-        var q = (Av1QualityOptions)result.TargetQuality;
-        q.Crf.Should().Be(25);
-        q.Preset.Should().Be(4);
-        q.Tune.Should().Be(2);
-        q.EnableOverlays.Should().Be(0);
-        q.Scm.Should().Be(3);
-        q.MaxBitrateKbps.Should().Be(4500);
-        q.EnableVarianceBoost.Should().Be(1);
-        q.VarianceBoostStrength.Should().Be(4);
-        q.VarianceOctile.Should().Be(8);
-        q.FilmGrain.Should().Be(15);
-        q.FilmGrainDenoise.Should().Be(1);
-        q.AdaptiveFilmGrain.Should().Be(0);
-    }
-
-    [Fact]
-    public void RoundTrip_Av1EncoderOptions_PreservesAllFields()
-    {
-        var original = new TestOutputSettingsBuilder()
-            .WithAv1()
-            .WithEncoderOptions(new Av1EncoderOptions(
-                Preset: 8, Tune: 4, EnableOverlays: 1, Scm: 1, EnableVarianceBoost: 1, VarianceBoostStrength: 3, VarianceOctile: 1,
-                FilmGrain: 50, FilmGrainDenoise: 1, AdaptiveFilmGrain: 0))
-            .Build();
-
-        var result = RoundTrip(original);
-
-        result.VideoEncoderOptions.Should().BeOfType<Av1EncoderOptions>();
-        var opts = (Av1EncoderOptions)result.VideoEncoderOptions!;
-        opts.Preset.Should().Be(8);
-        opts.Tune.Should().Be(4);
-        opts.EnableOverlays.Should().Be(1);
-        opts.Scm.Should().Be(1);
-        opts.EnableVarianceBoost.Should().Be(1);
-        opts.VarianceBoostStrength.Should().Be(3);
-        opts.VarianceOctile.Should().Be(1);
-        opts.FilmGrain.Should().Be(50);
-        opts.FilmGrainDenoise.Should().Be(1);
-        opts.AdaptiveFilmGrain.Should().Be(0);
-    }
-
-    [Fact]
-    public void Deserialize_Av1Quality_MissingNewFields_UsesDefaults()
-    {
-        var json = """
-        {
-            "video_codec": "av1",
-            "container": "mkv",
-            "target_quality": { "codec": "av1", "crf": 30, "preset": 6 }
-        }
-        """;
-        var element = JsonDocument.Parse(json).RootElement;
-
-        var result = SettingsSerializer.DeserializeOutputSettings(element);
-
-        var q = result.TargetQuality.Should().BeOfType<Av1QualityOptions>().Subject;
-        q.Tune.Should().Be(0);
-        q.EnableOverlays.Should().Be(1);
-        q.Scm.Should().Be(2);
-        q.MaxBitrateKbps.Should().Be(0);
-        q.EnableVarianceBoost.Should().Be(0);
-        q.VarianceBoostStrength.Should().Be(2);
-        q.VarianceOctile.Should().Be(5);
-        q.FilmGrain.Should().Be(0);
-        q.FilmGrainDenoise.Should().Be(0);
-        q.AdaptiveFilmGrain.Should().Be(1);
-    }
-
-    [Fact]
-    public void RoundTrip_AdditionalOptions_PreservedForAllCodecs()
-    {
-        var h264 = RoundTrip(new TestOutputSettingsBuilder()
-            .WithEncoderOptions(new H26xEncoderOptions(VideoCodec.H264, AdditionalOptions: "-refs 4")).Build());
-        ((H26xEncoderOptions)h264.VideoEncoderOptions!).AdditionalOptions.Should().Be("-refs 4");
-
-        var h265 = RoundTrip(new TestOutputSettingsBuilder()
-            .WithH265()
-            .WithEncoderOptions(new H26xEncoderOptions(VideoCodec.H265, AdditionalOptions: "-tune grain")).Build());
-        ((H26xEncoderOptions)h265.VideoEncoderOptions!).AdditionalOptions.Should().Be("-tune grain");
-
-        var vp9 = RoundTrip(new TestOutputSettingsBuilder()
-            .WithVp9()
-            .WithEncoderOptions(new VpxEncoderOptions(VideoCodec.Vp9, AdditionalOptions: "-lag-in-frames 25")).Build());
-        ((VpxEncoderOptions)vp9.VideoEncoderOptions!).AdditionalOptions.Should().Be("-lag-in-frames 25");
-
-        var av1 = RoundTrip(new TestOutputSettingsBuilder()
-            .WithAv1()
-            .WithEncoderOptions(new Av1EncoderOptions(AdditionalOptions: "-g 240")).Build());
-        ((Av1EncoderOptions)av1.VideoEncoderOptions!).AdditionalOptions.Should().Be("-g 240");
-    }
-
-    [Fact]
-    public void Deserialize_EncoderOptions_MissingAdditionalOptions_DefaultsToEmpty()
-    {
-        var json = """
-        {
-            "video_codec": "h264",
-            "container": "mp4",
-            "video_encoder_options": { "codec": "h264", "preset": "medium", "profile": "high" }
-        }
-        """;
-        var element = JsonDocument.Parse(json).RootElement;
-
-        var result = SettingsSerializer.DeserializeOutputSettings(element);
-
-        ((H26xEncoderOptions)result.VideoEncoderOptions!).AdditionalOptions.Should().Be("");
-    }
-
-    [Fact]
-    public void Deserialize_MissingH264EncoderOptions_DerivesDefaultsFromQuality()
-    {
-        var json = """
-        {
-            "video_codec": "h264",
-            "container": "mp4",
-            "target_quality": { "codec": "h264", "crf": 18, "preset": "slow", "profile": "high" }
-        }
-        """;
-        var element = JsonDocument.Parse(json).RootElement;
-
-        var result = SettingsSerializer.DeserializeOutputSettings(element);
-
-        var opts = result.VideoEncoderOptions.Should().BeOfType<H26xEncoderOptions>().Subject;
-        opts.Preset.Should().Be("slow");
-        opts.Profile.Should().Be("high");
-        opts.AdditionalOptions.Should().Be("");
-    }
-
-    [Fact]
-    public void Deserialize_NullAv1EncoderOptions_DerivesDefaultsFromQuality()
-    {
-        var json = """
-        {
-            "video_codec": "av1",
-            "container": "mkv",
-            "video_encoder_options": null,
-            "target_quality": {
-                "codec": "av1",
-                "crf": 26,
-                "preset": 4,
-                "tune": 2,
-                "enable_overlays": 0,
-                "scm": 1,
-                "enable_variance_boost": 1
-            }
-        }
-        """;
-        var element = JsonDocument.Parse(json).RootElement;
-
-        var result = SettingsSerializer.DeserializeOutputSettings(element);
-
-        var opts = result.VideoEncoderOptions.Should().BeOfType<Av1EncoderOptions>().Subject;
-        opts.Preset.Should().Be(4);
-        opts.Tune.Should().Be(2);
-        opts.EnableOverlays.Should().Be(0);
-        opts.Scm.Should().Be(1);
-        opts.EnableVarianceBoost.Should().Be(1);
-        opts.AdditionalOptions.Should().Be("");
-    }
-
-    [Fact]
-    public void Deserialize_Av1EncoderOptions_MissingNewFields_UsesDefaults()
-    {
-        var json = """
-        {
-            "video_codec": "av1",
-            "container": "mkv",
-            "video_encoder_options": { "codec": "av1", "preset": 6 }
-        }
-        """;
-        var element = JsonDocument.Parse(json).RootElement;
-
-        var result = SettingsSerializer.DeserializeOutputSettings(element);
-
-        var opts = result.VideoEncoderOptions.Should().BeOfType<Av1EncoderOptions>().Subject;
-        opts.Tune.Should().Be(0);
-        opts.EnableOverlays.Should().Be(1);
-        opts.Scm.Should().Be(2);
-        opts.EnableVarianceBoost.Should().Be(0);
-        opts.VarianceBoostStrength.Should().Be(2);
-        opts.VarianceOctile.Should().Be(5);
-        opts.FilmGrain.Should().Be(0);
-        opts.FilmGrainDenoise.Should().Be(0);
-        opts.AdaptiveFilmGrain.Should().Be(1);
-    }
-
-    [Fact]
-    public void Deserialize_Av1FilmGrain_MissingEncoderOptions_DerivesFromQuality()
-    {
-        using var document = JsonDocument.Parse("""
-        {
-            "video_codec": "av1", "container": "mkv",
-            "target_quality": {
-                "film_grain": 12, "film_grain_denoise": 1, "adaptive_film_grain": 0
-            }
-        }
-        """);
-
-        var result = SettingsSerializer.DeserializeOutputSettings(document.RootElement);
-
-        var encoder = result.VideoEncoderOptions.Should().BeOfType<Av1EncoderOptions>().Subject;
-        encoder.FilmGrain.Should().Be(12);
-        encoder.FilmGrainDenoise.Should().Be(1);
-        encoder.AdaptiveFilmGrain.Should().Be(0);
-    }
-
-    [Theory]
     [InlineData("target_quality", "film_grain", -1)]
     [InlineData("target_quality", "film_grain", 51)]
     [InlineData("target_quality", "film_grain_denoise", 2)]
@@ -826,17 +222,25 @@ public class SettingsSerializerTests
     [InlineData("video_encoder_options", "film_grain", 51)]
     [InlineData("video_encoder_options", "film_grain_denoise", 2)]
     [InlineData("video_encoder_options", "adaptive_film_grain", -1)]
-    public void Deserialize_InvalidAv1FilmGrain_RejectsSettings(string section, string field, int value)
+    public void Deserialize_InvalidAv1Options_AreRejected(string section, string field, int value)
     {
-        using var document = JsonDocument.Parse($$"""
-        {
-            "video_codec": "av1", "container": "mkv",
-            "{{section}}": { "{{field}}": {{value}} }
-        }
-        """);
+        var json = $$"""{ "video_codec": "av1", "container": "mkv", "{{section}}": { "{{field}}": {{value}} } }""";
 
-        var act = () => SettingsSerializer.DeserializeOutputSettings(document.RootElement);
+        var decode = () => Deserialize(json);
 
-        act.Should().Throw<SettingsDecodeException>();
+        decode.Should().Throw<SettingsDecodeException>();
+    }
+
+    [Theory]
+    [InlineData("""{ "name": "", "schema_version": 1, "settings": {} }""")]
+    [InlineData("""{ "name": "Test", "schema_version": 999, "settings": {} }""")]
+    [InlineData("""{ "name": "Test", "schema_version": 1, "settings": { "container": "avi" } }""")]
+    public void DeserializePreset_InvalidPresets_AreRejected(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+
+        var decode = () => SettingsSerializer.DeserializePreset(document.RootElement);
+
+        decode.Should().Throw<PresetDecodeException>();
     }
 }

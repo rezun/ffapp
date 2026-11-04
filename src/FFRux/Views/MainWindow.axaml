@@ -31,6 +31,14 @@
         <!-- Status bar -->
         <Border DockPanel.Dock="Bottom" Height="40" Padding="8,0" BorderBrush="{DynamicResource BorderSubtleBrush}"
                 BorderThickness="0,1,0,0">
+            <Border.Styles>
+                <!-- The default pointer placement has no room below the window edge, so the tooltip
+                     slides up under the pointer and swallows the click. Open it above the control. -->
+                <Style Selector=":is(Control)">
+                    <Setter Property="ToolTip.Placement" Value="Top" />
+                    <Setter Property="ToolTip.VerticalOffset" Value="-6" />
+                </Style>
+            </Border.Styles>
             <Grid ColumnDefinitions="*,Auto,Auto">
                 <!-- Ready or blocked -->
                 <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding StatusMessage}"

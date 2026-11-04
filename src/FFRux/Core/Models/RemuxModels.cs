@@ -87,6 +87,9 @@ public sealed record RemuxPlan
     public string? Title { get; init; }
     public string? OutputPath { get; init; }
 
+    /// <summary>Rewrites the Matroska track statistics with mkvpropedit after the remux, when it is installed.</summary>
+    public bool UpdateMatroskaStatistics { get; init; } = true;
+
     public OutputFormatInfo FormatInfo => OutputFormats.Get(Format);
 
     public IReadOnlyList<RemuxTrack> EnabledTracks => [.. Tracks.Where(track => track.Enabled)];

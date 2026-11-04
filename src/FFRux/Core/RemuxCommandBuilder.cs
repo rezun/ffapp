@@ -7,7 +7,7 @@ using FFRux.Core.Models;
 namespace FFRux.Core;
 
 /// <param name="Ffmpeg">The remux itself.</param>
-/// <param name="PostProcess">mkvpropedit for Matroska outputs, when it is installed.</param>
+/// <param name="PostProcess">mkvpropedit for Matroska outputs, when it is installed and the plan asks for it.</param>
 public sealed record RemuxCommands(GeneratedCommand Ffmpeg, GeneratedCommand? PostProcess);
 
 /// <summary>
@@ -77,7 +77,7 @@ public sealed class RemuxCommandBuilder(ExecutablePathsConfig pathsConfig)
         args.Add(outputPath);
 
         var ffmpeg = GeneratedCommand.Create(pathsConfig.FfmpegPath, args);
-        GeneratedCommand? postProcess = format.IsMatroska && pathsConfig.MkvpropeditPath is { } mkvpropedit
+        GeneratedCommand? postProcess = format.IsMatroska && plan.UpdateMatroskaStatistics && pathsConfig.MkvpropeditPath is { } mkvpropedit
             ? GeneratedCommand.Create(mkvpropedit,
                 [outputPath, "--delete-track-statistics-tags", "--add-track-statistics-tags"], ProcessProtocol.Plain)
             : null;

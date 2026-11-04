@@ -71,7 +71,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncInitia
     private Task? _job;
     private bool _chapterChoiceIsCustom;
     private bool _updatingChapters;
-    private bool _mkvpropeditAvailable;
 
     public MainWindowViewModel(
         IDependencyService dependencies,
@@ -100,10 +99,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncInitia
         Output.Changed += (_, _) => OnUserChange();
         Output.PropertyChanged += (_, e) =>
         {
-            // PropertyChanged is synchronous, so remembering the format runs fire-and-forget;
-            // SaveFormatAsync catches and logs its own failures.
-            if (e.PropertyName == nameof(OutputViewModel.SelectedFormat) && _initialization?.IsCompleted == true)
-                _ = SaveFormatAsync(Output.Format);
+            // PropertyChanged is synchronous, so remembering the options runs fire-and-forget;
+            // SaveSettingsAsync catches and logs its own failures.
+            if (e.PropertyName is nameof(OutputViewModel.SelectedFormat) or nameof(OutputViewModel.UpdateStatistics)
+                && _initialization?.IsCompleted == true)
+                _ = SaveSettingsAsync();
         };
     }
 
@@ -393,11 +393,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncInitia
         var settings = await _settings.LoadAsync();
         if (settings.LastFormat is { } format)
             Output.SelectFormat(format);
+        Output.UpdateStatistics = settings.UpdateMatroskaStatistics ?? true;
 
         // FFRux has no paths to configure, so discovery relies on PATH and the usual install locations.
         var status = await _dependencies.DiscoverAsync(ExecutablePaths.Empty);
         _pathsConfig.Configure(status.ExecutablePaths);
-        _mkvpropeditAvailable = status.Mkvpropedit.IsValid;
+        Output.MkvpropeditAvailable = status.Mkvpropedit.IsValid;
         IsReady = status.IsReady;
         ToolsMessage = status.IsReady
             ? null
@@ -610,6 +611,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncInitia
             Format = format ?? Output.Format,
             Title = Output.Title,
             OutputPath = string.IsNullOrWhiteSpace(Output.OutputPath) ? null : Output.OutputPath,
+            UpdateMatroskaStatistics = Output.UpdateStatistics,
         };
     }
 
@@ -649,7 +651,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncInitia
             track.ApplyStatus(report.For(track.Key));
 
         var issues = report.Issues.Concat(CompatibilityChecker.CheckOutputPath(plan)).ToList();
-        if (format.IsMatroska && !_mkvpropeditAvailable && IsReady)
+        if (format.IsMatroska && Output.UpdateStatistics && !Output.MkvpropeditAvailable && IsReady)
             issues.Add(new CompatibilityIssue(IssueSeverity.Info, "mkvpropedit was not found, so the track statistics in the output are not updated."));
         issues.AddRange(Sources.Where(source => source.IsError)
             .Select(source => new CompatibilityIssue(IssueSeverity.Info, $"Source {source.Number} ({source.FileName}) can't be read and adds no tracks.")));
@@ -832,11 +834,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncInitia
             ShowStatus();
     }
 
-    private async Task SaveFormatAsync(OutputFormat format)
+    private async Task SaveSettingsAsync()
     {
         try
         {
-            await _settings.SaveAsync(new FFRuxSettings { LastFormat = format });
+            await _settings.SaveAsync(new FFRuxSettings
+            {
+                LastFormat = Output.Format,
+                UpdateMatroskaStatistics = Output.UpdateStatistics,
+            });
         }
         catch (IOException ex)
         {

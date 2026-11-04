@@ -182,6 +182,8 @@ public sealed class RemuxCommandBuilderTests
         commands.PostProcess!.Arguments.Should().Equal("/out/a.mkv", "--delete-track-statistics-tags", "--add-track-statistics-tags");
         commands.PostProcess.Protocol.Should().Be(ProcessProtocol.Plain);
         Sut.Build(Plan(OutputFormat.Mp4, Movie()), "/out/a.mp4").PostProcess.Should().BeNull();
+        Sut.Build(Plan(OutputFormat.Mkv, Movie()) with { UpdateMatroskaStatistics = false }, "/out/a.mkv")
+            .PostProcess.Should().BeNull();
     }
 
     [Fact]

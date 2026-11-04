@@ -7,6 +7,9 @@ namespace FFRux.Infrastructure;
 public sealed record FFRuxSettings
 {
     public OutputFormat? LastFormat { get; init; }
+
+    /// <summary>Null until the user changes the option; the default is on.</summary>
+    public bool? UpdateMatroskaStatistics { get; init; }
 }
 
 public interface ISettingsService
@@ -35,7 +38,7 @@ public sealed class SettingsService(JsonSerializerOptions jsonOptions) : ISettin
         }
         catch (JsonException)
         {
-            // A damaged settings file only costs the remembered format; start with defaults.
+            // A damaged settings file only costs the remembered options; start with defaults.
             return new FFRuxSettings();
         }
     }

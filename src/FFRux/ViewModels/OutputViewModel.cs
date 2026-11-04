@@ -40,7 +40,7 @@ public sealed partial class OutputViewModel : ObservableObject
     public ObservableCollection<FormatOptionViewModel> Formats { get; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Format), nameof(FormatInfo), nameof(TitleEnabled), nameof(TitleHint))]
+    [NotifyPropertyChangedFor(nameof(Format), nameof(FormatInfo), nameof(TitleEnabled), nameof(TitleHint), nameof(StatisticsVisible))]
     private FormatOptionViewModel _selectedFormat;
 
     [ObservableProperty] private string _title = "";
@@ -53,11 +53,18 @@ public sealed partial class OutputViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(BrowseCommand))]
     private bool _isEditable = true;
 
+    /// <summary>Runs mkvpropedit after a Matroska remux to rewrite BPS, duration, frame and byte statistics.</summary>
+    [ObservableProperty] private bool _updateStatistics = true;
+
+    /// <summary>Whether mkvpropedit was found; without it the option has no effect.</summary>
+    public bool MkvpropeditAvailable { get; set; } = true;
+
     public OutputFormat Format => SelectedFormat.Format;
     public OutputFormatInfo FormatInfo => SelectedFormat.Info;
     public bool TitleEnabled => FormatInfo.SupportsTitle;
     public string? TitleHint => TitleEnabled ? null : $"{FormatInfo.Name} can't store a title.";
     public bool HasSources => _sourcePaths.Count > 0;
+    public bool StatisticsVisible => FormatInfo.IsMatroska;
 
     public void SelectFormat(OutputFormat format) =>
         SelectedFormat = Formats.First(option => option.Format == format);
@@ -141,6 +148,8 @@ public sealed partial class OutputViewModel : ObservableObject
         }
         Changed?.Invoke(this, EventArgs.Empty);
     }
+
+    partial void OnUpdateStatisticsChanged(bool value) => Changed?.Invoke(this, EventArgs.Empty);
 
     partial void OnTitleChanged(string value)
     {

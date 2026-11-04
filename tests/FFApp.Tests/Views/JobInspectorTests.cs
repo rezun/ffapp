@@ -19,7 +19,7 @@ public sealed class JobInspectorTests(QueueTestSession fixture)
     {
         await fixture.Session.Dispatch(() =>
         {
-            var item = JobFailureViewModelTests.CreateItem();
+            var item = JobItemDetailsViewModelTests.CreateItem();
             var details = new JobItemDetailsViewModel();
             details.UpdateFromItem(item);
             var view = new JobItemDetailsView { DataContext = details };

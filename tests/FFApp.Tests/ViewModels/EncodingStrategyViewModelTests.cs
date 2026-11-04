@@ -8,36 +8,16 @@ public class EncodingStrategyViewModelTests
 {
     private readonly EncodingStrategyViewModel _sut = new();
 
-    [Fact]
-    public void Default_StrategyIsTargetQuality_ActiveIsQuality()
+    [Theory]
+    [InlineData(EncodingStrategy.TargetQuality, EncodingStrategy.TargetQuality, typeof(QualityViewModel))]
+    [InlineData(EncodingStrategy.TargetBitrate, EncodingStrategy.TargetQuality, typeof(QualityViewModel))]
+    [InlineData(EncodingStrategy.TargetQuality, EncodingStrategy.TargetBitrate, typeof(BitrateViewModel))]
+    [InlineData(EncodingStrategy.TargetQuality, EncodingStrategy.TargetFileSize, typeof(FileSizeViewModel))]
+    public void SelectedStrategy_ActivatesItsViewModel(EncodingStrategy from, EncodingStrategy to, Type expected)
     {
-        _sut.SelectedStrategy.Should().Be(EncodingStrategy.TargetQuality);
-        _sut.ActiveStrategyViewModel.Should().BeSameAs(_sut.Quality);
-    }
+        _sut.SelectedStrategy = from;
+        _sut.SelectedStrategy = to;
 
-    [Fact]
-    public void SwitchToTargetBitrate_ActiveIsBitrate()
-    {
-        _sut.SelectedStrategy = EncodingStrategy.TargetBitrate;
-
-        _sut.ActiveStrategyViewModel.Should().BeSameAs(_sut.Bitrate);
-    }
-
-    [Fact]
-    public void SwitchToTargetFileSize_ActiveIsFileSize()
-    {
-        _sut.SelectedStrategy = EncodingStrategy.TargetFileSize;
-
-        _sut.ActiveStrategyViewModel.Should().BeSameAs(_sut.FileSize);
-    }
-
-    [Fact]
-    public void SwitchBackToTargetQuality_ActiveIsQuality()
-    {
-        _sut.SelectedStrategy = EncodingStrategy.TargetBitrate;
-        _sut.ActiveStrategyViewModel.Should().BeSameAs(_sut.Bitrate);
-
-        _sut.SelectedStrategy = EncodingStrategy.TargetQuality;
-        _sut.ActiveStrategyViewModel.Should().BeSameAs(_sut.Quality);
+        _sut.ActiveStrategyViewModel.Should().BeOfType(expected);
     }
 }

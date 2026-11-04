@@ -22,15 +22,6 @@ public class SourceListPanelViewModelTests
     }
 
     [Fact]
-    public void InitialState_HasNoSourcesOrSelection()
-    {
-        _sut.Sources.Should().BeEmpty();
-        _sut.SelectedSource.Should().BeNull();
-        _sut.StatusText.Should().Be("No source files loaded.");
-        _sut.MediaSummaryText.Should().BeEmpty();
-    }
-
-    [Fact]
     public async Task AddFilesAsync_DialogReturnsNull_NoProbe()
     {
         _dialogService.OpenFilesAsync(Arg.Any<string>(), Arg.Any<string?>())

@@ -66,7 +66,7 @@ public sealed class ComparisonViewModelTests
     }
 
     [Fact]
-    public async Task MaximizePreview_TogglesPanels_AndResetsWhenChangingSteps()
+    public async Task MaximizePreview_TogglesPanelsAndSampleEditor_AndResetsWhenChangingSteps()
     {
         using var harness = new ComparisonTestHarness();
         await harness.LoadAsync();
@@ -75,12 +75,14 @@ public sealed class ComparisonViewModelTests
         vm.ShowResultsCommand.Execute(null);
         vm.ShowSamplePanel.Should().BeTrue();
         vm.ShowResultTable.Should().BeTrue();
+        vm.ShowSampleEditor.Should().BeFalse("the sample editor belongs to the samples step");
 
         using (var changes = vm.Monitor())
         {
             vm.TogglePreviewSizeCommand.Execute(null);
             changes.Should().RaisePropertyChangeFor(v => v.ShowSamplePanel);
             changes.Should().RaisePropertyChangeFor(v => v.ShowResultTable);
+            changes.Should().RaisePropertyChangeFor(v => v.ShowSampleEditor);
             changes.Should().RaisePropertyChangeFor(v => v.PreviewSizeActionLabel);
         }
         vm.IsPreviewMaximized.Should().BeTrue();
@@ -100,6 +102,11 @@ public sealed class ComparisonViewModelTests
         vm.ShowResultTable.Should().BeFalse();
         vm.ShowResultsCommand.Execute(null);
         vm.ShowResultTable.Should().BeTrue();
+
+        vm.ShowSamplesCommand.Execute(null);
+        vm.ShowSampleEditor.Should().BeTrue();
+        vm.TogglePreviewSizeCommand.Execute(null);
+        vm.ShowSampleEditor.Should().BeFalse();
     }
 
     [Fact]
@@ -192,16 +199,6 @@ public sealed class ComparisonViewModelTests
         harness.Execution.ReceivedCalls().Should().BeEmpty();
         (await vm.TrySaveAsync()).Should().BeFalse();
         (await harness.Service.LoadAsync(harness.Context)).Samples[0].StartSeconds.Should().NotBe(119);
-    }
-
-    [Fact]
-    public void Differences_IncludeToneMapParameters_AndOnlyChangedFields()
-    {
-        var baseline = new OutputSettings();
-        var changed = baseline with { ToneMapSettings = baseline.ToneMapSettings with { ContrastRecovery = 0.7, Saturation = 0.9 } };
-        var text = ComparisonSettingsDescription.Differences(baseline, changed);
-        text.Should().Contain("Contrast recovery: 0.3 → 0.7").And.Contain("Saturation: 1 → 0.9");
-        text.Should().NotContain("CRF").And.NotContain("tone_map_settings");
     }
 
     [Fact]
@@ -367,33 +364,24 @@ public sealed class ComparisonViewModelTests
         vm.SelectedTab.Should().Be(2);
     }
 
-    [Theory]
-    [InlineData(200, 0, 12, 200000)]
-    [InlineData(2, 5, 12, 7000)]
-    [InlineData(2, -10, 12, 2000)]
-    [InlineData(2, 99, 12, 13960)]
-    public void PlaybackTime_MapsSourceAndClipToSameSamplePosition(double offset, double position, double duration, long expected)
-    {
-        ComparisonPlaybackViewModel.MediaTime(new ComparisonTrack("/video", offset), position, duration).Should().Be(expected);
-    }
-
     [Fact]
-    public async Task SetStartToPlayhead_MovesSelectedSampleToPreviewPosition()
+    public async Task SetStartToPlayhead_MovesSelectedSampleToShownFrame_AndKeepsShowingIt()
     {
         using var harness = new ComparisonTestHarness();
         await harness.LoadAsync();
         var vm = harness.ViewModel;
+        vm.PreviewSelection();
         var sample = vm.Samples[1];
         vm.SelectedSample = sample;
         var originalStart = sample.StartSeconds;
         var originalDuration = sample.DurationSeconds;
-        harness.Playback.HasMedia = true;
-        harness.Playback.PositionSeconds = 3.25;
+        ShowFrameAt(harness, 3.25);
 
         vm.SetStartToPlayheadCommand.Execute(null);
 
         sample.StartSeconds.Should().Be(originalStart + 3.25);
         sample.DurationSeconds.Should().Be(originalDuration);
+        harness.Playback.PositionSeconds.Should().Be(0, "the shown frame is now the sample's first frame");
     }
 
     [Fact]
@@ -434,45 +422,6 @@ public sealed class ComparisonViewModelTests
         vm.SetStartToPlayheadCommand.CanExecute(null).Should().BeFalse();
         vm.IsRunning = false;
         vm.SetStartToPlayheadCommand.CanExecute(null).Should().BeTrue();
-    }
-
-    [Fact]
-    public async Task ShowSampleEditor_OnlyOnSamplesStep_AndHiddenWhenVideosAreMaximized()
-    {
-        using var harness = new ComparisonTestHarness();
-        await harness.LoadAsync();
-        var vm = harness.ViewModel;
-        vm.ShowSampleEditor.Should().BeTrue();
-        using (var changes = vm.Monitor())
-        {
-            vm.TogglePreviewSizeCommand.Execute(null);
-            changes.Should().RaisePropertyChangeFor(v => v.ShowSampleEditor);
-        }
-        vm.ShowSampleEditor.Should().BeFalse();
-        vm.TogglePreviewSizeCommand.Execute(null);
-        vm.ShowVariantsCommand.Execute(null);
-        vm.ShowSampleEditor.Should().BeFalse();
-        vm.ShowSamplesCommand.Execute(null);
-        vm.ShowSampleEditor.Should().BeTrue();
-    }
-
-    [Fact]
-    public void DescribeSource_UntrimmedSource_ShowsLengthAndPictureSize()
-    {
-        var media = new TestMediaInfoBuilder().WithDuration(10144)
-            .WithVideoStreams(new VideoStreamInfo(0, "hevc", Width: 3840, Height: 1608)).Build();
-        var session = Session(0, 10144, crop: null);
-        ComparisonViewModel.DescribeSource(session, media).Should().Be("2:49:04 · 3840×1608");
-    }
-
-    [Fact]
-    public void DescribeSource_TrimmedCroppedHdrSource_ShowsRangeCropAndHdr()
-    {
-        var media = new TestMediaInfoBuilder().WithDuration(10144)
-            .WithVideoStreams(new VideoStreamInfo(0, "hevc", Width: 3840, Height: 2160,
-                ColorPrimaries: "bt2020", ColorTransfer: "smpte2084")).Build();
-        var session = Session(600, 4200, new CropRect(0, 276, 3840, 1608));
-        ComparisonViewModel.DescribeSource(session, media).Should().Be("10:00 – 1:10:00 (1:00:00) · 3840×1608 cropped · HDR");
     }
 
     [Fact]
@@ -523,21 +472,35 @@ public sealed class ComparisonViewModelTests
         harness.Playback.PositionSeconds.Should().Be(0);
     }
 
+    // Static helpers behind the comparison window's source and variant descriptions.
+
     [Fact]
-    public async Task SetStartToPlayhead_ShowsSameFrameAtNewSampleStart()
+    public void DescribeSource_UntrimmedSource_ShowsLengthAndPictureSize()
     {
-        using var harness = new ComparisonTestHarness();
-        await harness.LoadAsync();
-        var vm = harness.ViewModel;
-        vm.PreviewSelection();
-        var sample = vm.SelectedSample ?? throw new InvalidOperationException("No sample selected.");
-        var start = sample.StartSeconds;
-        ShowFrameAt(harness, 5);
+        var media = new TestMediaInfoBuilder().WithDuration(10144)
+            .WithVideoStreams(new VideoStreamInfo(0, "hevc", Width: 3840, Height: 1608)).Build();
+        var session = Session(0, 10144, crop: null);
+        ComparisonViewModel.DescribeSource(session, media).Should().Be("2:49:04 · 3840×1608");
+    }
 
-        vm.SetStartToPlayheadCommand.Execute(null);
+    [Fact]
+    public void DescribeSource_TrimmedCroppedHdrSource_ShowsRangeCropAndHdr()
+    {
+        var media = new TestMediaInfoBuilder().WithDuration(10144)
+            .WithVideoStreams(new VideoStreamInfo(0, "hevc", Width: 3840, Height: 2160,
+                ColorPrimaries: "bt2020", ColorTransfer: "smpte2084")).Build();
+        var session = Session(600, 4200, new CropRect(0, 276, 3840, 1608));
+        ComparisonViewModel.DescribeSource(session, media).Should().Be("10:00 – 1:10:00 (1:00:00) · 3840×1608 cropped · HDR");
+    }
 
-        sample.StartSeconds.Should().Be(start + 5);
-        harness.Playback.PositionSeconds.Should().Be(0);
+    [Fact]
+    public void Differences_IncludeToneMapParameters_AndOnlyChangedFields()
+    {
+        var baseline = new OutputSettings();
+        var changed = baseline with { ToneMapSettings = baseline.ToneMapSettings with { ContrastRecovery = 0.7, Saturation = 0.9 } };
+        var text = ComparisonSettingsDescription.Differences(baseline, changed);
+        text.Should().Contain("Contrast recovery: 0.3 → 0.7").And.Contain("Saturation: 1 → 0.9");
+        text.Should().NotContain("CRF").And.NotContain("tone_map_settings");
     }
 
     /// <summary>Simulates a decoded frame: the harness has no FFmpeg decoder to publish one.</summary>

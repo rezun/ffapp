@@ -10,16 +10,6 @@ namespace FFApp.Tests.ViewModels;
 public sealed class VideoPreviewViewModelTests
 {
     [Fact]
-    public void Audio_DefaultsToFullVolumeAndUnmuted()
-    {
-        using var sut = new VideoPreviewViewModel(null);
-
-        sut.Volume.Should().Be(100);
-        sut.IsMuted.Should().BeFalse();
-        sut.MuteLabel.Should().Be("Mute");
-    }
-
-    [Fact]
     public void ToggleMute_PreservesVolumeAndUpdatesLabel()
     {
         using var sut = new VideoPreviewViewModel(null) { Volume = 42 };

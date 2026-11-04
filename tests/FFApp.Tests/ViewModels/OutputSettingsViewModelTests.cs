@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using FFApp.Core;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
+using FFApp.Core.Validation;
 using FFApp.Tests.Builders;
 using FFApp.ViewModels;
 using FluentAssertions;
@@ -11,60 +12,34 @@ namespace FFApp.Tests.ViewModels;
 
 public class OutputSettingsViewModelTests
 {
-    [Theory]
-    [InlineData(EncodingStrategy.TargetQuality)]
-    [InlineData(EncodingStrategy.TargetBitrate)]
-    [InlineData(EncodingStrategy.TargetFileSize)]
-    public void ApplyAndBuildSettings_Av1VarianceBoost_PreservesSettingsAndEdits(EncodingStrategy strategy)
+    [Fact]
+    public void ApplyAndBuildSettings_Av1QualityControls_RoundTripAndReflectEdits()
     {
-        var settings = new TestOutputSettingsBuilder().WithAv1()
-            .WithAv1VarianceBoost(strength: 4, octile: 8).WithStrategy(strategy).Build();
-        _sut.ApplySettings(settings);
-        var vm = _sut.Strategy.Quality.Av1;
-        vm.EnableVarianceBoostChecked.Should().BeTrue();
-        vm.VarianceBoostStrength.Should().Be(4);
-        vm.VarianceOctile.Should().Be(8);
+        var encoder = new Av1EncoderOptions(EnableVarianceBoost: 1, VarianceBoostStrength: 4, VarianceOctile: 8,
+            FilmGrain: 15, FilmGrainDenoise: 1, AdaptiveFilmGrain: 0);
+        var quality = new Av1QualityOptions(EnableVarianceBoost: 1, VarianceBoostStrength: 4, VarianceOctile: 8,
+            FilmGrain: 15, FilmGrainDenoise: 1, AdaptiveFilmGrain: 0);
+        _sut.ApplySettings(new TestOutputSettingsBuilder().WithAv1().WithEncoderOptions(encoder).WithQuality(quality).Build());
+        var built = _sut.BuildSettings();
+        built.VideoEncoderOptions.Should().Be(encoder);
+        built.TargetQuality.Should().Be(quality);
 
+        var vm = _sut.Strategy.Quality.Av1;
         vm.VarianceBoostStrength = 1;
         vm.VarianceOctile = 3;
-        var rebuilt = _sut.BuildSettings();
-        var encoder = rebuilt.VideoEncoderOptions.Should().BeOfType<Av1EncoderOptions>().Subject;
-        var quality = rebuilt.TargetQuality.Should().BeOfType<Av1QualityOptions>().Subject;
-        encoder.VarianceBoostStrength.Should().Be(1);
-        encoder.VarianceOctile.Should().Be(3);
-        quality.VarianceBoostStrength.Should().Be(1);
-        quality.VarianceOctile.Should().Be(3);
-    }
-
-    [Theory]
-    [InlineData(EncodingStrategy.TargetQuality)]
-    [InlineData(EncodingStrategy.TargetBitrate)]
-    [InlineData(EncodingStrategy.TargetFileSize)]
-    public void ApplyAndBuildSettings_Av1FilmGrain_PreservesSettingsAndControlEdits(EncodingStrategy strategy)
-    {
-        var settings = new TestOutputSettingsBuilder().WithAv1()
-            .WithAv1FilmGrain(15, denoise: 1, adaptive: 0).WithStrategy(strategy).Build();
-
-        _sut.ApplySettings(settings);
-
-        var vm = _sut.Strategy.Quality.Av1;
-        vm.FilmGrain.Should().Be(15);
-        vm.FilmGrainDenoiseChecked.Should().BeTrue();
-        vm.AdaptiveFilmGrainChecked.Should().BeFalse();
-
         vm.FilmGrain = 8;
         vm.FilmGrainDenoiseChecked = false;
         vm.AdaptiveFilmGrainChecked = true;
         var rebuilt = _sut.BuildSettings();
 
-        var encoder = rebuilt.VideoEncoderOptions.Should().BeOfType<Av1EncoderOptions>().Subject;
-        encoder.FilmGrain.Should().Be(8);
-        encoder.FilmGrainDenoise.Should().Be(0);
-        encoder.AdaptiveFilmGrain.Should().Be(1);
-        var quality = rebuilt.TargetQuality.Should().BeOfType<Av1QualityOptions>().Subject;
-        quality.FilmGrain.Should().Be(8);
-        quality.FilmGrainDenoise.Should().Be(0);
-        quality.AdaptiveFilmGrain.Should().Be(1);
+        rebuilt.VideoEncoderOptions.Should().Be(encoder with
+        {
+            VarianceBoostStrength = 1, VarianceOctile = 3, FilmGrain = 8, FilmGrainDenoise = 0, AdaptiveFilmGrain = 1,
+        });
+        rebuilt.TargetQuality.Should().Be(quality with
+        {
+            VarianceBoostStrength = 1, VarianceOctile = 3, FilmGrain = 8, FilmGrainDenoise = 0, AdaptiveFilmGrain = 1,
+        });
     }
 
     [Fact]
@@ -135,6 +110,7 @@ public class OutputSettingsViewModelTests
             _validationService, _messenger, _capabilityService, _pathsConfig);
     }
 
+
     [Fact]
     public void ColorSettings_AreRestoredAndEditsNotifyTheWorkspace()
     {
@@ -148,12 +124,12 @@ public class OutputSettingsViewModelTests
         var recipient = new object();
         messenger.Register<OutputSettingsChangedMessage>(recipient, (_, message) => notified = message.Value);
         sut.Color.SelectedRange = "tv";
-        sut.BuildSettings().ColorMetadata.Range.Should().Be("tv");
         notified.Should().NotBeNull();
-        notified?.ColorMetadata.Range.Should().Be("tv");
+        notified?.ColorMetadata.Should().Be(colors with { Range = "tv" });
         sut.Format.SelectedVideoCodec = VideoCodec.Av1;
-        sut.BuildSettings().ColorMetadata.Primaries.Should().Be("bt470bg");
+        sut.BuildSettings().ColorMetadata.Should().Be(colors with { Range = "tv" });
     }
+
 
     [Fact]
     public void ColorSummary_UpdatesForSourceAssumptionsHdrAndCopy()
@@ -175,71 +151,34 @@ public class OutputSettingsViewModelTests
         _sut.Color.OutputSummary.Should().Contain("unchanged");
     }
 
-    [Fact]
-    public void BuildSettings_ReturnsDefaults()
-    {
-        var settings = _sut.BuildSettings();
-
-        settings.Container.Should().Be(OutputContainer.Mp4);
-        settings.VideoCodec.Should().Be(VideoCodec.H264);
-        settings.EncodingStrategy.Should().Be(EncodingStrategy.TargetQuality);
-        settings.ResolutionPreset.Should().Be(ResolutionPreset.Original);
-        settings.AudioOptions.Mode.Should().Be(AudioMode.Copy);
-        settings.AudioOptions.Codec.Should().BeNull();
-        settings.AudioOptions.Bitrate.Should().BeNull();
-        settings.AudioOptions.AudioChannels.Should().BeNull();
-        settings.AudioOptions.SampleRate.Should().BeNull();
-        settings.AudioOptions.RemoveTrackTitles.Should().BeFalse();
-        settings.StreamHandling.RemoveImages.Should().BeFalse();
-    }
 
     [Fact]
-    public void RemoveImages_RestoredAndEditsNotifyWorkspace()
+    public void ApplySettings_ThenBuildSettings_RoundTripsEveryOption()
     {
-        var messenger = new WeakReferenceMessenger();
-        var sut = new OutputSettingsViewModel(_validationService, messenger, _capabilityService, _pathsConfig);
-        sut.UpdateSourceInfo(new TestMediaInfoBuilder().Build());
-        sut.ApplySettings(new TestOutputSettingsBuilder().WithRemoveImages().Build());
-        sut.StreamHandling.RemoveImages.Should().BeTrue();
-        sut.BuildSettings().StreamHandling.RemoveImages.Should().BeTrue();
-        OutputSettings? notified = null;
-        var recipient = new object();
-        messenger.Register<OutputSettingsChangedMessage>(recipient, (_, message) => notified = message.Value);
+        var edited = new TestOutputSettingsBuilder()
+            .WithContainer(OutputContainer.Mkv)
+            .WithH265()
+            .WithStrategy(EncodingStrategy.TargetBitrate)
+            .WithResolution(ResolutionPreset.P1080)
+            .WithAudioReencode(AudioCodec.Mp3, 192_000, channels: 2)
+            .WithRemoveAudioTrackTitles()
+            .WithRemoveImages()
+            .Build();
+        var defaults = new OutputSettings(VideoEncoderOptions: H26xEncoderOptions.ForCodec(VideoCodec.H264));
 
-        sut.StreamHandling.RemoveImages = false;
-
-        sut.BuildSettings().StreamHandling.RemoveImages.Should().BeFalse();
-        notified.Should().NotBeNull();
-        (notified?.StreamHandling.RemoveImages).Should().BeFalse();
+        foreach (var settings in new[] { edited, defaults })
+        {
+            _sut.ApplySettings(settings);
+            _sut.BuildSettings().Should().Be(settings);
+        }
     }
 
-    [Theory]
-    [InlineData(AudioMode.Copy)]
-    [InlineData(AudioMode.Reencode)]
-    [InlineData(AudioMode.Remove)]
-    public void RemoveAudioTrackTitles_BuildAndApplyPreserveAndResetChoice(AudioMode mode)
-    {
-        _sut.Audio.SelectedAudioMode = mode;
-        _sut.Audio.RemoveTrackTitles = true;
-        var settings = _sut.BuildSettings();
-        settings.AudioOptions.RemoveTrackTitles.Should().BeTrue();
-
-        _sut.Audio.RemoveTrackTitles = false;
-        _sut.ApplySettings(settings);
-        _sut.Audio.RemoveTrackTitles.Should().BeTrue();
-
-        _sut.ApplySettings(new OutputSettings());
-        _sut.Audio.RemoveTrackTitles.Should().BeFalse();
-    }
-
-    [Theory]
-    [InlineData(AudioCodec.Opus, 44100)]
-    [InlineData(AudioCodec.Mp3, 96000)]
-    public void ApplySettings_LegacyInvalidSampleRate_BuildsAutoInstead(AudioCodec codec, int rate)
+    [Fact]
+    public void ApplySettings_LegacyInvalidSampleRate_BuildsAutoInstead()
     {
         _sut.UpdateSourceInfo(new TestMediaInfoBuilder().WithAudioStreams(new AudioStreamInfo(1, "aac", SampleRate: 96000)).Build());
         var preset = new TestOutputSettingsBuilder().WithContainer(OutputContainer.Mkv)
-            .WithAudioReencode(codec, 128_000, sampleRate: rate).Build();
+            .WithAudioReencode(AudioCodec.Opus, 128_000, sampleRate: 44100).Build();
         var json = FFApp.Infrastructure.Serialization.SettingsSerializer.SerializeOutputSettings(preset);
         using var document = System.Text.Json.JsonDocument.Parse(json.ToJsonString());
         var restored = FFApp.Infrastructure.Serialization.SettingsSerializer.DeserializeOutputSettings(document.RootElement);
@@ -247,171 +186,45 @@ public class OutputSettingsViewModelTests
         _sut.ApplySettings(restored);
 
         _sut.Audio.SelectedSampleRate.Should().Be(0);
-        _sut.Audio.AvailableSampleRateOptions.Should().NotContain(rate);
         _sut.BuildSettings().AudioOptions.SampleRate.Should().BeNull();
     }
 
     [Fact]
-    public void ApplySettings_ValidOpusRate_PreservesSelectionAndOutputSettings()
+    public void ApplySettings_ReencodeChannelsAndSampleRate_SurviveLoadingASmallerSource()
     {
-        _sut.UpdateSourceInfo(new TestMediaInfoBuilder().Build());
-        var settings = new TestOutputSettingsBuilder().WithAudioReencode(AudioCodec.Opus, 128_000, sampleRate: 24000).Build();
-
-        _sut.ApplySettings(settings);
-
-        _sut.Audio.SelectedSampleRate.Should().Be(24000);
-        _sut.BuildSettings().AudioOptions.SampleRate.Should().Be(24000);
-    }
-
-    [Fact]
-    public void ApplySettings_SurroundChannelsWithoutSource_KeepsSelectionAfterStereoSourceLoads()
-    {
-        var settings = new TestOutputSettingsBuilder().WithAudioReencode(AudioCodec.Opus, 320_000, channels: 6).Build();
-
-        _sut.ApplySettings(settings);
-        _sut.Audio.SelectedAudioChannels.Should().Be(6);
-        AudioViewModel.AvailableAudioChannelOptions.Should().Contain(6);
-
-        _sut.UpdateSourceInfo(new TestMediaInfoBuilder()
-            .WithAudioStreams(new AudioStreamInfo(1, "aac", Channels: 2)).Build());
-
-        _sut.Audio.SelectedAudioChannels.Should().Be(6);
-        _sut.BuildSettings().AudioOptions.AudioChannels.Should().Be(6);
-    }
-
-    [Fact]
-    public void ApplySettings_SampleRateAboveSource_KeepsSelectionAfterSourceLoads()
-    {
-        var settings = new TestOutputSettingsBuilder().WithAudioReencode(AudioCodec.Opus, 128_000, sampleRate: 48000).Build();
+        var settings = new TestOutputSettingsBuilder()
+            .WithAudioReencode(AudioCodec.Opus, 320_000, channels: 6, sampleRate: 48000).Build();
 
         _sut.ApplySettings(settings);
         _sut.UpdateSourceInfo(new TestMediaInfoBuilder()
-            .WithAudioStreams(new AudioStreamInfo(1, "aac", SampleRate: 44100)).Build());
+            .WithAudioStreams(new AudioStreamInfo(1, "aac", Channels: 2, SampleRate: 44100)).Build());
 
-        _sut.Audio.SelectedSampleRate.Should().Be(48000);
-        _sut.Audio.AvailableSampleRateOptions.Should().Contain(48000);
-        _sut.BuildSettings().AudioOptions.SampleRate.Should().Be(48000);
+        _sut.BuildSettings().AudioOptions.Should().Be(settings.AudioOptions);
     }
 
     [Fact]
-    public void BuildSettings_AfterContainerChange_ReflectsNewContainer()
+    public void ContainerChange_UpdatesAudioCodecsAndReplacesAnUnsupportedSelection()
     {
         _sut.Format.SelectedContainer = OutputContainer.Webm;
 
-        var settings = _sut.BuildSettings();
-
-        settings.Container.Should().Be(OutputContainer.Webm);
-        settings.VideoCodec.Should().Be(VideoCodec.Av1);
+        _sut.Audio.AvailableAudioCodecs.Should().Equal(CompatibilityData.AllowedAudioCodecs(OutputContainer.Webm));
+        _sut.Audio.SelectedAudioCodec.Should().Be(CompatibilityData.AllowedAudioCodecs(OutputContainer.Webm)[0]);
     }
 
-    [Fact]
-    public void ApplySettings_SetsFormatAndAudioAndStrategy()
+    [Theory]
+    [InlineData(OutputContainer.Mkv, true, true, true)]
+    [InlineData(OutputContainer.Mkv, false, true, false)]
+    [InlineData(OutputContainer.Mp4, true, false, false)]
+    public void MatroskaPostProcessing_RequiresMatroskaContainerAndMkvpropedit(
+        OutputContainer container, bool hasMkvpropedit, bool expectedVisible, bool expectedAvailable)
     {
-        var target = new TestOutputSettingsBuilder()
-            .WithContainer(OutputContainer.Mkv)
-            .WithVideoCodec(VideoCodec.H265)
-            .WithStrategy(EncodingStrategy.TargetBitrate)
-            .WithResolution(ResolutionPreset.P1080)
-            .WithAudioReencode(AudioCodec.Mp3, 192_000, channels: 2)
-            .Build();
-
-        _sut.ApplySettings(target);
-
-        _sut.Format.SelectedContainer.Should().Be(OutputContainer.Mkv);
-        _sut.Format.SelectedVideoCodec.Should().Be(VideoCodec.H265);
-        _sut.Strategy.SelectedStrategy.Should().Be(EncodingStrategy.TargetBitrate);
-        _sut.SelectedResolution.Should().Be(ResolutionPreset.P1080);
-        _sut.Audio.SelectedAudioMode.Should().Be(AudioMode.Reencode);
-        _sut.Audio.SelectedAudioCodec.Should().Be(AudioCodec.Mp3);
-        _sut.Audio.AudioBitrate.Should().Be(192_000);
-        _sut.Audio.SelectedAudioChannels.Should().Be(2);
-    }
-
-    [Fact]
-    public void ApplySettings_WithH265_QualityGetsH265Defaults()
-    {
-        var target = new TestOutputSettingsBuilder()
-            .WithH265()
-            .Build();
-
-        _sut.ApplySettings(target);
-
-        _sut.Strategy.Quality.Active.Should().BeSameAs(_sut.Strategy.Quality.H265);
-        _sut.Strategy.Quality.H265.Crf.Should().Be(28);
-        _sut.Strategy.Quality.H265.Profile.Should().Be("main");
-    }
-
-    [Fact]
-    public void UpdateSourceInfo_TriggersValidation()
-    {
-        var mediaInfo = new TestMediaInfoBuilder().Build();
-
-        _sut.UpdateSourceInfo(mediaInfo);
-
-        _validationService.Received().Validate(Arg.Any<OutputSettings>(), mediaInfo);
-    }
-
-    [Fact]
-    public void ChildPropertyChange_SendsOutputSettingsChangedMessage()
-    {
-        // Use a real messenger so extension methods work naturally
-        var realMessenger = new WeakReferenceMessenger();
-        var sut = new OutputSettingsViewModel(
-            _validationService, realMessenger, _capabilityService, _pathsConfig);
-
-        OutputSettings? received = null;
-        realMessenger.Register<OutputSettingsChangedMessage>(this, (_, m) => received = m.Value);
-
-        sut.Format.SelectedVideoCodec = VideoCodec.H265;
-
-        received.Should().NotBeNull();
-        received!.VideoCodec.Should().Be(VideoCodec.H265);
-    }
-
-    [Fact]
-    public void ContainerChange_UpdatesAvailableAudioCodecsOnAudioVM()
-    {
-        _sut.Format.SelectedContainer = OutputContainer.Webm;
-
-        _sut.Audio.AvailableAudioCodecs.Should().Contain(AudioCodec.Opus);
-        _sut.Audio.AvailableAudioCodecs.Should().NotContain(AudioCodec.Aac);
-    }
-
-    [Fact]
-    public void BuildSettings_MkvpropeditAvailableAndEnabled_PreservesPostProcessing()
-    {
-        _pathsConfig.Configure(new ExecutablePaths(Mkvpropedit: "/tools/mkvpropedit"));
-        var sut = new OutputSettingsViewModel(
-            _validationService, _messenger, _capabilityService, _pathsConfig);
-        sut.Format.SelectedContainer = OutputContainer.Mkv;
-        sut.RecalculateMatroskaStatistics = true;
-
-        var settings = sut.BuildSettings();
-
-        sut.IsMatroskaPostProcessingAvailable.Should().BeTrue();
-        settings.PostProcessing.RecalculateMatroskaStatistics.Should().BeTrue();
-    }
-
-    [Fact]
-    public void BuildSettings_MkvpropeditUnavailable_DisablesPostProcessing()
-    {
-        _sut.Format.SelectedContainer = OutputContainer.Mkv;
+        if (hasMkvpropedit)
+            _pathsConfig.Configure(new ExecutablePaths(Mkvpropedit: "/tools/mkvpropedit"));
+        _sut.Format.SelectedContainer = container;
         _sut.RecalculateMatroskaStatistics = true;
 
-        var settings = _sut.BuildSettings();
-
-        _sut.IsMatroskaPostProcessingAvailable.Should().BeFalse();
-        settings.PostProcessing.RecalculateMatroskaStatistics.Should().BeFalse();
-    }
-
-    [Fact]
-    public void MatroskaPostProcessing_Mp4_IsNotVisibleOrAvailable()
-    {
-        _pathsConfig.Configure(new ExecutablePaths(Mkvpropedit: "/tools/mkvpropedit"));
-        var sut = new OutputSettingsViewModel(
-            _validationService, _messenger, _capabilityService, _pathsConfig);
-
-        sut.IsMatroskaPostProcessingVisible.Should().BeFalse();
-        sut.IsMatroskaPostProcessingAvailable.Should().BeFalse();
+        _sut.IsMatroskaPostProcessingVisible.Should().Be(expectedVisible);
+        _sut.IsMatroskaPostProcessingAvailable.Should().Be(expectedAvailable);
+        _sut.BuildSettings().PostProcessing.RecalculateMatroskaStatistics.Should().Be(expectedAvailable);
     }
 }

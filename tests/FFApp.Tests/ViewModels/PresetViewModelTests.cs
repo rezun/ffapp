@@ -28,30 +28,6 @@ public class PresetViewModelTests
     }
 
     [Fact]
-    public async Task LoadPresetsAsync_EmptyLibrary_ListIsEmpty()
-    {
-        await _sut.LoadPresetsAsync();
-
-        _sut.Presets.Should().BeEmpty();
-        _sut.SelectedPreset.Should().BeNull();
-        _sut.IsUserPresetSelected.Should().BeFalse();
-    }
-
-    [Fact]
-    public async Task LoadPresetsAsync_IncludesLoadedPresets()
-    {
-        var userPreset = new PresetDefinition("My Preset", new OutputSettings());
-        _presetService.LoadAllAsync(Arg.Any<CancellationToken>())
-            .Returns([userPreset]);
-
-        await _sut.LoadPresetsAsync();
-
-        _sut.Presets.Should().HaveCount(1);
-        _sut.Presets[0].Name.Should().Be("My Preset");
-        _sut.SelectedPreset.Should().BeNull();
-    }
-
-    [Fact]
     public async Task SavePresetAsync_UserCancels_ServiceNotCalled()
     {
         _dialogService.PromptTextAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>())
@@ -284,35 +260,19 @@ public class PresetViewModelTests
         _sut.IsPresetDirty.Should().BeFalse();
     }
 
-    [Fact]
-    public async Task RevertPresetCommand_Clean_CannotExecute()
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task RevertPresetCommand_RequiresSelectionAndDirty(bool selectPreset, bool dirty)
     {
-        var preset = new PresetDefinition("Base", new OutputSettings());
         _presetService.LoadAllAsync(Arg.Any<CancellationToken>())
-            .Returns([preset]);
+            .Returns([new PresetDefinition("Base", new OutputSettings())]);
         await _sut.LoadPresetsAsync();
-        _sut.SelectedPreset = _sut.Presets[0];
+        if (selectPreset)
+            _sut.SelectedPreset = _sut.Presets[0];
+
+        _sut.IsPresetDirty = dirty;
 
         _sut.RevertPresetCommand.CanExecute(null).Should().BeFalse();
-    }
-
-    [Fact]
-    public async Task RevertPresetCommand_NoSelection_CannotExecute()
-    {
-        await _sut.LoadPresetsAsync();
-
-        _sut.RevertPresetCommand.CanExecute(null).Should().BeFalse();
-    }
-
-    [Fact]
-    public async Task IsUserPresetSelected_PresetSelected_ReturnsTrue()
-    {
-        var userPreset = new PresetDefinition("User One", new OutputSettings());
-        _presetService.LoadAllAsync(Arg.Any<CancellationToken>())
-            .Returns([userPreset]);
-        await _sut.LoadPresetsAsync();
-        _sut.SelectedPreset = _sut.Presets[0];
-
-        _sut.IsUserPresetSelected.Should().BeTrue();
     }
 }

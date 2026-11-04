@@ -9,70 +9,17 @@ public class FormatViewModelTests
 {
     private readonly FormatViewModel _sut = new();
 
-    [Fact]
-    public void Defaults_ContainerIsMp4_CodecIsH264()
+    [Theory]
+    [InlineData(OutputContainer.Webm, VideoCodec.Av1)]
+    [InlineData(OutputContainer.Mkv, VideoCodec.H264)]
+    public void ChangeContainer_OffersItsCodecs_AndKeepsTheVideoCodecOnlyIfAllowed(
+        OutputContainer container, VideoCodec expectedCodec)
     {
-        _sut.SelectedContainer.Should().Be(OutputContainer.Mp4);
-        _sut.SelectedVideoCodec.Should().Be(VideoCodec.H264);
-    }
+        _sut.SelectedContainer = container;
 
-    [Fact]
-    public void ChangeContainer_ToWebm_VideoCodecListUpdatesToVpxOnly()
-    {
-        _sut.SelectedContainer = OutputContainer.Webm;
-
-        _sut.AvailableVideoCodecs.Should().BeEquivalentTo(
-            [VideoCodec.Av1, VideoCodec.Vp9],
-            o => o.WithStrictOrdering());
-    }
-
-    [Fact]
-    public void ChangeContainer_ToWebm_ResetsCodecToAv1()
-    {
-        _sut.SelectedContainer = OutputContainer.Webm;
-
-        _sut.SelectedVideoCodec.Should().Be(VideoCodec.Av1);
-    }
-
-    [Fact]
-    public void ChangeContainer_ToMkv_AllFourCodecsAvailable()
-    {
-        _sut.SelectedContainer = OutputContainer.Mkv;
-
-        _sut.AvailableVideoCodecs.Should().BeEquivalentTo(
-            [VideoCodec.Av1, VideoCodec.H265, VideoCodec.H264, VideoCodec.Vp9],
-            o => o.WithStrictOrdering());
-    }
-
-    [Fact]
-    public void ChangeContainer_ToMkv_KeepsH264WhenStillValid()
-    {
-        _sut.SelectedVideoCodec.Should().Be(VideoCodec.H264);
-
-        _sut.SelectedContainer = OutputContainer.Mkv;
-
-        _sut.SelectedVideoCodec.Should().Be(VideoCodec.H264);
-    }
-
-    [Fact]
-    public void ChangeContainer_AudioCodecListUpdates()
-    {
-        _sut.SelectedContainer = OutputContainer.Webm;
-
-        _sut.AvailableAudioCodecs.Should().BeEquivalentTo(
-            [AudioCodec.Opus, AudioCodec.Vorbis],
-            o => o.WithStrictOrdering());
-    }
-
-    [Fact]
-    public void ChangeContainer_Mp4_AudioCodecListHasAacMp3AndOpus()
-    {
-        _sut.SelectedContainer = OutputContainer.Webm;
-        _sut.SelectedContainer = OutputContainer.Mp4;
-
-        _sut.AvailableAudioCodecs.Should().BeEquivalentTo(
-            [AudioCodec.Aac, AudioCodec.Mp3, AudioCodec.Opus],
-            o => o.WithStrictOrdering());
+        _sut.AvailableVideoCodecs.Should().Equal(CompatibilityData.AllowedVideoCodecs(container));
+        _sut.AvailableAudioCodecs.Should().Equal(CompatibilityData.AllowedAudioCodecs(container));
+        _sut.SelectedVideoCodec.Should().Be(expectedCodec);
     }
 
     [Fact]

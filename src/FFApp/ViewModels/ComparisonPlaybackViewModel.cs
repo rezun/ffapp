@@ -75,9 +75,6 @@ public sealed partial class ComparisonPlaybackViewModel : ObservableObject, IDis
         _logger = logger ?? NullLogger<ComparisonPlaybackViewModel>.Instance;
     }
 
-    public static long MediaTime(ComparisonTrack track, double position, double duration) =>
-        (long)Math.Round((track.OffsetSeconds + Math.Clamp(position, 0, Math.Max(0, duration - 0.04))) * 1000);
-
     private double SourceOrigin(ComparisonTrack track) =>
         Math.Ceiling(track.SourceStartSeconds / _frameDuration - FrameBoundaryTolerance) * _frameDuration;
     private double SampleOrigin(ComparisonTrack track) =>

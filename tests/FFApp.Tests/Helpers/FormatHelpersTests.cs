@@ -9,10 +9,20 @@ public class FormatHelpersTests
 {
 
     [Fact]
-    public void BuildJobDefinition_PassesAudioSelectionFromContext()
+    public void BuildJobDefinition_ForwardsSourceTrimCropAndAudioSelectionFromContext()
     {
-        var context = new JobContext(new TestMediaInfoBuilder().Build(), new OutputSettings(), SelectedAudioStreamIndices: [1, 5]);
+        var media = new TestMediaInfoBuilder().Build();
+        var context = new JobContext(media, new OutputSettings(Container: OutputContainer.Mkv),
+            TrimStartSeconds: 5, TrimEndSeconds: 25, Crop: new CropRect(10, 20, 800, 600),
+            SelectedAudioStreamIndices: [1, 5]);
+
         var job = FormatHelpers.BuildJobDefinition(context);
+
+        job.SourcePath.Should().Be(media.SourcePath);
+        job.Container.Should().Be(OutputContainer.Mkv);
+        job.TrimStartSeconds.Should().Be(5);
+        job.TrimEndSeconds.Should().Be(25);
+        job.Crop.Should().Be(new CropRect(10, 20, 800, 600));
         job.SelectedAudioStreamIndices.GetValueOrDefault().Should().Equal(1, 5);
         FormatHelpers.BuildJobDefinition(context with { SelectedAudioStreamIndices = null })
             .SelectedAudioStreamIndices.Should().BeNull();

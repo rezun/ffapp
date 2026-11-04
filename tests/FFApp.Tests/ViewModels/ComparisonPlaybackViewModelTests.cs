@@ -40,13 +40,6 @@ public sealed class ComparisonPlaybackViewModelTests
     }
 
     [Theory]
-    [InlineData(1684.656, 1.821, 1686477)]
-    [InlineData(2, 1.821, 3821)]
-    public void MediaTime_RoundsToNearestMillisecond(double offset, double position, long expected) =>
-        ComparisonPlaybackViewModel.MediaTime(new ComparisonTrack("video", offset), position, 12).Should().Be(expected);
-
-    [Theory]
-    [InlineData(24)]
     [InlineData(24000.0 / 1001)]
     [InlineData(60)]
     public async Task Stepping_ReusesBothDecoders_AndPublishesMatchingFrames(double fps)

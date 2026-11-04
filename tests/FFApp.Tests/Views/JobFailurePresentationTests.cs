@@ -31,11 +31,11 @@ public sealed class JobFailurePresentationTests(QueueTestSession fixture)
             var panel = new JobListPanelViewModel(queue,
                 Substitute.For<ICommandBuilder>(), Substitute.For<IValidationService>(), dialogs,
                 sources, new VideoPreviewViewModel(null));
-            var item = JobFailureViewModelTests.CreateItem();
+            var item = JobItemDetailsViewModelTests.CreateItem();
             panel.Jobs.Add(item);
             panel.SelectedJob = item;
             var finished = new QueueItem(item.Id, item.QueuedJob, JobState.Failed,
-                Result: withoutResult ? null : JobFailureViewModelTests.Result(item, JobState.Failed),
+                Result: withoutResult ? null : JobItemDetailsViewModelTests.Result(item, JobState.Failed),
                 FailureMessage: withoutResult ? "Could not start FFmpeg" : null);
             queue.ExecuteAllAsync(Arg.Any<Action<QueueItem>?>(), Arg.Any<Action<QueueItem>?>(),
                     Arg.Any<Action<QueueItem>?>(), Arg.Any<Action<QueueItem, string>?>(), Arg.Any<CancellationToken>())
@@ -63,7 +63,7 @@ public sealed class JobFailurePresentationTests(QueueTestSession fixture)
     {
         await fixture.Session.Dispatch(() =>
         {
-            var item = JobFailureViewModelTests.CreateItem();
+            var item = JobItemDetailsViewModelTests.CreateItem();
             var details = new JobItemDetailsViewModel();
             details.UpdateFromItem(item);
             details.SelectedTabIndex = 2;
@@ -76,7 +76,7 @@ public sealed class JobFailurePresentationTests(QueueTestSession fixture)
             window.Show();
             try
             {
-                item.UpdateResult(JobFailureViewModelTests.Result(item, JobState.Failed));
+                item.UpdateResult(JobItemDetailsViewModelTests.Result(item, JobState.Failed));
                 window.UpdateLayout();
 
                 var panel = view.FindControl<Border>("FailurePanel")

@@ -5,7 +5,7 @@ using FluentAssertions;
 
 namespace FFApp.Tests.ViewModels;
 
-public sealed class JobInspectorViewModelTests
+public sealed class JobItemDetailsViewModelTests
 {
     [Fact]
     public void Selection_ExposesPathsCommandsAndLiveProgress_AndClearsOnDeselect()
@@ -40,29 +40,36 @@ public sealed class JobInspectorViewModelTests
         details.LogText.Should().BeEmpty();
     }
 
-    [Theory]
-    [InlineData(1)]
-    [InlineData(2)]
-    public void SwitchingJobs_PreservesDiagnosticTab_AndDetachesPreviousJob(int tab)
+    [Fact]
+    public void SwitchingJobs_KeepsDiagnosticTab_DetachesPreviousJob_AndOpensFailuresOnce()
     {
-        var first = JobFailureViewModelTests.CreateItem();
-        var second = JobFailureViewModelTests.CreateItem();
-        second.AppendLog("second job");
+        var failed = CreateItem();
+        failed.UpdateResult(Result(failed, JobState.Failed));
+        var current = CreateItem();
+        current.AppendLog("current job");
         var details = new JobItemDetailsViewModel();
-        details.UpdateFromItem(first);
-        details.SelectedTabIndex = tab;
+        details.UpdateFromItem(failed);
+        details.SelectedTabIndex = 1;
 
-        details.UpdateFromItem(second);
-        first.UpdateFailure("old job failed");
-        details.SelectedTabIndex.Should().Be(tab);
+        details.UpdateFromItem(current);
+        failed.UpdateFailure("old job failed again");
+        details.SelectedTabIndex.Should().Be(1);
         details.HasFailure.Should().BeFalse();
-        details.LogText.Should().Contain("second job");
+        details.LogText.Should().Be($"current job{Environment.NewLine}");
 
-        second.UpdateFailure("current job failed");
+        current.UpdateFailure("current job failed");
         details.SelectedTabIndex.Should().Be(0);
-        details.SelectedTabIndex = tab;
-        second.AppendLog("more diagnostics");
-        details.SelectedTabIndex.Should().Be(tab, "an existing failure must not repeatedly switch tabs");
+        details.SelectedTabIndex = 1;
+        current.AppendLog("more diagnostics");
+        details.SelectedTabIndex.Should().Be(1, "an existing failure must not repeatedly switch tabs");
+        details.LogText.Should().Be($"current job{Environment.NewLine}more diagnostics{Environment.NewLine}");
+
+        details.UpdateFromItem(failed);
+        details.SelectedTabIndex.Should().Be(0, "selecting a failed job opens its failure");
+        details.SelectedTabIndex = 1;
+        details.UpdateFromItem(null);
+        details.SelectedTabIndex.Should().Be(0);
+        details.HasFailure.Should().BeFalse();
     }
 
     [Fact]
@@ -93,4 +100,48 @@ public sealed class JobInspectorViewModelTests
 
         request.Should().Be((item, "final"));
     }
+
+    [Fact]
+    public void SelectedRunningItem_FailureImmediatelyOpensDetailsTab()
+    {
+        var item = CreateItem();
+        var details = new JobItemDetailsViewModel();
+        details.UpdateFromItem(item);
+        details.SelectedTabIndex = 1;
+
+        item.UpdateResult(Result(item, JobState.Failed));
+
+        item.HasFailure.Should().BeTrue();
+        details.HasFailure.Should().BeTrue();
+        details.Failure.Should().BeSameAs(item.Failure);
+        details.Failure?.Message.Should().Contain("44.1 kHz");
+        details.SelectedTabIndex.Should().Be(0);
+        details.LogText.Should().Contain("Specified sample rate 44100");
+    }
+
+    [Fact]
+    public void ExceptionWithoutResult_ShowsPersistentFailureInDetails()
+    {
+        var item = CreateItem();
+        var details = new JobItemDetailsViewModel();
+        details.UpdateFromItem(item);
+
+        item.UpdateFailure("Could not start FFmpeg");
+
+        item.State.Should().Be(JobState.Failed);
+        item.Result.Should().BeNull();
+        details.Failure?.Message.Should().Be("Could not start FFmpeg");
+        details.HasFailure.Should().BeTrue();
+    }
+
+    internal static JobItemViewModel CreateItem()
+    {
+        var media = new TestMediaInfoBuilder().Build();
+        var job = new QueuedJob(new TestJobDefinitionBuilder().Build(), media, [], new ValidationResult());
+        return new JobItemViewModel("failure-test", media, job, "source.mkv");
+    }
+
+    internal static JobResult Result(JobItemViewModel item, JobState state) => new(
+        item.QueuedJob.Job, state, [], [], 1,
+        "[libopus @ 0x123] Specified sample rate 44100 is not supported by the libopus encoder");
 }

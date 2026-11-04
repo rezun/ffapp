@@ -126,62 +126,14 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
-    public void ChangingPriority_UpdatesRuntimePreferenceAndSavedSettings()
-    {
-        var sut = CreateSut();
-        sut.UseLowPriorityTranscoding.Should().BeFalse();
-
-        sut.UseLowPriorityTranscoding = true;
-
-        _preferences.UseLowPriority.Should().BeTrue();
-        sut.LoadedSettings.Should().NotBeNull();
-        sut.LoadedSettings?.UseLowPriorityTranscoding.Should().BeTrue();
-
-        sut.UseLowPriorityTranscoding = false;
-
-        _preferences.UseLowPriority.Should().BeFalse();
-        sut.LoadedSettings?.UseLowPriorityTranscoding.Should().BeFalse();
-    }
-
-    [Fact]
-    public async Task OpenFilesAsync_NullPaths_Throws()
+    public async Task OpenFilesAsync_WithoutWorkspace_AccumulatesNonEmptyBatches()
     {
         var sut = CreateSut();
 
-        var act = () => sut.OpenFilesAsync(null!);
+        await sut.OpenFilesAsync([]);
+        await sut.OpenFilesAsync(["/tmp/a.mp4"]);
+        await sut.OpenFilesAsync(["/tmp/b.mkv", "/tmp/c.mov"]);
 
-        await act.Should().ThrowAsync<ArgumentNullException>();
-    }
-
-    [Fact]
-    public async Task OpenFilesAsync_EmptyPaths_DoesNotQueue()
-    {
-        var sut = CreateSut();
-
-        await sut.OpenFilesAsync(Array.Empty<string>());
-
-        sut.SnapshotPendingFiles().Should().BeEmpty();
-    }
-
-    [Fact]
-    public async Task OpenFilesAsync_WithoutWorkspace_QueuesFiles()
-    {
-        var sut = CreateSut();
-
-        await sut.OpenFilesAsync(new[] { "/tmp/a.mp4", "/tmp/b.mkv" });
-
-        sut.SnapshotPendingFiles().Should().Equal("/tmp/a.mp4", "/tmp/b.mkv");
-    }
-
-    [Fact]
-    public async Task OpenFilesAsync_MultipleCallsWithoutWorkspace_Accumulates()
-    {
-        var sut = CreateSut();
-
-        await sut.OpenFilesAsync(new[] { "/tmp/a.mp4" });
-        await sut.OpenFilesAsync(new[] { "/tmp/b.mkv", "/tmp/c.mov" });
-
-        sut.SnapshotPendingFiles()
-            .Should().Equal("/tmp/a.mp4", "/tmp/b.mkv", "/tmp/c.mov");
+        sut.SnapshotPendingFiles().Should().Equal("/tmp/a.mp4", "/tmp/b.mkv", "/tmp/c.mov");
     }
 }

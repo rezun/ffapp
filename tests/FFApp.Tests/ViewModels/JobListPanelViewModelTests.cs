@@ -80,69 +80,40 @@ public class JobListPanelViewModelTests
         await _dialogService.Received(1).ShowErrorAsync("Pause / resume error", "Access denied");
     }
 
-    [Fact]
-    public void UpdateHasValidationErrors_SetsProperty()
+    [Theory]
+    [InlineData(0, 0, false, "Add selected", "Add all files", "Add source files and configure their output settings first.")]
+    [InlineData(2, 0, false, "Add selected", "Add all 2 files", "Select source files to add them with the current output settings.")]
+    [InlineData(1, 1, true, "Add selected file", "Add all files", "The selected source will use the current output settings.")]
+    [InlineData(3, 2, true, "Add 2 selected files", "Add all 3 files", "The selected sources will use the current output settings.")]
+    public void QueuePresentation_ReflectsReadyAndSelectedSourceCounts(
+        int ready, int selected, bool canAddSelection, string addSelectionLabel, string addAllLabel, string emptyQueueHint)
     {
-        _sut.UpdateHasValidationErrors(true);
-        _sut.HasValidationErrors.Should().BeTrue();
-
-        _sut.UpdateHasValidationErrors(false);
-        _sut.HasValidationErrors.Should().BeFalse();
-    }
-
-    [Fact]
-    public void UpdateJobContext_Null_IsAccepted()
-    {
+        var sources = Enumerable.Range(0, ready).Select(i => AddReadySource($"/test/{i}.mp4")).ToList();
+        _sourceList.UpdateSelection(sources.Take(selected).ToList());
         _sut.UpdateJobContext(MakeContext());
-        _sut.UpdateJobContext(null);
-        // Should not throw
+
+        _sut.HasQueueableSelection.Should().Be(canAddSelection);
+        _sut.CreateJobFromSelectionCommand.CanExecute(null).Should().Be(canAddSelection);
+        _sut.CreateJobsForAllCommand.CanExecute(null).Should().Be(ready > 0);
+        _sut.AddSelectionLabel.Should().Be(addSelectionLabel);
+        _sut.AddAllLabel.Should().Be(addAllLabel);
+        _sut.EmptyQueueHint.Should().Be(emptyQueueHint);
     }
 
     [Fact]
-    public void InitialState_HasEmptyIdleQueueAndGuidesUserToAddSources()
-    {
-        _sut.IsRunning.Should().BeFalse();
-        _sut.IsPaused.Should().BeFalse();
-        _sut.HasValidationErrors.Should().BeFalse();
-        _sut.Jobs.Should().BeEmpty();
-        _sut.SummaryText.Should().Be("No jobs.");
-        _sut.HasJobs.Should().BeFalse();
-        _sut.HasQueueableSelection.Should().BeFalse();
-        _sut.AddSelectionLabel.Should().Be("Add selected");
-        _sut.AddAllLabel.Should().Be("Add all files");
-        _sut.EmptyQueueHint.Should().Be("Add source files and configure their output settings first.");
-    }
-
-    [Fact]
-    public void QueuePresentation_WithOneSelectedSource_UsesSingularLabels()
+    public void CreateCommands_RequireJobContextAndNoValidationErrors()
     {
         var source = AddReadySource("/test/first.mp4");
-
-        _sourceList.SelectedSource = source;
         _sourceList.UpdateSelection([source]);
+
+        _sut.CreateJobFromSelectionCommand.CanExecute(null).Should().BeFalse("there is no job context yet");
+        _sut.CreateJobsForAllCommand.CanExecute(null).Should().BeFalse("there is no job context yet");
+
         _sut.UpdateJobContext(MakeContext());
+        _sut.UpdateHasValidationErrors(true);
 
-        _sut.HasQueueableSelection.Should().BeTrue();
-        _sut.CreateJobFromSelectionCommand.CanExecute(null).Should().BeTrue();
-        _sut.CreateJobsForAllCommand.CanExecute(null).Should().BeTrue();
-        _sut.AddSelectionLabel.Should().Be("Add selected file");
-        _sut.AddAllLabel.Should().Be("Add all files");
-        _sut.EmptyQueueHint.Should().Be("The selected source will use the current output settings.");
-    }
-
-    [Fact]
-    public void QueuePresentation_WithMultipleSelectedSources_IncludesCounts()
-    {
-        var first = AddReadySource("/test/first.mp4");
-        var second = AddReadySource("/test/second.mp4");
-        AddReadySource("/test/third.mp4");
-
-        _sourceList.SelectedSource = first;
-        _sourceList.UpdateSelection([first, second]);
-
-        _sut.AddSelectionLabel.Should().Be("Add 2 selected files");
-        _sut.AddAllLabel.Should().Be("Add all 3 files");
-        _sut.EmptyQueueHint.Should().Be("The selected sources will use the current output settings.");
+        _sut.CreateJobFromSelectionCommand.CanExecute(null).Should().BeFalse("the settings have errors");
+        _sut.CreateJobsForAllCommand.CanExecute(null).Should().BeFalse("the settings have errors");
     }
 
     [Fact]
@@ -171,37 +142,20 @@ public class JobListPanelViewModelTests
     }
 
     [Fact]
-    public async Task CreateJobsForAll_WritesNextToEachSourceWithPresetName()
+    public async Task CreateJobsForAll_NamesEachOutputFromContextFolderAndPreset()
     {
         var first = AddReadySource(Path.Combine("/rips", "Interstellar UHD", "Interstellar UHD.mp4"));
         AddReadySource(Path.Combine("/rips", "John Wick 3", "John Wick Kapitel 3_t1.mp4"));
         _sourceList.SelectedSource = first;
         _sut.UpdateJobContext(new JobContext(
             first.MediaInfo!, new OutputSettings { Container = OutputContainer.Webm },
-            OutputPresetName: "AV1 CRF24"));
+            OutputDirectory: "/encodes", OutputPresetName: "AV1 CRF24"));
 
         await _sut.CreateJobsForAllCommand.ExecuteAsync(null);
 
         _sut.Jobs.Select(job => job.QueuedJob.Job.OutputPath).Should().Equal(
-            Path.Combine("/rips", "Interstellar UHD", "Interstellar UHD - AV1 CRF24.webm"),
-            Path.Combine("/rips", "John Wick 3", "John Wick Kapitel 3_t1 - AV1 CRF24.webm"));
-    }
-
-    [Fact]
-    public async Task CreateJobsForAll_CustomFolderCollectsEveryOutput()
-    {
-        var first = AddReadySource(Path.Combine("/rips", "Interstellar UHD", "Interstellar UHD.mp4"));
-        AddReadySource(Path.Combine("/rips", "John Wick 3", "John Wick Kapitel 3_t1.mp4"));
-        _sourceList.SelectedSource = first;
-        _sut.UpdateJobContext(new JobContext(
-            first.MediaInfo!, new OutputSettings { Container = OutputContainer.Mkv },
-            OutputDirectory: "/encodes"));
-
-        await _sut.CreateJobsForAllCommand.ExecuteAsync(null);
-
-        _sut.Jobs.Select(job => job.QueuedJob.Job.OutputPath).Should().Equal(
-            Path.Combine("/encodes", "Interstellar UHD.mkv"),
-            Path.Combine("/encodes", "John Wick Kapitel 3_t1.mkv"));
+            Path.Combine("/encodes", "Interstellar UHD - AV1 CRF24.webm"),
+            Path.Combine("/encodes", "John Wick Kapitel 3_t1 - AV1 CRF24.webm"));
     }
 
     [Fact]

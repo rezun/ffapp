@@ -9,6 +9,7 @@ namespace FFApp.Services;
 public sealed class VelopackUpdateSource(UpdateManager manager, GithubSource releaseSource,
     Velopack.Logging.IVelopackLogger updateLogger) : IAppUpdateSource
 {
+    private static readonly string RepositoryUrl = "https://github.com/rezun/ffapp";
     public static readonly Uri DownloadsUri = new("https://github.com/rezun/ffapp/releases/latest");
     private UpdateInfo? _available;
     private VelopackAsset? _downloaded;
@@ -37,16 +38,46 @@ public sealed class VelopackUpdateSource(UpdateManager manager, GithubSource rel
         return latest is null ? null : new(latest.Version.ToNormalizedString(), false, false);
     }
 
-    public async Task DownloadAsync(Action<int> progress, CancellationToken cancellationToken = default)
+    public async Task DownloadAsync(CancellationToken cancellationToken = default)
     {
         var update = _available ?? throw new InvalidOperationException("Check for an update before downloading it.");
-        await manager.DownloadUpdatesAsync(update, progress, cancellationToken);
+        await manager.DownloadUpdatesAsync(update, cancelToken: cancellationToken);
         _downloaded = manager.UpdatePendingRestart
             ?? throw new InvalidOperationException("The update download could not be verified. Please try again.");
     }
 
     public void ApplyAndRestart() => manager.ApplyUpdatesAndRestart(
         _downloaded ?? throw new InvalidOperationException("Download the update before restarting."));
+
+    public static UpdateManager CreateManager(GithubSource source) =>
+        new(source, new UpdateOptions { ExplicitChannel = GetChannel() });
+
+    public static GithubSource CreateSource() => new(RepositoryUrl, null, false, null);
+
+    /// <summary>
+    /// Installs an update downloaded by a previous session, so restarting FFApp is enough to update.
+    /// Skipped while FFRux runs, because the updater replaces its files as well.
+    /// </summary>
+    public static void ApplyPendingOnStartup(string[] args, Serilog.ILogger log)
+    {
+        try
+        {
+            var manager = CreateManager(CreateSource());
+            if (!manager.IsInstalled || manager.UpdatePendingRestart is not { } pending) return;
+            if (CompanionProcess.IsRunning())
+            {
+                log.Information("Postponing update {Version} because FFRux is running", pending.Version);
+                return;
+            }
+            log.Information("Installing downloaded update {Version}", pending.Version);
+            manager.ApplyUpdatesAndRestart(pending, args);
+        }
+        catch (Exception ex)
+        {
+            // Startup boundary: a broken pending update must not prevent the current version from starting.
+            log.Error(ex, "Installing the downloaded update at startup failed");
+        }
+    }
 
     internal static string GetChannel()
     {

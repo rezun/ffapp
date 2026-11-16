@@ -52,20 +52,20 @@ public sealed class AppUpdateViewModelTests
     }
 
     [Fact]
-    public async Task FailedDownload_CanBeRetriedWithoutOfferingAnIncompleteUpdateForInstallation()
+    public async Task AvailableUpdate_IsDownloadedInTheBackgroundAndRetriedAfterAFailure()
     {
         _source.Available = new("2.0.0", true, false);
         _source.DownloadFailure = new IOException("Connection lost");
         var sut = Create();
         await sut.CheckAsync(false);
-        await sut.DownloadUpdateCommand.ExecuteAsync(null);
         sut.CanRestart.Should().BeFalse();
-        sut.CanDownload.Should().BeTrue();
-        sut.IsDownloading.Should().BeFalse();
+        sut.IsVisible.Should().BeFalse();
+        await _dialogs.DidNotReceive().ShowErrorAsync(Arg.Any<string>(), Arg.Any<string>());
         _source.DownloadFailure = null;
-        await sut.DownloadUpdateCommand.ExecuteAsync(null);
+        await sut.CheckAsync(false);
         sut.CanRestart.Should().BeTrue();
-        sut.CanDownload.Should().BeFalse();
+        sut.IsVisible.Should().BeTrue();
+        _source.Downloads.Should().Be(2);
         _source.Installs.Should().Be(0);
     }
 
@@ -75,25 +75,24 @@ public sealed class AppUpdateViewModelTests
         _source.Available = new("2.0.0", false, false);
         var sut = Create();
         await sut.CheckAsync(false);
-        await sut.DownloadUpdateCommand.ExecuteAsync(null);
+        sut.CanOpenDownloads.Should().BeTrue();
+        await sut.OpenDownloadsCommand.ExecuteAsync(null);
         _host.OpenedDownloads.Should().BeTrue();
         _source.Downloads.Should().Be(0);
         sut.CanRestart.Should().BeFalse();
     }
 
     [Theory]
-    [InlineData(false, true, 0)]
-    [InlineData(true, false, 0)]
-    [InlineData(true, true, 1)]
-    public async Task PreviouslyDownloadedUpdate_RequiresConsentAndSuccessfulPreparation(bool consent, bool prepared, int installs)
+    [InlineData(false, 0)]
+    [InlineData(true, 1)]
+    public async Task PreviouslyDownloadedUpdate_InstallsOnlyAfterSuccessfulPreparation(bool prepared, int installs)
     {
         _source.Available = new("2.0.0", true, true);
         _host.CanRestart = prepared;
-        _dialogs.ConfirmAsync(Arg.Any<string>(), Arg.Any<string>()).Returns(consent);
         var sut = Create();
         await sut.CheckAsync(false);
         sut.CanRestart.Should().BeTrue();
-        await sut.RestartAndInstallCommand.ExecuteAsync(null);
+        await sut.RestartNowCommand.ExecuteAsync(null);
         _source.Installs.Should().Be(installs);
         _source.Downloads.Should().Be(0);
         sut.IsBusy.Should().BeFalse();
@@ -105,10 +104,9 @@ public sealed class AppUpdateViewModelTests
     {
         _source.Available = new("2.0.0", true, true);
         _source.InstallFailure = new IOException("Updater could not start");
-        _dialogs.ConfirmAsync(Arg.Any<string>(), Arg.Any<string>()).Returns(true);
         var sut = Create();
         await sut.CheckAsync(false);
-        await sut.RestartAndInstallCommand.ExecuteAsync(null);
+        await sut.RestartNowCommand.ExecuteAsync(null);
         sut.CanRestart.Should().BeTrue();
         sut.IsBusy.Should().BeFalse();
         await _dialogs.Received(1).ShowErrorAsync(Arg.Any<string>(), Arg.Any<string>());
@@ -131,11 +129,10 @@ public sealed class AppUpdateViewModelTests
             if (CheckFailure is not null) throw CheckFailure;
             return Available;
         }
-        public Task DownloadAsync(Action<int> progress, CancellationToken cancellationToken = default)
+        public Task DownloadAsync(CancellationToken cancellationToken = default)
         {
             Downloads++;
             if (DownloadFailure is not null) throw DownloadFailure;
-            progress(100);
             return Task.CompletedTask;
         }
         public void ApplyAndRestart()

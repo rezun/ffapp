@@ -5,6 +5,10 @@ using Microsoft.Extensions.Logging;
 
 namespace FFApp.ViewModels;
 
+/// <summary>
+/// Checks for updates and downloads them in the background. Once an update is ready, a hint tells the
+/// user that restarting FFApp installs it; the next launch applies it as well.
+/// </summary>
 public sealed partial class AppUpdateViewModel(
     IAppUpdateSource source, IUpdateHost host, IDialogService dialogs,
     ILogger<AppUpdateViewModel> logger) : ObservableObject
@@ -12,12 +16,10 @@ public sealed partial class AppUpdateViewModel(
     private AppUpdate? _update;
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private bool _isVisible;
-    [ObservableProperty] private bool _canDownload;
+    [ObservableProperty] private bool _isDismissed;
     [ObservableProperty] private bool _canRestart;
+    [ObservableProperty] private bool _canOpenDownloads;
     [ObservableProperty] private string _statusText = "";
-    [ObservableProperty] private string _downloadLabel = "Download update";
-    [ObservableProperty] private int _downloadProgress;
-    [ObservableProperty] private bool _isDownloading;
 
     [RelayCommand]
     private Task CheckForUpdatesAsync() => CheckAsync(manual: true);
@@ -29,7 +31,12 @@ public sealed partial class AppUpdateViewModel(
         try
         {
             _update = await source.CheckAsync(cancellationToken);
-            Refresh();
+            if (_update is { CanInstall: true, IsDownloaded: false })
+            {
+                await source.DownloadAsync(cancellationToken);
+                _update = _update with { IsDownloaded = true };
+            }
+            if (manual) IsDismissed = false;
             if (_update is null && manual)
                 await dialogs.ShowMessageAsync("No updates available", "You are using the latest available version of FFApp and FFRux.");
         }
@@ -37,55 +44,26 @@ public sealed partial class AppUpdateViewModel(
         catch (Exception ex)
         {
             // UI operation boundary: third-party update/network failures must not stop startup.
-            logger.LogWarning(ex, "Checking for updates failed");
+            // A failed download is not offered for installation; the next check retries it.
+            logger.LogWarning(ex, "Checking for or downloading updates failed");
             if (manual)
-                await dialogs.ShowErrorAsync("Could not check for updates", "Check your internet connection and try again.\n\n" + ex.Message);
-        }
-        finally { IsBusy = false; }
-    }
-
-    [RelayCommand]
-    private async Task DownloadUpdateAsync()
-    {
-        if (IsBusy || _update is null || !CanDownload) return;
-        IsBusy = true;
-        try
-        {
-            if (!_update.CanInstall)
-            {
-                await host.OpenDownloadsAsync();
-                return;
-            }
-            IsDownloading = true;
-            DownloadProgress = 0;
-            StatusText = $"Downloading FFApp and FFRux {_update.Version}…";
-            var progress = new Progress<int>(value => DownloadProgress = value);
-            await source.DownloadAsync(value => ((IProgress<int>)progress).Report(value));
-            _update = _update with { IsDownloaded = true };
-        }
-        catch (Exception ex)
-        {
-            // UI command boundary: preserve the update offer so a failed download can be retried.
-            logger.LogError(ex, "Downloading update failed");
-            await dialogs.ShowErrorAsync("Could not download update", "The update was not installed. Please try again.\n\n" + ex.Message);
+                await dialogs.ShowErrorAsync("Could not update", "Check your internet connection and try again.\n\n" + ex.Message);
         }
         finally
         {
-            IsDownloading = false;
             IsBusy = false;
             Refresh();
         }
     }
 
     [RelayCommand]
-    private async Task RestartAndInstallAsync()
+    private async Task RestartNowAsync()
     {
         if (IsBusy || !CanRestart) return;
         IsBusy = true;
         try
         {
-            if (await dialogs.ConfirmAsync("Install update", "Restart FFApp to install the update for FFApp and FFRux? Finish your work and close FFRux first."))
-                await host.RestartAsync(source.ApplyAndRestart);
+            await host.RestartAsync(source.ApplyAndRestart);
         }
         catch (Exception ex)
         {
@@ -96,17 +74,23 @@ public sealed partial class AppUpdateViewModel(
         finally { IsBusy = false; }
     }
 
+    [RelayCommand]
+    private Task OpenDownloadsAsync() => host.OpenDownloadsAsync();
+
+    [RelayCommand]
+    private void Dismiss() => IsDismissed = true;
+
+    partial void OnIsDismissedChanged(bool value) => Refresh();
+
     private void Refresh()
     {
-        IsVisible = _update is not null;
-        CanDownload = _update is { IsDownloaded: false };
         CanRestart = _update is { CanInstall: true, IsDownloaded: true };
-        DownloadLabel = _update is { CanInstall: false } ? "Open download page" : "Download update";
+        CanOpenDownloads = _update is { CanInstall: false };
+        IsVisible = !IsDismissed && (CanRestart || CanOpenDownloads);
         StatusText = _update switch
         {
-            { IsDownloaded: true } => $"FFApp and FFRux {_update.Version} are ready to install.",
-            { CanInstall: false } => $"FFApp and FFRux {_update.Version} are available. Install the release package to enable in-app updates.",
-            not null => $"FFApp and FFRux {_update.Version} are available.",
+            { CanInstall: true, IsDownloaded: true } => $"Version {_update.Version} is ready. Restart FFApp to update.",
+            { CanInstall: false } => $"Version {_update.Version} is available.",
             _ => "",
         };
     }

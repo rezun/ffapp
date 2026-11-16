@@ -3,6 +3,7 @@ using Velopack;
 using FFApp.Infrastructure;
 using FFApp.Infrastructure.Logging;
 using FFApp.Infrastructure.SingleInstance;
+using FFApp.Services;
 
 namespace FFApp;
 
@@ -14,7 +15,7 @@ public static class Program
     public static int Main(string[] args)
     {
         // Installer hooks must exit before logging, single-instance handling or Avalonia starts.
-        // Apply only after the UI has saved state and checked that FFRux is closed.
+        // Pending updates are applied below, after the single-instance check and only while FFRux is closed.
         var velopack = VelopackApp.Build().SetAutoApplyOnStartup(false);
         if (OperatingSystem.IsWindows())
         {
@@ -42,6 +43,8 @@ public static class Program
             }
             return 0;
         }
+
+        VelopackUpdateSource.ApplyPendingOnStartup(args, log);
 
         AppLogging.LogUnhandledExceptions(log);
         AppLogging.LogStartup(log, FFAppPaths.Identity);

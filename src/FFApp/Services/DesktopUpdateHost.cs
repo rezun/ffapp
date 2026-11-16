@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using FFApp.ViewModels;
 using FFApp.Views;
 
@@ -34,11 +33,8 @@ public sealed class DesktopUpdateHost(MainWindow window, IDialogService dialogs)
             return true;
         }
 
-        var companions = Process.GetProcessesByName("FFRux");
-        var isCompanionOpen = companions.Length > 0;
-        foreach (var process in companions) process.Dispose();
-        if (isCompanionOpen)
-            await dialogs.ShowMessageAsync("Close FFRux first", "FFApp and FFRux are updated together. Close FFRux, then choose Restart and install again.");
-        return isCompanionOpen;
+        if (!CompanionProcess.IsRunning()) return false;
+        await dialogs.ShowMessageAsync("Close FFRux first", "FFApp and FFRux are updated together. Close FFRux, then choose Restart now again.");
+        return true;
     }
 }

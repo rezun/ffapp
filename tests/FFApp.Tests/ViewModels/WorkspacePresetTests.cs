@@ -43,7 +43,7 @@ public sealed class WorkspacePresetTests
         var validator = new ValidationService();
         var settings = new OutputSettingsViewModel(validator, messenger, Substitute.For<IFfmpegCapabilityService>(), paths);
         var preview = new VideoPreviewViewModel(null);
-        var queue = new JobListPanelViewModel(Substitute.For<IQueueService>(), builder, validator, dialogs, sources, preview);
+        var queue = new JobListPanelViewModel(Substitute.For<IQueueService>(), builder, validator, dialogs, sources, preview, TimeProvider.System);
         _workspace = new WorkspaceViewModel(sources, new OutputPathViewModel(dialogs), settings,
             new PresetViewModel(presetService, dialogs), new CommandPreviewViewModel(builder), queue, preview, messenger);
         messenger.Send(new SourceLoadedMessage(new TestMediaInfoBuilder().WithHdr10().Build()));

@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Globalization;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -7,6 +8,7 @@ using FFApp.Core;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
 using FFApp.Helpers;
+using FFApp.Infrastructure;
 using FFApp.Services;
 
 namespace FFApp.ViewModels;
@@ -17,6 +19,7 @@ public partial class JobListPanelViewModel : ObservableObject
     private readonly ICommandBuilder _commandBuilder;
     private readonly IValidationService _validationService;
     private readonly IDialogService _dialogService;
+    private readonly TimeProvider _timeProvider;
     private CancellationTokenSource? _cts;
     private int _nextJobId;
 
@@ -45,6 +48,10 @@ public partial class JobListPanelViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _isAnyJobRunning;
+
+    /// <summary>Estimated time until all queued jobs are encoded; empty when no estimate applies.</summary>
+    [ObservableProperty]
+    private string _queueEstimateText = "";
 
     [ObservableProperty]
     private string _statusText = "";
@@ -89,9 +96,11 @@ public partial class JobListPanelViewModel : ObservableObject
         IValidationService validationService,
         IDialogService dialogService,
         SourceListPanelViewModel sourceList,
-        VideoPreviewViewModel videoPreview)
+        VideoPreviewViewModel videoPreview,
+        TimeProvider timeProvider)
     {
         _queueService = queueService;
+        _timeProvider = timeProvider;
         _commandBuilder = commandBuilder;
         _validationService = validationService;
         _dialogService = dialogService;
@@ -421,6 +430,7 @@ public partial class JobListPanelViewModel : ObservableObject
                         {
                             vm.UpdateProgress(progress);
                             UpdateStatusFromRunningJob(vm);
+                            UpdateQueueEstimate();
                         }
                     });
                 },
@@ -600,7 +610,30 @@ public partial class JobListPanelViewModel : ObservableObject
             SummaryText = $"{Jobs.Count} jobs: {pending} pending, {completed} done, {failed} failed";
         }
 
+        UpdateQueueEstimate();
         NotifyExecutionCommands();
+    }
+
+    private void UpdateQueueEstimate()
+    {
+        var entries = Jobs.Select(job => new QueueEstimateEntry(
+                job.State,
+                DefaultJobExecutionService.EffectiveOutputDuration(job.QueuedJob.Job, job.MediaInfo),
+                job.QueuedJob.Commands.Count(command => command.Protocol == ProcessProtocol.Ffmpeg),
+                job.LastProgress,
+                job.Result?.ElapsedSeconds))
+            .ToList();
+
+        if (!IsRunning || QueueTimeEstimator.EstimateRemainingSeconds(entries) is not { } remaining)
+        {
+            QueueEstimateText = "";
+            return;
+        }
+
+        var finishAt = _timeProvider.GetLocalNow().AddSeconds(remaining);
+        var finishFormat = finishAt.Date == _timeProvider.GetLocalNow().Date ? "t" : "g";
+        QueueEstimateText =
+            $"All jobs: ~{FormatHelpers.FormatCompactDuration(remaining)} left, done around {finishAt.ToString(finishFormat, CultureInfo.CurrentCulture)}";
     }
 
     private void UpdateStatusFromRunningJob(JobItemViewModel job)

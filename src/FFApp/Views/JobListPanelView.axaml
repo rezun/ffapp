@@ -83,6 +83,14 @@
                            IsVisible="{Binding HasJobs}"
                            Margin="8,0,8,4" />
 
+                <!-- Queue-wide time estimate -->
+                <TextBlock DockPanel.Dock="Top"
+                           Classes="secondary"
+                           Text="{Binding QueueEstimateText}"
+                           IsVisible="{Binding QueueEstimateText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                           TextWrapping="Wrap"
+                           Margin="8,0,8,4" />
+
                 <!-- Bottom actions -->
                 <WrapPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
                            ItemSpacing="4" LineSpacing="4" Margin="8,4,8,6"

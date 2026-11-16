@@ -28,7 +28,7 @@ public sealed class WorkspaceComparisonTests
         var validator = new ValidationService();
         var settings = new OutputSettingsViewModel(validator, messenger, Substitute.For<IFfmpegCapabilityService>(), paths);
         var preview = new VideoPreviewViewModel(null);
-        var queue = new JobListPanelViewModel(Substitute.For<IQueueService>(), builder, validator, dialogs, sources, preview);
+        var queue = new JobListPanelViewModel(Substitute.For<IQueueService>(), builder, validator, dialogs, sources, preview, TimeProvider.System);
         _workspace = new WorkspaceViewModel(sources, outputPath, settings, new PresetViewModel(Substitute.For<IPresetService>(), dialogs),
             new CommandPreviewViewModel(builder), queue, preview, messenger, _windows);
         _source = new SourceFileViewModel("/source.mkv");

@@ -27,7 +27,7 @@ public class JobListPanelViewModelTests
         var videoPreview = new VideoPreviewViewModel(null);
         _sut = new JobListPanelViewModel(
             _queueService, _commandBuilder, _validationService, _dialogService,
-            _sourceList, videoPreview);
+            _sourceList, videoPreview, TimeProvider.System);
 
         _validationService.Validate(
                 Arg.Any<OutputSettings>(),

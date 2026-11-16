@@ -46,6 +46,9 @@ public sealed partial class JobItemViewModel : ObservableObject
 
     public bool HasFailure => Failure is not null;
 
+    /// <summary>Latest progress report of the current run, used for the queue-wide estimate.</summary>
+    public JobProgress? LastProgress { get; private set; }
+
     /// <summary>Jobs that have not started, or will re-run, can still change their output name.</summary>
     public bool CanRenameOutput => State is JobState.Pending or JobState.Failed or JobState.Canceled;
 
@@ -63,6 +66,7 @@ public sealed partial class JobItemViewModel : ObservableObject
         State = JobState.Pending;
         Percentage = 0;
         ProgressText = "";
+        LastProgress = null;
         _logBuilder.Clear();
         LogText = "";
         LogFilePath = null;
@@ -72,6 +76,7 @@ public sealed partial class JobItemViewModel : ObservableObject
 
     public void UpdateProgress(JobProgress progress)
     {
+        LastProgress = progress;
         Percentage = progress.Percentage ?? 0;
 
         var parts = new List<string>();

@@ -35,15 +35,4 @@ public sealed partial class ToolsWindow : Window
         }
     }
 
-    // async void: Avalonia click events are synchronous. Surface launcher failures in the dialog.
-    private async void OnDownload(object? sender, RoutedEventArgs e)
-    {
-        if (sender is not Button { Tag: string url } || DataContext is not MainWindowViewModel vm) return;
-        try { await Launcher.LaunchUriAsync(new Uri(url)); }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Opening a tool download page failed");
-            vm.ToolDetails = $"Could not open download page: {ex.Message}";
-        }
-    }
 }

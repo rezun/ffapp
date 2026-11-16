@@ -75,11 +75,6 @@
         <TextBlock Text="{Binding VlcStatus}" TextWrapping="Wrap" Classes="secondary" />
         <TextBlock Text="Install FFmpeg 9 with shared libraries for comparison playback. On Windows, choose a shared build matching the app architecture; on macOS or Linux, use a package that includes the matching libraries. Install VLC separately for the main-window preview. Restart FFApp after changing shared libraries or installing VLC."
                    TextWrapping="Wrap" Classes="secondary" />
-        <WrapPanel Orientation="Horizontal">
-            <Button Content="Download FFmpeg" Command="{Binding OpenFfmpegDownloadCommand}" Margin="0,0,8,8" />
-            <Button Content="Download VLC" Command="{Binding OpenVlcDownloadCommand}" Margin="0,0,8,8" />
-            <Button Content="Download MKVToolNix" Command="{Binding OpenMkvtoolnixDownloadCommand}" Margin="0,0,8,8" />
-        </WrapPanel>
 
         <!-- Status -->
         <TextBlock Text="{Binding StatusText}"

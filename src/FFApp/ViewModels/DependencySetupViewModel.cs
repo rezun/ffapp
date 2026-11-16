@@ -99,13 +99,6 @@ public partial class DependencySetupViewModel : ObservableObject
     private static string Describe(ExecutableValidation tool) => tool.IsValid
         ? tool.VersionOutput ?? $"{tool.Name} available." : tool.Error ?? $"{tool.Name} unavailable.";
 
-    [RelayCommand]
-    private Task OpenFfmpegDownloadAsync() => _dialogService.OpenUrlAsync(new Uri("https://ffmpeg.org/download.html"));
-    [RelayCommand]
-    private Task OpenVlcDownloadAsync() => _dialogService.OpenUrlAsync(new Uri("https://www.videolan.org/vlc/"));
-    [RelayCommand]
-    private Task OpenMkvtoolnixDownloadAsync() => _dialogService.OpenUrlAsync(new Uri("https://mkvtoolnix.download/downloads.html"));
-
     public void SetFromSettings(AppSettings settings)
     {
         FfmpegPath = settings.ExecutablePaths.Ffmpeg ?? "";

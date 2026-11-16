@@ -48,7 +48,7 @@ public sealed class ComparisonWindowService(
         if (!availability.IsAvailable)
         {
             await dialogs.ShowMessageAsync("Comparison playback unavailable", availability.Message
-                + " Open Settings → Tools and components for installation links and diagnostics.");
+                + " Open Settings → Tools and components for diagnostics.");
             return;
         }
         var scope = scopeFactory.CreateAsyncScope();

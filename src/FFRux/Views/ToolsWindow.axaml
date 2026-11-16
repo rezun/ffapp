@@ -24,10 +24,6 @@
                 <Button DockPanel.Dock="Right" Content="Browse…" Tag="mkvpropedit" Click="OnBrowse" Margin="8,0,0,0" />
                 <TextBox Text="{Binding MkvpropeditPath}" PlaceholderText="Auto-detect from PATH" />
             </DockPanel>
-            <WrapPanel>
-                <Button Content="Download FFmpeg" Tag="https://ffmpeg.org/download.html" Click="OnDownload" Margin="0,0,8,8" />
-                <Button Content="Download MKVToolNix" Tag="https://mkvtoolnix.download/downloads.html" Click="OnDownload" Margin="0,0,8,8" />
-            </WrapPanel>
             <TextBlock Text="{Binding ToolDetails}" TextWrapping="Wrap" />
             <Button Content="Check and save" Command="{Binding CheckToolsCommand}" Classes="accent" HorizontalAlignment="Left" />
             <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsCheckingTools}" />

@@ -58,7 +58,7 @@ On every launch, FFApp checks the configured tools and comparison libraries. If 
 - **Windows:** Choose a **shared** FFmpeg 9 build matching the app's x64 or ARM64 architecture for comparison playback. Keep its DLLs and their dependencies together with the executable; a static build alone only covers command-line encoding. Select both `ffmpeg.exe` and `ffprobe.exe` if their directory is not in PATH.
 - **Linux:** Install packages that provide FFmpeg/ffprobe 9 or newer, and version-9 shared libraries for comparison playback. Distribution packages may be older or omit optional encoders/filters; use the component diagnostics to check. LibVLC is detected in standard system library locations.
 
-Restart FFApp after installing VLC or replacing shared libraries: native libraries already loaded by the current process cannot be switched safely. FFmpeg/ffprobe executable paths can be changed without a restart. Both apps provide download links in the tool settings.
+Restart FFApp after installing VLC or replacing shared libraries: native libraries already loaded by the current process cannot be switched safely. FFmpeg/ffprobe executable paths can be changed without a restart. Both apps configure and check tools that are already installed; the tool settings do not offer downloads or installation actions.
 
 ### File associations
 

@@ -21,7 +21,12 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
     private const long DefaultFrameDurationMs = 33; // ~30 fps fallback
     private double _frameRate = 30.0;
     private bool _disposed;
-    private bool _pauseOnFirstPlay;
+    // Priming: after loading, VLC plays muted until the video output shows a frame,
+    // then pauses. Only touched on the UI thread.
+    private static readonly long PrimingFallbackMs = 1000;
+    private bool _isPriming;
+    private bool _primingHasVideo;
+    private bool _primingVoutReady;
     private const int MaximumVolume = 100;
     private int _volume = MaximumVolume;
     private int _lastAudibleVolume = MaximumVolume;
@@ -53,7 +58,7 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
     {
         if (_mediaPlayer is null) return;
         _mediaPlayer.Volume = Volume;
-        _mediaPlayer.Mute = IsMuted;
+        _mediaPlayer.Mute = IsMuted || _isPriming;
     }
 
     [RelayCommand]
@@ -216,6 +221,9 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
 
         _currentMedia = new Media(_libVlc, mediaInfo.SourcePath, FromType.FromPath);
         _mediaPlayer = new MediaPlayer(_currentMedia);
+        _isPriming = true;
+        _primingHasVideo = primary is not null;
+        _primingVoutReady = false;
         ApplyAudioSettings();
 
         _mediaPlayer.TimeChanged += OnTimeChanged;
@@ -225,6 +233,7 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
         _mediaPlayer.Stopped += OnStopped;
         _mediaPlayer.EndReached += OnEndReached;
         _mediaPlayer.EncounteredError += OnEncounteredError;
+        _mediaPlayer.Vout += OnVout;
 
         HasMedia = true;
         IsPlaying = false;
@@ -243,9 +252,10 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
 
         MediaPlayerChanged?.Invoke(this, _mediaPlayer);
 
-        // Start and immediately pause so VLC enters Paused state.
-        // This enables seeking before the user clicks play and shows the first frame.
-        _pauseOnFirstPlay = true;
+        // Play muted until the video output has shown a frame, then pause (see
+        // TryFinishPriming). Pausing on the Playing event is too early for slow
+        // decoders such as HEVC: VLC has no video output yet, so nothing is shown
+        // and seeking stays black until the user presses play.
         _mediaPlayer.Play();
     }
 
@@ -343,6 +353,16 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
     private void PlayPause()
     {
         if (_mediaPlayer is null) return;
+
+        if (_isPriming)
+        {
+            // The player is already running muted; keep it playing for the user.
+            _isPriming = false;
+            ApplyAudioSettings();
+            IsPlaying = true;
+            PlayPauseLabel = "\u2759\u2759";
+            return;
+        }
 
         if (_mediaPlayer.IsPlaying)
             _mediaPlayer.Pause();
@@ -499,6 +519,13 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
     {
         Dispatcher.UIThread.Post(() =>
         {
+            // Events already queued from a previous player must not affect this one.
+            if (!ReferenceEquals(sender, _mediaPlayer)) return;
+            if (_isPriming)
+            {
+                TryFinishPriming(e.Time);
+                return;
+            }
             if (IsSeeking) return;
             TimeMs = e.Time;
             Position = DurationMs > 0 ? (double)e.Time / DurationMs : 0;
@@ -520,20 +547,49 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
         });
     }
 
-    private void OnPlaying(object? sender, EventArgs e)
+    private void OnVout(object? sender, MediaPlayerVoutEventArgs e)
     {
-        // VLC may recreate its audio output when starting or replaying media.
-        Dispatcher.UIThread.Post(ApplyAudioSettings);
-        if (_pauseOnFirstPlay)
-        {
-            _pauseOnFirstPlay = false;
-            // Must schedule pause off the VLC event thread
-            Dispatcher.UIThread.Post(() => _mediaPlayer?.Pause());
-            return;
-        }
-
+        if (e.Count <= 0) return;
         Dispatcher.UIThread.Post(() =>
         {
+            if (ReferenceEquals(sender, _mediaPlayer))
+                _primingVoutReady = true;
+        });
+    }
+
+    /// <summary>
+    /// Ends priming once playback time advances after the video output exists, so a
+    /// frame is on screen. Media without video, or a video output that never reports,
+    /// falls back to pausing after a short muted pre-roll. Seeks back to the position
+    /// the UI shows, which is the start unless the user moved the slider meanwhile.
+    /// </summary>
+    private void TryFinishPriming(long timeMs)
+    {
+        var frameShown = !_primingHasVideo || (_primingVoutReady && timeMs > 0);
+        if (!frameShown && timeMs < PrimingFallbackMs) return;
+        if (_mediaPlayer is null) return;
+
+        _isPriming = false;
+        _mediaPlayer.SetPause(true);
+        _mediaPlayer.Time = TimeMs;
+        ApplyAudioSettings();
+    }
+
+    private void EndPrimingWithoutPause()
+    {
+        if (!_isPriming) return;
+        _isPriming = false;
+        ApplyAudioSettings();
+    }
+
+    private void OnPlaying(object? sender, EventArgs e)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            // VLC may recreate its audio output when starting or replaying media.
+            ApplyAudioSettings();
+            if (_isPriming) return;
+
             IsPlaying = true;
             PlayPauseLabel = "\u2759\u2759";
         });
@@ -552,6 +608,7 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
     {
         Dispatcher.UIThread.Post(() =>
         {
+            EndPrimingWithoutPause();
             IsPlaying = false;
             PlayPauseLabel = "\u25B6\uFE0E";
         });
@@ -562,6 +619,7 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
         // Must NOT call Stop/Play from this handler — VLC deadlock.
         Dispatcher.UIThread.Post(() =>
         {
+            EndPrimingWithoutPause();
             IsPlaying = false;
             Position = 0;
             TimeMs = 0;
@@ -574,6 +632,7 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
     {
         Dispatcher.UIThread.Post(() =>
         {
+            EndPrimingWithoutPause();
             IsPlaying = false;
             PlayPauseLabel = "\u25B6\uFE0E";
             StatusText = "Playback error";
@@ -667,6 +726,7 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
             _mediaPlayer.Stopped -= OnStopped;
             _mediaPlayer.EndReached -= OnEndReached;
             _mediaPlayer.EncounteredError -= OnEncounteredError;
+            _mediaPlayer.Vout -= OnVout;
 
             MediaPlayerChanged?.Invoke(this, null);
 
@@ -681,6 +741,7 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
             _currentMedia = null;
         }
 
+        _isPriming = false;
         HasMedia = false;
         IsPlaying = false;
     }

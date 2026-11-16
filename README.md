@@ -48,9 +48,11 @@ Comparison playback, VLC preview and Matroska statistics are optional. Missing o
 
 ## Installation
 
-Download a release build for your platform, or build from source (see below).
+Download installers and portable builds for FFApp and FFRux from [GitHub Releases](https://github.com/rezun/ffapp/releases), or build from source (see below).
 
-External media tools are installed separately; neither release variant downloads or bundles FFmpeg, VLC or MKVToolNix. **Full** builds include the .NET runtime. **Slim** builds require the [.NET 10 runtime](https://dotnet.microsoft.com/download/dotnet/10.0) for the matching architecture.
+GitHub releases provide self-contained Velopack packages for Windows, macOS and Linux, each for x64 and ARM64. Both apps use the release version and have separate package IDs and update channels. Windows builds provide Setup installers, macOS builds provide installation packages and app bundles, and Linux builds provide AppImages. The packages are currently unsigned and macOS packages are not notarized. Velopack startup hooks are integrated; in-app update checking and downloading are not yet implemented.
+
+External media tools are installed separately; release builds do not download or bundle FFmpeg, VLC or MKVToolNix. GitHub releases and local **Full** builds include the .NET runtime. Local **Slim** builds require the [.NET 10 runtime](https://dotnet.microsoft.com/download/dotnet/10.0) for the matching architecture.
 
 On every launch, FFApp checks the configured tools and comparison libraries. If a required executable is missing, too old or cannot run, setup shows the individual error and preserves any tools already discovered. Select executables with **Browse…**, enter paths or command names, or leave a field empty for automatic discovery. **Check again** refreshes diagnostics; **Validate and save** saves working paths. You can reopen this screen through **Settings → Tools and components…** without losing sources or queued jobs. FFRux has the same settings menu with **Check and save**; installation or path changes can be retried without restarting it.
 
@@ -65,7 +67,7 @@ Restart FFApp after installing VLC or replacing shared libraries: native librari
 FFApp declares itself as an optional handler for common video and audio containers. Opening a file with FFApp adds it to the source list — launching a fresh window if the app isn't already running.
 
 - **macOS:** Associations ship in the `.app` bundle's `Info.plist`. FFApp registers as an `Alternate` handler so it won't displace QuickTime or VLC as the system default; right-click any media file and choose **Open With → FFApp**, or set FFApp as the default via **Get Info → Open with** for a specific extension.
-- **Windows:** File associations require the installer to write HKCR registry keys and are not registered by the standalone `.exe`. This will be wired up when the packaged installer lands.
+- **Windows:** File associations require the installer to write HKCR registry keys and are not registered by the standalone `.exe`. The Velopack installer does not register these associations yet.
 - **Linux:** `packaging/ffapp/linux/ffapp.desktop` has no `MimeType=` entries yet. A full implementation depends on a proper package (`.deb`/`.rpm`/Flatpak) that can run `update-desktop-database`.
 
 ### Logs
@@ -153,6 +155,21 @@ dotnet test --filter "Category!=Integration"
 ```
 
 `--app` selects `ffapp` (default) or `ffrux`; each app's version comes from its own `.csproj`. The build script supports `win-x64`, `osx-arm64`, `osx-x64`, and `linux-x64`. Each target produces a platform-appropriate artifact (.app bundle, .exe, or .tar.gz).
+
+### GitHub builds and releases
+
+[CI](https://github.com/rezun/ffapp/actions/workflows/ci.yml) builds the solution in Release and runs the unit tests on pushes to `main` and pull requests. FFmpeg-dependent integration tests can be run locally; CI excludes `Category=Integration`.
+
+The [Release workflow](https://github.com/rezun/ffapp/actions/workflows/release.yml) runs CI before packaging both apps for all six platform/architecture combinations. The tag version overrides both project versions for that release. For example:
+
+```bash
+git tag v1.13.2
+git push origin v1.13.2
+```
+
+A `v*` tag publishes the release after every package has built and uploaded successfully. Prerelease versions such as `v1.13.2-beta.1` are marked as prereleases. To test packaging first, run the workflow manually with a SemVer version (without `v`) and leave `publish_release` disabled; the assets stay in a draft release. Enable it to publish after upload.
+
+Velopack's SDK and CLI use the same pinned version from `Directory.Packages.props`. Each app/architecture has its own channel (for example `ffapp-osx-arm64` and `ffrux-osx-arm64`). Previous packages are downloaded when available to generate delta updates; the first release needs no previous packages. The workflow uses the built-in `GITHUB_TOKEN`, with write access limited to the publishing job; no publishing secret is required. Signing and notarization credentials are not configured.
 
 ### Architecture Notes
 

@@ -1,0 +1,256 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Semver version to package, without the leading v"
+        required: true
+        type: string
+      publish_release:
+        description: "Publish the GitHub release instead of leaving it as a draft"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: release-${{ github.event.inputs.version || github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  PACK_AUTHORS: rezun
+  DOTNET_VERSION: 10.0.x
+
+jobs:
+  verify:
+    name: Verify release
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  package:
+    name: Package ${{ matrix.app.name }} ${{ matrix.platform.rid }}
+    needs: verify
+    runs-on: ${{ matrix.platform.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        app:
+          - name: FFApp
+            key: ffapp
+            linux_icon: logo.png
+          - name: FFRux
+            key: ffrux
+            linux_icon: packaging/ffrux/linux/ffrux.png
+        platform:
+          - os: windows-latest
+            rid: win-x64
+          - os: windows-latest
+            rid: win-arm64
+          - os: macos-latest
+            rid: osx-arm64
+          - os: macos-latest
+            rid: osx-x64
+          - os: ubuntu-22.04
+            rid: linux-x64
+          - os: ubuntu-22.04-arm
+            rid: linux-arm64
+    env:
+      APP_PROJECT: src/${{ matrix.app.name }}/${{ matrix.app.name }}.csproj
+      APP_NAME: ${{ matrix.app.name }}
+      PACK_ID: ${{ matrix.app.name }}
+      CHANNEL: ${{ matrix.app.key }}-${{ matrix.platform.rid }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Resolve release version
+        id: version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            VERSION="$INPUT_VERSION"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Version '$VERSION' is not valid semver." >&2
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve Velopack package version
+        id: velopack
+        shell: bash
+        run: |
+          VERSION=$(python3 -c 'import xml.etree.ElementTree as E; print(E.parse("Directory.Packages.props").find(".//PackageVersion[@Include=\"Velopack\"]").attrib["Version"])')
+          if [[ -z "$VERSION" ]]; then
+            echo "Could not resolve Velopack package version from $APP_PROJECT" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Install vpk tool
+        shell: bash
+        run: |
+          dotnet tool install --tool-path ./.tools vpk --version "${{ steps.velopack.outputs.version }}"
+
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            echo "VPK_BIN=./.tools/vpk.exe" >> "$GITHUB_ENV"
+          else
+            echo "VPK_BIN=./.tools/vpk" >> "$GITHUB_ENV"
+          fi
+
+      - name: Generate macOS Info.plist
+        if: startsWith(matrix.platform.rid, 'osx-')
+        shell: bash
+        run: |
+          sed "s/VERSION_PLACEHOLDER/${{ steps.version.outputs.version }}/g" packaging/${{ matrix.app.key }}/macos/Info.plist > packaging/${{ matrix.app.key }}/macos/Info.generated.plist
+
+      - name: Publish application
+        run: >
+          dotnet publish ${{ env.APP_PROJECT }}
+          -c Release
+          -r ${{ matrix.platform.rid }}
+          --self-contained true
+          -p:Version=${{ steps.version.outputs.version }}
+          -o publish/${{ matrix.platform.rid }}
+
+      - name: Download previous Velopack assets
+        continue-on-error: true
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: >
+          "$VPK_BIN" --yes
+          download github
+          --repoUrl https://github.com/${{ github.repository }}
+          --token "$GITHUB_TOKEN"
+          --channel ${{ env.CHANNEL }}
+          --outputDir Releases
+
+      - name: Pack Velopack release
+        shell: bash
+        run: |
+          MAIN_EXE="$APP_NAME"
+          PACK_ARGS=()
+          case "${{ matrix.platform.rid }}" in
+            win-*)
+              MAIN_EXE="$APP_NAME.exe"
+              PACK_ARGS+=(--icon "src/$APP_NAME/Assets/${{ matrix.app.key }}.ico")
+              ;;
+            osx-*)
+              PACK_ARGS+=(--icon "packaging/${{ matrix.app.key }}/macos/${{ matrix.app.key }}.icns" --plist "packaging/${{ matrix.app.key }}/macos/Info.generated.plist")
+              ;;
+            linux-*)
+              PACK_ARGS+=(--icon "${{ matrix.app.linux_icon }}" --categories AudioVideo,Utility)
+              ;;
+          esac
+
+          "$VPK_BIN" --yes pack \
+            --packId "$PACK_ID" \
+            --packVersion "${{ steps.version.outputs.version }}" \
+            --packDir "publish/${{ matrix.platform.rid }}" \
+            --mainExe "$MAIN_EXE" \
+            --packTitle "$APP_NAME" \
+            --packAuthors "$PACK_AUTHORS" \
+            --runtime "${{ matrix.platform.rid }}" \
+            --channel "$CHANNEL" \
+            --outputDir Releases \
+            "${PACK_ARGS[@]}"
+
+      - name: Prepare GitHub release assets
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_CHANNEL: ${{ env.CHANNEL }}
+        run: |
+          python3 scripts/sanitize_velopack_release.py
+
+          find Releases -maxdepth 1 -type f \( -name "${{ env.PACK_ID }}-*-full.nupkg" -o -name "${{ env.PACK_ID }}-*-delta.nupkg" \) \
+            ! -name "${{ env.PACK_ID }}-${RELEASE_VERSION}-${RELEASE_CHANNEL}-full.nupkg" \
+            ! -name "${{ env.PACK_ID }}-${RELEASE_VERSION}-${RELEASE_CHANNEL}-delta.nupkg" \
+            -delete
+
+          find Releases -maxdepth 1 -type f \( -name 'assets.*.json' -o -name 'RELEASES*' \) -delete
+
+      - name: Upload packaged artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: velopack-${{ env.CHANNEL }}
+          path: Releases/*
+          if-no-files-found: error
+
+      - name: Clean generated macOS Info.plist
+        if: startsWith(matrix.platform.rid, 'osx-')
+        shell: bash
+        run: rm -f packaging/${{ matrix.app.key }}/macos/Info.generated.plist
+
+  release:
+    name: Publish GitHub release
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    needs: package
+
+    steps:
+      - name: Download packaged artifacts
+        uses: actions/download-artifact@v7
+        with:
+          pattern: velopack-*
+          merge-multiple: true
+          path: release-assets
+
+      - name: Create or update GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+          PUBLISH_RELEASE: ${{ inputs.publish_release }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            VERSION="$INPUT_VERSION"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          TAG="v$VERSION"
+
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title "FFApp and FFRux $VERSION" --generate-notes --draft --target "$RELEASE_SHA"
+          fi
+
+          while IFS= read -r asset_name; do
+            if [[ "$asset_name" =~ ^assets\..*\.json$ || "$asset_name" =~ ^RELEASES($|-) ]]; then
+              gh release delete-asset "$TAG" "$asset_name" --yes
+            fi
+          done < <(gh release view "$TAG" --json assets --jq '.assets[].name')
+
+          gh release upload "$TAG" release-assets/* --clobber
+
+          if [[ "$EVENT_NAME" != "workflow_dispatch" || "$PUBLISH_RELEASE" == "true" ]]; then
+            if [[ "$VERSION" == *-* ]]; then
+              gh release edit "$TAG" --draft=false --prerelease
+            else
+              gh release edit "$TAG" --draft=false --latest
+            fi
+          fi

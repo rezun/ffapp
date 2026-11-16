@@ -1,3 +1,6 @@
+.DS_Store
+.tools/
+packaging/**/Info.generated.plist
 claude-plans/
 dist/
 .claude/settings.local.json

@@ -1,4 +1,5 @@
 using Avalonia;
+using Velopack;
 using FFApp.Infrastructure.Logging;
 using FFApp.Infrastructure.SingleInstance;
 using FFRux.Infrastructure;
@@ -12,6 +13,9 @@ public static class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        // Installer hooks must exit before logging, single-instance handling or Avalonia starts.
+        VelopackApp.Build().Run();
+
         using var log = AppLogging.CreateLogger(FFRuxPaths.Identity);
 
         var coordinator = SingleInstanceCoordinator.CreateFor(FFRuxPaths.Identity);

@@ -24,6 +24,7 @@
       <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
     </PackageReference>
     <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="Velopack" />
     <PackageReference Include="FFmpeg.AutoGen" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="LibVLCSharp" />

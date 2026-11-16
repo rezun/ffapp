@@ -22,6 +22,7 @@ public sealed partial class JobItemViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanRenameOutput))]
+    [NotifyPropertyChangedFor(nameof(ShowProgressBar))]
     private JobState _state = JobState.Pending;
 
     [ObservableProperty]
@@ -51,6 +52,8 @@ public sealed partial class JobItemViewModel : ObservableObject
 
     /// <summary>Jobs that have not started, or will re-run, can still change their output name.</summary>
     public bool CanRenameOutput => State is JobState.Pending or JobState.Failed or JobState.Canceled;
+
+    public bool ShowProgressBar => State != JobState.Completed;
 
     public JobItemViewModel(string id, SourceMediaInfo mediaInfo, QueuedJob queuedJob, string displayLabel)
     {

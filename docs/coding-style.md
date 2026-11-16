@@ -226,3 +226,7 @@ Tests exist to catch regressions that would otherwise go unnoticed or be expensi
 ## UI text
 
 Use sentence case for buttons, menu items, tabs, headings, field labels, dropdown options, and dialog titles: capitalize the first word, proper names, and abbreviations. For example: `Copy template`, `Compare encodes`, `Video codec`, and `HDR mode`. Preserve names and technical notation such as FFmpeg, Matroska, AV1, HDR, and BT.709. Apply this rule to static XAML labels and dynamically generated UI text alike.
+
+## Dialog conventions
+
+Message, error, confirmation and text-entry dialogs must size their height to content, wrap their text, and avoid fixed-height empty space. Center them on their owner and keep them out of the taskbar. Set the affirmative button as `IsDefault` for Enter and the dismiss/cancel button as `IsCancel` for Escape; a single OK button has both roles. Escape must cancel confirmations and text entry without accepting changes. Follow platform button order, and give text-entry fields initial focus with existing text selected.

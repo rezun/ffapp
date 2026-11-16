@@ -100,16 +100,23 @@ public sealed class DialogService(Func<Window?> windowAccessor) : IDialogService
             SizeToContent = SizeToContent.Height,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             CanResize = false,
+            ShowInTaskbar = false,
             Content = new StackPanel
             {
                 Margin = new Avalonia.Thickness(16),
                 Children =
                 {
-                    new TextBlock { Text = message },
+                    new TextBlock { Text = message, TextWrapping = Avalonia.Media.TextWrapping.Wrap },
                     textBox,
                     CreateButtonPanel(out var okButton, out var cancelButton),
                 },
             },
+        };
+
+        dialog.Opened += (_, _) =>
+        {
+            textBox.Focus();
+            textBox.SelectAll();
         };
 
         string? result = null;
@@ -129,9 +136,10 @@ public sealed class DialogService(Func<Window?> windowAccessor) : IDialogService
         {
             Title = title,
             Width = 400,
-            Height = 160,
+            SizeToContent = SizeToContent.Height,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             CanResize = false,
+            ShowInTaskbar = false,
             Content = new StackPanel
             {
                 Margin = new Avalonia.Thickness(16),
@@ -164,9 +172,10 @@ public sealed class DialogService(Func<Window?> windowAccessor) : IDialogService
         {
             Title = title,
             Width = 400,
-            Height = 160,
+            SizeToContent = SizeToContent.Height,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             CanResize = false,
+            ShowInTaskbar = false,
             Content = new StackPanel
             {
                 Margin = new Avalonia.Thickness(16),
@@ -230,25 +239,38 @@ public sealed class DialogService(Func<Window?> windowAccessor) : IDialogService
         okButton = new Button
         {
             Content = "OK",
-            Width = 80,
+            IsDefault = true,
+            MinWidth = 80,
             HorizontalContentAlignment = HorizontalAlignment.Center,
         };
 
         cancelButton = new Button
         {
             Content = "Cancel",
-            Width = 80,
-            Margin = new Avalonia.Thickness(8, 0, 0, 0),
+            IsCancel = true,
+            MinWidth = 80,
             HorizontalContentAlignment = HorizontalAlignment.Center,
         };
 
-        return new StackPanel
+        var panel = new StackPanel
         {
             Orientation = Orientation.Horizontal,
             HorizontalAlignment = HorizontalAlignment.Right,
+            Spacing = 8,
             Margin = new Avalonia.Thickness(0, 16, 0, 0),
-            Children = { okButton, cancelButton },
         };
+        // macOS places the affirmative action at the trailing edge; Windows/Linux put it first.
+        if (OperatingSystem.IsMacOS())
+        {
+            panel.Children.Add(cancelButton);
+            panel.Children.Add(okButton);
+        }
+        else
+        {
+            panel.Children.Add(okButton);
+            panel.Children.Add(cancelButton);
+        }
+        return panel;
     }
 
     private static StackPanel CreateOkPanel(out Button okButton)
@@ -256,7 +278,9 @@ public sealed class DialogService(Func<Window?> windowAccessor) : IDialogService
         okButton = new Button
         {
             Content = "OK",
-            Width = 80,
+            IsDefault = true,
+            IsCancel = true,
+            MinWidth = 80,
             HorizontalContentAlignment = HorizontalAlignment.Center,
         };
 

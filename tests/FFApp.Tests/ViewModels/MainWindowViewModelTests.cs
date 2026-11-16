@@ -29,7 +29,7 @@ public sealed class MainWindowViewModelTests
         CreateSetup,
         _scopeFactory,
         _capabilityService,
-        _preferences, comparisonService: comparisons);
+        _preferences, Substitute.For<ICompanionAppService>(), comparisonService: comparisons);
 
     private DependencySetupViewModel CreateSetup()
     {

@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DIST_DIR="$SCRIPT_DIR/dist"
 APP_KEY="ffapp"
-DEFAULT_RIDS=("win-x64" "win-arm64" "osx-arm64" "osx-x64" "linux-x64")
+DEFAULT_RIDS=("win-x64" "win-arm64" "osx-arm64" "osx-x64" "linux-x64" "linux-arm64")
 
 VERSION=""
 RIDS=()
@@ -14,10 +14,10 @@ usage() {
     echo "Usage: $0 [--app <app>] [--version <version>] [--rid <rid>] [--deploy-mac]"
     echo ""
     echo "Options:"
-    echo "  --app, -a       App to build: ffapp (default) or ffrux"
+    echo "  --app, -a       App to build: ffapp with bundled FFRux (default), or ffrux standalone"
     echo "  --version, -v   Set the version (default: read from csproj)"
     echo "  --rid, -r       Build for a specific RID (default: all)"
-    echo "                  Available: win-x64, win-arm64, osx-arm64, osx-x64, linux-x64"
+    echo "                  Available: win-x64, win-arm64, osx-arm64, osx-x64, linux-x64, linux-arm64"
     echo "  --deploy-mac    Build osx-arm64 slim and deploy to /Applications/<App>.app"
     echo ""
     echo "Examples:"
@@ -88,13 +88,17 @@ echo "Targets: ${RIDS[*]}"
 echo ""
 
 mkdir -p "$DIST_DIR"
-rm -rf "$DIST_DIR/*"
 
 publish() {
     local rid="$1"
     local self_contained="$2"
     local variant="$3"
     local publish_dir="$DIST_DIR/publish/$rid/$variant"
+    if [[ "$APP_KEY" == "ffapp" ]]; then
+        rm -rf "$publish_dir"
+        bash "$SCRIPT_DIR/scripts/publish-bundle.sh" "$rid" "$VERSION" "$self_contained" "$publish_dir"
+        return
+    fi
     # PublishSingleFile implicitly sets PublishSelfContained=true,
     # so only use it for self-contained Windows builds
     local extra_args=()
@@ -120,19 +124,10 @@ package_windows() {
     local suffix=""
     [[ "$variant" == "slim" ]] && suffix="-slim"
 
-    if [[ "$variant" == "full" ]]; then
-        local exe_name="$APP_NAME-$VERSION-$rid.exe"
-        echo "  Packaging $rid ($variant) -> $exe_name"
-        cp "$publish_dir/$APP_NAME.exe" "$DIST_DIR/$exe_name"
-    else
-        local archive_name="$APP_NAME-$VERSION-$rid$suffix"
-        echo "  Packaging $rid ($variant) -> $archive_name.zip"
-        local staging="$DIST_DIR/staging/$archive_name"
-        mkdir -p "$staging"
-        cp -r "$publish_dir/"* "$staging/"
-        (cd "$DIST_DIR/staging" && zip -rq "$DIST_DIR/$archive_name.zip" "$archive_name")
-        rm -rf "$staging"
-    fi
+    local archive_name="$APP_NAME-$VERSION-$rid$suffix"
+    echo "  Packaging $rid ($variant) -> $archive_name.zip"
+    rm -f "$DIST_DIR/$archive_name.zip"
+    (cd "$publish_dir" && zip -rq "$DIST_DIR/$archive_name.zip" .)
 }
 
 package_macos() {
@@ -146,6 +141,11 @@ package_macos() {
     echo "  Packaging $rid ($variant) -> $bundle_name.app"
 
     local app_bundle="$DIST_DIR/$bundle_name.app"
+    if [[ "$APP_KEY" == "ffapp" ]]; then
+        rm -rf "$app_bundle"
+        cp -R "$publish_dir/FFApp.app" "$app_bundle"
+        return
+    fi
     mkdir -p "$app_bundle/Contents/MacOS"
     mkdir -p "$app_bundle/Contents/Resources"
 

@@ -35,19 +35,12 @@ jobs:
       contents: read
 
   package:
-    name: Package ${{ matrix.app.name }} ${{ matrix.platform.rid }}
+    name: Package FFApp ${{ matrix.platform.rid }}
     needs: verify
     runs-on: ${{ matrix.platform.os }}
     strategy:
       fail-fast: false
       matrix:
-        app:
-          - name: FFApp
-            key: ffapp
-            linux_icon: logo.png
-          - name: FFRux
-            key: ffrux
-            linux_icon: packaging/ffrux/linux/ffrux.png
         platform:
           - os: windows-latest
             rid: win-x64
@@ -62,10 +55,10 @@ jobs:
           - os: ubuntu-22.04-arm
             rid: linux-arm64
     env:
-      APP_PROJECT: src/${{ matrix.app.name }}/${{ matrix.app.name }}.csproj
-      APP_NAME: ${{ matrix.app.name }}
-      PACK_ID: ${{ matrix.app.name }}
-      CHANNEL: ${{ matrix.app.key }}-${{ matrix.platform.rid }}
+      APP_PROJECT: src/FFApp/FFApp.csproj
+      APP_NAME: FFApp
+      PACK_ID: FFApp
+      CHANNEL: ffapp-${{ matrix.platform.rid }}
 
     steps:
       - name: Checkout repository
@@ -118,20 +111,14 @@ jobs:
             echo "VPK_BIN=./.tools/vpk" >> "$GITHUB_ENV"
           fi
 
-      - name: Generate macOS Info.plist
-        if: startsWith(matrix.platform.rid, 'osx-')
+      - name: Publish FFApp with bundled FFRux
         shell: bash
-        run: |
-          sed "s/VERSION_PLACEHOLDER/${{ steps.version.outputs.version }}/g" packaging/${{ matrix.app.key }}/macos/Info.plist > packaging/${{ matrix.app.key }}/macos/Info.generated.plist
-
-      - name: Publish application
         run: >
-          dotnet publish ${{ env.APP_PROJECT }}
-          -c Release
-          -r ${{ matrix.platform.rid }}
-          --self-contained true
-          -p:Version=${{ steps.version.outputs.version }}
-          -o publish/${{ matrix.platform.rid }}
+          bash scripts/publish-bundle.sh
+          "${{ matrix.platform.rid }}"
+          "${{ steps.version.outputs.version }}"
+          true
+          "publish/${{ matrix.platform.rid }}"
 
       - name: Download previous Velopack assets
         continue-on-error: true
@@ -150,24 +137,26 @@ jobs:
         shell: bash
         run: |
           MAIN_EXE="$APP_NAME"
+          PACK_DIR="publish/${{ matrix.platform.rid }}"
           PACK_ARGS=()
           case "${{ matrix.platform.rid }}" in
             win-*)
               MAIN_EXE="$APP_NAME.exe"
-              PACK_ARGS+=(--icon "src/$APP_NAME/Assets/${{ matrix.app.key }}.ico")
+              PACK_ARGS+=(--icon "src/$APP_NAME/Assets/ffapp.ico")
               ;;
             osx-*)
-              PACK_ARGS+=(--icon "packaging/${{ matrix.app.key }}/macos/${{ matrix.app.key }}.icns" --plist "packaging/${{ matrix.app.key }}/macos/Info.generated.plist")
+              PACK_DIR="$PACK_DIR/FFApp.app"
+              PACK_ARGS+=(--icon "packaging/ffapp/macos/ffapp.icns")
               ;;
             linux-*)
-              PACK_ARGS+=(--icon "${{ matrix.app.linux_icon }}" --categories AudioVideo,Utility)
+              PACK_ARGS+=(--icon "logo.png" --categories AudioVideo,Utility)
               ;;
           esac
 
           "$VPK_BIN" --yes pack \
             --packId "$PACK_ID" \
             --packVersion "${{ steps.version.outputs.version }}" \
-            --packDir "publish/${{ matrix.platform.rid }}" \
+            --packDir "$PACK_DIR" \
             --mainExe "$MAIN_EXE" \
             --packTitle "$APP_NAME" \
             --packAuthors "$PACK_AUTHORS" \
@@ -197,11 +186,6 @@ jobs:
           name: velopack-${{ env.CHANNEL }}
           path: Releases/*
           if-no-files-found: error
-
-      - name: Clean generated macOS Info.plist
-        if: startsWith(matrix.platform.rid, 'osx-')
-        shell: bash
-        run: rm -f packaging/${{ matrix.app.key }}/macos/Info.generated.plist
 
   release:
     name: Publish GitHub release

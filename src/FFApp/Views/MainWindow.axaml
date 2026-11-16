@@ -14,6 +14,11 @@
 
     <NativeMenu.Menu>
         <NativeMenu>
+            <NativeMenuItem Header="Tools">
+                <NativeMenu>
+                    <NativeMenuItem Header="Open FFRux" Command="{Binding OpenFfruxCommand}" />
+                </NativeMenu>
+            </NativeMenuItem>
             <NativeMenuItem Header="Settings">
                 <NativeMenu>
                     <NativeMenuItem Header="Tools and components…" Click="OnToolsAndComponents" />

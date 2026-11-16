@@ -16,6 +16,11 @@ public partial class MainWindowViewModel : ObservableObject,
     IAsyncInitializable,
     IRecipient<DependenciesResolvedMessage>
 {
+    private readonly ICompanionAppService _companionApp;
+
+    [RelayCommand]
+    private Task OpenFfruxAsync() => _companionApp.OpenAsync();
+
     private readonly TranscodingPreferences _transcodingPreferences;
     private readonly IComparisonService? _comparisonService;
     private readonly ILogger _logger;
@@ -133,9 +138,11 @@ public partial class MainWindowViewModel : ObservableObject,
         IServiceScopeFactory scopeFactory,
         IFfmpegCapabilityService capabilityService,
         TranscodingPreferences transcodingPreferences,
+        ICompanionAppService companionApp,
         IComparisonWindowService? comparisonWindows = null, IComparisonService? comparisonService = null,
         ILogger<MainWindowViewModel>? logger = null)
     {
+        _companionApp = companionApp;
         _logger = logger ?? NullLogger<MainWindowViewModel>.Instance;
         _transcodingPreferences = transcodingPreferences;
         _settingsService = settingsService;

@@ -87,6 +87,7 @@ public partial class App : Application
             services.AddSingleton<IDependencyService, DependencyManager>();
             services.AddSingleton<ISettingsService, SettingsService>();
             services.AddSingleton<IPresetService, PresetService>();
+            services.AddSingleton<ICompanionAppService, CompanionAppService>();
             services.AddSingleton<IValidationService, ValidationService>();
             services.AddSingleton<IProcessRunner, ProcessRunner>();
             services.AddSingleton<IDialogService>(_ => new DialogService(() => mainWindow));

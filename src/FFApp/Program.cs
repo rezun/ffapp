@@ -15,7 +15,17 @@ public static class Program
     {
         // Installer hooks must exit before logging, single-instance handling or Avalonia starts.
         // Apply only after the UI has saved state and checked that FFRux is closed.
-        VelopackApp.Build().SetAutoApplyOnStartup(false).Run();
+        var velopack = VelopackApp.Build().SetAutoApplyOnStartup(false);
+        if (OperatingSystem.IsWindows())
+        {
+            velopack
+                .OnAfterInstallFastCallback(_ => WindowsCompanionShortcut.Create())
+                .OnAfterUpdateFastCallback(_ => WindowsCompanionShortcut.Create())
+                // Velopack refreshes every package shortcut's icon after the update hook.
+                .OnRestarted(_ => WindowsCompanionShortcut.Create())
+                .OnBeforeUninstallFastCallback(_ => WindowsCompanionShortcut.Remove());
+        }
+        velopack.Run();
 
         using var log = AppLogging.CreateLogger(FFAppPaths.Identity);
 

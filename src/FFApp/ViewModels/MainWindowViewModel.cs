@@ -14,8 +14,7 @@ namespace FFApp.ViewModels;
 
 public partial class MainWindowViewModel : ObservableObject,
     IAsyncInitializable,
-    IRecipient<DependenciesResolvedMessage>,
-    IRecipient<NavigateToDependencySetupMessage>
+    IRecipient<DependenciesResolvedMessage>
 {
     private readonly TranscodingPreferences _transcodingPreferences;
     private readonly IComparisonService? _comparisonService;
@@ -113,6 +112,7 @@ public partial class MainWindowViewModel : ObservableObject,
 
     [ObservableProperty]
     private object? _currentView;
+    [ObservableProperty] private string _componentNotice = "";
 
     public string Title => "FFApp";
 
@@ -149,7 +149,6 @@ public partial class MainWindowViewModel : ObservableObject,
         _comparisonService = comparisonService;
 
         _messenger.Register<DependenciesResolvedMessage>(this);
-        _messenger.Register<NavigateToDependencySetupMessage>(this);
     }
 
     public Task<bool> CloseComparisonsAsync() => _comparisonWindows?.CloseAllAsync() ?? Task.FromResult(true);
@@ -173,15 +172,16 @@ public partial class MainWindowViewModel : ObservableObject,
             UseLowPriorityTranscoding = settings.UseLowPriorityTranscoding;
             _settingsLoaded.TrySetResult(settings);
             var status = await _dependencyService.DiscoverAsync(settings.ExecutablePaths);
+            var setup = _createSetup();
+            await setup.InitializeAsync(settings, status);
 
             if (status.IsReady)
             {
+                ComponentNotice = setup.ComponentNotice;
                 await SwitchToWorkspaceAsync(status);
             }
             else
             {
-                var setup = _createSetup();
-                setup.SetFromSettings(settings);
                 CurrentView = setup;
             }
         }
@@ -189,6 +189,10 @@ public partial class MainWindowViewModel : ObservableObject,
         {
             _logger.LogError(ex, "Initialization failed");
             _settingsLoaded.TrySetResult(new AppSettings());
+            var setup = _createSetup();
+            setup.SetFromSettings(LoadedSettings ?? new AppSettings());
+            setup.StatusText = $"Initialization failed: {ex.Message}. Check the tool paths and try again.";
+            CurrentView = setup;
         }
     }
 
@@ -197,6 +201,7 @@ public partial class MainWindowViewModel : ObservableObject,
     {
         try
         {
+            ComponentNotice = message.ComponentNotice;
             await SwitchToWorkspaceAsync(message.Value);
         }
         catch (Exception ex)
@@ -205,16 +210,28 @@ public partial class MainWindowViewModel : ObservableObject,
         }
     }
 
-    public void Receive(NavigateToDependencySetupMessage message)
+    public async Task<DependencySetupViewModel> CreateDependencySetupAsync()
     {
+        var settings = LoadedSettings ?? await _settingsService.LoadAsync();
+        var status = await _dependencyService.DiscoverAsync(settings.ExecutablePaths);
         var setup = _createSetup();
-        CurrentView = setup;
+        await setup.InitializeAsync(settings, status);
+        return setup;
     }
 
     private async Task SwitchToWorkspaceAsync(DependencyStatus status)
     {
         _config.Configure(status.ExecutablePaths);
         _capabilityService.IsLibplaceboAvailable = status.IsLibplaceboAvailable;
+        _capabilityService.Capabilities = status.Capabilities;
+        UpdateSettings(settings => settings with { ExecutablePaths = status.ExecutablePaths });
+
+        // Updating tool paths must retain the queue, sources, and current settings.
+        if (CurrentView is WorkspaceViewModel current)
+        {
+            current.OutputSettings.RefreshCapabilities();
+            return;
+        }
 
         _workspaceScope?.Dispose();
         _workspaceScope = _scopeFactory.CreateScope();

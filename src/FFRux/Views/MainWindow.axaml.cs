@@ -12,6 +12,11 @@ namespace FFRux.Views;
 
 public partial class MainWindow : Window
 {
+    private void OnToolsAndComponents(object? sender, EventArgs e)
+    {
+        if (DataContext is MainWindowViewModel vm)
+            new ToolsWindow { DataContext = vm, Logger = Logger }.Show(this);
+    }
     private bool _closeConfirmed;
 
     /// <summary>Set by <see cref="App"/> once the service provider exists, which is after the window is created.</summary>

@@ -2,6 +2,7 @@ namespace FFApp.Services;
 
 public interface IDialogService
 {
+    Task OpenUrlAsync(Uri url);
     Task<string?> OpenFileAsync(string title, string? filter = null);
     Task<string[]?> OpenFilesAsync(string title, string? filter = null);
     Task<string?> OpenFolderAsync(string title);

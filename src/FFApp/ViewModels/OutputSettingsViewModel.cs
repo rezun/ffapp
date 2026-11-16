@@ -137,6 +137,13 @@ public partial class OutputSettingsViewModel : ObservableObject
         RefreshValidation();
     }
 
+    public void RefreshCapabilities()
+    {
+        Hdr.IsLibplaceboAvailable = _capabilityService.IsLibplaceboAvailable;
+        OnPropertyChanged(nameof(IsMatroskaPostProcessingAvailable));
+        RebuildAndNotify();
+    }
+
     public void UpdateEffectiveDuration(double? effectiveDurationSeconds)
     {
         _trimmedDurationSeconds = effectiveDurationSeconds;

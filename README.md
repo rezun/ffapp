@@ -38,15 +38,27 @@ Sessions and clips are stored in `comparisons/` under the app's data directory. 
 
 ## Requirements
 
-- [FFmpeg](https://ffmpeg.org/download.html) and ffprobe installed and available in PATH (or configured via the app)
-- FFmpeg 9 **shared libraries** (`avcodec` 63, `avformat` 63, `avutil` 61, `swscale` 10) for comparison playback. These are separate from a standalone static `ffmpeg` executable. Place them beside the configured executable, in its sibling `lib` directory, in an `ffmpeg` directory beside FFApp, or in a standard system library directory. Homebrew FFmpeg installations are detected automatically. Windows requires a shared build matching the app architecture. Older FFmpeg executables remain usable for encoding.
-- [LibVLC](https://www.videolan.org/) for the main-window video preview (optional)
+- [FFmpeg and ffprobe](https://ffmpeg.org/download.html) **9 or newer**, installed in PATH or configured in **Settings → Tools and components…** in either app. FFmpeg 9.x is the release baseline. Older releases and development snapshots without a recognizable release version are rejected with an explanation.
+- FFApp checks the encoders and filters actually included in the selected build. Video encoding uses `libx264`, `libx265`, `libvpx-vp9` or `libsvtav1`; audio encoding uses `aac`, `libmp3lame`, `libvorbis` or `libopus`. Missing features block only settings that need them; copying streams remains available. Standard HDR-to-SDR conversion needs `zscale` (zimg), `tonemap` and `format`; the optional alternative needs `libplacebo`. Advanced AV1 parameters also depend on the linked SVT-AV1 version; custom encoder options are passed through to that encoder.
+- FFmpeg **9 shared libraries** (`avcodec` 63, `avformat` 63, `avutil` 61, `swscale` 10) enable FFApp comparison playback. An optional matching `avfilter` 12 with the tone-mapping filters enables HDR conversion in the comparison. These files are separate from a standalone static `ffmpeg` executable. Place the complete shared build beside the configured executable, in its sibling `lib` directory, in an `ffmpeg` directory beside FFApp, or in a standard system library directory. Their dependencies must also be installed. Shared libraries must match the app architecture and these library major versions, even when a newer executable is used.
+- [VLC / LibVLC](https://www.videolan.org/vlc/) enables the main-window video preview (optional). Match the app architecture.
+- [mkvpropedit from MKVToolNix](https://mkvtoolnix.download/downloads.html) enables Matroska track-statistics updates (optional in both apps).
+
+Comparison playback, VLC preview and Matroska statistics are optional. Missing or incompatible components appear in **Tools and components**; FFApp also displays a notice for unavailable optional features at startup. They do not prevent other encoding work.
 
 ## Installation
 
 Download a release build for your platform, or build from source (see below).
 
-On first launch, FFApp will check for ffmpeg/ffprobe and prompt you to set their paths if they aren't found automatically.
+External media tools are installed separately; neither release variant downloads or bundles FFmpeg, VLC or MKVToolNix. **Full** builds include the .NET runtime. **Slim** builds require the [.NET 10 runtime](https://dotnet.microsoft.com/download/dotnet/10.0) for the matching architecture.
+
+On every launch, FFApp checks the configured tools and comparison libraries. If a required executable is missing, too old or cannot run, setup shows the individual error and preserves any tools already discovered. Select executables with **Browse…**, enter paths or command names, or leave a field empty for automatic discovery. **Check again** refreshes diagnostics; **Validate and save** saves working paths. You can reopen this screen through **Settings → Tools and components…** without losing sources or queued jobs. FFRux has the same settings menu with **Check and save**; installation or path changes can be retried without restarting it.
+
+- **macOS:** A package-manager installation that supplies FFmpeg 9 shared libraries is suitable. Homebrew executables and their sibling library directory are detected automatically, even when launching from Finder. VLC is detected in `/Applications/VLC.app`.
+- **Windows:** Choose a **shared** FFmpeg 9 build matching the app's x64 or ARM64 architecture for comparison playback. Keep its DLLs and their dependencies together with the executable; a static build alone only covers command-line encoding. Select both `ffmpeg.exe` and `ffprobe.exe` if their directory is not in PATH.
+- **Linux:** Install packages that provide FFmpeg/ffprobe 9 or newer, and version-9 shared libraries for comparison playback. Distribution packages may be older or omit optional encoders/filters; use the component diagnostics to check. LibVLC is detected in standard system library locations.
+
+Restart FFApp after installing VLC or replacing shared libraries: native libraries already loaded by the current process cannot be switched safely. FFmpeg/ffprobe executable paths can be changed without a restart. Both apps provide download links in the tool settings.
 
 ### File associations
 

@@ -6,7 +6,7 @@ using static FFApp.Core.Validation.CompatibilityData;
 
 namespace FFApp.Core.Validation;
 
-public sealed class ValidationService : IValidationService
+public sealed class ValidationService(IFfmpegCapabilityService? capabilities = null) : IValidationService
 {
     public IReadOnlyList<VideoCodec> AllowedVideoCodecs(OutputContainer container) =>
         CompatibilityData.AllowedVideoCodecs(container);
@@ -31,6 +31,8 @@ public sealed class ValidationService : IValidationService
     public ValidationResult Validate(OutputSettings settings, SourceMediaInfo mediaInfo, double? trimmedDurationSeconds = null)
     {
         var issues = ImmutableArray.CreateBuilder<ValidationIssue>();
+        if (capabilities?.Capabilities is { } available)
+            issues.AddRange(FfmpegFeatureValidation.Validate(settings, mediaInfo, available));
 
         // Cannot remove both video and audio.
         if (settings.VideoMode == VideoMode.Remove && settings.AudioOptions.Mode == AudioMode.Remove)

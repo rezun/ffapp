@@ -1,12 +1,69 @@
 using System.Runtime.InteropServices;
 
 using FFApp.Infrastructure;
+using FFApp.Core.Models;
 using FluentAssertions;
 
 namespace FFApp.Shared.Tests.Infrastructure;
 
 public sealed class DependencyManagerStaticTests
 {
+    [Theory]
+    [InlineData("ffmpeg", "ffmpeg version 9.0.2 Copyright (c) 2000-2026 the FFmpeg developers", true)]
+    [InlineData("ffmpeg", "ffmpeg version n9.0.2-4-g1234 Copyright (c) 2000-2026 the FFmpeg developers", true)]
+    [InlineData("ffprobe", "ffprobe version 9.0.2-full_build Copyright (c) 2007-2026 the FFmpeg developers", true)]
+    [InlineData("ffmpeg", "ffmpeg version 10.0", true)]
+    [InlineData("ffmpeg", "ffmpeg version 8.0.1", false)]
+    [InlineData("ffprobe", "ffprobe version 6.1", false)]
+    [InlineData("ffprobe", "ffmpeg version 9.0.2", false)]
+    [InlineData("ffmpeg", "ffmpeg version N-123456-gabcd", false)]
+    [InlineData("ffmpeg", "", false)]
+    [InlineData("ffmpeg", "some other tool 9.0", false)]
+    [InlineData("mkvpropedit", "mkvpropedit v97.0 ('You Don't Have a Clue') 64-bit", true)]
+    [InlineData("mkvpropedit", "ffmpeg version 9.0.2", false)]
+    public void VersionValidation_RequiresTheExpectedToolAndSupportedRelease(string name, string output, bool valid)
+    {
+        var status = DependencyManager.ValidateVersionOutput(name, "/test/tool", output);
+        status.IsValid.Should().Be(valid);
+        if (!valid) status.Error.Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Theory]
+    // Captured FFmpeg table entries; current releases use two filter flags, older ones used three.
+    [InlineData(" V....D libx264 libx264 H.264 / AVC", "libx264")]
+    [InlineData(" .. libplacebo V->V Apply GPU-based filtering using libplacebo", "libplacebo")]
+    [InlineData(" ... zscale V->V Apply resizing, colorspace and bit depth conversion", "zscale")]
+    [InlineData(" A..... libopus libopus Opus", "libopus")]
+    public void ComponentTables_ParseActualEntries(string output, string name) =>
+        DependencyManager.ParseComponentNames(output).Should().Equal(name);
+
+    [Theory]
+    [InlineData("Unknown filter 'libplacebo'.\nExiting with exit code 0")]
+    [InlineData("Filters:\n  T.. = Timeline support\n  .S. = Slice threading\n  ------")]
+    [InlineData("libplacebo is not compiled into this build")]
+    public void ComponentTables_DoNotMistakeHelpOrErrorsForAvailableFilters(string output) =>
+        DependencyManager.ParseComponentNames(output).Should().BeEmpty();
+
+    [Fact]
+    public async Task MissingExecutables_ReturnErrorsWithoutThrowing()
+    {
+        using var directory = new TempDirectory();
+        var missing = Path.Combine(directory.Path, "missing");
+        var result = await new DependencyManager().DiscoverAsync(new ExecutablePaths(missing, missing, missing));
+        result.IsReady.Should().BeFalse();
+        result.RequiredToolsError.Should().Contain(missing);
+        result.Capabilities.Should().BeNull();
+        result.IsLibplaceboAvailable.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CancelledDiscovery_PropagatesCancellation()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var discover = () => new DependencyManager().DiscoverAsync(ExecutablePaths.Empty, cancellation.Token);
+        await discover.Should().ThrowAsync<OperationCanceledException>();
+    }
     [Fact]
     public void FindExecutable_ReturnsNullWhenMissing()
     {

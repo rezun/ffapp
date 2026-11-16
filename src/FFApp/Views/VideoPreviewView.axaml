@@ -45,7 +45,8 @@
             <!-- VLC not installed message -->
             <TextBlock IsVisible="{Binding !IsAvailable}"
                        Classes="secondary"
-                       Text="Install VLC to enable video preview."
+                       Text="VLC preview unavailable. Open Settings → Tools and components for installation help."
+                       TextWrapping="Wrap"
                        Margin="8,6,8,8" />
 
             <!-- Expandable content (only when VLC is available) -->

@@ -1,234 +1,203 @@
+using System.Collections.Immutable;
+using System.ComponentModel;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
-
+using System.Globalization;
+using System.Text.RegularExpressions;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
 
 namespace FFApp.Infrastructure;
 
-public sealed class DependencyManager : IDependencyService
+public sealed partial class DependencyManager : IDependencyService
 {
+    public static readonly int MinimumFfmpegMajorVersion = 9;
     private static readonly TimeSpan ValidationTimeout = TimeSpan.FromSeconds(5);
 
-    public async Task<DependencyStatus> DiscoverAsync(
-        ExecutablePaths configured, CancellationToken ct = default)
+    public static string? FindInstalledExecutable(string name) => FindExecutable(name, EnumerateSearchDirectories());
+
+    public Task<DependencyStatus> DiscoverAsync(ExecutablePaths configured, CancellationToken ct = default) =>
+        ValidatePathsAsync(configured, ct);
+
+    public async Task<DependencyStatus> ValidatePathsAsync(ExecutablePaths paths, CancellationToken ct = default)
     {
-        var ffmpegPath = ResolveCandidate("ffmpeg", configured.Ffmpeg);
-        var ffprobePath = ResolveCandidate("ffprobe", configured.Ffprobe);
-        var mkvpropeditPath = ResolveCandidate("mkvpropedit", configured.Mkvpropedit);
+        ArgumentNullException.ThrowIfNull(paths);
+        ct.ThrowIfCancellationRequested();
+        var ffmpegTask = ValidateExecutableAsync("ffmpeg", ResolveCandidate("ffmpeg", paths.Ffmpeg), "-version", ct);
+        var ffprobeTask = ValidateExecutableAsync("ffprobe", ResolveCandidate("ffprobe", paths.Ffprobe), "-version", ct);
+        var mkvpropeditTask = ValidateExecutableAsync("mkvpropedit", ResolveCandidate("mkvpropedit", paths.Mkvpropedit), "--version", ct);
+        await Task.WhenAll(ffmpegTask, ffprobeTask, mkvpropeditTask).ConfigureAwait(false);
 
-        return await ValidatePathsAsync(
-            new ExecutablePaths(
-                Ffmpeg: ffmpegPath,
-                Ffprobe: ffprobePath,
-                Mkvpropedit: mkvpropeditPath), ct);
-    }
+        var ffmpeg = await ffmpegTask.ConfigureAwait(false);
+        FfmpegCapabilities? capabilities = null;
+        if (ffmpeg.IsValid && ffmpeg.Path is { } executable)
+        {
+            try
+            {
+                var encodersTask = RunCheckAsync(executable, ["-hide_banner", "-encoders"], ct);
+                var filtersTask = RunCheckAsync(executable, ["-hide_banner", "-filters"], ct);
+                await Task.WhenAll(encodersTask, filtersTask).ConfigureAwait(false);
+                var encoders = await encodersTask.ConfigureAwait(false);
+                var filters = await filtersTask.ConfigureAwait(false);
+                if (encoders.ExitCode != 0 || filters.ExitCode != 0)
+                    ffmpeg = ffmpeg with { IsValid = false, Error = "FFmpeg could not list its encoders and filters. Install a complete FFmpeg 9 or newer build." };
+                else
+                    capabilities = new(ParseComponentNames(encoders.Output), ParseComponentNames(filters.Output));
+            }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            {
+                ffmpeg = ffmpeg with { IsValid = false, Error = "FFmpeg encoder/filter check timed out." };
+            }
+            catch (Exception ex) when (ex is Win32Exception or IOException or InvalidOperationException)
+            {
+                ffmpeg = ffmpeg with { IsValid = false, Error = $"Failed to inspect FFmpeg encoders and filters: {ex.Message}" };
+            }
+        }
 
-    public async Task<DependencyStatus> ValidatePathsAsync(
-        ExecutablePaths paths, CancellationToken ct = default)
-    {
-        var ffmpegTask = ValidateExecutableAsync("ffmpeg", paths.Ffmpeg, "-version", ct);
-        var ffprobeTask = ValidateExecutableAsync("ffprobe", paths.Ffprobe, "-version", ct);
-        var mkvpropeditPath = ResolveCandidate("mkvpropedit", paths.Mkvpropedit);
-        var mkvpropeditTask = ValidateExecutableAsync(
-            "mkvpropedit", mkvpropeditPath, "--version", ct);
-
-        await Task.WhenAll(ffmpegTask, ffprobeTask, mkvpropeditTask);
-
-        var ffmpegValidation = await ffmpegTask;
-        var isLibplaceboAvailable = ffmpegValidation.IsValid && paths.Ffmpeg is not null
-            && await DetectLibplaceboAsync(paths.Ffmpeg, ct);
-
-        return new DependencyStatus(
-            Ffmpeg: ffmpegValidation,
-            Ffprobe: await ffprobeTask,
-            Mkvpropedit: await mkvpropeditTask,
-            IsLibplaceboAvailable: isLibplaceboAvailable);
+        return new(ffmpeg, await ffprobeTask.ConfigureAwait(false), await mkvpropeditTask.ConfigureAwait(false),
+            capabilities?.Filters.Contains("libplacebo") == true, capabilities);
     }
 
     private static string? ResolveCandidate(string name, string? configuredPath)
     {
-        if (configuredPath is not null)
+        if (string.IsNullOrWhiteSpace(configuredPath))
+            return FindExecutable(name, EnumerateSearchDirectories());
+        configuredPath = configuredPath.Trim();
+        if (configuredPath.Equals("~", StringComparison.Ordinal)
+            || configuredPath.StartsWith("~/", StringComparison.Ordinal)
+            || configuredPath.StartsWith("~\\", StringComparison.Ordinal))
         {
-            // Expand ~ to the user's home directory
-            if (configuredPath.StartsWith('~'))
-            {
-                var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-                configuredPath = Path.Combine(home, configuredPath[1..].TrimStart(Path.DirectorySeparatorChar));
-            }
-
-            return configuredPath;
+            var homeDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            configuredPath = Path.Combine(homeDirectory, configuredPath[1..].TrimStart('/', '\\'));
         }
-
-        return FindInPath(name);
+        if (!Path.IsPathRooted(configuredPath) && Path.GetFileName(configuredPath) == configuredPath)
+            return FindExecutable(configuredPath, EnumerateSearchDirectories()) ?? configuredPath;
+        return configuredPath;
     }
-
-    private static string? FindInPath(string name) =>
-        FindExecutable(name, EnumerateSearchDirectories());
 
     internal static string? FindExecutable(string name, IEnumerable<string> directories)
     {
-        var extensions = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-            ? [".exe", ".cmd", ".bat", ".com"]
-            : Array.Empty<string>();
-
+        var extensions = OperatingSystem.IsWindows() && !Path.HasExtension(name)
+            ? new[] { ".exe", ".com" } : new[] { "" };
         foreach (var directory in directories)
         {
-            if (extensions.Length == 0)
+            foreach (var extension in extensions)
             {
-                var candidate = Path.Combine(directory, name);
-                if (File.Exists(candidate))
-                    return candidate;
-            }
-            else
-            {
-                foreach (var ext in extensions)
-                {
-                    var candidate = Path.Combine(directory, name + ext);
-                    if (File.Exists(candidate))
-                        return candidate;
-                }
+                var candidate = Path.Combine(directory, name + extension);
+                if (File.Exists(candidate)) return candidate;
             }
         }
-
         return null;
     }
 
     internal static IEnumerable<string> EnumerateSearchDirectories()
     {
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-        var separator = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ';' : ':';
-        var pathVar = Environment.GetEnvironmentVariable("PATH");
-
-        if (!string.IsNullOrEmpty(pathVar))
-        {
-            foreach (var dir in pathVar.Split(separator, StringSplitOptions.RemoveEmptyEntries))
-            {
-                if (seen.Add(dir))
-                    yield return dir;
-            }
-        }
-
-        // GUI apps on macOS (and some Linux desktop environments) don't inherit the shell's
-        // PATH, so Homebrew and other common install locations are missed. Probe them explicitly.
-        foreach (var dir in GetFallbackDirectories())
-        {
-            if (seen.Add(dir))
-                yield return dir;
-        }
+        var seen = new HashSet<string>(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+        var pathDirectories = (Environment.GetEnvironmentVariable("PATH") ?? "")
+            .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
+        foreach (var directory in pathDirectories.Concat(GetFallbackDirectories()))
+            if (seen.Add(directory)) yield return directory;
     }
 
-    internal static IReadOnlyList<string> GetFallbackDirectories()
+    internal static IReadOnlyList<string> GetFallbackDirectories() =>
+        OperatingSystem.IsMacOS() ? ["/opt/homebrew/bin", "/usr/local/bin", "/opt/local/bin"]
+        : OperatingSystem.IsLinux() ? ["/usr/local/bin", "/home/linuxbrew/.linuxbrew/bin"] : [];
+
+    internal static ImmutableHashSet<string> ParseComponentNames(string output)
     {
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        var names = ImmutableHashSet.CreateBuilder<string>(StringComparer.Ordinal);
+        foreach (var line in output.Split('\n'))
         {
-            return ["/opt/homebrew/bin", "/usr/local/bin", "/opt/local/bin"];
+            var columns = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+            // Ignore table legends and prose: entries have flags, a name, and a description.
+            if (columns.Length >= 3 && columns[1] != "=" && columns[0].Length is 2 or 3 or 6
+                && columns[0].All(character => character == '.' || char.IsAsciiLetterUpper(character)))
+                names.Add(columns[1]);
         }
-
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-        {
-            return ["/usr/local/bin", "/home/linuxbrew/.linuxbrew/bin"];
-        }
-
-        return [];
+        return names.ToImmutable();
     }
 
-    private static async Task<bool> DetectLibplaceboAsync(string ffmpegPath, CancellationToken ct)
+    [GeneratedRegex(@"^(ffmpeg|ffprobe) version (?:n)?(\d+)(?:\.|\s|$)", RegexOptions.CultureInvariant)]
+    private static partial Regex VersionPattern();
+
+    internal static ExecutableValidation ValidateVersionOutput(string name, string path, string output)
     {
-        try
+        var firstLine = output.Split('\n', 2)[0].Trim();
+        if (name is "ffmpeg" or "ffprobe")
         {
-            using var process = new Process
-            {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = ffmpegPath,
-                    Arguments = "-h filter=libplacebo",
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                },
-            };
-
-            process.Start();
-
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeoutCts.CancelAfter(ValidationTimeout);
-
-            await process.StandardOutput.ReadToEndAsync(timeoutCts.Token);
-            await process.StandardError.ReadToEndAsync(timeoutCts.Token);
-            await process.WaitForExitAsync(timeoutCts.Token);
-
-            return process.ExitCode == 0;
+            var match = VersionPattern().Match(firstLine);
+            if (!match.Success || !string.Equals(match.Groups[1].Value, name, StringComparison.Ordinal)
+                || !int.TryParse(match.Groups[2].ValueSpan, NumberStyles.None, CultureInfo.InvariantCulture, out var major))
+                return new(name, path, false, Error: $"This executable did not report a recognizable {name} release version. Select {name} {MinimumFfmpegMajorVersion} or newer.");
+            if (major < MinimumFfmpegMajorVersion)
+                return new(name, path, false, firstLine, $"{name} {MinimumFfmpegMajorVersion} or newer is required. Found: {firstLine}");
         }
-        catch
-        {
-            return false;
-        }
+        else if (!firstLine.StartsWith("mkvpropedit v", StringComparison.Ordinal))
+            return new(name, path, false, Error: "This executable did not identify itself as mkvpropedit.");
+        return new(name, path, true, firstLine);
     }
 
     private static async Task<ExecutableValidation> ValidateExecutableAsync(
         string name, string? path, string versionArgument, CancellationToken ct)
     {
         if (path is null)
-            return new ExecutableValidation(name, null, IsValid: false, Error: $"{name} was not found.");
-
+            return new(name, null, false, Error: $"{name} was not found. Install it or select its executable.");
         if (!File.Exists(path))
-            return new ExecutableValidation(name, path, IsValid: false,
-                Error: $"Path does not exist: {path}");
-
-        if (Directory.Exists(path))
-            return new ExecutableValidation(name, path, IsValid: false,
-                Error: $"Path is not a file: {path}");
-
+            return new(name, path, false, Error: $"Path does not exist or is not a file: {path}");
         try
         {
-            using var process = new Process
+            var result = await RunCheckAsync(path, [versionArgument], ct).ConfigureAwait(false);
+            if (result.ExitCode != 0)
+                return new(name, path, false, Error: $"{name} exited with code {result.ExitCode}. Check that the executable and its libraries are installed correctly.");
+            return ValidateVersionOutput(name, path, result.Output);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            return new(name, path, false, Error: $"{name} version check timed out.");
+        }
+        catch (Exception ex) when (ex is Win32Exception or IOException or InvalidOperationException)
+        {
+            return new(name, path, false, Error: $"Failed to run {name}: {ex.Message}");
+        }
+    }
+
+    private sealed record CheckResult(int ExitCode, string Output);
+
+    private static async Task<CheckResult> RunCheckAsync(string executable, IReadOnlyList<string> arguments, CancellationToken ct)
+    {
+        using var process = new Process
+        {
+            StartInfo = new ProcessStartInfo(executable)
             {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = path,
-                    Arguments = versionArgument,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                },
-            };
-
-            process.Start();
-
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeoutCts.CancelAfter(ValidationTimeout);
-
-            var stdoutTask = process.StandardOutput.ReadToEndAsync(timeoutCts.Token);
-            var stderrTask = process.StandardError.ReadToEndAsync(timeoutCts.Token);
-            var stdout = await stdoutTask;
-            var stderr = await stderrTask;
-            await process.WaitForExitAsync(timeoutCts.Token);
-
-            if (process.ExitCode != 0)
+                RedirectStandardOutput = true, RedirectStandardError = true,
+                UseShellExecute = false, CreateNoWindow = true,
+            },
+        };
+        foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
+        process.Start();
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(ValidationTimeout);
+        var stdout = process.StandardOutput.ReadToEndAsync(timeout.Token);
+        var stderr = process.StandardError.ReadToEndAsync(timeout.Token);
+        try
+        {
+            await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false);
+            await Task.WhenAll(stdout, stderr).ConfigureAwait(false);
+            var output = await stdout.ConfigureAwait(false);
+            return new(process.ExitCode, string.IsNullOrWhiteSpace(output) ? await stderr.ConfigureAwait(false) : output);
+        }
+        finally
+        {
+            // Dispose does not terminate a timed-out child. Kill and reap it before returning.
+            if (!process.HasExited)
             {
-                return new ExecutableValidation(name, path, IsValid: false,
-                    Error: $"{name} exited with code {process.ExitCode}.");
+                process.Kill(entireProcessTree: true);
+                await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
             }
-
-            var output = string.IsNullOrWhiteSpace(stdout) ? stderr : stdout;
-            var firstLine = output.AsSpan().IndexOf('\n') is var idx and >= 0
-                ? output[..idx].TrimEnd()
-                : output.TrimEnd();
-
-            return new ExecutableValidation(name, path, IsValid: true, VersionOutput: firstLine);
-        }
-        catch (OperationCanceledException)
-        {
-            return new ExecutableValidation(name, path, IsValid: false,
-                Error: $"{name} version check timed out.");
-        }
-        catch (Exception ex)
-        {
-            return new ExecutableValidation(name, path, IsValid: false,
-                Error: $"Failed to run {name}: {ex.Message}");
+            try { await Task.WhenAll(stdout, stderr).ConfigureAwait(false); }
+            catch (OperationCanceledException) when (timeout.IsCancellationRequested)
+            {
+                // The primary operation already reports timeout/cancellation; observe both readers too.
+            }
         }
     }
 }

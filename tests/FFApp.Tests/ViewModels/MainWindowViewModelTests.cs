@@ -26,10 +26,43 @@ public sealed class MainWindowViewModelTests
         _dependencies,
         _config,
         _messenger,
-        () => null!,
+        CreateSetup,
         _scopeFactory,
         _capabilityService,
         _preferences, comparisonService: comparisons);
+
+    private DependencySetupViewModel CreateSetup()
+    {
+        var runtime = Substitute.For<IComparisonRuntimeService>();
+        runtime.Check(Arg.Any<string>()).Returns(new ComparisonRuntimeStatus(false, false, "Optional runtime missing"));
+        return new(_dependencies, _settings, Substitute.For<IDialogService>(), _messenger, runtime);
+    }
+
+    [Fact]
+    public async Task InitializeAsync_UnexpectedFailure_ShowsAnActionableErrorInsteadOfAnEndlessSpinner()
+    {
+        _settings.LoadAsync().Returns<AppSettings>(_ => throw new IOException("Settings are locked"));
+        var sut = CreateSut();
+        await sut.InitializeAsync();
+        sut.CurrentView.Should().BeOfType<DependencySetupViewModel>().Subject.StatusText.Should().Contain("Settings are locked");
+    }
+
+    [Fact]
+    public async Task InitializeAsync_PartialDiscovery_PreservesFoundPathAndExplainsTheMissingTool()
+    {
+        _settings.LoadAsync().Returns(new AppSettings());
+        _dependencies.DiscoverAsync(Arg.Any<ExecutablePaths>()).Returns(new DependencyStatus(
+            new("ffmpeg", "/tools/ffmpeg", true, "ffmpeg version 9.0.2"),
+            new("ffprobe", null, false, Error: "ffprobe was not found."),
+            new("mkvpropedit", null, false)));
+        var sut = CreateSut();
+        await sut.InitializeAsync();
+        var setup = sut.CurrentView.Should().BeOfType<DependencySetupViewModel>().Subject;
+        setup.FfmpegPath.Should().Be("/tools/ffmpeg");
+        setup.FfprobeStatus.Should().Contain("not found");
+        setup.StatusText.Should().Contain("ffprobe");
+        setup.ComparisonStatus.Should().Be("Optional runtime missing");
+    }
 
     [Fact]
     public async Task InitializeAsync_CacheCleanupFailure_DoesNotBlockDependencyDiscovery()

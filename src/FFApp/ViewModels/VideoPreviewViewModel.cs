@@ -190,7 +190,7 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
         _cropDetectionService = cropDetectionService;
         IsAvailable = libVlc is not null;
         if (!IsAvailable)
-            StatusText = "VLC not installed";
+            StatusText = "VLC unavailable";
     }
 
     public void LoadMedia(SourceMediaInfo mediaInfo)

@@ -1,0 +1,36 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:FFRux.ViewModels"
+        x:Class="FFRux.Views.ToolsWindow" x:DataType="vm:MainWindowViewModel"
+        Title="Tools and components" Width="660" Height="560" MinWidth="550" MinHeight="400"
+        WindowStartupLocation="CenterOwner">
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="24" Spacing="12" IsEnabled="{Binding !IsRunning}">
+            <TextBlock Text="Tools and components" FontSize="24" FontWeight="Bold" />
+            <TextBlock Text="FFmpeg and ffprobe 9 or newer are required. Leave a path empty to search automatically. mkvpropedit from MKVToolNix is optional and updates Matroska track statistics."
+                       TextWrapping="Wrap" />
+            <TextBlock Text="ffmpeg path" />
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Content="Browse…" Tag="ffmpeg" Click="OnBrowse" Margin="8,0,0,0" />
+                <TextBox Text="{Binding FfmpegPath}" PlaceholderText="Auto-detect from PATH" />
+            </DockPanel>
+            <TextBlock Text="ffprobe path" />
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Content="Browse…" Tag="ffprobe" Click="OnBrowse" Margin="8,0,0,0" />
+                <TextBox Text="{Binding FfprobePath}" PlaceholderText="Auto-detect from PATH" />
+            </DockPanel>
+            <TextBlock Text="mkvpropedit path (optional)" />
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Content="Browse…" Tag="mkvpropedit" Click="OnBrowse" Margin="8,0,0,0" />
+                <TextBox Text="{Binding MkvpropeditPath}" PlaceholderText="Auto-detect from PATH" />
+            </DockPanel>
+            <WrapPanel>
+                <Button Content="Download FFmpeg" Tag="https://ffmpeg.org/download.html" Click="OnDownload" Margin="0,0,8,8" />
+                <Button Content="Download MKVToolNix" Tag="https://mkvtoolnix.download/downloads.html" Click="OnDownload" Margin="0,0,8,8" />
+            </WrapPanel>
+            <TextBlock Text="{Binding ToolDetails}" TextWrapping="Wrap" />
+            <Button Content="Check and save" Command="{Binding CheckToolsCommand}" Classes="accent" HorizontalAlignment="Left" />
+            <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsCheckingTools}" />
+        </StackPanel>
+    </ScrollViewer>
+</Window>

@@ -79,7 +79,7 @@ public sealed unsafe class ComparisonDecoderFactory(ExecutablePathsConfig paths)
             if (_disposed) return;
             _disposed = true;
             var device = _videoToolbox;
-            ffmpeg.av_buffer_unref(&device);
+            if (device != null) ffmpeg.av_buffer_unref(&device);
             _videoToolbox = null;
         }
     }
@@ -90,11 +90,7 @@ public sealed unsafe class ComparisonDecoderFactory(ExecutablePathsConfig paths)
         var executablePath = executable;
         if (!Path.IsPathRooted(executable))
         {
-            var fileName = OperatingSystem.IsWindows() && !executable.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
-                ? executable + ".exe" : executable;
-            executablePath = (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator)
-                .Select(directory => Path.Combine(directory, fileName))
-                .FirstOrDefault(File.Exists) ?? executable;
+            executablePath = DependencyManager.FindInstalledExecutable(executable) ?? executable;
         }
         if (File.Exists(executablePath))
         {

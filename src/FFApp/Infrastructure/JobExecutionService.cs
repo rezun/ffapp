@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using FFApp.Core;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
+using FFApp.Core.Validation;
 
 namespace FFApp.Infrastructure;
 
@@ -10,7 +11,8 @@ public sealed class DefaultJobExecutionService(
     ICommandBuilder commandBuilder,
     IProcessRunner processRunner,
     IMatroskaPostProcessor matroskaPostProcessor,
-    TimeProvider timeProvider) : IJobExecutionService
+    TimeProvider timeProvider,
+    IFfmpegCapabilityService? capabilities = null) : IJobExecutionService
 {
     /// <summary>
     /// Executes preparation, encoding and post-processing in order. Cancellation stops
@@ -25,6 +27,12 @@ public sealed class DefaultJobExecutionService(
         ExecutionPauseState? pauseState = null,
         CancellationToken ct = default)
     {
+        if (capabilities?.Capabilities is { } available)
+        {
+            var missing = FfmpegFeatureValidation.Validate(job, mediaInfo, available);
+            if (missing.Count > 0)
+                throw new CommandBuildException(string.Join(Environment.NewLine, missing.Select(issue => issue.Message)));
+        }
         var encodingCommands = commandBuilder.Build(job, mediaInfo);
         var postProcessCommand = matroskaPostProcessor.BuildCommand(job);
         var plannedCommands = postProcessCommand is null

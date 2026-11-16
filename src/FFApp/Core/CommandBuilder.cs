@@ -837,6 +837,12 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
 
     private static string? BuildVideoFilterChain(JobDefinition job, SourceMediaInfo mediaInfo)
     {
+        var filters = VideoFilters(job, mediaInfo);
+        return filters.Count > 0 ? string.Join(",", filters) : null;
+    }
+
+    internal static IReadOnlyList<string> VideoFilters(JobDefinition job, SourceMediaInfo mediaInfo)
+    {
         var filters = new List<string>();
 
         var isToneMapping = mediaInfo.PrimaryVideoStream?.IsHdr == true
@@ -864,7 +870,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         if (isToneMapping && colorFilter is not null)
             filters.Add(colorFilter);
 
-        return filters.Count > 0 ? string.Join(",", filters) : null;
+        return filters;
     }
 
     private static string? ColorMetadataFrameFilter(JobDefinition job, SourceMediaInfo mediaInfo)
@@ -936,7 +942,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         return Path.Combine(directory, $".{stem}-{TwoPassLogSuffix}");
     }
 
-    private static string VideoEncoderName(VideoCodec codec) => codec switch
+    internal static string VideoEncoderName(VideoCodec codec) => codec switch
     {
         VideoCodec.H264 => "libx264",
         VideoCodec.H265 => "libx265",
@@ -945,7 +951,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         _ => throw new CommandBuildException($"Unsupported video codec: {codec}"),
     };
 
-    private static string AudioEncoderName(AudioCodec codec) => codec switch
+    internal static string AudioEncoderName(AudioCodec codec) => codec switch
     {
         AudioCodec.Aac => "aac",
         AudioCodec.Mp3 => "libmp3lame",

@@ -16,6 +16,11 @@
     <!-- macOS shows this in the system menu bar; Windows and Linux show it in the NativeMenuBar below. -->
     <NativeMenu.Menu>
         <NativeMenu>
+            <NativeMenuItem Header="Settings">
+                <NativeMenu>
+                    <NativeMenuItem Header="Tools and components…" Click="OnToolsAndComponents" />
+                </NativeMenu>
+            </NativeMenuItem>
             <NativeMenuItem Header="Info">
                 <NativeMenu>
                     <NativeMenuItem Header="FFRux" IsEnabled="False" />

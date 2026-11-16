@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using LibVLCSharp.Shared;
+using Microsoft.Extensions.Logging;
 
 namespace FFApp.Infrastructure;
 
@@ -9,7 +10,7 @@ namespace FFApp.Infrastructure;
 /// </summary>
 public static class VlcLocator
 {
-    public static LibVLC? TryCreate()
+    public static LibVLC? TryCreate(ILogger? logger = null)
     {
         try
         {
@@ -17,8 +18,9 @@ public static class VlcLocator
             InitializeNative(libPath);
             return new LibVLC("--no-video-title-show");
         }
-        catch
+        catch (Exception ex)
         {
+            logger?.LogWarning(ex, "VLC preview is unavailable");
             return null;
         }
     }

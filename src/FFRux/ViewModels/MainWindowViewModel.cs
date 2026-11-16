@@ -71,6 +71,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncInitia
     private Task? _job;
     private bool _chapterChoiceIsCustom;
     private bool _updatingChapters;
+    private ExecutablePaths _configuredToolPaths = ExecutablePaths.Empty;
+    [ObservableProperty] private string _ffmpegPath = "";
+    [ObservableProperty] private string _ffprobePath = "";
+    [ObservableProperty] private string _mkvpropeditPath = "";
+    [ObservableProperty] private string _toolDetails = "";
+    [ObservableProperty] private bool _isCheckingTools;
 
     public MainWindowViewModel(
         IDependencyService dependencies,
@@ -395,15 +401,58 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncInitia
             Output.SelectFormat(format);
         Output.UpdateStatistics = settings.UpdateMatroskaStatistics ?? true;
 
-        // FFRux has no paths to configure, so discovery relies on PATH and the usual install locations.
-        var status = await _dependencies.DiscoverAsync(ExecutablePaths.Empty);
+        _configuredToolPaths = settings.ExecutablePaths ?? ExecutablePaths.Empty;
+        var status = await _dependencies.DiscoverAsync(_configuredToolPaths);
+        ApplyTools(status);
+    }
+
+    private void ApplyTools(DependencyStatus status)
+    {
         _pathsConfig.Configure(status.ExecutablePaths);
+        FfmpegPath = status.Ffmpeg.Path ?? FfmpegPath;
+        FfprobePath = status.Ffprobe.Path ?? FfprobePath;
+        MkvpropeditPath = status.Mkvpropedit.Path ?? MkvpropeditPath;
         Output.MkvpropeditAvailable = status.Mkvpropedit.IsValid;
         IsReady = status.IsReady;
         ToolsMessage = status.IsReady
             ? null
-            : "FFmpeg and FFprobe were not found. Install them or add them to PATH, then restart FFRux.";
+            : status.RequiredToolsError + " Open Settings → Tools and components to select FFmpeg and ffprobe 9 or newer, then check again.";
+        ToolDetails = string.Join(Environment.NewLine, new[] { status.Ffmpeg, status.Ffprobe, status.Mkvpropedit }
+            .Select(tool => $"{tool.Name}: " + (tool.IsValid ? tool.VersionOutput ?? "available"
+                : tool.Error ?? "not found")));
         Refresh();
+    }
+
+    private bool CanCheckTools() => !IsRunning && !IsCheckingTools;
+
+    [RelayCommand(CanExecute = nameof(CanCheckTools))]
+    private async Task CheckToolsAsync()
+    {
+        IsCheckingTools = true;
+        CheckToolsCommand.NotifyCanExecuteChanged();
+        Refresh();
+        try
+        {
+            var paths = new ExecutablePaths(FfmpegPath, FfprobePath, MkvpropeditPath);
+            var status = await _dependencies.DiscoverAsync(paths);
+            ApplyTools(status);
+            if (status.IsReady)
+            {
+                _configuredToolPaths = status.ExecutablePaths;
+                await SaveSettingsAsync(reportErrors: true);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Tool configuration failed");
+            ToolDetails = $"Could not check or save tools: {ex.Message}";
+        }
+        finally
+        {
+            IsCheckingTools = false;
+            CheckToolsCommand.NotifyCanExecuteChanged();
+            Refresh();
+        }
     }
 
     private async Task<SourceViewModel> ProbeAsync(string path, CancellationToken ct)
@@ -687,7 +736,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncInitia
 
         WindowTitle = plan.OutputPath is { } output ? $"FFRux — {Path.GetFileName(output)}" : "FFRux";
         CommandPreview.CommandText = BuildCommandText(plan);
-        CanStart = IsReady && errors == 0;
+        CanStart = IsReady && !IsCheckingTools && errors == 0;
         ShowStatus(errors, warnings, blockingTracks, enabledCount);
         Properties.Refresh(format);
     }
@@ -829,7 +878,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncInitia
             ShowStatus();
     }
 
-    private async Task SaveSettingsAsync()
+    private async Task SaveSettingsAsync(bool reportErrors = false)
     {
         try
         {
@@ -837,15 +886,18 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncInitia
             {
                 LastFormat = Output.Format,
                 UpdateMatroskaStatistics = Output.UpdateStatistics,
+                ExecutablePaths = _configuredToolPaths,
             });
         }
         catch (IOException ex)
         {
             _logger.LogWarning(ex, "Saving FFRux settings failed");
+            if (reportErrors) ToolDetails = $"Tools are ready, but their paths could not be saved: {ex.Message}";
         }
         catch (UnauthorizedAccessException ex)
         {
             _logger.LogWarning(ex, "Saving FFRux settings failed");
+            if (reportErrors) ToolDetails = $"Tools are ready, but their paths could not be saved: {ex.Message}";
         }
     }
 }

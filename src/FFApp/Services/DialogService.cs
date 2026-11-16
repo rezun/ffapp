@@ -8,6 +8,11 @@ namespace FFApp.Services;
 
 public sealed class DialogService(Func<Window?> windowAccessor) : IDialogService
 {
+    public async Task OpenUrlAsync(Uri url)
+    {
+        var window = GetWindow();
+        await window.Launcher.LaunchUriAsync(url);
+    }
     public async Task<string?> OpenFileAsync(string title, string? filter = null)
     {
         var window = await GetWindowAsync();

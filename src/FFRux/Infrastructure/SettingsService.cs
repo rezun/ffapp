@@ -1,5 +1,6 @@
 using System.Text.Json;
 using FFRux.Core.Models;
+using FFApp.Core.Models;
 
 namespace FFRux.Infrastructure;
 
@@ -10,6 +11,7 @@ public sealed record FFRuxSettings
 
     /// <summary>Null until the user changes the option; the default is on.</summary>
     public bool? UpdateMatroskaStatistics { get; init; }
+    public ExecutablePaths ExecutablePaths { get; init; } = ExecutablePaths.Empty;
 }
 
 public interface ISettingsService

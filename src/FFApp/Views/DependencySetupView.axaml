@@ -8,18 +8,17 @@
              x:CompileBindings="True"
              x:DataType="vm:DependencySetupViewModel">
 
-    <StackPanel HorizontalAlignment="Center"
-                VerticalAlignment="Center"
-                Width="500"
-                Spacing="16">
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel HorizontalAlignment="Stretch" MaxWidth="660" Margin="24" Spacing="12">
 
-        <TextBlock Text="FFApp setup"
+        <TextBlock Text="Tools and components"
                    FontSize="24"
                    FontWeight="Bold"
                    HorizontalAlignment="Center"
                    Margin="0,0,0,8" />
 
-        <TextBlock Text="Configure ffmpeg and ffprobe. mkvpropedit is optional."
+        <TextBlock Text="FFmpeg and ffprobe 9 or newer are required. Leave a path empty to search automatically. Optional components do not block encoding."
+                   TextWrapping="Wrap"
                    HorizontalAlignment="Center"
                    Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
 
@@ -36,6 +35,7 @@
                          ToolTip.Tip="Path to the FFmpeg executable used to encode media. Required. Use Browse to select your installed executable."
                          PlaceholderText="/usr/bin/ffmpeg" />
             </DockPanel>
+            <TextBlock Text="{Binding FfmpegStatus}" TextWrapping="Wrap" Classes="secondary" />
         </StackPanel>
 
         <!-- ffprobe path -->
@@ -51,6 +51,7 @@
                          ToolTip.Tip="Path to the ffprobe executable used to read stream information and duration. Required."
                          PlaceholderText="/usr/bin/ffprobe" />
             </DockPanel>
+            <TextBlock Text="{Binding FfprobeStatus}" TextWrapping="Wrap" Classes="secondary" />
         </StackPanel>
 
         <!-- optional mkvpropedit path -->
@@ -66,7 +67,19 @@
                          ToolTip.Tip="Path to mkvpropedit from MKVToolNix. Optional; used to recalculate Matroska track statistics."
                          PlaceholderText="Auto-detect from PATH" />
             </DockPanel>
+            <TextBlock Text="{Binding MkvpropeditStatus}" TextWrapping="Wrap" Classes="secondary" />
         </StackPanel>
+
+        <TextBlock Text="{Binding EncodingStatus}" TextWrapping="Wrap" Classes="secondary" />
+        <TextBlock Text="{Binding ComparisonStatus}" TextWrapping="Wrap" Classes="secondary" />
+        <TextBlock Text="{Binding VlcStatus}" TextWrapping="Wrap" Classes="secondary" />
+        <TextBlock Text="Install FFmpeg 9 with shared libraries for comparison playback. On Windows, choose a shared build matching the app architecture; on macOS or Linux, use a package that includes the matching libraries. Install VLC separately for the main-window preview. Restart FFApp after changing shared libraries or installing VLC."
+                   TextWrapping="Wrap" Classes="secondary" />
+        <WrapPanel Orientation="Horizontal">
+            <Button Content="Download FFmpeg" Command="{Binding OpenFfmpegDownloadCommand}" Margin="0,0,8,8" />
+            <Button Content="Download VLC" Command="{Binding OpenVlcDownloadCommand}" Margin="0,0,8,8" />
+            <Button Content="Download MKVToolNix" Command="{Binding OpenMkvtoolnixDownloadCommand}" Margin="0,0,8,8" />
+        </WrapPanel>
 
         <!-- Status -->
         <TextBlock Text="{Binding StatusText}"
@@ -75,14 +88,18 @@
                    IsVisible="{Binding StatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
 
         <!-- Validate button -->
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
+        <Button Content="Check again" Command="{Binding CheckAgainCommand}" />
         <Button Content="Validate and save"
                 ToolTip.Tip="Check the executable paths and save the dependency configuration."
                 HorizontalAlignment="Center"
                 Classes="accent"
                 Command="{Binding ValidateAndSaveCommand}" />
+        </StackPanel>
 
         <ProgressBar IsIndeterminate="True"
                      IsVisible="{Binding IsValidating}" />
 
     </StackPanel>
+    </ScrollViewer>
 </UserControl>

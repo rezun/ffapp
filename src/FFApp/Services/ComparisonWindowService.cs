@@ -1,5 +1,7 @@
 using Avalonia.Controls;
 using FFApp.Core.Models;
+using FFApp.Core;
+using FFApp.Core.Services;
 using FFApp.ViewModels;
 using FFApp.Views;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,7 +13,10 @@ namespace FFApp.Services;
 public sealed class ComparisonWindowService(
     IServiceScopeFactory scopeFactory,
     Func<Window> owner,
-    ILoggerFactory loggerFactory) : IComparisonWindowService
+    ILoggerFactory loggerFactory,
+    IComparisonRuntimeService runtime,
+    ExecutablePathsConfig paths,
+    IDialogService dialogs) : IComparisonWindowService
 {
     private readonly ILogger _logger = loggerFactory.CreateLogger<ComparisonWindowService>();
 
@@ -37,6 +42,13 @@ public sealed class ComparisonWindowService(
         {
             if (existing.WindowState == WindowState.Minimized) existing.WindowState = WindowState.Normal;
             existing.Activate();
+            return;
+        }
+        var availability = await Task.Run(() => runtime.Check(paths.FfmpegPath));
+        if (!availability.IsAvailable)
+        {
+            await dialogs.ShowMessageAsync("Comparison playback unavailable", availability.Message
+                + " Open Settings → Tools and components for installation links and diagnostics.");
             return;
         }
         var scope = scopeFactory.CreateAsyncScope();

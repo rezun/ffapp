@@ -47,6 +47,38 @@ public sealed class MainWindowViewModelTests : IDisposable
     private void ToolsAvailable(bool ready) =>
         _dependencies.DiscoverAsync(Arg.Any<ExecutablePaths>(), Arg.Any<CancellationToken>()).Returns(Status(ready));
 
+    [Fact]
+    public async Task InitializeAsync_UsesConfiguredPathsAndShowsTheSpecificFailure()
+    {
+        var paths = new ExecutablePaths("/custom/ffmpeg", "/custom/ffprobe");
+        _settings.LoadAsync(Arg.Any<CancellationToken>()).Returns(new FFRuxSettings { ExecutablePaths = paths });
+        _dependencies.DiscoverAsync(paths, Arg.Any<CancellationToken>()).Returns(new DependencyStatus(
+            new("ffmpeg", paths.Ffmpeg, true, "ffmpeg version 9.0.2"),
+            new("ffprobe", paths.Ffprobe, false, Error: "ffprobe 9 or newer is required. Found 8.0."),
+            new("mkvpropedit", null, false)));
+        var sut = CreateSut();
+        await sut.InitializeAsync();
+        sut.FfmpegPath.Should().Be(paths.Ffmpeg);
+        sut.ToolsMessage.Should().Contain("Found 8.0");
+        sut.ToolDetails.Should().Contain("ffprobe 9 or newer is required");
+        sut.IsReady.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ToolRecheck_RecoversWithoutRestartAndPersistsPathsAlongsideOutputOptions()
+    {
+        ToolsAvailable(false);
+        var sut = CreateSut();
+        await sut.InitializeAsync();
+        ToolsAvailable(true);
+        sut.Output.UpdateStatistics = false;
+        await sut.CheckToolsCommand.ExecuteAsync(null);
+        sut.IsReady.Should().BeTrue();
+        sut.ToolsMessage.Should().BeNull();
+        await _settings.Received().SaveAsync(Arg.Is<FFRuxSettings>(saved => saved.ExecutablePaths.Ffmpeg == "/opt/bin/ffmpeg"
+            && saved.UpdateMatroskaStatistics == false), Arg.Any<CancellationToken>());
+    }
+
     private void Probes(params SourceMediaInfo[] files)
     {
         foreach (var file in files)
@@ -83,7 +115,7 @@ public sealed class MainWindowViewModelTests : IDisposable
         await sut.InitializeAsync();
 
         sut.IsReady.Should().BeFalse();
-        sut.ToolsMessage.Should().Contain("not found");
+        sut.ToolsMessage.Should().Contain("ffprobe").And.Contain("Tools and components");
         sut.IsStatusError.Should().BeTrue();
         sut.AddSourcesCommand.CanExecute(null).Should().BeFalse();
     }

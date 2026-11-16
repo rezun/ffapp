@@ -59,6 +59,28 @@ public partial class MainWindow : Window
 
     public void OnThemeSystem(object? sender, EventArgs e) => SetTheme(ThemePreference.System);
 
+    private void OnToolsNoticeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => OnToolsAndComponents(sender, e);
+
+    // async void: NativeMenuItem.Click is synchronous; failures are caught at this UI boundary.
+    private async void OnToolsAndComponents(object? sender, EventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm) return;
+        try
+        {
+            var setup = await vm.CreateDependencySetupAsync();
+            await new Window
+            {
+                Title = "Tools and components", Width = 720, Height = 780,
+                MinWidth = 600, MinHeight = 500, WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Content = new DependencySetupView { DataContext = setup },
+            }.ShowDialog(this);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Opening tool configuration failed");
+        }
+    }
+
     private void OnComparisonStorage(object? sender, EventArgs e)
     {
         if (DataContext is not MainWindowViewModel vm) return;

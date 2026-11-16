@@ -96,17 +96,19 @@ public partial class App : Application
             services.AddSingleton<ICropDetectionService, CropDetectionService>();
             services.AddSingleton<IJobExecutionService, DefaultJobExecutionService>();
             services.AddSingleton<IFfmpegCapabilityService, FfmpegCapabilityService>();
+            services.AddSingleton<IComparisonRuntimeService, ComparisonRuntimeService>();
             services.AddSingleton<IComparisonService, ComparisonService>();
             services.AddSingleton<IComparisonDecoderFactory, ComparisonDecoderFactory>();
             services.AddSingleton<IComparisonWindowService>(sp =>
                 new ComparisonWindowService(sp.GetRequiredService<IServiceScopeFactory>(), () => mainWindow,
-                    sp.GetRequiredService<ILoggerFactory>()));
+                    sp.GetRequiredService<ILoggerFactory>(), sp.GetRequiredService<IComparisonRuntimeService>(),
+                    sp.GetRequiredService<ExecutablePathsConfig>(), sp.GetRequiredService<IDialogService>()));
             services.AddSingleton<Func<QueuedJob, IJobExecutionService>>(sp =>
                 _ => sp.GetRequiredService<IJobExecutionService>());
             services.AddSingleton<IQueueService, QueueService>();
             services.AddSingleton<IMessenger>(WeakReferenceMessenger.Default);
 
-            var libVlc = VlcLocator.TryCreate();
+            var libVlc = VlcLocator.TryCreate(_logger);
             if (libVlc is not null)
                 services.AddSingleton(libVlc);
 

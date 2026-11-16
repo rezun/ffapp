@@ -19,6 +19,22 @@ public partial class WorkspaceView : UserControl
         InitializeComponent();
         Loaded += OnLoaded;
         DataContextChanged += OnDataContextChanged;
+        VideoPreviewPanel.LayoutUpdated += OnVideoPreviewLayoutUpdated;
+    }
+
+    /// <summary>
+    /// Keeps the preview row at least as tall as the expanded preview needs, so the
+    /// splitter cannot squeeze the header and controls under the native video surface.
+    /// </summary>
+    private void OnVideoPreviewLayoutUpdated(object? sender, EventArgs e)
+    {
+        var row = PreviewSettingsGrid.RowDefinitions[0];
+        var minHeight = row.Height.GridUnitType == GridUnitType.Pixel
+            ? Math.Ceiling(VideoPreviewPanel.NaturalHeight)
+            : 0;
+
+        if (Math.Abs(row.MinHeight - minHeight) >= 1)
+            row.MinHeight = minHeight;
     }
 
     private void OnDataContextChanged(object? sender, EventArgs e)

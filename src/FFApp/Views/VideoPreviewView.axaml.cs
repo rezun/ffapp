@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -23,6 +24,20 @@ public partial class VideoPreviewView : UserControl
         TrimInTextBox.KeyDown += OnTrimTextBoxKeyDown;
         TrimOutTextBox.LostFocus += OnTrimOutLostFocus;
         TrimOutTextBox.KeyDown += OnTrimTextBoxKeyDown;
+    }
+
+    /// <summary>
+    /// Height the preview needs to show its header, controls and the minimum video
+    /// surface without overlap, regardless of the height it is currently given.
+    /// </summary>
+    public double NaturalHeight { get; private set; }
+
+    protected override Size MeasureOverride(Size availableSize)
+    {
+        // DesiredSize is clamped to the available height, so measure once without a
+        // height limit to learn the natural height, then measure for real.
+        NaturalHeight = base.MeasureOverride(availableSize.WithHeight(double.PositiveInfinity)).Height;
+        return base.MeasureOverride(availableSize);
     }
 
     private void OnDataContextChanged(object? sender, EventArgs e)

@@ -52,7 +52,8 @@
                 <!-- Preview + Settings with optional splitter -->
                 <Grid x:Name="PreviewSettingsGrid" RowDefinitions="Auto,Auto,*">
                     <!-- Video Preview (collapsible) -->
-                    <views:VideoPreviewView Grid.Row="0"
+                    <views:VideoPreviewView x:Name="VideoPreviewPanel"
+                                            Grid.Row="0"
                                             DataContext="{Binding VideoPreview}" />
 
                     <!-- Splitter between preview and settings (visible when expanded) -->

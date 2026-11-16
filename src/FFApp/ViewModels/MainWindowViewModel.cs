@@ -119,7 +119,6 @@ public partial class MainWindowViewModel : ObservableObject,
 
     [ObservableProperty]
     private object? _currentView;
-    [ObservableProperty] private string _componentNotice = "";
 
     public string Title => "FFApp";
 
@@ -188,7 +187,6 @@ public partial class MainWindowViewModel : ObservableObject,
 
             if (status.IsReady)
             {
-                ComponentNotice = setup.ComponentNotice;
                 await SwitchToWorkspaceAsync(status);
             }
             else
@@ -212,7 +210,6 @@ public partial class MainWindowViewModel : ObservableObject,
     {
         try
         {
-            ComponentNotice = message.ComponentNotice;
             await SwitchToWorkspaceAsync(message.Value);
         }
         catch (Exception ex)

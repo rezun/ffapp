@@ -64,8 +64,6 @@ public partial class MainWindow : Window
 
     public void OnThemeSystem(object? sender, EventArgs e) => SetTheme(ThemePreference.System);
 
-    private void OnToolsNoticeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => OnToolsAndComponents(sender, e);
-
     // async void: NativeMenuItem.Click is synchronous; failures are caught at this UI boundary.
     private async void OnToolsAndComponents(object? sender, EventArgs e)
     {

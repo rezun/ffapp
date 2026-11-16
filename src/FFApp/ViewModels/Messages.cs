@@ -9,8 +9,5 @@ public sealed class SourceLoadedMessage(SourceMediaInfo mediaInfo)
 public sealed class OutputSettingsChangedMessage(OutputSettings settings)
     : ValueChangedMessage<OutputSettings>(settings);
 
-public sealed class DependenciesResolvedMessage(DependencyStatus status, string componentNotice = "")
-    : ValueChangedMessage<DependencyStatus>(status)
-{
-    public string ComponentNotice { get; } = componentNotice;
-}
+public sealed class DependenciesResolvedMessage(DependencyStatus status)
+    : ValueChangedMessage<DependencyStatus>(status);

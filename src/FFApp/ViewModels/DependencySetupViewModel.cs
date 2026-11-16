@@ -25,7 +25,6 @@ public partial class DependencySetupViewModel : ObservableObject
     [ObservableProperty] private string _mkvpropeditStatus = "";
     [ObservableProperty] private string _encodingStatus = "";
     [ObservableProperty] private string _comparisonStatus = "";
-    public string ComponentNotice { get; private set; } = "";
     public string VlcStatus => _isVlcAvailable ? "Main-window preview: VLC available."
         : "Main-window preview: VLC unavailable. Install VLC matching the app architecture and restart FFApp. Encoding remains available.";
 
@@ -79,15 +78,6 @@ public partial class DependencySetupViewModel : ObservableObject
         StatusText = status.IsReady ? "Required tools are ready. Optional components do not block encoding." : status.RequiredToolsError;
         var runtime = await Task.Run(() => _comparisonRuntime.Check(status.Ffmpeg.Path ?? "ffmpeg"));
         ComparisonStatus = runtime.Message;
-        var unavailable = new List<string>();
-        if (!runtime.IsAvailable) unavailable.Add("comparison playback");
-        else if (!runtime.IsHdrToneMappingAvailable) unavailable.Add("HDR comparison tone mapping");
-        if (!_isVlcAvailable) unavailable.Add("VLC preview");
-        if (!status.Mkvpropedit.IsValid) unavailable.Add("Matroska statistics");
-        if (status.Capabilities is { } detected
-            && new[] { "libx264", "libx265", "libvpx-vp9", "libsvtav1", "aac", "libmp3lame", "libvorbis", "libopus" }
-                .Any(name => !detected.Encoders.Contains(name))) unavailable.Add("some encoders");
-        ComponentNotice = unavailable.Count == 0 ? "" : "Optional features unavailable: " + string.Join(", ", unavailable) + ".";
         EncodingStatus = status.Capabilities is not { } capabilities ? "Encoding features have not been checked."
             : "Encoders: " + string.Join(", ", new[] { "libx264", "libx265", "libvpx-vp9", "libsvtav1", "aac", "libmp3lame", "libvorbis", "libopus" }
                 .Select(name => $"{name}: {(capabilities.Encoders.Contains(name) ? "available" : "missing")}"))
@@ -162,7 +152,7 @@ public partial class DependencySetupViewModel : ObservableObject
             await _settingsService.SaveAsync(settings);
 
             StatusText = "Dependencies validated successfully.";
-            _messenger.Send(new DependenciesResolvedMessage(status, ComponentNotice));
+            _messenger.Send(new DependenciesResolvedMessage(status));
         }
         catch (Exception ex)
         {

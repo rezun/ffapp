@@ -200,7 +200,7 @@ public partial class MainWindowViewModel : ObservableObject,
             _settingsLoaded.TrySetResult(new AppSettings());
             var setup = _createSetup();
             setup.SetFromSettings(LoadedSettings ?? new AppSettings());
-            setup.StatusText = $"Initialization failed: {ex.Message}. Check the tool paths and try again.";
+            setup.ShowError($"Initialization failed: {ex.Message}. Check the tool paths and try again.");
             CurrentView = setup;
         }
     }

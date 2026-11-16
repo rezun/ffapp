@@ -20,13 +20,19 @@ public partial class DependencySetupViewModel : ObservableObject
     private readonly bool _isVlcAvailable;
     private readonly ILogger _logger;
 
-    [ObservableProperty] private string _ffmpegStatus = "";
-    [ObservableProperty] private string _ffprobeStatus = "";
-    [ObservableProperty] private string _mkvpropeditStatus = "";
-    [ObservableProperty] private string _encodingStatus = "";
-    [ObservableProperty] private string _comparisonStatus = "";
-    public string VlcStatus => _isVlcAvailable ? "Main-window preview: VLC available."
-        : "Main-window preview: VLC unavailable. Install VLC matching the app architecture and restart FFApp. Encoding remains available.";
+    private static readonly string[] EncoderNames =
+        ["libx264", "libx265", "libvpx-vp9", "libsvtav1", "aac", "libmp3lame", "libvorbis", "libopus"];
+    private static readonly string[] HdrFilterNames = ["zscale", "tonemap", "libplacebo"];
+
+    [ObservableProperty] private ComponentStatus _ffmpegStatus = ComponentStatus.Empty;
+    [ObservableProperty] private ComponentStatus _ffprobeStatus = ComponentStatus.Empty;
+    [ObservableProperty] private ComponentStatus _mkvpropeditStatus = ComponentStatus.Empty;
+    [ObservableProperty] private ComponentStatus _encodersStatus = ComponentStatus.Empty;
+    [ObservableProperty] private ComponentStatus _hdrFiltersStatus = ComponentStatus.Empty;
+    [ObservableProperty] private ComponentStatus _comparisonStatus = ComponentStatus.Empty;
+    public ComponentStatus PreviewStatus => _isVlcAvailable
+        ? new("Main-window preview", "Available through VLC.", ComponentState.Ok)
+        : new("Main-window preview", "Needs VLC for the app architecture. Restart FFApp after installing it.", ComponentState.Warning);
 
     [ObservableProperty]
     private string _ffmpegPath = "";
@@ -38,7 +44,14 @@ public partial class DependencySetupViewModel : ObservableObject
     private string _mkvpropeditPath = "";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Summary))]
     private string _statusText = "";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Summary))]
+    private ComponentState _statusState = ComponentState.Info;
+
+    public ComponentStatus Summary => new("", StatusText, StatusState);
 
     [ObservableProperty]
     private bool _isValidating;
@@ -67,27 +80,60 @@ public partial class DependencySetupViewModel : ObservableObject
         await ApplyStatusAsync(status);
     }
 
+    public void ShowError(string message) => SetStatus(message, ComponentState.Error);
+
+    private void SetStatus(string message, ComponentState state)
+    {
+        StatusText = message;
+        StatusState = state;
+    }
+
     private async Task ApplyStatusAsync(DependencyStatus status)
     {
         FfmpegPath = status.Ffmpeg.Path ?? FfmpegPath;
         FfprobePath = status.Ffprobe.Path ?? FfprobePath;
         MkvpropeditPath = status.Mkvpropedit.Path ?? MkvpropeditPath;
-        FfmpegStatus = Describe(status.Ffmpeg);
-        FfprobeStatus = Describe(status.Ffprobe);
-        MkvpropeditStatus = Describe(status.Mkvpropedit);
-        StatusText = status.IsReady ? "Required tools are ready. Optional components do not block encoding." : status.RequiredToolsError;
+        FfmpegStatus = DescribeTool(status.Ffmpeg, ComponentState.Error);
+        FfprobeStatus = DescribeTool(status.Ffprobe, ComponentState.Error);
+        MkvpropeditStatus = status.Mkvpropedit.IsValid || status.Mkvpropedit.Path is not null
+            ? DescribeTool(status.Mkvpropedit, ComponentState.Warning)
+            : new("", "Not found. Matroska track statistics are not refreshed after encoding.", ComponentState.Warning);
+        EncodersStatus = DescribeFeatures("Encoders", EncoderNames, status.Capabilities?.Encoders);
+        HdrFiltersStatus = DescribeFeatures("HDR filters", HdrFilterNames, status.Capabilities?.Filters);
+
         var runtime = await Task.Run(() => _comparisonRuntime.Check(status.Ffmpeg.Path ?? "ffmpeg"));
-        ComparisonStatus = runtime.Message;
-        EncodingStatus = status.Capabilities is not { } capabilities ? "Encoding features have not been checked."
-            : "Encoders: " + string.Join(", ", new[] { "libx264", "libx265", "libvpx-vp9", "libsvtav1", "aac", "libmp3lame", "libvorbis", "libopus" }
-                .Select(name => $"{name}: {(capabilities.Encoders.Contains(name) ? "available" : "missing")}"))
-                + Environment.NewLine + "HDR filters: " + string.Join(", ", new[] { "zscale", "tonemap", "libplacebo" }
-                .Select(name => $"{name}: {(capabilities.Filters.Contains(name) ? "available" : "missing")}"))
-                + ". Settings requiring missing features are blocked before encoding.";
+        ComparisonStatus = new("Comparison playback", runtime.Message,
+            runtime is { IsAvailable: true, IsHdrToneMappingAvailable: true } ? ComponentState.Ok : ComponentState.Warning);
+
+        if (!status.IsReady)
+            SetStatus(status.RequiredToolsError, ComponentState.Error);
+        else if (new[] { MkvpropeditStatus, EncodersStatus, HdrFiltersStatus, ComparisonStatus, PreviewStatus }.All(item => item.IsOk))
+            SetStatus("Everything is set up.", ComponentState.Ok);
+        else
+            SetStatus("Ready to encode. Some optional features are limited; see the details above.", ComponentState.Ok);
     }
 
-    private static string Describe(ExecutableValidation tool) => tool.IsValid
-        ? tool.VersionOutput ?? $"{tool.Name} available." : tool.Error ?? $"{tool.Name} unavailable.";
+    private static ComponentStatus DescribeTool(ExecutableValidation tool, ComponentState failure) => tool.IsValid
+        ? new("", ShortVersion(tool.VersionOutput) ?? "Found.", ComponentState.Ok)
+        : new("", tool.Error ?? $"{tool.Name} is not available.", failure);
+
+    /// <summary>Drops the copyright notice that FFmpeg appends to its version line.</summary>
+    private static string? ShortVersion(string? versionLine)
+    {
+        if (versionLine is null) return null;
+        var copyright = versionLine.IndexOf(" Copyright", StringComparison.Ordinal);
+        return copyright < 0 ? versionLine : versionLine[..copyright];
+    }
+
+    private static ComponentStatus DescribeFeatures(string title, IReadOnlyList<string> names, IReadOnlySet<string>? available)
+    {
+        if (available is null)
+            return new(title, "Not checked because FFmpeg is unavailable.", ComponentState.Info);
+        var missing = names.Where(name => !available.Contains(name)).ToList();
+        return missing.Count == 0
+            ? new(title, string.Join(", ", names), ComponentState.Ok)
+            : new(title, $"Missing {string.Join(", ", missing)}. Settings that need them are blocked before encoding.", ComponentState.Warning);
+    }
 
     public void SetFromSettings(AppSettings settings)
     {
@@ -137,7 +183,7 @@ public partial class DependencySetupViewModel : ObservableObject
 
         try
         {
-            StatusText = "Validating paths...";
+            SetStatus("Checking tools...", ComponentState.Info);
 
             var paths = new ExecutablePaths(
                 FfmpegPath,
@@ -151,13 +197,13 @@ public partial class DependencySetupViewModel : ObservableObject
             settings = settings with { ExecutablePaths = status.ExecutablePaths };
             await _settingsService.SaveAsync(settings);
 
-            StatusText = "Dependencies validated successfully.";
+            SetStatus("Saved. " + StatusText, ComponentState.Ok);
             _messenger.Send(new DependenciesResolvedMessage(status));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Checking or saving media tools failed");
-            StatusText = $"Validation failed: {ex.Message}";
+            ShowError($"Checking the tools failed: {ex.Message}");
         }
         finally
         {

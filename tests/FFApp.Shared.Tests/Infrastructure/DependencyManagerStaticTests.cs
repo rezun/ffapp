@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.InteropServices;
 
 using FFApp.Infrastructure;
@@ -43,6 +44,26 @@ public sealed class DependencyManagerStaticTests
     [InlineData("libplacebo is not compiled into this build")]
     public void ComponentTables_DoNotMistakeHelpOrErrorsForAvailableFilters(string output) =>
         DependencyManager.ParseComponentNames(output).Should().BeEmpty();
+
+    [Theory]
+    // Scoop writes a quoted absolute path; older Scoop releases wrote it unquoted.
+    [InlineData("path = \"{0}\"", true)]
+    [InlineData("path = {0}\nargs = -hide_banner", true)]
+    [InlineData("args = -hide_banner", false)]
+    [InlineData("path = \"{0}.missing\"", false)]
+    public async Task ScoopShims_ResolveToTheRealExecutable(string shimContent, bool resolves)
+    {
+        using var directory = new TempDirectory();
+        var shims = Directory.CreateDirectory(Path.Combine(directory.Path, "shims")).FullName;
+        var bin = Directory.CreateDirectory(Path.Combine(directory.Path, "apps", "ffmpeg", "current", "bin")).FullName;
+        var launcher = Path.Combine(shims, "ffmpeg.exe");
+        var target = Path.Combine(bin, "ffmpeg.exe");
+        await File.WriteAllTextAsync(launcher, "");
+        await File.WriteAllTextAsync(target, "");
+        await File.WriteAllTextAsync(Path.Combine(shims, "ffmpeg.shim"), string.Format(CultureInfo.InvariantCulture, shimContent, target));
+
+        DependencyManager.ResolveShim(launcher).Should().Be(resolves ? target : launcher);
+    }
 
     [Fact]
     public async Task MissingExecutables_ReturnErrorsWithoutThrowing()

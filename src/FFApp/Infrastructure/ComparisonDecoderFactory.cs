@@ -94,6 +94,7 @@ public sealed unsafe class ComparisonDecoderFactory(ExecutablePathsConfig paths)
         }
         if (File.Exists(executablePath))
         {
+            executablePath = DependencyManager.ResolveShim(executablePath);
             var resolved = File.ResolveLinkTarget(executablePath, true)?.FullName ?? Path.GetFullPath(executablePath);
             var directory = Path.GetDirectoryName(resolved);
             if (directory is not null)

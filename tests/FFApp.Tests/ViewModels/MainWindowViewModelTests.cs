@@ -62,9 +62,9 @@ public sealed class MainWindowViewModelTests
         await sut.InitializeAsync();
         var setup = sut.CurrentView.Should().BeOfType<DependencySetupViewModel>().Subject;
         setup.FfmpegPath.Should().Be("/tools/ffmpeg");
-        setup.FfprobeStatus.Should().Contain("not found");
+        setup.FfprobeStatus.Detail.Should().Contain("not found");
         setup.StatusText.Should().Contain("ffprobe");
-        setup.ComparisonStatus.Should().Be("Optional runtime missing");
+        setup.ComparisonStatus.Detail.Should().Be("Optional runtime missing");
     }
 
     [Fact]

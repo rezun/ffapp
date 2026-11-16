@@ -57,7 +57,36 @@ public sealed partial class DependencyManager : IDependencyService
             capabilities?.Filters.Contains("libplacebo") == true, capabilities);
     }
 
+    /// <summary>
+    /// Scoop installs tools as small launcher executables in its shims directory. Each launcher has a sibling
+    /// <c>name.shim</c> file whose <c>path</c> entry names the real executable. FFApp needs the real location
+    /// because shared FFmpeg libraries live beside it, not beside the launcher.
+    /// </summary>
+    public static string ResolveShim(string executablePath)
+    {
+        ArgumentNullException.ThrowIfNull(executablePath);
+        var shimFile = Path.ChangeExtension(executablePath, ".shim");
+        if (!File.Exists(shimFile)) return executablePath;
+        foreach (var line in File.ReadLines(shimFile))
+        {
+            var separator = line.IndexOf('=', StringComparison.Ordinal);
+            if (separator < 0 || !line.AsSpan(0, separator).Trim().Equals("path", StringComparison.OrdinalIgnoreCase))
+                continue;
+            var target = line[(separator + 1)..].Trim().Trim('"');
+            if (target.Length == 0) return executablePath;
+            target = Path.GetFullPath(target, Path.GetDirectoryName(Path.GetFullPath(shimFile)) ?? "");
+            return File.Exists(target) ? target : executablePath;
+        }
+        return executablePath;
+    }
+
     private static string? ResolveCandidate(string name, string? configuredPath)
+    {
+        var candidate = FindCandidate(name, configuredPath);
+        return candidate is null ? null : ResolveShim(candidate);
+    }
+
+    private static string? FindCandidate(string name, string? configuredPath)
     {
         if (string.IsNullOrWhiteSpace(configuredPath))
             return FindExecutable(name, EnumerateSearchDirectories());

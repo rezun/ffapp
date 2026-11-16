@@ -35,7 +35,7 @@ public sealed class DependencySetupViewModelTests
             await settings.Received(1).SaveAsync(Arg.Is<AppSettings>(saved => saved.ExecutablePaths.Ffmpeg == "/tools/ffmpeg"
                 && saved.ComparisonCacheLimitGiB == 12));
             resolved.Should().Be(status);
-            sut.ComparisonStatus.Should().Contain("missing");
+            sut.ComparisonStatus.Detail.Should().Contain("missing");
         }
         else
         {

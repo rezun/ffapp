@@ -31,7 +31,7 @@ public sealed class ComparisonRuntimeService : IComparisonRuntimeService
                 handles.Add(handle);
                 var version = Marshal.GetDelegateForFunctionPointer<VersionFunction>(NativeLibrary.GetExport(handle, name + "_version"))();
                 if ((version >> 16) != major)
-                    return new(false, false, $"Comparison playback requires FFmpeg 9 shared libraries. {name} has an incompatible version in {directory}.");
+                    return new(false, false, $"Needs FFmpeg 9 shared libraries, but {name} in {directory} is a different version.");
             }
             var toneMapping = false;
             try
@@ -47,16 +47,17 @@ public sealed class ComparisonRuntimeService : IComparisonRuntimeService
             catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or BadImageFormatException)
             {
                 // Filtering is optional; the core libraries still support SDR comparison playback.
-                return new(true, false, $"Comparison playback available ({directory}). HDR tone mapping is unavailable: {ex.Message}");
+                return new(true, false, $"Available, but HDR tone mapping is not, so HDR clips look washed out. Libraries: {directory}. Details: {ex.Message}");
             }
-            return new(true, toneMapping, $"Comparison playback available ({directory}). "
-                + (toneMapping ? "HDR tone-mapping filters are available." : "HDR tone-mapping filters are missing; HDR previews may look flat."));
+            return new(true, toneMapping, toneMapping
+                ? $"Available, including HDR tone mapping. Libraries: {directory}"
+                : $"Available, but this FFmpeg build lacks the HDR tone-mapping filters, so HDR clips look washed out. Libraries: {directory}");
         }
         catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or BadImageFormatException)
         {
-            return new(false, false, "Comparison playback unavailable. Install FFmpeg 9 shared libraries matching the app architecture "
-                + "(avcodec 63, avformat 63, avutil 61, swscale 10), beside ffmpeg or in its sibling lib directory. "
-                + $"A standalone static ffmpeg executable is insufficient. Details: {ex.Message}");
+            return new(false, false, "Needs the FFmpeg 9 shared libraries (avcodec 63, avformat 63, avutil 61, swscale 10) for the app architecture, "
+                + "beside ffmpeg or in its lib folder. Static FFmpeg builds do not include them. "
+                + $"Restart FFApp after installing them. Details: {ex.Message}");
         }
         finally
         {

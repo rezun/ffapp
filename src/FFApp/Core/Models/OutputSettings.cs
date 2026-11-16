@@ -41,7 +41,8 @@ public sealed record AudioOptions(
     int? Bitrate = null,
     int? AudioChannels = null,
     int? SampleRate = null,
-    bool RemoveTrackTitles = false);
+    bool RemoveTrackTitles = false,
+    string AudioFilter = "");
 
 public sealed record StreamHandlingOptions(
     bool RemoveSubtitles = false,

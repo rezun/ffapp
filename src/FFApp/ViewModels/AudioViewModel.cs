@@ -169,6 +169,10 @@ public sealed partial class AudioViewModel : ObservableObject
         SelectedSampleRate = AvailableSampleRateOptions.Contains(selectedRate) ? selectedRate : 0;
     }
 
+    /// <summary>Optional FFmpeg audio filtergraph applied to every re-encoded track (-af).</summary>
+    [ObservableProperty]
+    private string _audioFilter = "";
+
     [ObservableProperty]
     private bool _isRemoveAllowed = true;
 

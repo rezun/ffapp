@@ -36,6 +36,8 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         EncoderSettingsMetadataKey,
     ];
 
+    private static readonly string OpusSideSurroundRemap = "pan=5.1|FL=FL|FR=FR|FC=FC|LFE=LFE|BL=SL|BR=SR";
+
     private static readonly string[] ReencodedAudioMetadataFamilies =
         ["iTunPGAP", "iTunSMPB", "gapless_playback", "iTunNORM"];
 
@@ -333,6 +335,9 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         else if (audioMode == AudioMode.Reencode)
         {
             arguments.AddRange(BuildAudioReencodeArguments(job));
+            var audioFilter = job.AudioOptions.AudioFilter.Trim();
+            if (audioFilter.Length > 0)
+                arguments.AddRange(["-af", audioFilter]);
             if (job.AudioOptions.Codec == AudioCodec.Opus
                 && job.AudioOptions.AudioChannels is null or 6)
             {
@@ -342,7 +347,11 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
                     {
                         // libopus requires the Vorbis 5.1 layout. Preserve each channel's
                         // samples, assigning side surrounds to the corresponding back surrounds.
-                        arguments.AddRange([$"-filter:a:{index}", "pan=5.1|FL=FL|FR=FR|FC=FC|LFE=LFE|BL=SL|BR=SR"]);
+                        // The per-stream option replaces -af for this track, so it carries the
+                        // user's filter after the remap.
+                        arguments.AddRange([$"-filter:a:{index}", audioFilter.Length > 0
+                            ? $"{OpusSideSurroundRemap},{audioFilter}"
+                            : OpusSideSurroundRemap]);
                     }
                 }
             }

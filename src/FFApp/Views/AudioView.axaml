@@ -138,6 +138,15 @@
                     </ctrl:NoWheelComboBox.ItemTemplate>
                 </ctrl:NoWheelComboBox>
             </Grid>
+
+            <!-- Optional audio filtergraph (-af) -->
+            <Grid ColumnDefinitions="85,*">
+                <TextBlock Text="Audio filter" VerticalAlignment="Center" />
+                <TextBox Grid.Column="1"
+                         Text="{Binding AudioFilter}"
+                         PlaceholderText="e.g. loudnorm"
+                         ToolTip.Tip="Optional FFmpeg audio filtergraph passed as -af and applied to every re-encoded audio track, for example loudnorm or volume=2dB. Leave empty to apply no filter." />
+            </Grid>
         </StackPanel>
 
     </StackPanel>

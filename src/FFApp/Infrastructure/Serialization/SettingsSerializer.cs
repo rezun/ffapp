@@ -39,6 +39,7 @@ public static class SettingsSerializer
                 ["audio_channels"] = settings.AudioOptions.AudioChannels,
                 ["sample_rate"] = settings.AudioOptions.SampleRate,
                 ["remove_track_titles"] = settings.AudioOptions.RemoveTrackTitles,
+                ["audio_filter"] = settings.AudioOptions.AudioFilter,
             },
             ["stream_handling"] = new JsonObject
             {
@@ -122,6 +123,7 @@ public static class SettingsSerializer
         var audioChannels = ReadOptionalInt(audioEl, "audio_channels")
             ?? (ReadBool(audioEl, "remix_to_stereo") ? 2 : null);
         var sampleRate = ReadOptionalInt(audioEl, "sample_rate");
+        var audioFilter = ReadString(audioEl, "audio_filter", "").Trim();
 
         if (audioMode != AudioMode.Reencode)
         {
@@ -129,6 +131,7 @@ public static class SettingsSerializer
             audioBitrate = null;
             audioChannels = null;
             sampleRate = null;
+            audioFilter = "";
         }
 
         // Stream handling
@@ -227,7 +230,8 @@ public static class SettingsSerializer
                 Bitrate: audioBitrate,
                 AudioChannels: audioChannels,
                 SampleRate: sampleRate,
-                RemoveTrackTitles: ReadBool(audioEl, "remove_track_titles")),
+                RemoveTrackTitles: ReadBool(audioEl, "remove_track_titles"),
+                AudioFilter: audioFilter),
             StreamHandling: streamHandling,
             TargetFileSize: targetFileSize,
             TargetBitrate: targetBitrate,

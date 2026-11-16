@@ -38,7 +38,7 @@ public class SettingsSerializerTests
         FrameRatePreset: FrameRatePreset.Fps50,
         VideoEncoderOptions: new H26xEncoderOptions(VideoCodec.H264, "veryslow", "baseline", "-refs 4"),
         AudioOptions: new AudioOptions(AudioMode.Reencode, AudioCodec.Aac, 192_000, AudioChannels: 2,
-            SampleRate: 96_000, RemoveTrackTitles: true),
+            SampleRate: 96_000, RemoveTrackTitles: true, AudioFilter: "loudnorm=I=-16"),
         StreamHandling: new StreamHandlingOptions(RemoveSubtitles: true, RemoveData: true, RemoveImages: true),
         TargetFileSize: new TargetFileSizeOptions(100, TwoPass: true, MuxingOverheadRatio: 0.02,
             AbsoluteOverheadBytes: 1_000_000),

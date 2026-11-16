@@ -436,6 +436,15 @@ public sealed class ValidationService(IFfmpegCapabilityService? capabilities = n
                 "audio_mode"));
         }
 
+        if (!string.IsNullOrWhiteSpace(settings.AudioOptions.AudioFilter) && mode is not AudioMode.Reencode and not AudioMode.Remove)
+        {
+            issues.Add(new ValidationIssue(
+                ValidationSeverity.Error,
+                "audio_filter_requires_reencode",
+                "An audio filter requires audio re-encoding.",
+                "audio_mode"));
+        }
+
         if (settings.AudioOptions.SampleRate is not null && mode is not AudioMode.Reencode and not AudioMode.Remove)
         {
             issues.Add(new ValidationIssue(

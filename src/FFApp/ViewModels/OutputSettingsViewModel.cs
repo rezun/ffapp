@@ -195,6 +195,7 @@ public partial class OutputSettingsViewModel : ObservableObject
             Audio.SelectedAudioChannels = settings.AudioOptions.AudioChannels ?? 0;
             Audio.SelectedSampleRate = settings.AudioOptions.SampleRate ?? 0;
             Audio.RemoveTrackTitles = settings.AudioOptions.RemoveTrackTitles;
+            Audio.AudioFilter = settings.AudioOptions.AudioFilter;
 
             // Stream handling
             StreamHandling.RemoveSubtitles = settings.StreamHandling.RemoveSubtitles;
@@ -274,7 +275,8 @@ public partial class OutputSettingsViewModel : ObservableObject
                 SampleRate: audioMode == AudioMode.Reencode && Audio.SelectedSampleRate != 0
                     ? Audio.SelectedSampleRate
                     : null,
-                RemoveTrackTitles: Audio.RemoveTrackTitles),
+                RemoveTrackTitles: Audio.RemoveTrackTitles,
+                AudioFilter: audioMode == AudioMode.Reencode ? Audio.AudioFilter.Trim() : ""),
             StreamHandling: new StreamHandlingOptions(
                 RemoveSubtitles: StreamHandling.RemoveSubtitles,
                 RemoveData: StreamHandling.RemoveData,

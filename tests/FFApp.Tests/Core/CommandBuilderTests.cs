@@ -596,6 +596,39 @@ public class CommandBuilderTests
     }
 
     [Theory]
+    [InlineData(AudioCodec.Aac, "5.1(side)", "loudnorm", null)]
+    [InlineData(AudioCodec.Opus, "5.1(side)", " volume=2dB ",
+        "pan=5.1|FL=FL|FR=FR|FC=FC|LFE=LFE|BL=SL|BR=SR,volume=2dB")]
+    public void Build_AudioFilter_AppliesToEveryReencodedTrack(
+        AudioCodec codec, string layout, string filter, string? expectedTrackFilter)
+    {
+        var job = JobWith(s => s.WithAudio(new AudioOptions(AudioMode.Reencode, codec, 320_000, AudioFilter: filter)));
+        var media = new TestMediaInfoBuilder().WithAudioStreams(
+            new AudioStreamInfo(1, "dts") { ChannelLayout = layout }).Build();
+
+        var args = _sut.Build(job, media)[0].Arguments;
+
+        args.Should().ContainInOrder("-af", filter.Trim());
+        // A per-stream filter overrides -af for its track, so it must carry the user's filter too.
+        var perStream = args.IndexOf("-filter:a:0");
+        if (expectedTrackFilter is null)
+            perStream.Should().Be(-1);
+        else
+            args[perStream + 1].Should().Be(expectedTrackFilter);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Build_EmptyAudioFilter_OmitsAf(string filter)
+    {
+        var job = JobWith(s => s.WithAudio(new AudioOptions(AudioMode.Reencode, AudioCodec.Aac, 128_000, AudioFilter: filter)));
+        var media = new TestMediaInfoBuilder().WithAudioStreams(new AudioStreamInfo(1, "aac")).Build();
+
+        _sut.Build(job, media)[0].Arguments.Should().NotContain("-af");
+    }
+
+    [Theory]
     [InlineData(AudioCodec.Opus, "5.1(side)", 2)]
     [InlineData(AudioCodec.Opus, "5.1(side)", 1)]
     [InlineData(AudioCodec.Opus, "5.1", null)]

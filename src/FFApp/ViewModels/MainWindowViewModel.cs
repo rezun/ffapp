@@ -16,6 +16,8 @@ public partial class MainWindowViewModel : ObservableObject,
     IAsyncInitializable,
     IRecipient<DependenciesResolvedMessage>
 {
+    public AppUpdateViewModel Updates { get; }
+
     private readonly ICompanionAppService _companionApp;
 
     [RelayCommand]
@@ -139,9 +141,11 @@ public partial class MainWindowViewModel : ObservableObject,
         IFfmpegCapabilityService capabilityService,
         TranscodingPreferences transcodingPreferences,
         ICompanionAppService companionApp,
+        AppUpdateViewModel updates,
         IComparisonWindowService? comparisonWindows = null, IComparisonService? comparisonService = null,
         ILogger<MainWindowViewModel>? logger = null)
     {
+        Updates = updates;
         _companionApp = companionApp;
         _logger = logger ?? NullLogger<MainWindowViewModel>.Instance;
         _transcodingPreferences = transcodingPreferences;

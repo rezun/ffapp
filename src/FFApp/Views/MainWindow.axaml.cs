@@ -50,6 +50,11 @@ public partial class MainWindow : Window
             SetTheme(settings.ThemePreference, persist: false);
 
             Dispatcher.UIThread.Post(Activate);
+            using var updateCheck = new CancellationTokenSource();
+            void CancelUpdateCheck(object? sender, EventArgs args) => updateCheck.Cancel();
+            Closed += CancelUpdateCheck;
+            try { await vm.Updates.CheckAsync(manual: false, updateCheck.Token); }
+            finally { Closed -= CancelUpdateCheck; }
         }
         catch (Exception ex)
         {
@@ -197,7 +202,7 @@ public partial class MainWindow : Window
         await CloseSavedAsync();
     }
 
-    public async Task<bool> CloseSavedAsync()
+    public async Task<bool> CloseSavedAsync(bool closeWindow = true)
     {
         if (_closingSaved) return true;
         if (_isClosing) return false;
@@ -260,12 +265,20 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             Logger.LogError(ex, "Failed to save settings on close");
+            if (!closeWindow) throw;
         }
         finally
         {
-            (vm.CurrentView as WorkspaceViewModel)?.VideoPreview.Dispose();
-            _closingSaved = true;
-            Close();
+            if (closeWindow)
+            {
+                (vm.CurrentView as WorkspaceViewModel)?.VideoPreview.Dispose();
+                _closingSaved = true;
+                Close();
+            }
+            else
+            {
+                _isClosing = false;
+            }
         }
         return true;
     }

@@ -50,7 +50,7 @@ Comparison playback, VLC preview and Matroska statistics are optional. Missing o
 
 Download the FFApp installer or portable build (including FFRux) from [GitHub Releases](https://github.com/rezun/ffapp/releases), or build from source (see below).
 
-GitHub releases provide self-contained Velopack packages for Windows, macOS and Linux, each for x64 and ARM64. FFRux is included in the same installation and opened through **Tools → Open FFRux**. Both executables use the release version; FFApp owns the package ID and each architecture's update channel. Windows builds provide Setup installers, macOS builds provide installation packages and app bundles, and Linux builds provide AppImages. The packages are currently unsigned and macOS packages are not notarized. Velopack startup hooks are integrated; in-app update checking and downloading are not yet implemented.
+GitHub releases provide self-contained Velopack packages for Windows, macOS and Linux, each for x64 and ARM64. FFRux is included in the same installation and opened through **Tools → Open FFRux**. Both executables use the release version; FFApp owns the package ID and each architecture's update channel. Windows builds provide Setup installers, macOS builds provide installation packages and app bundles, and Linux builds provide AppImages. The packages are currently unsigned and macOS packages are not notarized. FFApp checks GitHub Releases for stable updates at startup. Use **Info → Check for updates…** to check manually. An update banner offers a download with progress, then **Restart and install**; installation requires confirmation and updates both FFApp and FFRux. Finish or stop the processing queue and close FFRux before restarting. Settings and comparison work are saved before applying the update; downloaded updates remain available after a canceled restart or a later launch. Background check failures do not interrupt startup; manual checks report errors. Local source and `--deploy-mac` builds also check the release feed, but offer the download page because they lack the Velopack updater. Install a release package once to enable in-app installation.
 
 External media tools are installed separately; release builds do not download or bundle FFmpeg, VLC or MKVToolNix. GitHub releases and local **Full** builds include the .NET runtime. Local **Slim** builds require the [.NET 10 runtime](https://dotnet.microsoft.com/download/dotnet/10.0) for the matching architecture.
 
@@ -174,8 +174,8 @@ dotnet test --filter "Category!=Integration"
 The [Release workflow](https://github.com/rezun/ffapp/actions/workflows/release.yml) runs CI before packaging one combined FFApp/FFRux payload for each of the six platform/architecture combinations. The shared `scripts/publish-bundle.sh` builds both executables in isolated folders to avoid dependency collisions; `scripts/verify-bundle.py` checks that both executables, runtime configurations and matching versions are present before packaging. On macOS the Velopack installer is combined with a second mandatory component for the FFRux launcher; `scripts/verify-macos-installer.py` checks both installer entries and the portable archive. The tag version overrides both project versions for that release. For example:
 
 ```bash
-git tag -a v1.13.4 -m "FFApp 1.13.4"
-git push origin v1.13.4
+git tag -a v1.13.5 -m "FFApp 1.13.4"
+git push origin v1.13.5
 ```
 
 A `v*` tag publishes the release after every package has built and uploaded successfully. Prerelease versions such as `v1.13.2-beta.1` are marked as prereleases. To test packaging first, run the workflow manually with a SemVer version (without `v`) and leave `publish_release` disabled; the assets stay in a draft release. Enable it to publish after upload.

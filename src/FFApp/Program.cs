@@ -14,7 +14,8 @@ public static class Program
     public static int Main(string[] args)
     {
         // Installer hooks must exit before logging, single-instance handling or Avalonia starts.
-        VelopackApp.Build().Run();
+        // Apply only after the UI has saved state and checked that FFRux is closed.
+        VelopackApp.Build().SetAutoApplyOnStartup(false).Run();
 
         using var log = AppLogging.CreateLogger(FFAppPaths.Identity);
 

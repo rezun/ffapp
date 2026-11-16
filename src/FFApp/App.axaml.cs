@@ -88,6 +88,13 @@ public partial class App : Application
             services.AddSingleton<ISettingsService, SettingsService>();
             services.AddSingleton<IPresetService, PresetService>();
             services.AddSingleton<ICompanionAppService, CompanionAppService>();
+            services.AddSingleton<Velopack.Logging.IVelopackLogger>(_ => new Velopack.Logging.ConsoleVelopackLogger());
+            services.AddSingleton(_ => new Velopack.Sources.GithubSource("https://github.com/rezun/ffapp", null, false, null));
+            services.AddSingleton(sp => new Velopack.UpdateManager(sp.GetRequiredService<Velopack.Sources.GithubSource>(),
+                new Velopack.UpdateOptions { ExplicitChannel = VelopackUpdateSource.GetChannel() }));
+            services.AddSingleton<IAppUpdateSource, VelopackUpdateSource>();
+            services.AddSingleton<IUpdateHost>(sp => new DesktopUpdateHost(mainWindow, sp.GetRequiredService<IDialogService>()));
+            services.AddSingleton<AppUpdateViewModel>();
             services.AddSingleton<IValidationService, ValidationService>();
             services.AddSingleton<IProcessRunner, ProcessRunner>();
             services.AddSingleton<IDialogService>(_ => new DialogService(() => mainWindow));

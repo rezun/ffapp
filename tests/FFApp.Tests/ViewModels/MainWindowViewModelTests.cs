@@ -29,7 +29,10 @@ public sealed class MainWindowViewModelTests
         CreateSetup,
         _scopeFactory,
         _capabilityService,
-        _preferences, Substitute.For<ICompanionAppService>(), comparisonService: comparisons);
+        _preferences, Substitute.For<ICompanionAppService>(),
+        new AppUpdateViewModel(Substitute.For<IAppUpdateSource>(), Substitute.For<IUpdateHost>(),
+            Substitute.For<IDialogService>(), Microsoft.Extensions.Logging.Abstractions.NullLogger<AppUpdateViewModel>.Instance),
+        comparisonService: comparisons);
 
     private DependencySetupViewModel CreateSetup()
     {

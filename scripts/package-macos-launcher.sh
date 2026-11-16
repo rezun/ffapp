@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Add the Spotlight launcher to the same macOS installer and portable archive.
+# Add the Spotlight launcher to the same macOS installer.
 # Velopack still owns the FFApp payload, full packages and delta packages.
 set -euo pipefail
 if [[ $# -ne 4 ]]; then
@@ -60,5 +60,4 @@ tree.write(p, encoding='utf-8', xml_declaration=True)
 PY
 productbuild --distribution "$WORK/Distribution" --package-path "$WORK" "$WORK/Setup.pkg"
 mv "$WORK/Setup.pkg" "$RELEASES/FFApp-$CHANNEL-Setup.pkg"
-(cd "$WORK/launcher-root" && zip -qry "$RELEASES/FFApp-$CHANNEL-Portable.zip" FFRux.app)
-python3 "$ROOT/scripts/verify-macos-installer.py" "$RELEASES/FFApp-$CHANNEL-Setup.pkg" "$RELEASES/FFApp-$CHANNEL-Portable.zip"
+python3 "$ROOT/scripts/verify-macos-installer.py" "$RELEASES/FFApp-$CHANNEL-Setup.pkg"

@@ -3,7 +3,6 @@
 import subprocess
 import sys
 import tempfile
-import zipfile
 from pathlib import Path
 import xml.etree.ElementTree as E
 
@@ -25,8 +24,4 @@ with tempfile.TemporaryDirectory() as directory:
         else:
             assert './FFApp.app/Contents/Helpers/FFRux.app/Contents/MacOS/FFRux' in bom
     assert distribution.find('domains').attrib['enable_currentUserHome'] == 'true'
-with zipfile.ZipFile(sys.argv[2]) as archive:
-    names = set(archive.namelist())
-    assert 'FFRux.app/Contents/MacOS/FFRuxLauncher' in names
-    assert 'FFApp.app/Contents/Helpers/FFRux.app/Contents/MacOS/FFRux' in names
-print('Verified both macOS application entries in the installer and portable archive.')
+print('Verified both macOS application entries in the installer.')

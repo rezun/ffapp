@@ -142,11 +142,11 @@ jobs:
           case "${{ matrix.platform.rid }}" in
             win-*)
               MAIN_EXE="$APP_NAME.exe"
-              PACK_ARGS+=(--icon "src/$APP_NAME/Assets/ffapp.ico")
+              PACK_ARGS+=(--icon "src/$APP_NAME/Assets/ffapp.ico" --noPortable)
               ;;
             osx-*)
               PACK_DIR="$PACK_DIR/FFApp.app"
-              PACK_ARGS+=(--icon "packaging/ffapp/macos/ffapp.icns")
+              PACK_ARGS+=(--icon "packaging/ffapp/macos/ffapp.icns" --noPortable)
               ;;
             linux-*)
               PACK_ARGS+=(--icon "logo.png" --categories AudioVideo,Utility)
@@ -248,3 +248,20 @@ jobs:
               gh release edit "$TAG" --draft=false --latest
             fi
           fi
+
+      - name: Prune old releases
+        if: github.event_name != 'workflow_dispatch' || inputs.publish_release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          KEEP_RELEASES: 5
+        run: |
+          # Velopack only needs the newest full package; older releases are deleted, their tags kept.
+          gh api "repos/$GH_REPO/releases?per_page=100" --paginate \
+            --jq '.[] | select(.draft | not) | [.created_at, .tag_name] | @tsv' \
+            | sort -r | tail -n +$((KEEP_RELEASES + 1)) | cut -f2 \
+            | while IFS= read -r tag; do
+                echo "Deleting release $tag"
+                gh release delete "$tag" --yes
+              done

@@ -68,10 +68,13 @@ public partial class MainWindow : Window
         try
         {
             var setup = await vm.CreateDependencySetupAsync();
+            var screen = Screens.ScreenFromWindow(this);
+            var availableHeight = screen is null ? 900 : screen.WorkingArea.Height / screen.Scaling;
             await new Window
             {
-                Title = "Tools and components", Width = 720, Height = 780,
-                MinWidth = 600, MinHeight = 500, WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Title = "Tools and components", Width = 720, SizeToContent = SizeToContent.Height,
+                MinWidth = 600, MinHeight = 320, MaxHeight = Math.Max(320, availableHeight - 64),
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
                 Content = new DependencySetupView { DataContext = setup },
             }.ShowDialog(this);
         }

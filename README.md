@@ -66,7 +66,7 @@ Restart FFApp after installing VLC or replacing shared libraries: native librari
 
 FFApp and FFRux retain independent windows, settings, presets, logs and single-instance coordination. Closing FFApp does not close an already running FFRux window.
 
-- **macOS:** There is one `FFApp.app`, with `FFRux.app` embedded in `Contents/Helpers`. **Tools → Open FFRux** opens that exact embedded bundle. Local builds use the same layout and do not require Velopack. Updating the FFApp bundle updates both executables. An older, separately installed `/Applications/FFRux.app` can be removed after quitting it; its settings stay in `~/Library/Application Support/ffrux`.
+- **macOS:** One installer installs **FFApp.app and FFRux.app** into the same Applications folder (system-wide or per-user). Both are ordinary application entries for Spotlight, Finder and the Dock. FFRux.app is a small native launcher that opens the current companion inside `FFApp.app/Contents/Helpers`; FFApp itself does not need to run. File-open events are forwarded to the companion. Keep both entries in the same folder. The portable archive contains both entries, and `./build.sh --deploy-mac` installs and registers both without Velopack. Updating FFApp updates the actual FFRux executable with it. Installing over an older standalone FFRux replaces that app entry; its settings remain in `~/Library/Application Support/ffrux`.
 - **Windows:** The FFApp installer installs both executables; FFRux and its runtime files live in `companion/FFRux` under the FFApp payload. Open it through FFApp's Tools menu. A previous standalone FFRux installation is independent and can be uninstalled separately; the new package does not uninstall it automatically.
 - **Linux:** One FFApp AppImage contains both executables. FFRux runs from inside that mounted payload.
 
@@ -165,17 +165,17 @@ dotnet test --filter "Category!=Integration"
 ./build.sh --app ffrux --rid osx-arm64
 ```
 
-`./build.sh` builds FFApp **with FFRux included** by default. `--deploy-mac` installs that combined slim bundle at `/Applications/FFApp.app`; no Velopack tool or installation is needed. `--app ffrux` remains available for standalone development builds. The script supports `win-x64`, `win-arm64`, `osx-arm64`, `osx-x64`, `linux-x64` and `linux-arm64`. Each target produces full and slim artifacts (.app bundle, Windows .zip, or Linux .tar.gz). The FFApp project version is used for both bundled executables.
+`./build.sh` builds FFApp **with FFRux included** by default. `--deploy-mac` installs the combined slim payload at `/Applications/FFApp.app` and its discoverable FFRux launcher at `/Applications/FFRux.app`; no Velopack tool or installation is needed. `--app ffrux` remains available for standalone development builds. The script supports `win-x64`, `win-arm64`, `osx-arm64`, `osx-x64`, `linux-x64` and `linux-arm64`. Each target produces full and slim artifacts (macOS folders containing both app entries, Windows .zip, or Linux .tar.gz). The FFApp project version is used for both bundled executables. Native macOS launchers require Xcode Command Line Tools when building macOS targets.
 
 ### GitHub builds and releases
 
 [CI](https://github.com/rezun/ffapp/actions/workflows/ci.yml) builds the solution in Release and runs the unit tests on pushes to `main` and pull requests. FFmpeg-dependent integration tests can be run locally; CI excludes `Category=Integration`.
 
-The [Release workflow](https://github.com/rezun/ffapp/actions/workflows/release.yml) runs CI before packaging one combined FFApp/FFRux payload for each of the six platform/architecture combinations. The shared `scripts/publish-bundle.sh` builds both executables in isolated folders to avoid dependency collisions; `scripts/verify-bundle.py` checks that both executables, runtime configurations and matching versions are present before packaging. The tag version overrides both project versions for that release. For example:
+The [Release workflow](https://github.com/rezun/ffapp/actions/workflows/release.yml) runs CI before packaging one combined FFApp/FFRux payload for each of the six platform/architecture combinations. The shared `scripts/publish-bundle.sh` builds both executables in isolated folders to avoid dependency collisions; `scripts/verify-bundle.py` checks that both executables, runtime configurations and matching versions are present before packaging. On macOS the Velopack installer is combined with a second mandatory component for the FFRux launcher; `scripts/verify-macos-installer.py` checks both installer entries and the portable archive. The tag version overrides both project versions for that release. For example:
 
 ```bash
-git tag -a v1.13.3 -m "FFApp 1.13.3"
-git push origin v1.13.3
+git tag -a v1.13.4 -m "FFApp 1.13.4"
+git push origin v1.13.4
 ```
 
 A `v*` tag publishes the release after every package has built and uploaded successfully. Prerelease versions such as `v1.13.2-beta.1` are marked as prereleases. To test packaging first, run the workflow manually with a SemVer version (without `v`) and leave `publish_release` disabled; the assets stay in a draft release. Enable it to publish after upload.

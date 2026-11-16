@@ -33,6 +33,7 @@ make_bundle() {
 if [[ "$RID" == osx-* ]]; then
     make_bundle FFApp ffapp "$OUTPUT/FFApp.app"
     make_bundle FFRux ffrux "$OUTPUT/FFApp.app/Contents/Helpers/FFRux.app"
+    bash "$ROOT/scripts/build-macos-launcher.sh" "$RID" "$VERSION" "$OUTPUT/FFApp.app/Contents/Helpers/FFRuxLauncher.app"
 else
     dotnet publish "$ROOT/src/FFApp/FFApp.csproj" -c Release -r "$RID" \
         --self-contained "$SELF_CONTAINED" -p:Version="$VERSION" -o "$OUTPUT" -v quiet

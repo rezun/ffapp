@@ -138,12 +138,15 @@ package_macos() {
     [[ "$variant" == "slim" ]] && suffix="-slim"
     local bundle_name="$APP_NAME-$VERSION-$rid$suffix"
 
-    echo "  Packaging $rid ($variant) -> $bundle_name.app"
+    echo "  Packaging $rid ($variant) -> $bundle_name"
 
     local app_bundle="$DIST_DIR/$bundle_name.app"
     if [[ "$APP_KEY" == "ffapp" ]]; then
-        rm -rf "$app_bundle"
-        cp -R "$publish_dir/FFApp.app" "$app_bundle"
+        local distribution="$DIST_DIR/$bundle_name"
+        rm -rf "$distribution"
+        mkdir -p "$distribution"
+        cp -R "$publish_dir/FFApp.app" "$distribution/FFApp.app"
+        cp -R "$distribution/FFApp.app/Contents/Helpers/FFRuxLauncher.app" "$distribution/FFRux.app"
         return
     fi
     mkdir -p "$app_bundle/Contents/MacOS"
@@ -199,12 +202,27 @@ if [[ "$DEPLOY_MAC" == true ]]; then
 
     local_app="/Applications/$APP_NAME.app"
     built_app="$DIST_DIR/$APP_NAME-$VERSION-osx-arm64-slim.app"
+    if [[ "$APP_KEY" == "ffapp" ]]; then
+        built_app="$DIST_DIR/$APP_NAME-$VERSION-osx-arm64-slim/FFApp.app"
+    fi
 
     rm -rf "$local_app"
     cp -r "$built_app" "$local_app"
+    if [[ "$APP_KEY" == "ffapp" ]]; then
+        rm -rf /Applications/FFRux.app
+        cp -R "$local_app/Contents/Helpers/FFRuxLauncher.app" /Applications/FFRux.app
+        # Register both normal Applications entries immediately, without a first launch.
+        register=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+        "$register" -f "$local_app"
+        "$register" -f /Applications/FFRux.app
+        mdimport /Applications/FFRux.app
+    fi
 
     rm -rf "$DIST_DIR/publish" "$DIST_DIR/staging"
     rm -rf "$built_app"
+    if [[ "$APP_KEY" == "ffapp" ]]; then
+        rm -rf "$DIST_DIR/$APP_NAME-$VERSION-osx-arm64-slim"
+    fi
 
     echo ""
     echo "Deployed to $local_app"

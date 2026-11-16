@@ -25,6 +25,13 @@ def verify(root: Path, rid: str, version: str) -> None:
         assert (directory / f"{app}.runtimeconfig.json").is_file(), directory
         deps = json.loads((directory / f"{app}.deps.json").read_text())
         assert f"{app}/{package_version}" in deps["libraries"], directory
+    if rid.startswith("osx-"):
+        launcher = root / "FFApp.app/Contents/Helpers/FFRuxLauncher.app"
+        with (launcher / "Contents/Info.plist").open("rb") as stream:
+            info = plistlib.load(stream)
+        assert info["CFBundleIdentifier"] == "com.ffapp.ffrux.launcher", launcher
+        assert info["CFBundleShortVersionString"] == version, launcher
+        assert (launcher / "Contents/MacOS/FFRuxLauncher").is_file(), launcher
     print(f"Verified FFApp and bundled FFRux {version} for {rid}.")
 
 

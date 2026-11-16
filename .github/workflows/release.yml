@@ -165,6 +165,16 @@ jobs:
             --outputDir Releases \
             "${PACK_ARGS[@]}"
 
+      - name: Add discoverable macOS companion launcher
+        if: startsWith(matrix.platform.rid, 'osx-')
+        shell: bash
+        run: >
+          bash scripts/package-macos-launcher.sh
+          "publish/${{ matrix.platform.rid }}/FFApp.app"
+          Releases
+          "$CHANNEL"
+          "${{ steps.version.outputs.version }}"
+
       - name: Prepare GitHub release assets
         shell: bash
         env:

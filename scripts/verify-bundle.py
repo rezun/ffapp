@@ -17,6 +17,8 @@ def verify(root: Path, rid: str, version: str) -> None:
                 plist = plistlib.load(stream)
             assert plist["CFBundleExecutable"] == app, bundle
             assert plist["CFBundleShortVersionString"] == version, bundle
+            if app == "FFRux":
+                assert "CFBundleDocumentTypes" not in plist, f"{bundle} would appear in Open With"
             directory = bundle / "Contents/MacOS"
         else:
             directory = root if app == "FFApp" else root / "companion/FFRux"
@@ -31,6 +33,7 @@ def verify(root: Path, rid: str, version: str) -> None:
             info = plistlib.load(stream)
         assert info["CFBundleIdentifier"] == "com.ffapp.ffrux.launcher", launcher
         assert info["CFBundleShortVersionString"] == version, launcher
+        assert info.get("CFBundleDocumentTypes"), f"{launcher} must accept opened files"
         assert (launcher / "Contents/MacOS/FFRuxLauncher").is_file(), launcher
     print(f"Verified FFApp and bundled FFRux {version} for {rid}.")
 

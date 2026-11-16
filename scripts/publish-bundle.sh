@@ -33,6 +33,9 @@ make_bundle() {
 if [[ "$RID" == osx-* ]]; then
     make_bundle FFApp ffapp "$OUTPUT/FFApp.app"
     make_bundle FFRux ffrux "$OUTPUT/FFApp.app/Contents/Helpers/FFRux.app"
+    # Only the FFRux.app launcher in Applications should appear in Finder's "Open With" menu.
+    # The launcher hands files to this helper directly, so the helper needs no document types.
+    plutil -remove CFBundleDocumentTypes "$OUTPUT/FFApp.app/Contents/Helpers/FFRux.app/Contents/Info.plist"
     bash "$ROOT/scripts/build-macos-launcher.sh" "$RID" "$VERSION" "$OUTPUT/FFApp.app/Contents/Helpers/FFRuxLauncher.app"
 else
     dotnet publish "$ROOT/src/FFApp/FFApp.csproj" -c Release -r "$RID" \

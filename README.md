@@ -44,7 +44,7 @@ Sessions and clips are stored in `comparisons/` under the app's data directory. 
 - [VLC / LibVLC](https://www.videolan.org/vlc/) enables the main-window video preview (optional). Match the app architecture.
 - [mkvpropedit from MKVToolNix](https://mkvtoolnix.download/downloads.html) enables Matroska track-statistics updates (optional in both apps).
 
-Comparison playback, VLC preview and Matroska statistics are optional. Missing or incompatible components appear in **Tools and components**; FFApp also displays a notice for unavailable optional features at startup. They do not prevent other encoding work.
+Comparison playback, VLC preview and Matroska statistics are optional. Missing or incompatible components appear in **Tools and components**, and each feature explains why it is unavailable when you try to use it. They do not prevent other encoding work.
 
 ## Installation
 

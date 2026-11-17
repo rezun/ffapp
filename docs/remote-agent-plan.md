@@ -17,7 +17,7 @@ server encodes. Only the upload, and the download if one is needed, require the 
 - Several jobs at once on the server (the agent runs jobs strictly one after another; `MaxConcurrentJobs` is prepared)
 - Comparison window and test clips on the server
 - FFRux remuxing through the agent
-- TLS, multiple agents, a Docker image, agent self-update
+- TLS, multiple agents, a Docker image, unattended agent updates (updates run only after a click in the app)
 - Access from outside the home network (use a VPN such as Tailscale later, not port forwarding)
 
 ## 2. Decisions
@@ -29,6 +29,7 @@ server encodes. Only the upload, and the download if one is needed, require the 
 | App ↔ agent contract | The app sends `JobDefinition` + `SourceMediaInfo`; the agent builds the commands itself |
 | Security | Secret API token (Bearer), plain HTTP inside the LAN |
 | Operation | Self-contained Linux binary + systemd unit + install script |
+| Agent updates | Triggered by a click in the app; the agent installs exactly the app's version |
 | Selection in the app | **Local / Server** toggle when queueing; default in settings; target badge in the queue |
 | Scope of v1 | Includes pause/resume on the server |
 | Storage | Work directory with a quota; sources deduplicated by fingerprint |
@@ -108,7 +109,9 @@ Every endpoint except `GET /health` requires `Authorization: Bearer <token>`.
 | `GET /jobs/{id}/output` | Result download with `Range` and `ETag` |
 | `POST /jobs/{id}/ack` | Download confirmed → agent deletes the result and releases the source once nothing needs it |
 | `DELETE /jobs/{id}` | Remove a job from the list (only when it is not running) |
-| `GET /events` | Server-sent events: `job-state`, `job-progress`, `job-log`, `source-progress` |
+| `GET /events` | Server-sent events: `job-state`, `job-progress`, `job-log`, `source-progress`, `update-state` |
+| `POST /update` | Install a given version: `{ version }` → `202 Accepted`; see section 6, "Updates" |
+| `GET /update` | Update state: `idle`, `waiting-for-jobs`, `downloading`, `restarting`, `failed` (with message) |
 
 Rationale:
 
@@ -117,9 +120,10 @@ Rationale:
   connection drops, the app reconnects and reconciles through `GET /jobs`.
 - **`clientJobId`** (the app's queue ID) makes `POST /jobs` idempotent. If the connection drops
   between sending and the response, no duplicate job is created.
-- **Version check:** the app requires the same `ProtocolVersion` (an integer). On a mismatch it
-  shows "Update agent". App and agent share the release version, but it does not have to match
-  exactly as long as the protocol does.
+- **Version check:** the app requires the same `ProtocolVersion` (an integer). On a mismatch the
+  "Server" target is blocked and the app offers "Update agent to <app version>". If only the
+  release version differs and the protocol matches, the app keeps working and shows the same offer
+  as a non-blocking hint.
 - **`JobDefinition` over the wire:** the models are already `record`s. Enums need stable names on
   the wire. Per `docs/coding-style.md` this is done per type through
   `[JsonConverter]`/`[JsonStringEnumMemberName]`, not globally. A round-trip test ensures every
@@ -131,6 +135,9 @@ Rationale:
 
 ```
 /var/lib/ffapp-agent/
+  versions/<version>/ffapp-agent      # installed agent versions (current + previous)
+  current -> versions/<version>       # symlink started by systemd
+  tools/                              # optional static FFmpeg 9 build (install.sh --with-ffmpeg)
   sources/<sourceId>/source.<ext>     # uploaded source (+ .partial during the upload)
   sources/<sourceId>/meta.json        # fingerprint, SHA-256, reference count
   jobs/<jobId>/job.json               # state (written atomically: tmp + rename)
@@ -180,17 +187,115 @@ Rationale:
 `OutputRoots` is an allowlist with display names. In "keep on server" mode the app only picks a
 name, never a free path.
 
-### Installation
+### Release assets
 
-- The release workflow additionally builds `ffapp-agent-<version>-linux-x64.tar.gz` and
-  `-linux-arm64` (self-contained, single file).
-- `install.sh` creates the `ffapp-agent` user, the directories and the systemd unit
-  (`ProtectSystem=strict`, `ReadWritePaths=` for the work directory and the output roots,
-  `NoNewPrivileges=yes`). It generates a random token, prints it **once** and stores only the hash.
-- `ffapp-agent check` verifies FFmpeg ≥ 9 and the encoders/filters, like the existing
-  `DependencyManager`.
-- In v1 an update means running `install.sh` again with the new archive. Configuration and token
-  are kept.
+The release workflow additionally publishes, for every version:
+
+- `ffapp-agent-<version>-linux-x64.tar.gz` and `ffapp-agent-<version>-linux-arm64.tar.gz`
+  (self-contained, single file)
+- `ffapp-agent-install.sh` (the same script for every architecture)
+- `SHA256SUMS` covering the agent archives
+
+### Bootstrapping
+
+One command on the server installs the latest release, or a fixed version:
+
+```bash
+curl -fsSL https://github.com/rezun/ffapp/releases/latest/download/ffapp-agent-install.sh | sudo bash
+curl -fsSL https://github.com/rezun/ffapp/releases/download/v1.15.0/ffapp-agent-install.sh | sudo bash -s -- --version 1.15.0
+```
+
+`install.sh` is idempotent. It:
+
+1. Detects the architecture (`uname -m` → `linux-x64` or `linux-arm64`).
+2. Downloads the archive and `SHA256SUMS` from the GitHub release and verifies the checksum.
+3. Creates the system user `ffapp-agent` (no login shell, no sudo).
+4. Extracts the agent to `/var/lib/ffapp-agent/versions/<version>/` and points `current` at it.
+5. Writes `/etc/ffapp-agent/appsettings.json` only if it does not exist yet, so later runs keep
+   the configuration.
+6. On the first run, generates a random token, stores only its SHA-256 hash and prints the token
+   **once**. `ffapp-agent token reset` creates a new one later.
+7. Installs the systemd unit and runs `systemctl enable --now ffapp-agent`.
+8. Runs `ffapp-agent check`, which verifies FFmpeg ≥ 9, the encoders/filters and `mkvpropedit`
+   like the existing `DependencyManager`, and prints the result.
+
+Systemd unit essentials:
+
+```ini
+[Service]
+User=ffapp-agent
+ExecStartPre=/var/lib/ffapp-agent/current/ffapp-agent startup-check
+ExecStart=/var/lib/ffapp-agent/current/ffapp-agent serve
+Restart=always
+Nice=10
+ProtectSystem=strict
+ReadWritePaths=/var/lib/ffapp-agent <output roots>
+NoNewPrivileges=yes
+```
+
+`install.sh` writes the `ReadWritePaths` line from the configured `OutputRoots`. After changing
+`OutputRoots` the user runs `install.sh` again (it only regenerates the unit) or edits the unit.
+
+**FFmpeg 9 on Ubuntu:** distribution packages lag behind (Ubuntu 24.04 ships FFmpeg 6.1). The agent
+only needs the `ffmpeg` and `ffprobe` executables, not the shared libraries used for comparison
+playback. `install.sh --with-ffmpeg` downloads a static FFmpeg 9 build into
+`/var/lib/ffapp-agent/tools/` and sets `Tools` in the configuration. Without the option the agent
+uses the system FFmpeg and `ffapp-agent check` reports whether it is new enough.
+
+**Pairing:** in FFApp, *Settings → Server agent…* takes the URL and the token; "Test connection"
+calls `GET /info`. Optional: the agent announces itself through mDNS/Bonjour
+(`_ffapp-agent._tcp`), so the app can prefill the URL and only the token has to be typed.
+
+### Updates
+
+The app decides which version the agent runs. App and agent exchange `JobDefinition` directly, so
+every new encoder option effectively changes the contract. If the agent updated itself to the
+latest release, it could get ahead of an app whose Velopack update only applies at the next
+restart. The agent therefore installs exactly the version the app asks for, and only after the
+user clicks.
+
+1. FFApp updates itself through Velopack as today.
+2. When connecting, the app compares its version with the agent's version from `GET /info`.
+3. If they differ, the app shows "Update agent to <app version>" in the server agent settings and
+   as a hint next to the **Local | Server** toggle. Nothing happens without a click.
+4. The click sends `POST /update { version }`.
+5. The agent waits until no job is running. New jobs are accepted meanwhile but not started.
+   Uploads and downloads continue; both are resumable anyway.
+6. The agent downloads the archive of that version, verifies the checksum and extracts it to
+   `versions/<version>/`.
+7. It switches `current` to the new version, remembers the previous one in `previous`, and exits.
+   systemd restarts it immediately (`Restart=always`).
+8. `ExecStartPre=… startup-check` guards the start: if the new version fails to start twice in a
+   row, it switches `current` back to `previous`, and `GET /update` reports `failed` with the
+   reason.
+9. The app follows the progress through `update-state` events, sees the new version in
+   `GET /info` and enables the server target again.
+
+Notes:
+
+- **No root needed:** all versions live under `/var/lib/ffapp-agent/`, which belongs to the service
+  user and stays writable despite `ProtectSystem=strict`. The configuration in `/etc` and the
+  systemd unit are not touched by updates.
+- **Downgrade** works the same way, because the app asks for its own version. This helps when a
+  release has problems.
+- **Retention of versions:** the agent keeps `current` and `previous` and deletes older versions
+  after a successful start.
+- **Configuration changes:** new settings get defaults in code. A version that needs a migration
+  of `appsettings.json` must say so in `ffapp-agent check`; the app shows that output.
+- **Manual fallback:** running `install.sh` again (with or without `--version`) always works,
+  for example when the agent is too old to understand `POST /update`.
+- **Trust:** downloading and running code from GitHub releases adds no new trust relationship,
+  because the app's Velopack updater already trusts the same source. While releases are unsigned,
+  the SHA-256 check only protects against corrupted downloads, not against a tampered release.
+
+Rejected alternatives:
+
+| Option | Why not |
+|---|---|
+| `.deb` package or own apt repository | Clean first install, but updates stay manual and a repository needs hosting and signing. Possible later addition. |
+| Velopack for the agent | Aimed at desktop apps (AppImage on Linux), not at a systemd service. |
+| Agent updates itself to the latest release | Can get ahead of the app (see above). |
+| App updates the agent over SSH | Requires SSH keys and sudo on the server: more attack surface for the same result. |
 
 ## 7. App details
 
@@ -258,7 +363,9 @@ While an upload or download runs, the app holds a macOS power assertion
 | Agent restart during encoding | Job `failed`, "Run again" without a new upload |
 | Target file already exists at download | Same conflict handling as locally (`OutputNaming`) |
 | Local disk full during download | Error; the result stays on the server, "Download again" |
-| Protocol version mismatch | Server target disabled, hint "Update the agent to version X" |
+| Protocol version mismatch | Server target disabled, "Update agent to <app version>" button |
+| Agent update fails (download, checksum, start) | Agent keeps or restores the previous version; app shows the reason from `GET /update` |
+| Agent too old for `POST /update` | App shows the `install.sh` command for the app's version |
 
 ## 9. Implementation phases
 
@@ -276,7 +383,8 @@ While an upload or download runs, the app holds a macOS power assertion
    - Pause and resume, "keep on server" mode with `OutputRoots`
    - Deduplication and quota, power assertion, retention
 5. **Delivery**
-   - Agent archives in the release workflow, `install.sh`, systemd unit
+   - Agent archives, `SHA256SUMS` and `install.sh` in the release workflow, systemd unit
+   - `--with-ffmpeg`, `POST /update` with rollback, "Update agent" in the app
    - README section, `CHANGELOG.md`
 
 Each phase can be merged on its own. Phase 1 is pure refactoring and needs no changelog entry.

@@ -6,6 +6,10 @@ Add entries under **Unreleased** as part of each change. `scripts/release.py <ve
 
 ## [Unreleased]
 
+### Fixed
+
+- Linux: recognize system-installed LibVLC for the video preview.
+
 ## [1.14.2] - 2026-11-17
 
 ### Fixed

@@ -87,7 +87,8 @@ public static class VlcLocator
             DlOpen(Path.Combine(libPath, "libvlc.dylib"), RtldNow | RtldGlobal);
         }
 
-        LibVLCSharp.Shared.Core.Initialize(libPath);
+        // LibVLCSharp only supports an explicit library directory on Windows and macOS.
+        LibVLCSharp.Shared.Core.Initialize(OperatingSystem.IsLinux() ? null : libPath);
     }
 
     [DllImport("libdl.dylib", EntryPoint = "dlopen")]

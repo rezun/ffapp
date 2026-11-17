@@ -27,6 +27,11 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
     private bool _isPriming;
     private bool _primingHasVideo;
     private bool _primingVoutReady;
+    // Incremented whenever a player is disposed. VLC events capture it on the VLC
+    // thread so callbacks queued by a previous player are dropped on the UI thread.
+    // The event sender cannot be used for this: LibVLCSharp raises events with its
+    // internal event manager as sender, not the MediaPlayer.
+    private int _playerGeneration;
     private const int MaximumVolume = 100;
     private int _volume = MaximumVolume;
     private int _lastAudibleVolume = MaximumVolume;
@@ -517,10 +522,11 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
 
     private void OnTimeChanged(object? sender, MediaPlayerTimeChangedEventArgs e)
     {
+        var generation = Volatile.Read(ref _playerGeneration);
         Dispatcher.UIThread.Post(() =>
         {
             // Events already queued from a previous player must not affect this one.
-            if (!ReferenceEquals(sender, _mediaPlayer)) return;
+            if (generation != _playerGeneration) return;
             if (_isPriming)
             {
                 TryFinishPriming(e.Time);
@@ -550,9 +556,10 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
     private void OnVout(object? sender, MediaPlayerVoutEventArgs e)
     {
         if (e.Count <= 0) return;
+        var generation = Volatile.Read(ref _playerGeneration);
         Dispatcher.UIThread.Post(() =>
         {
-            if (ReferenceEquals(sender, _mediaPlayer))
+            if (generation == _playerGeneration)
                 _primingVoutReady = true;
         });
     }
@@ -733,6 +740,7 @@ public partial class VideoPreviewViewModel : ObservableObject, IDisposable
             _mediaPlayer.Stop();
             _mediaPlayer.Dispose();
             _mediaPlayer = null;
+            Interlocked.Increment(ref _playerGeneration);
         }
 
         if (_currentMedia is not null)

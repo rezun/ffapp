@@ -18,7 +18,11 @@ server encodes. Only the upload, and the download if one is needed, require the 
 - Comparison window and test clips on the server
 - FFRux remuxing through the agent
 - TLS, multiple agents, a Docker image, unattended agent updates (updates run only after a click in the app)
+- Running behind a reverse proxy (the agent listens directly on its port)
 - Access from outside the home network (use a VPN such as Tailscale later, not port forwarding)
+- Uploading only the trimmed range of a source (the whole file is always uploaded)
+- Wake-on-LAN for the server
+- Hardware encoders (NVENC/QSV/VAAPI); FFApp stays a software encoder, locally and on the server
 
 ## 2. Decisions
 
@@ -27,7 +31,9 @@ server encodes. Only the upload, and the download if one is needed, require the 
 | File transfer | HTTP through the agent; resumable upload, download with `Range` |
 | Result | Chosen per job: **download to the Mac** or **keep on the server** |
 | App ↔ agent contract | The app sends `JobDefinition` + `SourceMediaInfo`; the agent builds the commands itself |
-| Security | Secret API token (Bearer), plain HTTP inside the LAN |
+| Security | One secret API token per client (Bearer), plain HTTP inside the LAN |
+| Multiple clients | Supported; each client sees and controls only its own jobs, plus anonymous load information |
+| Notifications | macOS notification when a server job has finished, i.e. after its download |
 | Operation | Self-contained Linux binary + systemd unit + install script |
 | Agent updates | Triggered by a click in the app; the agent installs exactly the app's version |
 | Selection in the app | **Local / Server** toggle when queueing; default in settings; target badge in the queue |
@@ -93,7 +99,9 @@ the existing state logic and color converters stay unchanged.
 
 ## 5. Protocol (REST, `/api/v1`)
 
-Every endpoint except `GET /health` requires `Authorization: Bearer <token>`.
+Every endpoint except `GET /health` requires `Authorization: Bearer <token>`. The token identifies
+the client (see "Clients" in section 6). Job, source and event endpoints only ever return or accept
+the calling client's own items; another client's job ID yields `404`.
 
 | Method & path | Purpose |
 |---|---|
@@ -103,13 +111,14 @@ Every endpoint except `GET /health` requires `Authorization: Bearer <token>`.
 | `PUT /sources/{id}` | Data chunk with `Content-Range`; the server checks the offset |
 | `POST /sources/{id}/complete` | `{ sha256 }`; the server compares the hash and marks the source complete |
 | `POST /jobs` | Create a job: `{ clientJobId, sourceId, job: JobDefinition, mediaInfo, resultMode, serverOutputRoot? }` |
-| `GET /jobs` · `GET /jobs/{id}` | State of all jobs or one job, also used to reconcile after the app restarts |
+| `GET /jobs` · `GET /jobs/{id}` | State of the client's jobs or one job, also used to reconcile after the app restarts. Waiting jobs include `queuePosition`, `jobsAhead` and `estimatedStartAt`. |
+| `GET /queue` | Anonymous load information, see "Queue and load information" in section 6 |
 | `GET /jobs/{id}/log` | Full job log |
 | `POST /jobs/{id}/cancel` · `/pause` · `/resume` | Control |
 | `GET /jobs/{id}/output` | Result download with `Range` and `ETag` |
 | `POST /jobs/{id}/ack` | Download confirmed → agent deletes the result and releases the source once nothing needs it |
 | `DELETE /jobs/{id}` | Remove a job from the list (only when it is not running) |
-| `GET /events` | Server-sent events: `job-state`, `job-progress`, `job-log`, `source-progress`, `update-state` |
+| `GET /events` | Server-sent events: `job-state`, `job-progress`, `job-log`, `source-progress`, `queue-state`, `update-state` |
 | `POST /update` | Install a given version: `{ version }` → `202 Accepted`; see section 6, "Updates" |
 | `GET /update` | Update state: `idle`, `waiting-for-jobs`, `downloading`, `restarting`, `failed` (with message) |
 
@@ -164,6 +173,8 @@ Rationale:
   time and the hash of the first and last 16 MiB; the fingerprint logic of the comparison cache
   (`ComparisonService.Cache.cs`) can be reused. Several jobs with the same source upload it only
   once. A reference count deletes the source after the last `ack` or the last `DELETE`.
+  Deduplication works only within one client, so a client cannot find out which files other
+  clients uploaded. The quota applies to the whole agent.
 - **Retention:** the agent deletes results without an `ack` and orphaned sources after
   `RetentionDays` (default 14).
 
@@ -177,7 +188,6 @@ Rationale:
     "QuotaGiB": 500,
     "MaxConcurrentJobs": 1,
     "RetentionDays": 14,
-    "ApiTokenSha256": "<hash, set by the installer>",
     "OutputRoots": { "Movies": "/srv/media/movies", "Shows": "/srv/media/shows" },
     "Tools": { "Ffmpeg": "", "Ffprobe": "", "Mkvpropedit": "" }
   }
@@ -185,7 +195,45 @@ Rationale:
 ```
 
 `OutputRoots` is an allowlist with display names. In "keep on server" mode the app only picks a
-name, never a free path.
+name, never a free path. Client tokens are not part of this file; they live in
+`/etc/ffapp-agent/clients.json` (see below).
+
+### Clients
+
+- Each client (e.g. the MacBook, later a Windows PC) has its own name and token. The agent stores
+  `{ clientId, name, tokenSha256, createdAt }` in `/etc/ffapp-agent/clients.json`, readable only
+  by root and the service user.
+- Managed on the server with `sudo ffapp-agent client add <name>` (prints the new token once),
+  `client list` and `client remove <name>`. The agent reloads the file on change, so no restart is
+  needed. Removing a client cancels its waiting jobs and deletes its sources and results.
+- Every job and source carries its `clientId`. A client sees and controls only its own items.
+- Scheduling is first in, first out across all clients. Fair sharing between clients is not
+  planned for v1.
+
+### Queue and load information
+
+A client should know when its job will roughly start, even though it cannot see other clients'
+jobs. The agent therefore publishes anonymous load information through `GET /queue` and the
+`queue-state` event:
+
+```json
+{
+  "running": { "own": false, "progressPercent": 37, "estimatedEndAt": "2026-11-18T21:40:00+01:00" },
+  "waitingJobs": 4,
+  "ownWaitingJobs": 2,
+  "estimatedIdleAt": "2026-11-19T02:15:00+01:00"
+}
+```
+
+Each of the client's own waiting jobs additionally reports `queuePosition` (1 = next),
+`jobsAhead` (own and foreign) and `estimatedStartAt`. Other clients' jobs never reveal file names,
+settings or client names.
+
+The estimate reuses `QueueTimeEstimator` (moved to `FFApp.Encoding`): work is media seconds ×
+passes, and throughput comes from the running job blended with jobs the agent completed recently.
+Because AV1 and x264 differ greatly in speed, the agent keeps throughput per video codec and preset
+from recent jobs and falls back to the overall value. The app shows the estimate as a rough
+guide ("starts in about 1:40 h").
 
 ### Release assets
 
@@ -213,8 +261,9 @@ curl -fsSL https://github.com/rezun/ffapp/releases/download/v1.15.0/ffapp-agent-
 4. Extracts the agent to `/var/lib/ffapp-agent/versions/<version>/` and points `current` at it.
 5. Writes `/etc/ffapp-agent/appsettings.json` only if it does not exist yet, so later runs keep
    the configuration.
-6. On the first run, generates a random token, stores only its SHA-256 hash and prints the token
-   **once**. `ffapp-agent token reset` creates a new one later.
+6. On the first run, creates a first client (default name: the `--client` option, otherwise
+   `default`) and prints its token **once**. Only the SHA-256 hash is stored. More clients are
+   added later with `ffapp-agent client add`.
 7. Installs the systemd unit and runs `systemctl enable --now ffapp-agent`.
 8. Runs `ffapp-agent check`, which verifies FFmpeg ≥ 9, the encoders/filters and `mkvpropedit`
    like the existing `DependencyManager`, and prints the result.
@@ -347,8 +396,15 @@ While an upload or download runs, the app holds a macOS power assertion
 - **Validation:** when the target is "Server", `FfmpegFeatureValidation` checks against the agent's
   capabilities. An encoder that only the Mac has therefore does not wrongly block, and vice versa.
 - **Queue item:** a "Server" badge, phase and progress (e.g. "Uploading 42 % · 108 MB/s",
-  "Running 0.8× · 1:12 h left", "Downloading 63 %"). The log shows the agent's lines and is also
-  stored locally in the `JobLogStore`.
+  "Waiting for server · position 3 · starts in about 1:40 h", "Running 0.8× · 1:12 h left",
+  "Downloading 63 %"). The log shows the agent's lines and is also stored locally in the
+  `JobLogStore`.
+- **Server load:** the server agent settings and a tooltip on the **Server** toggle show the
+  current load from `GET /queue` (e.g. "Busy: 4 jobs waiting, 2 of them from other clients, idle
+  in about 5 h"). This helps decide between local and server before queueing.
+- **Notifications:** a macOS notification when a server job has finished: after the download in
+  "To this Mac" mode, on completion in "On the server" mode. Failed and canceled server jobs notify
+  too, because the user is likely not watching the app.
 
 ## 8. Failure cases
 
@@ -374,7 +430,7 @@ While an upload or download runs, the app holds a macOS power assertion
    - JSON round-trip tests for `JobDefinition` and `SourceMediaInfo`
 2. **Agent MVP**
    - `/info`, resumable upload, `/jobs`, SSE, download, `ack`, cancel
-   - Persisted state, token check, tests with `WebApplicationFactory`
+   - Persisted state, per-client tokens and job isolation, tests with `WebApplicationFactory`
 3. **App client**
    - Settings and `ISecretStore`, connection test
    - `RemoteJobExecutionService`, queue lanes, progress display
@@ -382,6 +438,7 @@ While an upload or download runs, the app holds a macOS power assertion
 4. **Completing v1**
    - Pause and resume, "keep on server" mode with `OutputRoots`
    - Deduplication and quota, power assertion, retention
+   - Queue position, load information and start estimates; notifications
 5. **Delivery**
    - Agent archives, `SHA256SUMS` and `install.sh` in the release workflow, systemd unit
    - `--with-ffmpeg`, `POST /update` with rollback, "Update agent" in the app
@@ -389,19 +446,13 @@ While an upload or download runs, the app holds a macOS power assertion
 
 Each phase can be merged on its own. Phase 1 is pure refactoring and needs no changelog entry.
 
-## 10. Open questions and proposals
+## 10. Resolved questions
 
-1. **Port:** proposed `8737`. Is there already a reverse proxy (Caddy, nginx) on the server that
-   the agent should sit behind?
-2. **Trimmed jobs:** for a short trim the app could upload only the needed range (cut locally
-   with `-c copy` and a keyframe margin first). That saves time but is error-prone with subtitles
-   and chapters. Proposal: not in v1.
-3. **Wake-on-LAN:** should the app be able to wake the server when it sleeps? That is little effort
-   if the MAC address is stored in the settings.
-4. **Notification:** should the app show a macOS notification when a server job finishes, even
-   while the download is still running?
-5. **Hardware encoders:** does the server have a GPU (NVENC/QSV/VAAPI)? Then extending the encoder
-   list would be interesting later. It is independent of the agent.
-6. **Multiple clients:** should other computers (e.g. a Windows PC) use the same agent later? The
-   protocol already supports it. The only open question is whether jobs from other clients should
-   be visible in the queue (proposal: only your own, filtered by `clientId`).
+1. **Port and reverse proxy:** the agent listens directly on port `8737`; no reverse proxy support for now.
+2. **Uploading only the trimmed range:** not for now; the whole source is uploaded.
+3. **Wake-on-LAN:** not planned.
+4. **Notification:** at the end of a server job, after its download (see section 7, UI).
+5. **Hardware encoders:** not planned; FFApp stays a software encoder, locally and on the server.
+6. **Multiple clients:** supported. Each client sees only its own jobs, plus anonymous load
+   information and an estimated start time (see section 6, "Clients" and "Queue and load
+   information").

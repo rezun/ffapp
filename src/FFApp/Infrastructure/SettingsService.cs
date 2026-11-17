@@ -5,6 +5,7 @@ using System.Text.Json.Nodes;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
 using FFApp.Infrastructure.Serialization;
+using FFApp.Remote.Contracts;
 
 namespace FFApp.Infrastructure;
 
@@ -12,6 +13,10 @@ public sealed class SettingsService(string? path = null) : ISettingsService
 {
     private const string SourceFolderMode = "source_folder";
     private const string CustomFolderMode = "custom_folder";
+    private const string LocalTarget = "local";
+    private const string ServerTarget = "server";
+    private const string DownloadMode = "download";
+    private const string KeepOnServerMode = "keep_on_server";
 
     private readonly string _path = path ?? FFAppPaths.SettingsFilePath();
 
@@ -65,6 +70,7 @@ public sealed class SettingsService(string? path = null) : ISettingsService
             ComparisonCacheLimitGiB = root.TryGetProperty("comparison_cache_limit_gib", out var cacheLimit)
                 && cacheLimit.ValueKind == JsonValueKind.Number && cacheLimit.TryGetInt32(out var gib)
                 && gib is >= 1 and <= 1024 ? gib : 5,
+            RemoteAgent = DeserializeRemoteAgent(root),
         };
     }
 
@@ -125,6 +131,13 @@ public sealed class SettingsService(string? path = null) : ISettingsService
             },
             ["low_priority_transcoding"] = settings.UseLowPriorityTranscoding,
             ["comparison_cache_limit_gib"] = settings.ComparisonCacheLimitGiB,
+            ["remote_agent"] = new JsonObject
+            {
+                ["base_url"] = settings.RemoteAgent.BaseUrl,
+                ["default_target"] = settings.RemoteAgent.DefaultTarget == ExecutionTarget.Server ? ServerTarget : LocalTarget,
+                ["default_result_mode"] = settings.RemoteAgent.DefaultResultMode == ResultMode.KeepOnServer ? KeepOnServerMode : DownloadMode,
+                ["default_server_output_root"] = settings.RemoteAgent.DefaultServerOutputRoot,
+            },
             ["theme_preference"] = settings.ThemePreference.ToString().ToLowerInvariant(),
         };
 
@@ -134,6 +147,23 @@ public sealed class SettingsService(string? path = null) : ISettingsService
     }
 
     // --- Private helpers ---
+
+    private static RemoteAgentSettings DeserializeRemoteAgent(JsonElement root)
+    {
+        if (!root.TryGetProperty("remote_agent", out var agent) || agent.ValueKind != JsonValueKind.Object)
+            return new RemoteAgentSettings();
+        return new RemoteAgentSettings(
+            Text("base_url"),
+            string.Equals(Text("default_target"), ServerTarget, StringComparison.Ordinal)
+                ? ExecutionTarget.Server : ExecutionTarget.Local,
+            string.Equals(Text("default_result_mode"), KeepOnServerMode, StringComparison.Ordinal)
+                ? ResultMode.KeepOnServer : ResultMode.Download,
+            Text("default_server_output_root"));
+
+        string? Text(string name) =>
+            agent.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
+            && value.GetString() is { Length: > 0 } text ? text : null;
+    }
 
     private static ExecutablePaths DeserializeExecutablePaths(JsonElement root)
     {

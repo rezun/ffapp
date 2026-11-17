@@ -6,6 +6,13 @@ Add entries under **Unreleased** as part of each change. `scripts/release.py <ve
 
 ## [Unreleased]
 
+### Added
+
+- Encode on a Linux server: the new FFApp agent runs jobs on a server in your network while this computer may sleep or shut down. Choose **Local** or **Server** next to *Add selected*, and whether the result is downloaded or kept in a folder on the server.
+- *Settings → Server agent…* to connect to an agent, test the connection, set defaults and update the agent to the app's version.
+- Server jobs show their phase in the queue (uploading, waiting for the server with an estimated start, running, downloading), survive app restarts and send a notification when they finish.
+- Pause, resume or cancel a single job from the queue's context menu.
+
 ## [1.14.2] - 2026-11-17
 
 ### Fixed

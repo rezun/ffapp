@@ -87,6 +87,21 @@ public partial class MainWindow : Window
         }
     }
 
+    // async void: NativeMenuItem.Click is a synchronous event; failures are caught and logged.
+    private async void OnServerAgent(object? sender, EventArgs e)
+    {
+        try
+        {
+            if (DataContext is not MainWindowViewModel vm || vm.CreateRemoteAgentSettings() is not { } settings)
+                return;
+            await new RemoteAgentSettingsWindow { DataContext = settings }.ShowDialog(this);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Opening the server agent settings failed");
+        }
+    }
+
     private void OnComparisonStorage(object? sender, EventArgs e)
     {
         if (DataContext is not MainWindowViewModel vm) return;

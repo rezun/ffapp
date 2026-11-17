@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using FFApp.Core;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
+using FFApp.Remote;
 using FFApp.Services;
 using FFApp.Helpers;
 using Microsoft.Extensions.DependencyInjection;
@@ -106,6 +107,30 @@ public partial class MainWindowViewModel : ObservableObject,
         UseLowPriorityTranscoding = !UseLowPriorityTranscoding;
 
     private readonly ISettingsService _settingsService;
+    private readonly RemoteAgentConnection? _agent;
+    private readonly ISecretStore? _secrets;
+
+    /// <summary>The Settings → Server agent dialog, or null when remote encoding is unavailable.</summary>
+    public RemoteAgentSettingsViewModel? CreateRemoteAgentSettings() =>
+        _agent is null || _secrets is null
+            ? null
+            : new RemoteAgentSettingsViewModel(_agent, _secrets, LoadedSettings?.RemoteAgent ?? new RemoteAgentSettings(), SaveRemoteAgentSettingsAsync);
+
+    private async Task SaveRemoteAgentSettingsAsync(RemoteAgentSettings remote)
+    {
+        UpdateSettings(settings => settings with { RemoteAgent = remote });
+        try
+        {
+            await _settingsService.SaveAsync(LoadedSettings!);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogError(ex, "Saving the server agent settings failed");
+        }
+        if (_agent is not null)
+            await _agent.ConfigureAsync(remote);
+        (CurrentView as WorkspaceViewModel)?.JobList.ApplyRemoteDefaults(remote);
+    }
     private readonly IDependencyService _dependencyService;
     private readonly ExecutablePathsConfig _config;
     private readonly IMessenger _messenger;
@@ -142,8 +167,11 @@ public partial class MainWindowViewModel : ObservableObject,
         ICompanionAppService companionApp,
         AppUpdateViewModel updates,
         IComparisonWindowService? comparisonWindows = null, IComparisonService? comparisonService = null,
-        ILogger<MainWindowViewModel>? logger = null)
+        ILogger<MainWindowViewModel>? logger = null,
+        RemoteAgentConnection? agent = null, ISecretStore? secrets = null)
     {
+        _agent = agent;
+        _secrets = secrets;
         Updates = updates;
         _companionApp = companionApp;
         _logger = logger ?? NullLogger<MainWindowViewModel>.Instance;
@@ -180,6 +208,8 @@ public partial class MainWindowViewModel : ObservableObject,
                 ComparisonStorageStatus = $"Could not clean up test clips: {ex.Message}";
             }
             UseLowPriorityTranscoding = settings.UseLowPriorityTranscoding;
+            if (_agent is not null)
+                await _agent.ConfigureAsync(settings.RemoteAgent);
             _settingsLoaded.TrySetResult(settings);
             var status = await _dependencyService.DiscoverAsync(settings.ExecutablePaths);
             var setup = _createSetup();

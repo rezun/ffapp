@@ -2,6 +2,7 @@ using FFApp.Core.Models;
 using FFApp.Core.Services;
 using FFApp.Infrastructure;
 using FFApp.Infrastructure.Logging;
+using FFApp.Remote.Contracts;
 using FFApp.Tests.Builders;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -318,5 +319,96 @@ public sealed class QueueServiceTests : IDisposable
         _sut.IsPaused.Should().BeFalse();
         _sut.Resume();
         _sut.IsPaused.Should().BeFalse();
+    }
+
+    // --- Lanes ---
+
+    private static (string Id, QueuedJob Job) MakeRemoteEntry(string id)
+    {
+        var (_, job) = MakeQueueEntry(id);
+        return (id, job with { Remote = new RemoteTarget(id, ResultMode.Download) });
+    }
+
+    private static void ReportPhase(CallInfo call, RemotePhase phase) =>
+        call.ArgAt<Action<JobProgress>?>(2)?.Invoke(new JobProgress(JobState.Running, 1, 1, 0, Remote: new RemoteProgress(phase)));
+
+    [Fact]
+    public async Task ServerJobs_RunWhileLocalJobEncodes_AndUploadOneAfterAnother()
+    {
+        var local = new TaskCompletionSource<JobResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var firstUploadDone = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var serverJobs = new Dictionary<string, TaskCompletionSource<JobResult>>
+        {
+            ["s1"] = new(TaskCreationOptions.RunContinuationsAsynchronously),
+            ["s2"] = new(TaskCreationOptions.RunContinuationsAsynchronously),
+        };
+        var started = new List<string>();
+        SetupExecution(call =>
+        {
+            var output = call.Arg<JobDefinition>().OutputPath;
+            var id = serverJobs.Keys.FirstOrDefault(key => output.EndsWith(key, StringComparison.Ordinal));
+            lock (started)
+                started.Add(id ?? "local");
+            if (id is null)
+                return local.Task;
+            if (id == "s1")
+                _ = firstUploadDone.Task.ContinueWith(_ => ReportPhase(call, RemotePhase.WaitingForServer), TaskScheduler.Default);
+            return serverJobs[id].Task;
+        });
+        var entries = new[] { MakeQueueEntry("l1"), MakeRemoteEntry("s1"), MakeRemoteEntry("s2") }
+            .Select(entry => (entry.Id, entry.Job with { Job = entry.Job.Job with { OutputPath = "/out/" + entry.Id } }));
+        _sut.Enqueue(entries);
+
+        var run = _sut.ExecuteAllAsync();
+        await WaitUntilAsync(() => started.Count == 2);
+        started.Should().BeEquivalentTo(["local", "s1"], "both lanes start at once, but only one upload");
+
+        firstUploadDone.SetResult();
+        await WaitUntilAsync(() => started.Count == 3);
+        started.Should().Contain("s2", "the next upload starts once the first one is on the server");
+
+        serverJobs["s1"].SetResult(Completed());
+        serverJobs["s2"].SetResult(Completed());
+        await WaitUntilAsync(() => _sut.Items.Count(i => i.State == JobState.Completed) == 2);
+        _sut.Items.Single(i => i.Id == "l1").State.Should().Be(JobState.Running, "server jobs do not wait for the local encode");
+
+        local.SetResult(Completed());
+        (await run.WaitAsync(WaitLimit)).Should().OnlyContain(i => i.State == JobState.Completed);
+    }
+
+    [Fact]
+    public async Task CancelItem_CancelsOneRunningJob_AndQueueContinues()
+    {
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        SetupExecution(async call =>
+        {
+            var token = call.Arg<CancellationToken>();
+            if (call.Arg<JobDefinition>().OutputPath.EndsWith('a'))
+            {
+                started.TrySetResult();
+                await Task.Delay(Timeout.Infinite, token);
+            }
+            return Completed(call.Arg<JobDefinition>());
+        });
+        _sut.Enqueue([("a", MakeQueueEntry("a").Job with { Job = MakeQueueEntry("a").Job.Job with { OutputPath = "/out/a" } }),
+            MakeQueueEntry("b")]);
+
+        var run = _sut.ExecuteAllAsync();
+        await started.Task.WaitAsync(WaitLimit);
+        _sut.CancelItem("a").Should().BeTrue();
+
+        var result = await run.WaitAsync(WaitLimit);
+        result.Select(i => i.State).Should().Equal(JobState.Canceled, JobState.Completed);
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        var deadline = DateTime.UtcNow + WaitLimit;
+        while (!condition())
+        {
+            if (DateTime.UtcNow > deadline)
+                throw new TimeoutException("The queue did not reach the expected state.");
+            await Task.Delay(10);
+        }
     }
 }

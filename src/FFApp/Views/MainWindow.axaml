@@ -23,6 +23,7 @@
                 <NativeMenu>
                     <NativeMenuItem Header="Tools and components…" Click="OnToolsAndComponents" />
                     <NativeMenuItem Header="Comparison storage…" Click="OnComparisonStorage" />
+                    <NativeMenuItem Header="Server agent…" Click="OnServerAgent" />
                 </NativeMenu>
             </NativeMenuItem>
             <NativeMenuItem Header="View">

@@ -232,6 +232,10 @@ public partial class WorkspaceViewModel : ObservableObject,
         // without overwriting the restored settings, leaving it in dirty state.
         if (Preset.SelectedPreset is null)
             Preset.RestoreSelection(appSettings.LastUsedPresetName);
+
+        JobList.ApplyRemoteDefaults(appSettings.RemoteAgent);
+        // Server jobs of the previous session continue in the background; the command reports its own errors.
+        JobList.RestoreServerJobsCommand.Execute(null);
     }
 
     public void Receive(SourceLoadedMessage message)

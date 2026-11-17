@@ -1,5 +1,7 @@
 using System.Collections.Immutable;
 
+using FFApp.Remote.Contracts;
+
 namespace FFApp.Core.Models;
 
 public sealed record SplitterLayout
@@ -34,5 +36,25 @@ public sealed record AppSettings
     public ThemePreference ThemePreference { get; init; } = ThemePreference.System;
     public bool UseLowPriorityTranscoding { get; init; }
     public int ComparisonCacheLimitGiB { get; init; } = 5;
-    public int SchemaVersion { get; init; } = 4;
+    public RemoteAgentSettings RemoteAgent { get; init; } = new();
+    public int SchemaVersion { get; init; } = 6;
+}
+
+public enum ExecutionTarget
+{
+    Local,
+    Server,
+}
+
+/// <summary>
+/// Connection to the server agent. The token is not part of the settings file; it lives in the
+/// platform's secret store.
+/// </summary>
+public sealed record RemoteAgentSettings(
+    string? BaseUrl = null,
+    ExecutionTarget DefaultTarget = ExecutionTarget.Local,
+    ResultMode DefaultResultMode = ResultMode.Download,
+    string? DefaultServerOutputRoot = null)
+{
+    public bool IsConfigured => !string.IsNullOrWhiteSpace(BaseUrl);
 }

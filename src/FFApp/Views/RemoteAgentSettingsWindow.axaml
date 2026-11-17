@@ -1,0 +1,62 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:FFApp.ViewModels"
+        xmlns:remote="using:FFApp.Remote"
+        x:Class="FFApp.Views.RemoteAgentSettingsWindow"
+        x:DataType="vm:RemoteAgentSettingsViewModel" x:CompileBindings="True"
+        Title="Server agent" Width="620" SizeToContent="Height" CanResize="False"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner">
+    <StackPanel Margin="24" Spacing="12">
+        <TextBlock Text="Server agent" FontSize="20" FontWeight="SemiBold" />
+        <TextBlock TextWrapping="Wrap"
+                   Text="Run encodes on a Linux server in your network. Install the agent there, add a client for this computer and enter its address and token." />
+        <SelectableTextBlock Classes="mono caption" Text="{Binding InstallCommand}" TextWrapping="Wrap" />
+
+        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="8">
+            <TextBlock Text="Address" VerticalAlignment="Center" />
+            <TextBox Grid.Column="1" x:Name="AddressBox"
+                     Text="{Binding BaseUrl}"
+                     PlaceholderText="server.local:8737" />
+            <TextBlock Grid.Row="1" Text="Token" VerticalAlignment="Center" />
+            <TextBox Grid.Row="1" Grid.Column="1"
+                     Text="{Binding Token}"
+                     PasswordChar="•"
+                     PlaceholderText="{Binding TokenPlaceholder}" />
+        </Grid>
+
+        <StackPanel Orientation="Horizontal" Spacing="10">
+            <Button Content="Test connection" Command="{Binding TestConnectionCommand}" />
+            <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" VerticalAlignment="Center" MaxWidth="420" />
+        </StackPanel>
+        <SelectableTextBlock Text="{Binding DetailsText}" TextWrapping="Wrap" Classes="secondary"
+                             IsVisible="{Binding DetailsText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
+        <StackPanel Spacing="6" IsVisible="{Binding OffersUpdate}">
+            <Button Content="{Binding UpdateAgentLabel}" Command="{Binding UpdateAgentCommand}" />
+        </StackPanel>
+        <SelectableTextBlock Text="{Binding UpdateStatusText}" TextWrapping="Wrap"
+                             IsVisible="{Binding UpdateStatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
+        <Separator />
+        <TextBlock Text="Defaults for new jobs" FontWeight="SemiBold" />
+        <CheckBox Content="Encode on the server by default" IsChecked="{Binding DefaultToServer}" />
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+            <TextBlock Text="Result" VerticalAlignment="Center" />
+            <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
+                      ItemsSource="{Binding ResultOptions}"
+                      SelectedItem="{Binding SelectedDefaultResult}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="remote:ResultOption">
+                        <TextBlock Text="{Binding Label}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+        </Grid>
+
+        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="0,8,0,0">
+            <Button x:Name="CancelButton" Content="Cancel" IsCancel="True" Click="OnCancel" />
+            <Button Content="Save" Classes="accent" IsDefault="True" Command="{Binding SaveCommand}" />
+        </StackPanel>
+    </StackPanel>
+</Window>

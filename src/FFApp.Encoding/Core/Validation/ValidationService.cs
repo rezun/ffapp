@@ -28,10 +28,14 @@ public sealed class ValidationService(IFfmpegCapabilityService? capabilities = n
         return isPortrait ? new Resolution(target.Height, target.Width) : target;
     }
 
-    public ValidationResult Validate(OutputSettings settings, SourceMediaInfo mediaInfo, double? trimmedDurationSeconds = null)
+    public ValidationResult Validate(OutputSettings settings, SourceMediaInfo mediaInfo, double? trimmedDurationSeconds = null) =>
+        Validate(settings, mediaInfo, trimmedDurationSeconds, capabilities?.Capabilities);
+
+    public ValidationResult Validate(
+        OutputSettings settings, SourceMediaInfo mediaInfo, double? trimmedDurationSeconds, FfmpegCapabilities? ffmpegCapabilities)
     {
         var issues = ImmutableArray.CreateBuilder<ValidationIssue>();
-        if (capabilities?.Capabilities is { } available)
+        if (ffmpegCapabilities is { } available)
             issues.AddRange(FfmpegFeatureValidation.Validate(settings, mediaInfo, available));
 
         // Cannot remove both video and audio.

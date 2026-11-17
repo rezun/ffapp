@@ -31,4 +31,10 @@ public interface IQueueService
     void Pause();
     /// <summary>Continues the suspended encoder in the current application session.</summary>
     void Resume();
+    /// <summary>Pauses one running job; for a local job this pauses the local lane.</summary>
+    bool PauseItem(string itemId);
+    bool ResumeItem(string itemId);
+    bool IsItemPaused(string itemId);
+    /// <summary>Cancels one running or pending job without stopping the rest of the queue.</summary>
+    bool CancelItem(string itemId);
 }

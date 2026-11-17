@@ -53,7 +53,9 @@ public partial class OutputSettingsViewModel : ObservableObject
             or OutputContainer.Webm;
 
     public bool IsMatroskaPostProcessingAvailable =>
-        IsMatroskaPostProcessingVisible && _pathsConfig.MkvpropeditPath is not null;
+        IsMatroskaPostProcessingVisible && (_validationTarget is { IsServer: true } server
+            ? server.HasMkvpropedit
+            : _pathsConfig.MkvpropeditPath is not null);
 
     public IReadOnlyList<ResolutionPreset> AvailableResolutions { get; } =
         Enum.GetValues<ResolutionPreset>();
@@ -115,6 +117,8 @@ public partial class OutputSettingsViewModel : ObservableObject
         _pathsConfig = pathsConfig;
 
         Hdr.IsLibplaceboAvailable = capabilityService.IsLibplaceboAvailable;
+        _messenger.Register<OutputSettingsViewModel, ValidationTargetChangedMessage>(this,
+            static (recipient, message) => recipient.OnValidationTargetChanged(message));
 
         Format.PropertyChanged += OnChildPropertyChanged;
         Audio.PropertyChanged += OnChildPropertyChanged;
@@ -139,7 +143,9 @@ public partial class OutputSettingsViewModel : ObservableObject
 
     public void RefreshCapabilities()
     {
-        Hdr.IsLibplaceboAvailable = _capabilityService.IsLibplaceboAvailable;
+        Hdr.IsLibplaceboAvailable = _validationTarget is { IsServer: true } server
+            ? server.Capabilities?.Filters.Contains("libplacebo") == true
+            : _capabilityService.IsLibplaceboAvailable;
         OnPropertyChanged(nameof(IsMatroskaPostProcessingAvailable));
         RebuildAndNotify();
     }
@@ -367,6 +373,19 @@ public partial class OutputSettingsViewModel : ObservableObject
         _messenger.Send(new OutputSettingsChangedMessage(settings));
     }
 
+    /// <summary>Encoders and filters are checked against the FFmpeg that will run the job.</summary>
+    private ValidationTargetChangedMessage? _validationTarget;
+
+    private void OnValidationTargetChanged(ValidationTargetChangedMessage message)
+    {
+        _validationTarget = message;
+        Hdr.IsLibplaceboAvailable = message.IsServer
+            ? message.Capabilities?.Filters.Contains("libplacebo") == true
+            : _capabilityService.IsLibplaceboAvailable;
+        OnPropertyChanged(nameof(IsMatroskaPostProcessingAvailable));
+        RefreshValidation();
+    }
+
     private void RefreshValidation(OutputSettings? settings = null)
     {
         settings ??= BuildSettings();
@@ -374,10 +393,10 @@ public partial class OutputSettingsViewModel : ObservableObject
         if (_mediaInfo is null)
             return;
 
-        var result = _validationService.Validate(
-            settings,
-            TrackSelection.Apply(_mediaInfo, Audio.SelectedAudioStreamIndices, StreamHandling.SelectedSubtitleStreamIndices),
-            _trimmedDurationSeconds);
+        var media = TrackSelection.Apply(_mediaInfo, Audio.SelectedAudioStreamIndices, StreamHandling.SelectedSubtitleStreamIndices);
+        var result = _validationTarget is { IsServer: true } server
+            ? _validationService.Validate(settings, media, _trimmedDurationSeconds, server.Capabilities)
+            : _validationService.Validate(settings, media, _trimmedDurationSeconds);
         var allIssues = result.Issues;
 
         if (!string.IsNullOrEmpty(_resolvedOutputPath)

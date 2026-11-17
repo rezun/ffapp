@@ -13,6 +13,7 @@ using FFApp.Core.Validation;
 using FFApp.Infrastructure;
 using FFApp.Infrastructure.Logging;
 using FFApp.Infrastructure.SingleInstance;
+using FFApp.Remote;
 using FFApp.Services;
 using LibVLCSharp.Shared;
 using FFApp.ViewModels;
@@ -28,6 +29,7 @@ public partial class App : Application
     private readonly SingleInstanceCoordinator? _singleInstance;
     private readonly Serilog.ILogger? _appLog;
     private ILogger _logger = NullLogger<App>.Instance;
+    private RemoteJobExecutor? _remoteExecutor;
     private MainWindowViewModel? _mainViewModel;
 
     public App() { }
@@ -110,8 +112,19 @@ public partial class App : Application
                 new ComparisonWindowService(sp.GetRequiredService<IServiceScopeFactory>(), () => mainWindow,
                     sp.GetRequiredService<ILoggerFactory>(), sp.GetRequiredService<IComparisonRuntimeService>(),
                     sp.GetRequiredService<ExecutablePathsConfig>(), sp.GetRequiredService<IDialogService>()));
+            // Server agent: jobs that target the server run through the remote executor.
+            services.AddHttpClient(RemoteAgentClient.HttpClientName, client => client.Timeout = Timeout.InfiniteTimeSpan);
+            services.AddSingleton<RemoteAgentClient>();
+            services.AddSingleton<ISecretStore>(_ => SecretStores.ForPlatform(FFAppPaths.AppDataDirectory()));
+            services.AddSingleton<RemoteAgentConnection>();
+            services.AddSingleton<RemoteJobStore>();
+            services.AddSingleton<ISleepInhibitor>(sp => SleepInhibitors.ForPlatform(sp.GetRequiredService<ILogger<RemoteJobExecutor>>()));
+            services.AddSingleton<INotificationService, DesktopNotificationService>();
+            services.AddSingleton<RemoteJobExecutor>();
             services.AddSingleton<Func<QueuedJob, IJobExecutionService>>(sp =>
-                _ => sp.GetRequiredService<IJobExecutionService>());
+                job => job.Remote is { } remote
+                    ? new RemoteJobExecutionService(sp.GetRequiredService<RemoteJobExecutor>(), remote)
+                    : sp.GetRequiredService<IJobExecutionService>());
             services.AddSingleton<IQueueService, QueueService>();
             services.AddSingleton<IMessenger>(WeakReferenceMessenger.Default);
 
@@ -157,12 +170,15 @@ public partial class App : Application
             var provider = services.BuildServiceProvider();
 
             _logger = provider.GetRequiredService<ILogger<App>>();
+            _remoteExecutor = provider.GetRequiredService<RemoteJobExecutor>();
             mainWindow.Logger = provider.GetRequiredService<ILogger<Views.MainWindow>>();
 
             var vm = provider.GetRequiredService<MainWindowViewModel>();
             _mainViewModel = vm;
             mainWindow.DataContext = vm;
             desktop.MainWindow = mainWindow;
+            // Server jobs keep running on the agent; the next start continues following them.
+            desktop.Exit += (_, _) => _remoteExecutor?.Detach();
             desktop.ShutdownMode = ShutdownMode.OnMainWindowClose;
             // The native shutdown callback is synchronous; await the save pipeline
             // here and log any boundary failure instead of dropping its Task.

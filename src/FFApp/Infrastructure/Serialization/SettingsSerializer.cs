@@ -14,7 +14,7 @@ public sealed class PresetDecodeException(string message)
 
 public static class SettingsSerializer
 {
-    public const int SettingsSchemaVersion = 5;
+    public const int SettingsSchemaVersion = 6;
     public const int PresetSchemaVersion = 1;
     public const int PresetLibrarySchemaVersion = 1;
 

@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using FFApp.Core.Models;
 using FFApp.Helpers;
+using FFApp.Remote.Contracts;
 
 namespace FFApp.ViewModels;
 
@@ -15,7 +16,18 @@ public sealed partial class JobItemViewModel : ObservableObject
     public SourceMediaInfo MediaInfo { get; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsRemote))]
+    [NotifyPropertyChangedFor(nameof(TargetBadge))]
     private QueuedJob _queuedJob;
+
+    /// <summary>The job runs on the server agent.</summary>
+    public bool IsRemote => QueuedJob.IsRemote;
+
+    public string TargetBadge => QueuedJob.Remote?.ResultMode == ResultMode.KeepOnServer ? "Server · kept there" : "Server";
+
+    /// <summary>Paused individually through the job's context menu.</summary>
+    [ObservableProperty]
+    private bool _isItemPaused;
 
     [ObservableProperty]
     private string _displayLabel;
@@ -67,6 +79,7 @@ public sealed partial class JobItemViewModel : ObservableObject
     public void ResetToPending()
     {
         State = JobState.Pending;
+        IsItemPaused = false;
         Percentage = 0;
         ProgressText = "";
         LastProgress = null;
@@ -77,8 +90,17 @@ public sealed partial class JobItemViewModel : ObservableObject
         Failure = null;
     }
 
-    public void UpdateProgress(JobProgress progress)
+    public void UpdateProgress(JobProgress progress, DateTimeOffset? now = null)
     {
+        if (progress.Remote is { } remote)
+        {
+            if (remote.Phase == RemotePhase.Running)
+                LastProgress = progress;
+            Percentage = RemoteProgressText.Percentage(remote, progress);
+            ProgressText = RemoteProgressText.Format(remote, progress, now ?? DateTimeOffset.UtcNow);
+            return;
+        }
+
         LastProgress = progress;
         Percentage = progress.Percentage ?? 0;
 

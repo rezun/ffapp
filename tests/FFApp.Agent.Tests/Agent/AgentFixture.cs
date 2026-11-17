@@ -20,7 +20,7 @@ namespace FFApp.Agent.Tests.Agent;
 /// Hosts the agent in memory with a temporary work directory, two clients and a fake encoder.
 /// A second instance on the same directory simulates an agent restart.
 /// </summary>
-public sealed class AgentHost : WebApplicationFactory<Program>
+public sealed class AgentHost : WebApplicationFactory<global::Program>
 {
     public static readonly string TokenA = "token-client-a";
     public static readonly string TokenB = "token-client-b";

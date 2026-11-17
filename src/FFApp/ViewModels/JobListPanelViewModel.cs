@@ -4,11 +4,14 @@ using System.Globalization;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using FFApp.Core;
 using FFApp.Core.Models;
 using FFApp.Core.Services;
 using FFApp.Helpers;
 using FFApp.Infrastructure;
+using FFApp.Remote;
+using FFApp.Remote.Contracts;
 using FFApp.Services;
 
 namespace FFApp.ViewModels;
@@ -28,6 +31,10 @@ public partial class JobListPanelViewModel : ObservableObject
 
     private readonly SourceListPanelViewModel _sourceList;
     private readonly VideoPreviewViewModel _videoPreview;
+    private readonly RemoteAgentConnection? _agent;
+    private readonly RemoteJobExecutor? _remoteExecutor;
+    private readonly INotificationService? _notifications;
+    private readonly IMessenger? _messenger;
 
     public ObservableCollection<JobItemViewModel> Jobs { get; } = [];
 
@@ -97,7 +104,11 @@ public partial class JobListPanelViewModel : ObservableObject
         IDialogService dialogService,
         SourceListPanelViewModel sourceList,
         VideoPreviewViewModel videoPreview,
-        TimeProvider timeProvider)
+        TimeProvider timeProvider,
+        RemoteAgentConnection? agent = null,
+        RemoteJobExecutor? remoteExecutor = null,
+        INotificationService? notifications = null,
+        IMessenger? messenger = null)
     {
         _queueService = queueService;
         _timeProvider = timeProvider;
@@ -108,8 +119,306 @@ public partial class JobListPanelViewModel : ObservableObject
         _videoPreview = videoPreview;
         Details = new JobItemDetailsViewModel(RenameJobOutputAsync, _dialogService.OpenWithDefaultAppAsync);
 
+        _agent = agent;
+        _remoteExecutor = remoteExecutor;
+        _notifications = notifications;
+        _messenger = messenger;
+
         Jobs.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasJobs));
         _sourceList.PropertyChanged += OnSourceListPropertyChanged;
+
+        if (_agent is not null)
+        {
+            // Connection events arrive on background threads.
+            _agent.StatusChanged += _ => Dispatcher.UIThread.Post(UpdateServerState);
+            _agent.LoadChanged += _ => Dispatcher.UIThread.Post(UpdateServerState);
+            _agent.UpdateChanged += _ => Dispatcher.UIThread.Post(UpdateServerState);
+            UpdateServerState();
+        }
+    }
+
+    // ── Server target ─────────────────────────────────────────────
+
+    /// <summary>Where new jobs run: this computer or the server agent.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsServerTarget))]
+    [NotifyPropertyChangedFor(nameof(IsLocalTarget))]
+    private ExecutionTarget _target = ExecutionTarget.Local;
+
+    // Segmented toggle: clicking the selected segment again keeps it selected.
+    public bool IsServerTarget
+    {
+        get => Target == ExecutionTarget.Server;
+        set
+        {
+            if (value && IsServerAvailable)
+            {
+                _targetChosenByUser = true;
+                Target = ExecutionTarget.Server;
+            }
+            OnPropertyChanged();
+        }
+    }
+
+    public bool IsLocalTarget
+    {
+        get => Target == ExecutionTarget.Local;
+        set
+        {
+            if (value)
+            {
+                _targetChosenByUser = true;
+                Target = ExecutionTarget.Local;
+            }
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>The server toggle is usable: an agent is set up, reachable and compatible.</summary>
+    [ObservableProperty]
+    private bool _isServerAvailable;
+
+    /// <summary>Explains the server toggle: why it is disabled, or the current server load.</summary>
+    [ObservableProperty]
+    private string _serverStatusText = "No server agent is set up. Add one in Settings → Server agent.";
+
+    /// <summary>Non-blocking hint, such as an agent version that differs from the app.</summary>
+    [ObservableProperty]
+    private string _serverHintText = "";
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(UpdateAgentCommand))]
+    private bool _offersAgentUpdate;
+
+    public string UpdateAgentLabel => $"Update agent to {AppVersion.Current}";
+
+    public ObservableCollection<ResultOption> ResultOptions { get; } = [];
+
+    [ObservableProperty]
+    private ResultOption? _selectedResultOption;
+
+    private RemoteAgentSettings _remoteDefaults = new();
+    private bool _targetChosenByUser;
+    private bool _resultChosenByUser;
+    private bool _updatingResultOptions;
+
+    partial void OnSelectedResultOptionChanged(ResultOption? value)
+    {
+        if (!_updatingResultOptions && value is not null)
+            _resultChosenByUser = true;
+    }
+
+    /// <summary>The result choice from Settings → Server agent, once the agent lists its folders.</summary>
+    private ResultOption? DefaultResultOption() =>
+        ResultOptions.FirstOrDefault(option => option.Mode == _remoteDefaults.DefaultResultMode
+            && (option.Mode == ResultMode.Download
+                || string.Equals(option.Root, _remoteDefaults.DefaultServerOutputRoot, StringComparison.Ordinal)));
+
+    /// <summary>Applies the defaults from Settings → Server agent.</summary>
+    public void ApplyRemoteDefaults(RemoteAgentSettings defaults)
+    {
+        _remoteDefaults = defaults ?? new RemoteAgentSettings();
+        _targetChosenByUser = false;
+        _resultChosenByUser = false;
+        Target = _remoteDefaults.DefaultTarget == ExecutionTarget.Server && IsServerAvailable
+            ? ExecutionTarget.Server : ExecutionTarget.Local;
+        UpdateServerState();
+    }
+
+    partial void OnTargetChanged(ExecutionTarget value)
+    {
+        SendValidationTarget();
+        CreateJobFromSelectionCommand.NotifyCanExecuteChanged();
+        CreateJobsForAllCommand.NotifyCanExecuteChanged();
+    }
+
+    private void SendValidationTarget()
+    {
+        var info = _agent?.Status.Info;
+        _messenger?.Send(new ValidationTargetChangedMessage(Target == ExecutionTarget.Server,
+            info?.Capabilities, info?.HasMkvpropedit ?? false));
+    }
+
+    private void UpdateServerState()
+    {
+        if (_agent is null)
+            return;
+        var status = _agent.Status;
+        IsServerAvailable = status.IsReady;
+        OffersAgentUpdate = status.OffersUpdate && status.Info is not null;
+        ServerHintText = status.IsReady && status.OffersUpdate ? status.Message : "";
+
+        if (!status.IsReady)
+            ServerStatusText = status.Message;
+        else if (_agent.Load is { } load)
+            ServerStatusText = DescribeLoad(load, _timeProvider.GetUtcNow());
+        else
+            ServerStatusText = status.Message;
+        if (_agent.Update is { State: not UpdateStateKind.Idle } update)
+            ServerHintText = DescribeUpdate(update);
+
+        var roots = status.Info?.OutputRoots ?? [];
+        var options = new List<ResultOption> { new(OperatingSystem.IsMacOS() ? "To this Mac" : "To this computer", ResultMode.Download, null) };
+        options.AddRange(roots.Select(root => new ResultOption($"On the server: {root}", ResultMode.KeepOnServer, root)));
+        _updatingResultOptions = true;
+        try
+        {
+            var selected = SelectedResultOption;
+            if (!options.SequenceEqual(ResultOptions))
+            {
+                ResultOptions.Clear();
+                foreach (var option in options)
+                    ResultOptions.Add(option);
+            }
+            SelectedResultOption = (_resultChosenByUser ? ResultOptions.FirstOrDefault(option => option == selected) : null)
+                ?? DefaultResultOption()
+                ?? ResultOptions.FirstOrDefault(option => option == selected)
+                ?? ResultOptions.FirstOrDefault();
+        }
+        finally
+        {
+            _updatingResultOptions = false;
+        }
+
+        // The default target applies once the agent is reachable, unless the user picked one.
+        if (!status.IsReady && Target == ExecutionTarget.Server)
+            Target = ExecutionTarget.Local;
+        else if (status.IsReady && !_targetChosenByUser && _remoteDefaults.DefaultTarget == ExecutionTarget.Server
+                 && Target == ExecutionTarget.Local)
+            Target = ExecutionTarget.Server;
+        else
+            SendValidationTarget();
+        CreateJobFromSelectionCommand.NotifyCanExecuteChanged();
+        CreateJobsForAllCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>For example "Busy: 4 jobs waiting, 2 of them from other clients, idle in about 5:00 h".</summary>
+    internal static string DescribeLoad(QueueState load, DateTimeOffset now)
+    {
+        if (load.Running is null && load.WaitingJobs == 0)
+            return "Server agent idle.";
+        var foreign = load.WaitingJobs - load.OwnWaitingJobs;
+        var text = load.WaitingJobs == 0
+            ? "Busy: encoding one job"
+            : $"Busy: {load.WaitingJobs} {(load.WaitingJobs == 1 ? "job" : "jobs")} waiting"
+              + (foreign > 0 ? $", {foreign} of them from other clients" : "");
+        if (load.EstimatedIdleAt is { } idle && idle > now)
+            text += $", idle in about {RemoteProgressText.Duration((idle - now).TotalSeconds)}";
+        return text + ".";
+    }
+
+    private static string DescribeUpdate(UpdateStatus update) => update.State switch
+    {
+        UpdateStateKind.WaitingForJobs => $"The agent installs {update.TargetVersion} after the running job.",
+        UpdateStateKind.Downloading => $"The agent is downloading {update.TargetVersion}…",
+        UpdateStateKind.Restarting => $"The agent is restarting with {update.TargetVersion}…",
+        UpdateStateKind.Failed => $"Agent update failed: {update.Message}",
+        UpdateStateKind.Idle => update.Message ?? "",
+        _ => throw new ArgumentOutOfRangeException(nameof(update), update.State, "Unknown update state."),
+    };
+
+    private bool CanUpdateAgent => OffersAgentUpdate;
+
+    [RelayCommand(CanExecute = nameof(CanUpdateAgent))]
+    private async Task UpdateAgentAsync()
+    {
+        if (_agent is null)
+            return;
+        try
+        {
+            await _agent.RequestUpdateAsync(CancellationToken.None);
+            UpdateServerState();
+        }
+        catch (RemoteAgentException ex) when (ex.StatusCode is System.Net.HttpStatusCode.NotFound or System.Net.HttpStatusCode.MethodNotAllowed)
+        {
+            await _dialogService.ShowErrorAsync("Agent cannot update itself",
+                "This agent is too old to update from the app. Run this on the server:"
+                + Environment.NewLine + Environment.NewLine + AgentInstallCommand.For(AppVersion.Current));
+        }
+        catch (RemoteAgentException ex)
+        {
+            await _dialogService.ShowErrorAsync("Agent update failed", ex.Message);
+        }
+    }
+
+    /// <summary>The server job target for a new job, or null for a local job.</summary>
+    private RemoteTarget? NewRemoteTarget(string label) =>
+        Target == ExecutionTarget.Server && SelectedResultOption is { } option
+            ? new RemoteTarget(Guid.NewGuid().ToString("N"), option.Mode, option.Root, label)
+            : null;
+
+    /// <summary>Validates against the FFmpeg that will run the job: the agent's for server jobs.</summary>
+    private ValidationResult ValidateForTarget(OutputSettings settings, SourceMediaInfo media, double? duration = null) =>
+        Target == ExecutionTarget.Server
+            ? _validationService.Validate(settings, media, duration, _agent?.Status.Info?.Capabilities)
+            : _validationService.Validate(settings, media, duration);
+
+    /// <summary>
+    /// Shows server jobs from the previous session again and continues them: unfinished uploads
+    /// resume, finished encodes are downloaded. Jobs that failed earlier are removed from the agent.
+    /// </summary>
+    [RelayCommand]
+    private async Task RestoreServerJobsAsync()
+    {
+        if (_remoteExecutor is null)
+            return;
+        var restored = 0;
+        foreach (var record in _remoteExecutor.RestorableJobs())
+        {
+            if (Jobs.Any(job => job.QueuedJob.Remote?.Key == record.Key))
+                continue;
+            IReadOnlyList<GeneratedCommand> commands;
+            try
+            {
+                commands = _commandBuilder.Build(record.Job, record.MediaInfo);
+            }
+            catch (CommandBuildException)
+            {
+                commands = [];
+            }
+            var queued = new QueuedJob(record.Job, record.MediaInfo, [.. commands], new ValidationResult(),
+                new RemoteTarget(record.Key, record.ResultMode, record.ServerOutputRoot, record.DisplayLabel));
+            AddJob(new JobItemViewModel($"job-{++_nextJobId}", record.MediaInfo, queued, record.DisplayLabel), queued);
+            restored++;
+        }
+        UpdateSummary();
+        if (restored > 0 && !IsRunning)
+            StartCommand.Execute(null);
+
+        try
+        {
+            await _remoteExecutor.CleanUpFinishedAsync(CancellationToken.None);
+        }
+        catch (Exception ex) when (ex is RemoteAgentException or IOException)
+        {
+            StatusText = $"Could not clean up earlier server jobs: {ex.Message}";
+        }
+    }
+
+    // ── Per-job control ───────────────────────────────────────────
+
+    [RelayCommand]
+    private void PauseJob(JobItemViewModel? job)
+    {
+        if (job is not null && job.State == JobState.Running && _queueService.PauseItem(job.Id))
+            job.IsItemPaused = true;
+    }
+
+    [RelayCommand]
+    private void ResumeJob(JobItemViewModel? job)
+    {
+        if (job is not null && _queueService.ResumeItem(job.Id))
+            job.IsItemPaused = false;
+    }
+
+    [RelayCommand]
+    private void CancelJob(JobItemViewModel? job)
+    {
+        if (job is null || !_queueService.CancelItem(job.Id))
+            return;
+        if (job.State == JobState.Pending)
+            job.State = JobState.Canceled;
+        UpdateSummary();
     }
 
     private void OnSourceListPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -158,7 +467,8 @@ public partial class JobListPanelViewModel : ObservableObject
     // ── Job Creation ──────────────────────────────────────────────
 
     private bool CanCreateJobFromSelection =>
-        !HasValidationErrors
+        (Target == ExecutionTarget.Local || IsServerAvailable)
+        && !HasValidationErrors
         && _currentContext is not null
         && _sourceList.SelectedReadySourceCount > 0;
 
@@ -201,7 +511,7 @@ public partial class JobListPanelViewModel : ObservableObject
         var mediaInfo = _currentContext.MediaInfo;
         var settings = _currentContext.Settings;
 
-        var validation = _validationService.Validate(
+        var validation = ValidateForTarget(
             settings,
             TrackSelection.Apply(mediaInfo, _currentContext.SelectedAudioStreamIndices, _currentContext.SelectedSubtitleStreamIndices),
             _currentContext.EffectiveDurationSeconds);
@@ -226,14 +536,15 @@ public partial class JobListPanelViewModel : ObservableObject
             return;
         }
 
-        var queuedJob = new QueuedJob(job, mediaInfo, [.. commands], validation);
         var id = $"job-{++_nextJobId}";
         var label = Path.GetFileName(mediaInfo.SourcePath);
+        var queuedJob = new QueuedJob(job, mediaInfo, [.. commands], validation, NewRemoteTarget(label));
         AddJob(new JobItemViewModel(id, mediaInfo, queuedJob, label), queuedJob);
     }
 
     private bool CanCreateJobsForAll =>
-        !HasValidationErrors
+        (Target == ExecutionTarget.Local || IsServerAvailable)
+        && !HasValidationErrors
         && _currentContext is not null
         && _sourceList.ReadySourceCount > 0;
 
@@ -276,7 +587,7 @@ public partial class JobListPanelViewModel : ObservableObject
                 source.SourcePath, outputPath, settings, trimIn, trimOut, crop,
                 source.SelectedAudioStreamIndices, source.SelectedSubtitleStreamIndices);
 
-            var validation = _validationService.Validate(settings,
+            var validation = ValidateForTarget(settings,
                 TrackSelection.Apply(mediaInfo, source.SelectedAudioStreamIndices, source.SelectedSubtitleStreamIndices));
 
             if (validation.HasErrors)
@@ -295,7 +606,7 @@ public partial class JobListPanelViewModel : ObservableObject
                 commands = [];
             }
 
-            var queuedJob = new QueuedJob(job, mediaInfo, [.. commands], validation);
+            var queuedJob = new QueuedJob(job, mediaInfo, [.. commands], validation, NewRemoteTarget(source.DisplayLabel));
             var id = $"job-{++_nextJobId}";
             reservedOutputPaths.Add(outputPath);
             AddJob(new JobItemViewModel(id, mediaInfo, queuedJob, source.DisplayLabel), queuedJob);
@@ -428,7 +739,7 @@ public partial class JobListPanelViewModel : ObservableObject
                         var vm = FindJobById(queueItem.Id);
                         if (vm is not null && queueItem.Progress is { } progress)
                         {
-                            vm.UpdateProgress(progress);
+                            vm.UpdateProgress(progress, _timeProvider.GetUtcNow());
                             UpdateStatusFromRunningJob(vm);
                             UpdateQueueEstimate();
                         }
@@ -442,10 +753,12 @@ public partial class JobListPanelViewModel : ObservableObject
                         if (vm is not null)
                         {
                             vm.State = queueItem.State;
+                            vm.IsItemPaused = false;
                             if (queueItem.Result is { } result)
                                 vm.UpdateResult(result);
                             else if (queueItem.State == JobState.Failed)
                                 vm.UpdateFailure(queueItem.FailureMessage);
+                            NotifyServerJobFinished(vm);
                         }
                         // Track next running job for status bar
                         var nextRunning = Jobs.FirstOrDefault(j => j.State == JobState.Running);
@@ -525,7 +838,7 @@ public partial class JobListPanelViewModel : ObservableObject
         _selectedJobs.Count > 0 && _selectedJobs.Any(j => j.State != JobState.Running);
 
     [RelayCommand(CanExecute = nameof(CanRemoveSelected))]
-    private void RemoveSelected()
+    private async Task RemoveSelectedAsync()
     {
         // Only remove non-running jobs
         var toRemove = _selectedJobs.Where(j => j.State != JobState.Running).ToList();
@@ -540,13 +853,43 @@ public partial class JobListPanelViewModel : ObservableObject
         SelectedJob = null;
         _selectedJobs = [];
         UpdateSummary();
+        await ForgetServerJobsAsync(toRemove);
+    }
+
+    /// <summary>Removes the agent's copy of removed server jobs, so their sources are released.</summary>
+    private async Task ForgetServerJobsAsync(IEnumerable<JobItemViewModel> removed)
+    {
+        if (_remoteExecutor is null)
+            return;
+        foreach (var job in removed)
+        {
+            if (job.QueuedJob.Remote is { } remote)
+                await _remoteExecutor.ForgetAsync(remote.Key, CancellationToken.None);
+        }
+    }
+
+    private void NotifyServerJobFinished(JobItemViewModel job)
+    {
+        if (_notifications is null || job.QueuedJob.Remote is not { } remote || _remoteExecutor?.IsDetached == true)
+            return;
+        var (title, message) = job.State switch
+        {
+            JobState.Completed when remote.ResultMode == ResultMode.KeepOnServer =>
+                ("Server job finished", $"{job.DisplayLabel} is saved on the server."),
+            JobState.Completed => ("Server job finished", $"{job.DisplayLabel} was downloaded."),
+            JobState.Failed => ("Server job failed", job.Failure?.Message ?? job.DisplayLabel),
+            JobState.Canceled => ("Server job canceled", job.DisplayLabel),
+            _ => (null, null),
+        };
+        if (title is not null && message is not null)
+            _notifications.Notify(title, message);
     }
 
     private bool CanClearFinished =>
         Jobs.Any(j => j.State is JobState.Completed or JobState.Failed or JobState.Canceled);
 
     [RelayCommand(CanExecute = nameof(CanClearFinished))]
-    private void ClearFinished()
+    private async Task ClearFinishedAsync()
     {
         var finished = Jobs.Where(j => j.State is JobState.Completed or JobState.Failed or JobState.Canceled).ToList();
         var ids = finished.Select(j => j.Id).ToList();
@@ -560,21 +903,23 @@ public partial class JobListPanelViewModel : ObservableObject
             SelectedJob = null;
 
         UpdateSummary();
+        await ForgetServerJobsAsync(finished);
     }
 
     private bool CanClearAll => Jobs.Count > 0 && !IsRunning;
 
     [RelayCommand(CanExecute = nameof(CanClearAll))]
-    private void ClearAll()
+    private async Task ClearAllAsync()
     {
-
-        var ids = Jobs.Select(j => j.Id).ToList();
+        var removed = Jobs.ToList();
+        var ids = removed.Select(j => j.Id).ToList();
         if (ids.Count > 0)
             _queueService.Remove(ids);
 
         Jobs.Clear();
         SelectedJob = null;
         UpdateSummary();
+        await ForgetServerJobsAsync(removed);
     }
 
     // ── Helpers ────────────────────────────────────────────────────
@@ -616,7 +961,7 @@ public partial class JobListPanelViewModel : ObservableObject
 
     private void UpdateQueueEstimate()
     {
-        var entries = Jobs.Select(job => new QueueEstimateEntry(
+        var entries = Jobs.Where(job => !job.IsRemote).Select(job => new QueueEstimateEntry(
                 job.State,
                 DefaultJobExecutionService.EffectiveOutputDuration(job.QueuedJob.Job, job.MediaInfo),
                 job.QueuedJob.Commands.Count(command => command.Protocol == ProcessProtocol.Ffmpeg),

@@ -1,5 +1,6 @@
 using FFApp.Core.Models;
 using FFApp.Infrastructure;
+using FFApp.Remote.Contracts;
 using FluentAssertions;
 
 namespace FFApp.Tests.Infrastructure;
@@ -22,6 +23,9 @@ public sealed class SettingsServiceTests
                 ComparisonCacheLimitGiB = cacheLimitGiB,
                 OutputLocation = new OutputLocation(mode, folder),
                 UseLowPriorityTranscoding = lowPriority,
+                RemoteAgent = lowPriority
+                    ? new RemoteAgentSettings("http://nas.local:8737", ExecutionTarget.Server, ResultMode.KeepOnServer, "Movies")
+                    : new RemoteAgentSettings(),
             };
             await service.SaveAsync(saved);
             (await service.LoadAsync()).Should().BeEquivalentTo(new
@@ -29,6 +33,7 @@ public sealed class SettingsServiceTests
                 saved.ComparisonCacheLimitGiB,
                 saved.OutputLocation,
                 saved.UseLowPriorityTranscoding,
+                saved.RemoteAgent,
             });
         }
         finally { File.Delete(path); }
@@ -40,7 +45,8 @@ public sealed class SettingsServiceTests
     [InlineData("""{ "comparison_cache_limit_gib": "bad", "output_location": "custom_folder", "low_priority_transcoding": "invalid" }""")]
     [InlineData("""{ "comparison_cache_limit_gib": 0, "output_location": { "mode": "elsewhere" } }""")]
     [InlineData("""{ "comparison_cache_limit_gib": 1025, "output_location": { "mode": 1, "custom_folder": 5 } }""")]
-    [InlineData("""{ "comparison_cache_limit_gib": 1.5 }""")]
+    [InlineData("""{ "comparison_cache_limit_gib": 1.5, "remote_agent": 5 }""")]
+    [InlineData("""{ "remote_agent": { "base_url": 7, "default_target": "moon", "default_result_mode": 1 } }""")]
     public async Task Load_MissingOrInvalidValues_FallBackToDefaults(string json)
     {
         var path = Path.Combine(Path.GetTempPath(), $"ffapp-settings-{Guid.NewGuid()}.json");
@@ -52,6 +58,7 @@ public sealed class SettingsServiceTests
                 ComparisonCacheLimitGiB = 5,
                 OutputLocation = new OutputLocation(),
                 UseLowPriorityTranscoding = false,
+                RemoteAgent = new RemoteAgentSettings(),
             });
         }
         finally { File.Delete(path); }

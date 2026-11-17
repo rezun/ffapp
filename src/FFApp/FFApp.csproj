@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="FFApp.Tests" />
+    <InternalsVisibleTo Include="FFApp.Agent.Tests" />
   </ItemGroup>
 
   <ItemGroup>
@@ -27,6 +28,8 @@
     <PackageReference Include="Velopack" />
     <PackageReference Include="FFmpeg.AutoGen" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" />
     <PackageReference Include="LibVLCSharp" />
     <PackageReference Include="LibVLCSharp.Avalonia" />
   </ItemGroup>
@@ -34,6 +37,7 @@
   <ItemGroup>
     <ProjectReference Include="../FFApp.Media/FFApp.Media.csproj" />
     <ProjectReference Include="../FFApp.Encoding/FFApp.Encoding.csproj" />
+    <ProjectReference Include="../FFApp.Remote.Contracts/FFApp.Remote.Contracts.csproj" />
     <ProjectReference Include="../FFApp.Desktop/FFApp.Desktop.csproj" />
   </ItemGroup>
 </Project>

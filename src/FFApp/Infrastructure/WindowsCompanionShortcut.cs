@@ -38,6 +38,7 @@ internal static class WindowsCompanionShortcut
             IconPath = executable,
             Description = "FFRux",
         };
+        shortcut.SetAppUserModelId(WindowsAppUserModel.FFRuxId);
         shortcut.Save(path);
     }
 

@@ -18,6 +18,8 @@ public sealed class DefaultJobExecutionService(
     /// Executes preparation, encoding and post-processing in order. Cancellation stops
     /// the active process; temporary image files and two-pass logs are removed in finally.
     /// A partially written output file is retained, matching failed encoding behavior.
+    /// <paramref name="workDirectory"/> receives temporary files instead of the system temp directory
+    /// and the output folder, so a caller with its own per-job folder can clean up reliably.
     /// </summary>
     public async Task<JobResult> ExecuteAsync(
         JobDefinition job,
@@ -25,6 +27,7 @@ public sealed class DefaultJobExecutionService(
         Action<JobProgress>? progressCallback = null,
         Action<string>? logCallback = null,
         ExecutionPauseState? pauseState = null,
+        string? workDirectory = null,
         CancellationToken ct = default)
     {
         if (capabilities?.Capabilities is { } available)
@@ -33,7 +36,7 @@ public sealed class DefaultJobExecutionService(
             if (missing.Count > 0)
                 throw new CommandBuildException(string.Join(Environment.NewLine, missing.Select(issue => issue.Message)));
         }
-        var encodingCommands = commandBuilder.Build(job, mediaInfo);
+        var encodingCommands = commandBuilder.Build(job, mediaInfo, workDirectory);
         var postProcessCommand = matroskaPostProcessor.BuildCommand(job);
         var plannedCommands = postProcessCommand is null
             ? encodingCommands
@@ -112,7 +115,7 @@ public sealed class DefaultJobExecutionService(
         }
         finally
         {
-            CleanupTwoPassLogs(job.OutputPath);
+            CleanupTwoPassLogs(job.OutputPath, workDirectory);
             foreach (var path in encodingCommands.SelectMany(command => command.TemporaryFiles))
             {
                 try
@@ -217,9 +220,9 @@ public sealed class DefaultJobExecutionService(
         return string.Join(Environment.NewLine + Environment.NewLine, parts);
     }
 
-    internal static void CleanupTwoPassLogs(string outputPath)
+    internal static void CleanupTwoPassLogs(string outputPath, string? workDirectory = null)
     {
-        var directory = Path.GetDirectoryName(outputPath);
+        var directory = workDirectory ?? Path.GetDirectoryName(outputPath);
         if (string.IsNullOrEmpty(directory) || !Directory.Exists(directory))
             return;
 

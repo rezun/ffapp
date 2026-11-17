@@ -1,11 +1,14 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/FFApp.Encoding/FFApp.Encoding.csproj" />
     <Project Path="src/FFApp.Media/FFApp.Media.csproj" />
     <Project Path="src/FFApp.Desktop/FFApp.Desktop.csproj" />
+    <Project Path="src/FFApp.Remote.Contracts/FFApp.Remote.Contracts.csproj" />
     <Project Path="src/FFApp/FFApp.csproj" />
     <Project Path="src/FFRux/FFRux.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/FFApp.Agent.Tests/FFApp.Agent.Tests.csproj" />
     <Project Path="tests/FFApp.Shared.Tests/FFApp.Shared.Tests.csproj" />
     <Project Path="tests/FFApp.Tests/FFApp.Tests.csproj" />
     <Project Path="tests/FFRux.Tests/FFRux.Tests.csproj" />

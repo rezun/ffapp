@@ -30,7 +30,7 @@ public sealed class ComparisonServiceTests : IDisposable
         _service = new ComparisonService(new DefaultCommandBuilder(new ExecutablePathsConfig()), _execution,
             new ValidationService(), _json, Path.Combine(_directory, "sessions"));
         _execution.ExecuteAsync(Arg.Any<JobDefinition>(), Arg.Any<SourceMediaInfo>(), Arg.Any<Action<JobProgress>?>(),
-            Arg.Any<Action<string>?>(), Arg.Any<ExecutionPauseState?>(), Arg.Any<CancellationToken>())
+            Arg.Any<Action<string>?>(), Arg.Any<ExecutionPauseState?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .Returns(call =>
             {
                 var job = call.Arg<JobDefinition>();
@@ -81,7 +81,7 @@ public sealed class ComparisonServiceTests : IDisposable
         second.WasCached.Should().BeTrue();
         second.ElapsedSeconds.Should().Be(7.5);
         await _execution.Received(1).ExecuteAsync(Arg.Any<JobDefinition>(), Arg.Any<SourceMediaInfo>(),
-            Arg.Any<Action<JobProgress>?>(), Arg.Any<Action<string>?>(), Arg.Any<ExecutionPauseState?>(), Arg.Any<CancellationToken>());
+            Arg.Any<Action<JobProgress>?>(), Arg.Any<Action<string>?>(), Arg.Any<ExecutionPauseState?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
         var changed = variant with { Settings = variant.Settings with { TargetQuality = new Av1QualityOptions(Crf: 28) } };
         _service.CacheKey(session, _context.MediaInfo, sample, changed).Should().NotBe(first.CacheKey);
         _service.CacheKey(session, _context.MediaInfo, sample with { StartSeconds = sample.StartSeconds + 1 }, variant).Should().NotBe(first.CacheKey);
@@ -98,7 +98,7 @@ public sealed class ComparisonServiceTests : IDisposable
     {
         var session = await _service.LoadAsync(_context);
         _execution.ExecuteAsync(Arg.Any<JobDefinition>(), Arg.Any<SourceMediaInfo>(), Arg.Any<Action<JobProgress>?>(),
-            Arg.Any<Action<string>?>(), Arg.Any<ExecutionPauseState?>(), Arg.Any<CancellationToken>())
+            Arg.Any<Action<string>?>(), Arg.Any<ExecutionPauseState?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .Returns(call =>
             {
                 var job = call.Arg<JobDefinition>();

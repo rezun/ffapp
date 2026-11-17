@@ -291,6 +291,19 @@ public class CommandBuilderTests
             .And.EndWith("/test/output.mp4");
     }
 
+    [Fact]
+    public void Build_WithWorkDirectory_PlacesTwoPassLogsAndImagesThere()
+    {
+        var job = JobWith(s => s.WithVp9(twoPass: true).WithContainer(OutputContainer.Mkv));
+        var media = new TestMediaInfoBuilder().WithAttachedPictures().Build();
+
+        var commands = _sut.Build(job, media, "/work/job-1");
+
+        commands[0].TemporaryFiles.Should().NotBeEmpty().And.OnlyContain(path => path.StartsWith("/work/job-1/", StringComparison.Ordinal));
+        JoinArgs(commands[1]).Should().Contain("-passlogfile /work/job-1/.output-ffpass");
+        JoinArgs(commands[2]).Should().Contain("-passlogfile /work/job-1/.output-ffpass");
+    }
+
     // ---------------------------------------------------------------
     // Target bitrate encoding
     // ---------------------------------------------------------------

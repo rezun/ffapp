@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- UI-free encoding core shared by the desktop app and the server agent: job models, command building, validation and job execution. -->
+  <PropertyGroup>
+    <RootNamespace>FFApp</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="FFApp" />
+    <InternalsVisibleTo Include="FFApp.Tests" />
+    <InternalsVisibleTo Include="FFApp.Agent" />
+    <InternalsVisibleTo Include="FFApp.Agent.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../FFApp.Media/FFApp.Media.csproj" />
+  </ItemGroup>
+</Project>

@@ -33,6 +33,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../FFApp.Media/FFApp.Media.csproj" />
+    <ProjectReference Include="../FFApp.Encoding/FFApp.Encoding.csproj" />
     <ProjectReference Include="../FFApp.Desktop/FFApp.Desktop.csproj" />
   </ItemGroup>
 </Project>

@@ -199,7 +199,7 @@ public sealed class ComparisonViewModelTests
         await harness.LoadAsync();
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         harness.Execution.ExecuteAsync(Arg.Any<JobDefinition>(), Arg.Any<SourceMediaInfo>(), Arg.Any<Action<JobProgress>?>(),
-            Arg.Any<Action<string>?>(), Arg.Any<ExecutionPauseState?>(), Arg.Any<CancellationToken>())
+            Arg.Any<Action<string>?>(), Arg.Any<ExecutionPauseState?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .Returns(async call =>
             {
                 var job = call.Arg<JobDefinition>();

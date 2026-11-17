@@ -39,7 +39,7 @@ public sealed class ComparisonTestHarness : IDisposable
         var editor = new OutputSettingsViewModel(validation, messenger, Substitute.For<IFfmpegCapabilityService>(), config) { IsVideoModeEditable = false };
         ViewModel = new ComparisonViewModel(Service, editor, messenger, Playback, dialogs);
         Execution.ExecuteAsync(Arg.Any<JobDefinition>(), Arg.Any<SourceMediaInfo>(), Arg.Any<Action<JobProgress>?>(),
-            Arg.Any<Action<string>?>(), Arg.Any<ExecutionPauseState?>(), Arg.Any<CancellationToken>())
+            Arg.Any<Action<string>?>(), Arg.Any<ExecutionPauseState?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .Returns(call =>
             {
                 var job = call.Arg<JobDefinition>();

@@ -187,7 +187,7 @@ public sealed class QueueService(
                         progressCb,
                         LogLine,
                         pauseState,
-                        linkedToken).ConfigureAwait(false);
+                        ct: linkedToken).ConfigureAwait(false);
 
                     var finished = FinalizeItem(itemId, result.State, result);
                     WriteJobLogResult(jobLog, finished);

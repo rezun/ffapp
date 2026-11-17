@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Wire contract between FFApp and the server agent: DTOs, routes, protocol version and the JSON context. -->
+  <PropertyGroup>
+    <RootNamespace>FFApp.Remote.Contracts</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../FFApp.Encoding/FFApp.Encoding.csproj" />
+  </ItemGroup>
+</Project>

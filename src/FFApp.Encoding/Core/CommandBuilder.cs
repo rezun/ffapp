@@ -48,18 +48,18 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
 
     private static readonly string TrueHdCodecName = "truehd";
 
-    public IReadOnlyList<GeneratedCommand> Build(JobDefinition job, SourceMediaInfo mediaInfo)
+    public IReadOnlyList<GeneratedCommand> Build(JobDefinition job, SourceMediaInfo mediaInfo, string? workDirectory = null)
     {
         // Matroska stores pictures as file attachments. Mapping them as video would
         // turn them into regular video tracks and lose attached_pic on the next probe.
         if (job.Container is not (OutputContainer.Mkv or OutputContainer.Mka)
             || job.StreamHandling.RemoveImages || mediaInfo.AttachedPictureStreams.Length == 0)
         {
-            return BuildEncodingCommands(job, mediaInfo, []);
+            return BuildEncodingCommands(job, mediaInfo, [], workDirectory);
         }
 
         var attachments = mediaInfo.AttachedPictureStreams.Select(stream => new PictureAttachment(
-            stream, Path.Combine(Path.GetTempPath(), $"ffapp-image-{Guid.NewGuid():N}"))).ToArray();
+            stream, Path.Combine(workDirectory ?? Path.GetTempPath(), $"ffapp-image-{Guid.NewGuid():N}"))).ToArray();
         var extractionArgs = new List<string> { "-hide_banner", "-y", "-i", job.SourcePath };
         foreach (var attachment in attachments)
         {
@@ -71,13 +71,13 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         {
             TemporaryFiles = [.. attachments.Select(attachment => attachment.Path)],
         };
-        return [extraction, .. BuildEncodingCommands(job, mediaInfo, attachments)];
+        return [extraction, .. BuildEncodingCommands(job, mediaInfo, attachments, workDirectory)];
     }
 
     private sealed record PictureAttachment(AttachedPictureStreamInfo Stream, string Path);
 
     private IReadOnlyList<GeneratedCommand> BuildEncodingCommands(
-        JobDefinition job, SourceMediaInfo mediaInfo, IReadOnlyList<PictureAttachment> attachments)
+        JobDefinition job, SourceMediaInfo mediaInfo, IReadOnlyList<PictureAttachment> attachments, string? workDirectory)
     {
         var inputArgs = new List<string> { "-hide_banner", "-y" };
         var trimStart = job.TrimStartSeconds ?? 0;
@@ -160,7 +160,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
             if (job.EncodingStrategy != EncodingStrategy.TargetQuality)
                 bitrate = ResolveVideoBitrate(job, mediaInfo);
 
-            var passLogPath = PassLogPath(job.OutputPath);
+            var passLogPath = PassLogPath(job.OutputPath, workDirectory);
 
             var firstPassArgs = new List<string>(inputArgs);
             firstPassArgs.AddRange(firstPassMappingArgs);
@@ -944,9 +944,9 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         _ => false,
     };
 
-    private static string PassLogPath(string outputPath)
+    private static string PassLogPath(string outputPath, string? workDirectory)
     {
-        var directory = Path.GetDirectoryName(outputPath) ?? string.Empty;
+        var directory = workDirectory ?? Path.GetDirectoryName(outputPath) ?? string.Empty;
         var stem = Path.GetFileNameWithoutExtension(outputPath);
         return Path.Combine(directory, $".{stem}-{TwoPassLogSuffix}");
     }

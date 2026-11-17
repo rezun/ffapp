@@ -1,7 +1,14 @@
+using System.Text.Json.Serialization;
+
 namespace FFApp.Core.Models;
 
 // --- Video Encoder Options (discriminated union via abstract record) ---
 
+// The discriminator keeps the concrete type when jobs travel to the server agent as JSON.
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
+[JsonDerivedType(typeof(H26xEncoderOptions), "h26x")]
+[JsonDerivedType(typeof(VpxEncoderOptions), "vpx")]
+[JsonDerivedType(typeof(Av1EncoderOptions), "av1")]
 public abstract record VideoEncoderOptions(VideoCodec Codec);
 
 public sealed record H26xEncoderOptions(
@@ -40,6 +47,10 @@ public sealed record Av1EncoderOptions(
 
 // --- Quality Options (discriminated union via abstract record) ---
 
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
+[JsonDerivedType(typeof(H26xQualityOptions), "h26x")]
+[JsonDerivedType(typeof(Vp9QualityOptions), "vp9")]
+[JsonDerivedType(typeof(Av1QualityOptions), "av1")]
 public abstract record QualityOptions(VideoCodec Codec);
 
 public sealed record H26xQualityOptions(

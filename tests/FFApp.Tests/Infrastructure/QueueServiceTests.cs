@@ -35,7 +35,7 @@ public sealed class QueueServiceTests : IDisposable
     private void SetupExecution(Func<CallInfo, Task<JobResult>> execute) =>
         _mockExecution.ExecuteAsync(
                 Arg.Any<JobDefinition>(), Arg.Any<SourceMediaInfo>(), Arg.Any<Action<JobProgress>?>(),
-                Arg.Any<Action<string>?>(), Arg.Any<ExecutionPauseState?>(), Arg.Any<CancellationToken>())
+                Arg.Any<Action<string>?>(), Arg.Any<ExecutionPauseState?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .Returns(execute);
 
     /// <summary>Routes job logs to real files under a per-test directory that <see cref="Dispose"/> removes.</summary>
@@ -234,7 +234,7 @@ public sealed class QueueServiceTests : IDisposable
         UseFileLogs();
         _mockExecution.ExecuteAsync(
                 Arg.Any<JobDefinition>(), Arg.Any<SourceMediaInfo>(), Arg.Any<Action<JobProgress>?>(),
-                Arg.Any<Action<string>?>(), Arg.Any<ExecutionPauseState?>(), Arg.Any<CancellationToken>())
+                Arg.Any<Action<string>?>(), Arg.Any<ExecutionPauseState?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .Returns(
                 Task.FromResult(Completed()),
                 Task.FromException<JobResult>(new InvalidOperationException("boom")));

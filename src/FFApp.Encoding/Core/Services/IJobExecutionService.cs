@@ -10,5 +10,6 @@ public interface IJobExecutionService
         Action<JobProgress>? progressCallback = null,
         Action<string>? logCallback = null,
         ExecutionPauseState? pauseState = null,
+        string? workDirectory = null,
         CancellationToken ct = default);
 }

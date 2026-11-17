@@ -1,4 +1,7 @@
 using System.Collections.Immutable;
+using System.Text.Json.Serialization;
+
+using FFApp.Core.Serialization;
 
 namespace FFApp.Core.Models;
 
@@ -23,9 +26,12 @@ public sealed record VideoStreamInfo(
     public StreamDetails Details { get; init; } = StreamDetails.Empty;
     public bool HasDolbyVision { get; init; }
 
+    [JsonIgnore]
     public int? DisplayWidth => IsRotated90Or270 ? Height : Width;
+    [JsonIgnore]
     public int? DisplayHeight => IsRotated90Or270 ? Width : Height;
 
+    [JsonIgnore]
     public HdrFormat HdrFormat => (ColorTransfer, ColorPrimaries) switch
     {
         ("smpte2084", "bt2020") => HdrFormat.Hdr10,
@@ -33,6 +39,7 @@ public sealed record VideoStreamInfo(
         _ => HdrFormat.Sdr,
     };
 
+    [JsonIgnore]
     public bool IsHdr => HdrFormat != HdrFormat.Sdr;
 
     private bool IsRotated90Or270 =>
@@ -99,6 +106,7 @@ public sealed record StreamDetails
     public string? Profile { get; init; }
     public int? BitsPerRawSample { get; init; }
     public double? DurationSeconds { get; init; }
+    [JsonConverter(typeof(CaseInsensitiveStringDictionaryConverter))]
     public ImmutableDictionary<string, string> Tags { get; init; } =
         ImmutableDictionary<string, string>.Empty.WithComparers(StringComparer.OrdinalIgnoreCase);
 }

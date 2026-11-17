@@ -7,6 +7,9 @@
                                 release notes. Fails if it is missing or empty.
 """
 
+# Keeps the modern type hints working on macOS's system Python 3.9.
+from __future__ import annotations
+
 import argparse
 import datetime
 import re

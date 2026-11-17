@@ -1,6 +1,6 @@
 # Plan: Remote transcoding through a server agent
 
-Status: Draft · Branch `feature/remote-agent`
+Status: Implemented · Branch `feature/remote-agent` (see section 11 for deviations)
 
 ## 1. Goal
 
@@ -456,3 +456,22 @@ Each phase can be merged on its own. Phase 1 is pure refactoring and needs no ch
 6. **Multiple clients:** supported. Each client sees only its own jobs, plus anonymous load
    information and an estimated start time (see section 6, "Clients" and "Queue and load
    information").
+
+## 11. Implementation notes
+
+Where the implementation differs from or refines the plan:
+
+- **Settings schema:** `settings.json` already had schema version 5, so the server agent settings (`remote_agent`) raise it to 6.
+- **Remote phase:** `JobProgress.Remote` is a `RemoteProgress` record (phase, transfer percentage and rate, queue position, estimated start, pause state, notice) instead of a bare `RemotePhase` field.
+- **Lanes:** `QueueService` runs both lanes from one coordinator. A server job frees the upload lane as soon as it reports a phase after `Uploading`. Local jobs share one pause state as before; each server job has its own, and the queue's context menu pauses, resumes or cancels single jobs.
+- **Source fingerprint:** size, modification time and the SHA-256 of the first and last 16 MiB (`SourceFingerprint`). The comparison cache fingerprint hashes the path instead, so it was not reused.
+- **Resumed uploads** hash the part the agent already has again, so the final SHA-256 still covers the whole file.
+- **Partial JSON:** the source-generated serializer sets missing `init` properties to `default`; the agent restores the defaults of sparse `SourceMediaInfo` with `WireNormalization` instead of failing.
+- **Unsupported jobs:** `POST /jobs` builds the commands once against the agent's FFmpeg and answers `422 unsupported_job` when that fails.
+- **Events:** `GET /events` sends a `heartbeat` event every 20 seconds; the app reconnects when nothing arrives for 70 seconds.
+- **Ack and delete** both remove the job record; `DELETE` keeps a result that was kept on the server. Jobs that failed or were canceled in an earlier app session are removed from the agent at the next start, so "Run again" without upload works within a session.
+- **Notifications** use `osascript` on macOS and `notify-send` on Linux; Windows shows none yet.
+- **Windows secrets** use DPAPI through `System.Security.Cryptography.ProtectedData`.
+- **Installer:** `install.sh` also links `/usr/local/bin/ffapp-agent`, writes `ClientsFile` into the configuration and regenerates the unit on every run. The agent finds the FFmpeg installed by `--with-ffmpeg` in `tools/` without editing an existing configuration.
+- **Not implemented:** the optional mDNS/Bonjour announcement.
+

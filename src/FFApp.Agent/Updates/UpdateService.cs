@@ -60,7 +60,10 @@ public sealed partial class UpdateService(
     public bool IsManagedInstall =>
         new FileInfo(paths.Current).LinkTarget is not null
         && Environment.ProcessPath is { } process
-        && Path.GetFullPath(process).StartsWith(Path.GetFullPath(paths.Versions) + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+        && (IsUnder(process, paths.Current) || IsUnder(process, paths.Versions));
+
+    private static bool IsUnder(string path, string directory) =>
+        Path.GetFullPath(path).StartsWith(Path.GetFullPath(directory) + Path.DirectorySeparatorChar, StringComparison.Ordinal);
 
     public UpdateStatus Request(string version)
     {

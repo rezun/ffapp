@@ -227,12 +227,66 @@ jobs:
           path: Releases/*
           if-no-files-found: error
 
+  agent:
+    name: Package server agent
+    needs: [verify, changelog]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Resolve release version
+        id: version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            VERSION="$INPUT_VERSION"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      # One self-contained file per architecture; the agent installs exactly the app's version,
+      # so every release carries both archives, their checksums and the installer.
+      - name: Publish agent archives
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          mkdir -p agent-release
+          for rid in linux-x64 linux-arm64; do
+            dotnet publish src/FFApp.Agent/FFApp.Agent.csproj -c Release -r "$rid" --self-contained \
+              -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
+              -p:EnableCompressionInSingleFile=true -p:Version="$VERSION" \
+              -o "publish/agent-$rid"
+            tar -czf "agent-release/ffapp-agent-$VERSION-$rid.tar.gz" -C "publish/agent-$rid" ffapp-agent
+          done
+          (cd agent-release && sha256sum ffapp-agent-*.tar.gz > SHA256SUMS)
+          install -m 0755 packaging/agent/ffapp-agent-install.sh agent-release/ffapp-agent-install.sh
+          cat agent-release/SHA256SUMS
+
+      - name: Upload agent artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: agent-release
+          path: agent-release/*
+          if-no-files-found: error
+
   release:
     name: Publish GitHub release
     permissions:
       contents: write
     runs-on: ubuntu-latest
-    needs: package
+    needs: [package, agent]
 
     steps:
       - name: Download packaged artifacts
@@ -240,6 +294,12 @@ jobs:
         with:
           pattern: velopack-*
           merge-multiple: true
+          path: release-assets
+
+      - name: Download agent artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: agent-release
           path: release-assets
 
       - name: Download release notes

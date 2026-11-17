@@ -56,6 +56,11 @@ public static class AgentProgram
                 return StartupCheck.Run(CreateApp([], quiet: true).Services.GetRequiredService<AgentPaths>(), Console.Out);
             case "check":
                 return await CheckAsync(CreateApp([], quiet: true).Services);
+            case "output-roots":
+                // Used by ffapp-agent-install.sh to write ReadWritePaths into the systemd unit.
+                foreach (var path in CreateApp([], quiet: true).Services.GetRequiredService<IOptions<AgentOptions>>().Value.OutputRoots.Values)
+                    Console.WriteLine(path);
+                return 0;
             case "client":
                 return RunClientCommand(CreateApp([], quiet: true).Services, rest);
             case "help" or "--help" or "-h":

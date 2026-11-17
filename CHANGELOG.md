@@ -12,6 +12,7 @@ Add entries under **Unreleased** as part of each change. `scripts/release.py <ve
 - *Settings → Server agent…* to connect to an agent, test the connection, set defaults and update the agent to the app's version.
 - Server jobs show their phase in the queue (uploading, waiting for the server with an estimated start, running, downloading), survive app restarts and send a notification when they finish.
 - Pause, resume or cancel a single job from the queue's context menu.
+- Releases include the agent for Linux x64 and ARM64 with a one-line installer (`ffapp-agent-install.sh`) that sets up a systemd service.
 
 ## [1.14.2] - 2026-11-17
 

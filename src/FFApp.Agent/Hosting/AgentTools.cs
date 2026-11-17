@@ -23,7 +23,9 @@ public sealed class AgentTools(
     {
         var tools = options.Value.Tools;
         var status = await dependencies.DiscoverAsync(new ExecutablePaths(
-            NullIfEmpty(tools.Ffmpeg), NullIfEmpty(tools.Ffprobe), NullIfEmpty(tools.Mkvpropedit)), ct);
+            NullIfEmpty(tools.Ffmpeg) ?? Bundled("ffmpeg"),
+            NullIfEmpty(tools.Ffprobe) ?? Bundled("ffprobe"),
+            NullIfEmpty(tools.Mkvpropedit)), ct);
         pathsConfig.Configure(status.ExecutablePaths);
         capabilities.Capabilities = status.Capabilities;
         capabilities.IsLibplaceboAvailable = status.IsLibplaceboAvailable;
@@ -56,6 +58,13 @@ public sealed class AgentTools(
     }
 
     private static string? NullIfEmpty(string value) => string.IsNullOrWhiteSpace(value) ? null : value;
+
+    /// <summary>The static FFmpeg build that <c>install.sh --with-ffmpeg</c> puts into <c>tools/</c>.</summary>
+    private string? Bundled(string name)
+    {
+        var path = Path.Combine(options.Value.WorkDirectory, "tools", name);
+        return File.Exists(path) ? path : null;
+    }
 }
 
 /// <summary>Finds FFmpeg and loads persisted state before the agent accepts requests.</summary>

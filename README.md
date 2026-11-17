@@ -7,6 +7,7 @@ A cross-platform desktop GUI for FFmpeg, built to make video and audio encoding 
 - **Multiple codecs** — H.264, H.265, VP9, AV1 for video; MP3, AAC, Vorbis, Opus for audio
 - **Three encoding strategies** — Target quality (CRF), target bitrate (two-pass), or target file size
 - **Job queue** — Batch encode with progress tracking, pause/resume, and per-job logs
+- **Server agent** — Run encodes on a Linux server in your network while this computer may sleep or shut down
 - **Video preview** — Scrub through video with trim and crop controls (via LibVLC)
 - **Encoding comparisons** — A separate window with editable, evenly distributed samples, independent settings variants, synchronized A/B playback, and a size/time results table. Comparisons and completed clips are saved for reuse.
 - **Color information** — Preserve source color labels, explicitly fill missing values as BT.709 / Limited, or correct labels manually; source and effective output values are shown
@@ -93,6 +94,59 @@ FFApp and FFRux each keep two kinds of logs in their own log folder:
 
 ---
 
+## Server agent
+
+Long encodes can run on a headless Linux server in your home network. The **FFApp agent** runs there as a systemd service. FFApp uploads the source, the agent encodes it with its own FFmpeg, and FFApp either downloads the result or leaves it in a folder on the server. A running job does not depend on your computer: it may sleep, close FFApp or shut down. Only the upload, and the download if one is needed, need it.
+
+### Install the agent
+
+On the server (x86_64 or arm64, systemd), install the latest release:
+
+```bash
+curl -fsSL https://github.com/rezun/ffapp/releases/latest/download/ffapp-agent-install.sh | sudo bash
+```
+
+Add `-s -- --version 1.15.0` after `bash` for a fixed version, `--with-ffmpeg` to download a static FFmpeg 9 build into the agent's folder (Ubuntu 24.04 ships FFmpeg 6.1), and `--client macbook` to name the first client. The script prints that client's token once. It creates the system user `ffapp-agent`, installs the agent to `/var/lib/ffapp-agent`, writes `/etc/ffapp-agent/appsettings.json` on the first run, installs and starts the `ffapp-agent` service and runs `ffapp-agent check`. Running it again keeps the configuration and clients.
+
+```json
+{
+  "Agent": {
+    "Urls": "http://0.0.0.0:8737",
+    "WorkDirectory": "/var/lib/ffapp-agent",
+    "QuotaGiB": 500,
+    "RetentionDays": 14,
+    "OutputRoots": { "Movies": "/srv/media/movies" },
+    "Tools": { "Ffmpeg": "", "Ffprobe": "", "Mkvpropedit": "" }
+  }
+}
+```
+
+`OutputRoots` lists the folders where results may stay on the server; the app only picks one of these names. The service user needs write access to them. After changing `OutputRoots`, run the install script again so the systemd unit allows writing there. Empty `Tools` entries use the FFmpeg installed with `--with-ffmpeg`, otherwise the system's. `mkvpropedit` (package `mkvtoolnix`) is optional.
+
+Each computer gets its own client and token. Clients only see their own jobs, plus anonymous load information:
+
+```bash
+sudo ffapp-agent client add windows-pc   # prints the new token once
+sudo ffapp-agent client list
+sudo ffapp-agent client remove windows-pc  # also deletes its jobs, uploads and results
+sudo ffapp-agent check                     # FFmpeg, encoders, mkvpropedit and output folders
+journalctl -u ffapp-agent                  # agent log
+```
+
+The agent listens on port 8737 over plain HTTP and is meant for the home network only. Do not forward the port to the internet; use a VPN such as Tailscale for remote access.
+
+### Use it in FFApp
+
+Open **Settings → Server agent…**, enter the server's address (for example `nas.local`) and the token, then **Test connection**. It shows the agent version, FFmpeg, available encoders, free space and the current load. Defaults for new jobs are set there too.
+
+Next to **Add selected**, choose **Local** or **Server**. For server jobs choose whether the result is downloaded **To this Mac** (or computer), or kept **On the server** in one of the output folders. The settings are validated against the server's FFmpeg. Server jobs show a **Server** badge and their phase: uploading with transfer rate, waiting for the server with position and estimated start, running, downloading. Local and server jobs run at the same time. Uploads run one after another; once a job is on the server, the next upload starts. Interrupted uploads and downloads resume where they stopped, and an identical file is uploaded only once. While a transfer runs, macOS does not go to sleep.
+
+Server jobs survive restarts of FFApp: on the next start they appear in the queue again, unfinished uploads continue and finished results are downloaded. If the agent restarts during an encode, the job fails; **Start** runs it again without a new upload. FFApp shows a notification when a server job finishes, fails or is canceled. Right-click a job to pause, resume or cancel only that job.
+
+### Agent updates
+
+The agent runs exactly FFApp's version, because both exchange the full job definition. When they differ, FFApp offers **Update agent to <version>** in the queue and in the server agent settings; nothing happens without that click. The agent finishes the running job, downloads that release, verifies its checksum, switches to it and restarts. If the new version fails to start twice, it returns to the previous one. Agents too old for this show the install command instead. Running the install script again with `--version` always works.
+
 ## Developer Guide
 
 ### Tech Stack
@@ -108,11 +162,14 @@ FFApp and FFRux each keep two kinds of logs in their own log folder:
 
 ### Project Structure
 
-The repository builds two desktop apps on two shared libraries:
+The repository builds two desktop apps and the server agent on shared libraries:
 
 ```
 src/
   FFApp.Media/          # UI-free: media models, ffprobe, process runner, tool discovery
+  FFApp.Encoding/       # UI-free: job models, FFmpeg command building, validation, job execution
+  FFApp.Remote.Contracts/ # App ↔ agent protocol: DTOs, protocol version, JSON context
+  FFApp.Agent/          # Server agent (ASP.NET Core): uploads, job queue, events, updates
   FFApp.Desktop/        # Avalonia: app identity, single instance, launch files, theme tokens, styles, controls
   FFApp/                # The encoder app
     Views/              # Avalonia XAML views
@@ -123,6 +180,7 @@ src/
       CommandBuilder.cs # FFmpeg argument generation
       Validation/       # Codec/container compatibility rules
     Infrastructure/     # Service implementations (queue, settings, comparison)
+    Remote/             # Server agent client, remote job execution, secret store
     Converters/         # XAML value converters
     Controls/           # FFApp-only Avalonia controls
   FFRux/                # The remux app (see docs/ffrux-requirements.md)
@@ -132,9 +190,11 @@ src/
 tests/
   FFApp.Shared.Tests/   # Tests for FFApp.Media and FFApp.Desktop
   FFApp.Tests/
+  FFApp.Agent.Tests/    # Agent API through WebApplicationFactory, wire contract, app client end to end
   FFRux.Tests/          # Unit tests, plus integration tests that run the copy matrix against FFmpeg
 packaging/
   ffapp/  ffrux/        # Per-app Info.plist, icons and .desktop files
+  agent/                # ffapp-agent-install.sh
 ```
 
 Shared code keeps its original namespaces (`FFApp.Core.Models`, `FFApp.Infrastructure`, …), so moving a type into a shared library does not change any `using`. Each app has its own `AppIdentity`, which gives it a separate data folder and single-instance pipe: FFApp and FFRux can run side by side and never receive each other's "Open with" files. Package versions are pinned once in `Directory.Packages.props`.
@@ -172,6 +232,8 @@ dotnet test --filter "Category!=Integration"
 [CI](https://github.com/rezun/ffapp/actions/workflows/ci.yml) builds the solution in Release and runs the unit tests on pushes to `main` and pull requests. FFmpeg-dependent integration tests can be run locally; CI excludes `Category=Integration`.
 
 The [Release workflow](https://github.com/rezun/ffapp/actions/workflows/release.yml) runs CI before packaging one combined FFApp/FFRux payload for each of the six platform/architecture combinations. The shared `scripts/publish-bundle.sh` builds both executables in isolated folders to avoid dependency collisions; `scripts/verify-bundle.py` checks that both executables, runtime configurations and matching versions are present before packaging. On macOS the Velopack installer is combined with a second mandatory component for the FFRux launcher; `scripts/verify-macos-installer.py` checks both installer entries. The tag version overrides both project versions for that release.
+
+Every release also carries the server agent: `ffapp-agent-<version>-linux-x64.tar.gz` and `-linux-arm64.tar.gz` (self-contained single files), `SHA256SUMS` for both, and `ffapp-agent-install.sh`. `scripts/release.py prepare` bumps the agent's version together with the apps, because the app asks the agent to install exactly its own version.
 
 Release notes come from [CHANGELOG.md](CHANGELOG.md). Changes collect under **Unreleased**; `scripts/release.py prepare` moves them into a dated version section and bumps both project versions. The workflow publishes that section as the GitHub release notes and stops before packaging if the version has no entries. For example:
 

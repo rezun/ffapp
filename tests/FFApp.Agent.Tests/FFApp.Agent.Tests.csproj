@@ -14,9 +14,11 @@
     </PackageReference>
     <PackageReference Include="NSubstitute" />
     <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="../../src/FFApp.Remote.Contracts/FFApp.Remote.Contracts.csproj" />
+    <ProjectReference Include="../../src/FFApp.Agent/FFApp.Agent.csproj" />
   </ItemGroup>
 </Project>

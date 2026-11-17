@@ -18,7 +18,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CHANGELOG = ROOT / "CHANGELOG.md"
-PROJECTS = [ROOT / "src/FFApp/FFApp.csproj", ROOT / "src/FFRux/FFRux.csproj"]
+PROJECTS = [
+    ROOT / "src/FFApp/FFApp.csproj",
+    ROOT / "src/FFRux/FFRux.csproj",
+    # The agent reports the app's version: the app asks it to install exactly that one.
+    ROOT / "src/FFApp.Agent/FFApp.Agent.csproj",
+]
 REPO_URL = "https://github.com/rezun/ffapp"
 UNRELEASED = "Unreleased"
 

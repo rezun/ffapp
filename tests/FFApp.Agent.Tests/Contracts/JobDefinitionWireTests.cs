@@ -56,4 +56,18 @@ public sealed class JobDefinitionWireTests
 
         act.Should().Throw<JsonException>();
     }
+
+    [Fact]
+    public void SparseMediaInfo_IsNormalizedToUsableDefaults()
+    {
+        var sparse = JsonSerializer.Deserialize("""{"sourcePath":"/a.mkv","videoStreams":[{"index":0}]}""",
+            RemoteJsonContext.Default.SourceMediaInfo)!;
+
+        var media = WireNormalization.Normalize(sparse);
+
+        media.AudioStreams.IsDefault.Should().BeFalse();
+        media.Chapters.IsDefault.Should().BeFalse();
+        media.VideoStreams[0].MetadataKeys.IsDefault.Should().BeFalse();
+        media.VideoStreams[0].Details.Tags.Should().BeEmpty();
+    }
 }

@@ -7,7 +7,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="FFApp" />
     <InternalsVisibleTo Include="FFApp.Tests" />
-    <InternalsVisibleTo Include="FFApp.Agent" />
+    <InternalsVisibleTo Include="ffapp-agent" />
     <InternalsVisibleTo Include="FFApp.Agent.Tests" />
   </ItemGroup>
 

@@ -58,4 +58,34 @@ public class QueueTimeEstimatorTests
     {
         QueueTimeEstimator.EstimateRemainingSeconds(entries).Should().BeNull();
     }
+
+    [Fact]
+    public void Schedule_UsesThroughputOfSameKindForWaitingJobs()
+    {
+        // The running x264 job encodes 2 media seconds per second; history says AV1 encodes 0.5.
+        var running = Running(100, 25, 50) with { Kind = "x264" };
+        QueueEstimateEntry[] history = [new(JobState.Completed, 100, 1, ElapsedSeconds: 200, Kind: "av1")];
+
+        var schedule = QueueTimeEstimator.EstimateSchedule(running,
+            [Pending(100) with { Kind = "av1" }, Pending(100) with { Kind = "x264" }, Pending(100) with { Kind = "vp9" }],
+            history);
+
+        schedule.RunningRemainingSeconds.Should().BeApproximately(25, 0.001);
+        schedule.PendingStartSeconds.Should().HaveCount(3);
+        schedule.PendingStartSeconds[0].Should().BeApproximately(25, 0.001);
+        schedule.PendingStartSeconds[1].Should().BeApproximately(225, 0.001);
+        schedule.PendingStartSeconds[2].Should().BeApproximately(275, 0.001);
+        // Unknown kind: all history blended with the running job, (100 + 50) / (200 + 25).
+        schedule.IdleAfterSeconds.Should().BeApproximately(275 + 100 / (150.0 / 225), 0.001);
+    }
+
+    [Fact]
+    public void Schedule_UnknownDurationStopsLaterEstimates()
+    {
+        var schedule = QueueTimeEstimator.EstimateSchedule(null, [Pending(null), Pending(100)],
+            [new(JobState.Completed, 100, 1, ElapsedSeconds: 100)]);
+
+        schedule.PendingStartSeconds.Should().Equal(0, null);
+        schedule.IdleAfterSeconds.Should().BeNull();
+    }
 }

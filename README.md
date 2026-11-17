@@ -171,12 +171,18 @@ dotnet test --filter "Category!=Integration"
 
 [CI](https://github.com/rezun/ffapp/actions/workflows/ci.yml) builds the solution in Release and runs the unit tests on pushes to `main` and pull requests. FFmpeg-dependent integration tests can be run locally; CI excludes `Category=Integration`.
 
-The [Release workflow](https://github.com/rezun/ffapp/actions/workflows/release.yml) runs CI before packaging one combined FFApp/FFRux payload for each of the six platform/architecture combinations. The shared `scripts/publish-bundle.sh` builds both executables in isolated folders to avoid dependency collisions; `scripts/verify-bundle.py` checks that both executables, runtime configurations and matching versions are present before packaging. On macOS the Velopack installer is combined with a second mandatory component for the FFRux launcher; `scripts/verify-macos-installer.py` checks both installer entries. The tag version overrides both project versions for that release. For example:
+The [Release workflow](https://github.com/rezun/ffapp/actions/workflows/release.yml) runs CI before packaging one combined FFApp/FFRux payload for each of the six platform/architecture combinations. The shared `scripts/publish-bundle.sh` builds both executables in isolated folders to avoid dependency collisions; `scripts/verify-bundle.py` checks that both executables, runtime configurations and matching versions are present before packaging. On macOS the Velopack installer is combined with a second mandatory component for the FFRux launcher; `scripts/verify-macos-installer.py` checks both installer entries. The tag version overrides both project versions for that release.
+
+Release notes come from [CHANGELOG.md](CHANGELOG.md). Changes collect under **Unreleased**; `scripts/release.py prepare` moves them into a dated version section and bumps both project versions. The workflow publishes that section as the GitHub release notes and stops before packaging if the version has no entries. For example:
 
 ```bash
-git tag -a v1.13.6 -m "FFApp 1.13.4"
-git push origin v1.13.6
+python3 scripts/release.py prepare 1.14.3
+git commit -am "Bump FFApp and FFRux to 1.14.3"
+git tag -a v1.14.3 -m "FFApp 1.14.3"
+git push origin main v1.14.3
 ```
+
+`python3 scripts/release.py notes 1.14.3` prints the notes as they will appear on GitHub.
 
 A `v*` tag publishes the release after every package has built and uploaded successfully. Prerelease versions such as `v1.13.2-beta.1` are marked as prereleases. To test packaging first, run the workflow manually with a SemVer version (without `v`) and leave `publish_release` disabled; the assets stay in a draft release. Enable it to publish after upload.
 

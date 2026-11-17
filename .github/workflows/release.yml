@@ -34,9 +34,39 @@ jobs:
     permissions:
       contents: read
 
+  changelog:
+    name: Extract release notes
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Extract changelog section
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            VERSION="$INPUT_VERSION"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+
+          python3 scripts/release.py notes "$VERSION" > release-notes.md
+          cat release-notes.md
+
+      - name: Upload release notes
+        uses: actions/upload-artifact@v6
+        with:
+          name: release-notes
+          path: release-notes.md
+          if-no-files-found: error
+
   package:
     name: Package FFApp ${{ matrix.platform.rid }}
-    needs: verify
+    needs: [verify, changelog]
     runs-on: ${{ matrix.platform.os }}
     strategy:
       fail-fast: false
@@ -212,6 +242,11 @@ jobs:
           merge-multiple: true
           path: release-assets
 
+      - name: Download release notes
+        uses: actions/download-artifact@v7
+        with:
+          name: release-notes
+
       - name: Create or update GitHub release
         shell: bash
         env:
@@ -229,8 +264,10 @@ jobs:
           fi
           TAG="v$VERSION"
 
-          if ! gh release view "$TAG" >/dev/null 2>&1; then
-            gh release create "$TAG" --title "FFApp and FFRux $VERSION" --generate-notes --draft --target "$RELEASE_SHA"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --notes-file release-notes.md
+          else
+            gh release create "$TAG" --title "FFApp and FFRux $VERSION" --notes-file release-notes.md --draft --target "$RELEASE_SHA"
           fi
 
           while IFS= read -r asset_name; do

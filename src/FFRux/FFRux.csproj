@@ -6,7 +6,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <RootNamespace>FFRux</RootNamespace>
-    <Version>1.14.0</Version>
+    <Version>1.14.1</Version>
     <ApplicationIcon>Assets/ffrux.ico</ApplicationIcon>
   </PropertyGroup>
 

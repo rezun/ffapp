@@ -50,11 +50,14 @@ public partial class MainWindow : Window
             SetTheme(settings.ThemePreference, persist: false);
 
             Dispatcher.UIThread.Post(Activate);
+            // Keep the updater idle at debug startup so the offline simulation can start immediately.
+#if !DEBUG
             using var updateCheck = new CancellationTokenSource();
             void CancelUpdateCheck(object? sender, EventArgs args) => updateCheck.Cancel();
             Closed += CancelUpdateCheck;
             try { await vm.Updates.CheckAsync(manual: false, updateCheck.Token); }
             finally { Closed -= CancelUpdateCheck; }
+#endif
         }
         catch (Exception ex)
         {
@@ -63,6 +66,17 @@ public partial class MainWindow : Window
     }
 
     public void OnThemeSystem(object? sender, EventArgs e) => SetTheme(ThemePreference.System);
+
+#if DEBUG
+    internal void AddDebugMenu(System.Windows.Input.ICommand simulateUpdate)
+    {
+        if (NativeMenu.GetMenu(this) is not { } menu) return;
+
+        var debugMenu = new NativeMenu();
+        debugMenu.Items.Add(new NativeMenuItem("Simulate update") { Command = simulateUpdate });
+        menu.Items.Add(new NativeMenuItem("Debug") { Menu = debugMenu });
+    }
+#endif
 
     // async void: NativeMenuItem.Click is synchronous; failures are caught at this UI boundary.
     private async void OnToolsAndComponents(object? sender, EventArgs e)

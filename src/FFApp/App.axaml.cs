@@ -92,6 +92,9 @@ public partial class App : Application
             services.AddSingleton(_ => VelopackUpdateSource.CreateSource());
             services.AddSingleton(sp => VelopackUpdateSource.CreateManager(sp.GetRequiredService<Velopack.Sources.GithubSource>()));
             services.AddSingleton<IAppUpdateSource, VelopackUpdateSource>();
+#if DEBUG
+            services.AddSingleton<SimulatedAppUpdateSource>();
+#endif
             services.AddSingleton<IUpdateHost>(sp => new DesktopUpdateHost(mainWindow, sp.GetRequiredService<IDialogService>()));
             services.AddSingleton<AppUpdateViewModel>();
             services.AddSingleton<IValidationService, ValidationService>();
@@ -162,6 +165,9 @@ public partial class App : Application
             var vm = provider.GetRequiredService<MainWindowViewModel>();
             _mainViewModel = vm;
             mainWindow.DataContext = vm;
+#if DEBUG
+            mainWindow.AddDebugMenu(vm.Updates.SimulateUpdateCommand);
+#endif
             desktop.MainWindow = mainWindow;
             desktop.ShutdownMode = ShutdownMode.OnMainWindowClose;
             // The native shutdown callback is synchronous; await the save pipeline

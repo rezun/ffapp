@@ -11,15 +11,25 @@ namespace FFApp.ViewModels;
 /// </summary>
 public sealed partial class AppUpdateViewModel(
     IAppUpdateSource source, IUpdateHost host, IDialogService dialogs,
-    ILogger<AppUpdateViewModel> logger) : ObservableObject
+    ILogger<AppUpdateViewModel> logger
+#if DEBUG
+    , SimulatedAppUpdateSource? simulation = null
+#endif
+    ) : ObservableObject
 {
     private AppUpdate? _update;
     private JobListPanelViewModel? _jobList;
     private CancellationTokenSource? _checkCancellation;
     private Task? _cancelCheckTask;
+#if DEBUG
+    private bool _isSimulatedUpdate;
+#endif
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(CheckForUpdatesCommand), nameof(RestartNowCommand))]
+#if DEBUG
+    [NotifyCanExecuteChangedFor(nameof(SimulateUpdateCommand))]
+#endif
     private bool _isBusy;
 
     [ObservableProperty] private bool _canRestart;
@@ -73,6 +83,9 @@ public sealed partial class AppUpdateViewModel(
         OnPropertyChanged(nameof(IsVisible));
         CheckForUpdatesCommand.NotifyCanExecuteChanged();
         RestartNowCommand.NotifyCanExecuteChanged();
+#if DEBUG
+        SimulateUpdateCommand.NotifyCanExecuteChanged();
+#endif
     }
 
     partial void OnIsBusyChanged(bool value)
@@ -84,7 +97,16 @@ public sealed partial class AppUpdateViewModel(
     [RelayCommand(CanExecute = nameof(CanCheckForUpdates))]
     private Task CheckForUpdatesAsync() => CheckAsync(manual: true);
 
-    public async Task CheckAsync(bool manual, CancellationToken cancellationToken = default)
+#if DEBUG
+    [RelayCommand(CanExecute = nameof(CanCheckForUpdates))]
+    private Task SimulateUpdateAsync() =>
+        simulation is null ? Task.CompletedTask : CheckAsync(simulation, manual: true);
+#endif
+
+    public Task CheckAsync(bool manual, CancellationToken cancellationToken = default) =>
+        CheckAsync(source, manual, cancellationToken);
+
+    private async Task CheckAsync(IAppUpdateSource updateSource, bool manual, CancellationToken cancellationToken = default)
     {
         if (!CanCheckForUpdates) return;
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -96,7 +118,7 @@ public sealed partial class AppUpdateViewModel(
         var acceptingProgress = false;
         try
         {
-            var update = await source.CheckAsync(token);
+            var update = await updateSource.CheckAsync(token);
             token.ThrowIfCancellationRequested();
             if (update is { CanInstall: true, IsDownloaded: false })
             {
@@ -108,10 +130,13 @@ public sealed partial class AppUpdateViewModel(
                     if (acceptingProgress && !token.IsCancellationRequested)
                         DownloadPercentage = percentage;
                 });
-                await source.DownloadAsync(progress, token);
+                await updateSource.DownloadAsync(progress, token);
                 update = update with { IsDownloaded = true };
             }
             _update = update;
+#if DEBUG
+            _isSimulatedUpdate = ReferenceEquals(updateSource, simulation);
+#endif
             if (update is null && manual)
                 result = "FFApp and FFRux are up to date.";
         }
@@ -148,8 +173,19 @@ public sealed partial class AppUpdateViewModel(
         if (!CanRestartNow) return;
         IsBusy = true;
         StatusText = "Preparing to restart…";
+        var result = "";
         try
         {
+#if DEBUG
+            if (_isSimulatedUpdate && simulation is not null)
+            {
+                await simulation.SimulateRestartAsync();
+                _update = null;
+                _isSimulatedUpdate = false;
+                result = "Simulated update completed.";
+                return;
+            }
+#endif
             await host.RestartAsync(source.ApplyAndRestart);
         }
         catch (Exception ex)
@@ -160,7 +196,7 @@ public sealed partial class AppUpdateViewModel(
         }
         finally
         {
-            ShowResult();
+            ShowResult(result);
             IsBusy = false;
         }
     }

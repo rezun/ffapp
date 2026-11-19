@@ -6,6 +6,10 @@ Add entries under **Unreleased** as part of each change. `scripts/release.py <ve
 
 ## [Unreleased]
 
+### Added
+
+- FFApp debug builds include a Debug menu that simulates an update offline.
+
 ### Changed
 
 - FFApp uses the status bar for update checks, download progress, and the restart action while the transcode queue is idle.

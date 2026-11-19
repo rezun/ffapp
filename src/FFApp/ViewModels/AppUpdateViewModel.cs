@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using FFApp.Services;
@@ -6,39 +7,100 @@ using Microsoft.Extensions.Logging;
 namespace FFApp.ViewModels;
 
 /// <summary>
-/// Checks for updates and downloads them in the background. Once an update is ready, a hint tells the
-/// user that restarting FFApp installs it; the next launch applies it as well.
+/// Presents update progress and actions in the main window status bar.
 /// </summary>
 public sealed partial class AppUpdateViewModel(
     IAppUpdateSource source, IUpdateHost host, IDialogService dialogs,
     ILogger<AppUpdateViewModel> logger) : ObservableObject
 {
     private AppUpdate? _update;
-    [ObservableProperty] private bool _isBusy;
-    [ObservableProperty] private bool _isVisible;
-    [ObservableProperty] private bool _isDismissed;
+    private JobListPanelViewModel? _jobList;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(CheckForUpdatesCommand), nameof(RestartNowCommand))]
+    private bool _isBusy;
+
     [ObservableProperty] private bool _canRestart;
     [ObservableProperty] private bool _canOpenDownloads;
-    [ObservableProperty] private string _statusText = "";
 
-    [RelayCommand]
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsVisible))]
+    private string _statusText = "";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsDownloading))]
+    private int? _downloadPercentage;
+
+    public bool IsDownloading => DownloadPercentage.HasValue;
+    public bool IsVisible => !IsQueueRunning && StatusText.Length > 0;
+    private bool IsQueueRunning => _jobList?.IsRunning == true;
+    private bool CanCheckForUpdates => !IsBusy && !IsQueueRunning;
+    private bool CanRestartNow => CanCheckForUpdates && CanRestart;
+
+    internal void AttachJobList(JobListPanelViewModel? jobList)
+    {
+        if (_jobList is not null)
+        {
+            _jobList.PropertyChanged -= OnJobListPropertyChanged;
+            _jobList.IsStartBlockedByUpdate = false;
+        }
+
+        _jobList = jobList;
+        if (_jobList is not null)
+        {
+            _jobList.PropertyChanged += OnJobListPropertyChanged;
+            _jobList.IsStartBlockedByUpdate = IsBusy;
+        }
+        RefreshQueueState();
+    }
+
+    private void OnJobListPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(JobListPanelViewModel.IsRunning))
+            RefreshQueueState();
+    }
+
+    private void RefreshQueueState()
+    {
+        OnPropertyChanged(nameof(IsVisible));
+        CheckForUpdatesCommand.NotifyCanExecuteChanged();
+        RestartNowCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnIsBusyChanged(bool value)
+    {
+        if (_jobList is not null)
+            _jobList.IsStartBlockedByUpdate = value;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanCheckForUpdates))]
     private Task CheckForUpdatesAsync() => CheckAsync(manual: true);
 
     public async Task CheckAsync(bool manual, CancellationToken cancellationToken = default)
     {
-        if (IsBusy) return;
+        if (!CanCheckForUpdates) return;
         IsBusy = true;
+        StatusText = "Checking for updates…";
+        var result = "";
+        var acceptingProgress = false;
         try
         {
             _update = await source.CheckAsync(cancellationToken);
-            if (_update is { CanInstall: true, IsDownloaded: false })
+            if (_update is { CanInstall: true, IsDownloaded: false } update)
             {
-                await source.DownloadAsync(cancellationToken);
-                _update = _update with { IsDownloaded = true };
+                StatusText = $"Downloading version {update.Version}…";
+                DownloadPercentage = 0;
+                acceptingProgress = true;
+                var progress = new Progress<int>(percentage =>
+                {
+                    if (acceptingProgress)
+                        DownloadPercentage = percentage;
+                });
+                await source.DownloadAsync(progress, cancellationToken);
+                _update = update with { IsDownloaded = true };
             }
-            if (manual) IsDismissed = false;
             if (_update is null && manual)
-                await dialogs.ShowMessageAsync("No updates available", "You are using the latest available version of FFApp and FFRux.");
+                result = "FFApp and FFRux are up to date.";
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
         catch (Exception ex)
@@ -47,20 +109,25 @@ public sealed partial class AppUpdateViewModel(
             // A failed download is not offered for installation; the next check retries it.
             logger.LogWarning(ex, "Checking for or downloading updates failed");
             if (manual)
-                await dialogs.ShowErrorAsync("Could not update", "Check your internet connection and try again.\n\n" + ex.Message);
+                result = acceptingProgress
+                    ? "Could not download the update. Try again from the Info menu."
+                    : "Could not check for updates. Try again from the Info menu.";
         }
         finally
         {
+            acceptingProgress = false;
+            DownloadPercentage = null;
+            ShowResult(result);
             IsBusy = false;
-            Refresh();
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanRestartNow))]
     private async Task RestartNowAsync()
     {
-        if (IsBusy || !CanRestart) return;
+        if (!CanRestartNow) return;
         IsBusy = true;
+        StatusText = "Preparing to restart…";
         try
         {
             await host.RestartAsync(source.ApplyAndRestart);
@@ -71,27 +138,28 @@ public sealed partial class AppUpdateViewModel(
             logger.LogError(ex, "Installing update failed");
             await dialogs.ShowErrorAsync("Could not install update", ex.Message);
         }
-        finally { IsBusy = false; }
+        finally
+        {
+            ShowResult();
+            IsBusy = false;
+        }
     }
 
     [RelayCommand]
     private Task OpenDownloadsAsync() => host.OpenDownloadsAsync();
 
     [RelayCommand]
-    private void Dismiss() => IsDismissed = true;
+    private void Dismiss() => StatusText = "";
 
-    partial void OnIsDismissedChanged(bool value) => Refresh();
-
-    private void Refresh()
+    private void ShowResult(string message = "")
     {
         CanRestart = _update is { CanInstall: true, IsDownloaded: true };
         CanOpenDownloads = _update is { CanInstall: false };
-        IsVisible = !IsDismissed && (CanRestart || CanOpenDownloads);
         StatusText = _update switch
         {
             { CanInstall: true, IsDownloaded: true } => $"Version {_update.Version} is ready. Restart FFApp to update.",
             { CanInstall: false } => $"Version {_update.Version} is available.",
-            _ => "",
+            _ => message,
         };
     }
 }

@@ -47,7 +47,8 @@ public partial class JobListPanelViewModel : ObservableObject
     private string _summaryText = "No jobs.";
 
     [ObservableProperty]
-    private bool _isAnyJobRunning;
+    [NotifyCanExecuteChangedFor(nameof(StartCommand))]
+    private bool _isStartBlockedByUpdate;
 
     /// <summary>Estimated time until all queued jobs are encoded; empty when no estimate applies.</summary>
     [ObservableProperty]
@@ -375,12 +376,12 @@ public partial class JobListPanelViewModel : ObservableObject
 
     // ── Job Execution ─────────────────────────────────────────────
 
-    private bool CanStart => !IsRunning && Jobs.Any(j => j.State == JobState.Pending);
+    private bool CanStart => !IsRunning && !IsStartBlockedByUpdate && Jobs.Any(j => j.State == JobState.Pending);
 
     [RelayCommand(CanExecute = nameof(CanStart))]
     private async Task StartAsync()
     {
-        if (IsRunning || !Jobs.Any(j => j.State == JobState.Pending))
+        if (!CanStart)
             return;
 
         // Reset failed/canceled jobs so they re-run. Items are already enqueued at creation
@@ -399,7 +400,6 @@ public partial class JobListPanelViewModel : ObservableObject
 
         IsRunning = true;
         IsPaused = false;
-        IsAnyJobRunning = true;
         NotifyExecutionCommands();
 
         _cts?.Dispose();
@@ -480,7 +480,6 @@ public partial class JobListPanelViewModel : ObservableObject
         {
             IsRunning = false;
             IsPaused = false;
-            IsAnyJobRunning = false;
             StatusText = "";
             StatusPercentage = 0;
             NotifyExecutionCommands();

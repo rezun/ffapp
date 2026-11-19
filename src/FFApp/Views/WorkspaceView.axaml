@@ -8,32 +8,6 @@
 
     <DockPanel>
 
-        <!-- STATUS BAR: Active job progress (visible when running) -->
-        <Border DockPanel.Dock="Bottom"
-                BorderBrush="{DynamicResource BorderSubtleBrush}"
-                BorderThickness="0,1,0,0"
-                Padding="8,4"
-                IsVisible="{Binding JobList.IsAnyJobRunning}">
-            <Grid ColumnDefinitions="Auto,*,Auto">
-                <TextBlock Grid.Column="0"
-                           Text="{Binding JobList.StatusText}"
-                           VerticalAlignment="Center"
-                           Margin="0,0,12,0" />
-                <ProgressBar Grid.Column="1"
-                             Value="{Binding JobList.StatusPercentage}"
-                             Minimum="0"
-                             Maximum="100"
-                             Height="4"
-                             VerticalAlignment="Center" />
-                <TextBlock Grid.Column="2"
-                           Text="{Binding JobList.StatusPercentage, StringFormat={}{0:F0}%}"
-                           VerticalAlignment="Center"
-                           MinWidth="36"
-                           TextAlignment="Right"
-                           Margin="8,0,0,0" />
-            </Grid>
-        </Border>
-
         <!-- THREE-COLUMN LAYOUT -->
         <Grid x:Name="MainGrid" ColumnDefinitions="320,6,*,6,320">
 

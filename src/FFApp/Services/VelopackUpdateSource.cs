@@ -38,10 +38,10 @@ public sealed class VelopackUpdateSource(UpdateManager manager, GithubSource rel
         return latest is null ? null : new(latest.Version.ToNormalizedString(), false, false);
     }
 
-    public async Task DownloadAsync(CancellationToken cancellationToken = default)
+    public async Task DownloadAsync(IProgress<int> progress, CancellationToken cancellationToken = default)
     {
         var update = _available ?? throw new InvalidOperationException("Check for an update before downloading it.");
-        await manager.DownloadUpdatesAsync(update, cancelToken: cancellationToken);
+        await manager.DownloadUpdatesAsync(update, progress.Report, cancellationToken);
         _downloaded = manager.UpdatePendingRestart
             ?? throw new InvalidOperationException("The update download could not be verified. Please try again.");
     }

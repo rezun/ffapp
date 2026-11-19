@@ -5,6 +5,7 @@ using FFApp.Services;
 using FFApp.Tests.Builders;
 using FFApp.ViewModels;
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
 namespace FFApp.Tests.ViewModels;
@@ -44,6 +45,43 @@ public class JobListPanelViewModelTests
 
     private static JobContext MakeContext() =>
         new(new TestMediaInfoBuilder().Build(), new OutputSettings());
+
+    [Fact]
+    public async Task QueueAndUpdatesCannotStartWhileTheOtherIsRunning()
+    {
+        var source = Substitute.For<IAppUpdateSource>();
+        var host = Substitute.For<IUpdateHost>();
+        var updates = new AppUpdateViewModel(source, host, _dialogService, NullLogger<AppUpdateViewModel>.Instance);
+        updates.AttachJobList(_sut);
+        var download = new TaskCompletionSource();
+        source.CheckAsync().Returns(Task.FromResult<AppUpdate?>(new("2.0.0", true, false)));
+        source.DownloadAsync(Arg.Any<IProgress<int>>()).Returns(download.Task);
+        var queueRun = new TaskCompletionSource<IReadOnlyList<QueueItem>>();
+        _queueService.ExecuteAllAsync(Arg.Any<Action<QueueItem>>(), Arg.Any<Action<QueueItem>>(),
+            Arg.Any<Action<QueueItem>>(), Arg.Any<Action<QueueItem, string>>(), Arg.Any<CancellationToken>())
+            .Returns(queueRun.Task);
+        var media = new TestMediaInfoBuilder().Build();
+        var queued = new QueuedJob(new TestJobDefinitionBuilder().Build(), media, [], new ValidationResult());
+        _sut.Jobs.Add(new JobItemViewModel("a", media, queued, "movie") { State = JobState.Pending });
+
+        var updateTask = updates.CheckAsync(manual: true);
+        var blockedStart = _sut.StartCommand.ExecuteAsync(null);
+        _sut.IsRunning.Should().BeFalse();
+        await blockedStart;
+        download.SetResult();
+        await updateTask;
+
+        var queueTask = _sut.StartCommand.ExecuteAsync(null);
+        _sut.IsRunning.Should().BeTrue();
+        await updates.CheckAsync(manual: true);
+        await updates.RestartNowCommand.ExecuteAsync(null);
+        await source.Received(1).CheckAsync();
+        await host.DidNotReceive().RestartAsync(Arg.Any<Action>());
+        queueRun.SetResult([]);
+        await queueTask;
+        updates.IsVisible.Should().BeTrue();
+        updates.RestartNowCommand.CanExecute(null).Should().BeTrue();
+    }
 
     [Fact]
     public async Task PauseResume_UpdatesQueueAndDisplaysPausedStatus()

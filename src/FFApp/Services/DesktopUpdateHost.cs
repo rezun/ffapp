@@ -34,7 +34,7 @@ public sealed class DesktopUpdateHost(MainWindow window, IDialogService dialogs)
         }
 
         if (!CompanionProcess.IsRunning()) return false;
-        await dialogs.ShowMessageAsync("Close FFRux first", "FFApp and FFRux are updated together. Close FFRux, then choose Restart now again.");
+        await dialogs.ShowMessageAsync("Close FFRux first", "FFApp and FFRux are updated together. Close FFRux, then choose Restart and update again.");
         return true;
     }
 }

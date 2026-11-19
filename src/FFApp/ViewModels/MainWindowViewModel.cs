@@ -118,7 +118,12 @@ public partial class MainWindowViewModel : ObservableObject,
     private readonly Lock _pendingFilesLock = new();
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(JobList))]
     private object? _currentView;
+
+    public JobListPanelViewModel? JobList => (CurrentView as WorkspaceViewModel)?.JobList;
+
+    partial void OnCurrentViewChanged(object? value) => Updates.AttachJobList((value as WorkspaceViewModel)?.JobList);
 
     public string Title => "FFApp";
 

@@ -16,12 +16,13 @@ public sealed class AppUpdateViewModelTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task NoUpdate_OnlyManualChecksShowADialog(bool manual)
+    public async Task NoUpdate_OnlyManualChecksLeaveAStatusMessage(bool manual)
     {
         var sut = Create();
         await sut.CheckAsync(manual);
-        sut.IsVisible.Should().BeFalse();
-        await _dialogs.Received(manual ? 1 : 0).ShowMessageAsync(Arg.Any<string>(), Arg.Any<string>());
+        sut.IsVisible.Should().Be(manual);
+        sut.CanRestart.Should().BeFalse();
+        await _dialogs.DidNotReceive().ShowMessageAsync(Arg.Any<string>(), Arg.Any<string>());
     }
 
     [Theory]
@@ -33,8 +34,9 @@ public sealed class AppUpdateViewModelTests
         var sut = Create();
         await sut.CheckAsync(manual);
         sut.IsBusy.Should().BeFalse();
-        sut.IsVisible.Should().BeFalse();
-        await _dialogs.Received(manual ? 1 : 0).ShowErrorAsync(Arg.Any<string>(), Arg.Any<string>());
+        sut.IsVisible.Should().Be(manual);
+        sut.CanRestart.Should().BeFalse();
+        await _dialogs.DidNotReceive().ShowErrorAsync(Arg.Any<string>(), Arg.Any<string>());
     }
 
     [Fact]
@@ -129,7 +131,7 @@ public sealed class AppUpdateViewModelTests
             if (CheckFailure is not null) throw CheckFailure;
             return Available;
         }
-        public Task DownloadAsync(CancellationToken cancellationToken = default)
+        public Task DownloadAsync(IProgress<int> progress, CancellationToken cancellationToken = default)
         {
             Downloads++;
             if (DownloadFailure is not null) throw DownloadFailure;

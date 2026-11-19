@@ -6,6 +6,10 @@ Add entries under **Unreleased** as part of each change. `scripts/release.py <ve
 
 ## [Unreleased]
 
+### Changed
+
+- FFApp uses the status bar for update checks, download progress, and the restart action while the transcode queue is idle.
+
 ## [1.14.3] - 2026-11-19
 
 ### Added

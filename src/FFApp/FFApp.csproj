@@ -6,7 +6,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <RootNamespace>FFApp</RootNamespace>
-    <Version>1.14.2</Version>
+    <Version>1.14.3</Version>
     <ApplicationIcon>Assets/ffapp.ico</ApplicationIcon>
   </PropertyGroup>
 

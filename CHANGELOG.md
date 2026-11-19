@@ -6,6 +6,8 @@ Add entries under **Unreleased** as part of each change. `scripts/release.py <ve
 
 ## [Unreleased]
 
+## [1.14.3] - 2026-11-19
+
 ### Added
 
 - FFApp and FFRux: **Optimize for streaming** optionally moves MP4 playback metadata or the MKV/WebM seek index to the start of the file. FFApp presets and FFRux output settings remember the option.
@@ -112,7 +114,8 @@ First release on GitHub.
 - Per-job FFmpeg logs, an app log and Info → Open logs folder.
 - Black-bar crop suggestion from samples across the whole source.
 
-[Unreleased]: https://github.com/rezun/ffapp/compare/v1.14.2...HEAD
+[Unreleased]: https://github.com/rezun/ffapp/compare/v1.14.3...HEAD
+[1.14.3]: https://github.com/rezun/ffapp/compare/v1.14.2...v1.14.3
 [1.14.2]: https://github.com/rezun/ffapp/compare/v1.14.1...v1.14.2
 [1.14.1]: https://github.com/rezun/ffapp/compare/v1.14.0...v1.14.1
 [1.14.0]: https://github.com/rezun/ffapp/compare/v1.13.9...v1.14.0

@@ -71,6 +71,8 @@ public sealed class RemuxCommandBuilder(ExecutablePathsConfig pathsConfig)
         args.AddRange(["-max_muxing_queue_size", "4096"]);
         args.AddRange(["-f", format.Muxer]);
         args.AddRange(format.MuxerArguments);
+        if (plan.OptimizeForStreaming ?? format.IsMp4Family)
+            args.AddRange(format.StreamingArguments);
         args.Add(outputPath);
 
         var ffmpeg = GeneratedCommand.Create(pathsConfig.FfmpegPath, args);

@@ -179,6 +179,23 @@ public class OutputSettingsViewModelTests
         _sut.Audio.SelectedAudioCodec.Should().Be(CompatibilityData.AllowedAudioCodecs(OutputContainer.Webm)[0]);
     }
 
+    [Fact]
+    public void StreamingOptimization_UsesContainerDefaultsUntilThePresetOverridesThem()
+    {
+        _sut.OptimizeForStreaming.Should().BeTrue();
+        _sut.Format.SelectedContainer = OutputContainer.Mkv;
+        _sut.OptimizeForStreaming.Should().BeFalse();
+
+        _sut.OptimizeForStreaming = true;
+        var settings = _sut.BuildSettings();
+        _sut.ApplySettings(new OutputSettings(OptimizeForStreaming: false));
+        _sut.OptimizeForStreaming.Should().BeFalse();
+
+        _sut.ApplySettings(settings);
+        _sut.OptimizeForStreaming.Should().BeTrue();
+        _sut.BuildSettings().OptimizeForStreaming.Should().BeTrue();
+    }
+
     [Theory]
     [InlineData(OutputContainer.Mkv, true, true, true)]
     [InlineData(OutputContainer.Mkv, false, true, false)]

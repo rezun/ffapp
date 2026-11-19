@@ -19,6 +19,7 @@ public partial class OutputSettingsViewModel : ObservableObject
     private SourceMediaInfo? _mediaInfo;
     private string? _resolvedOutputPath;
     private double? _trimmedDurationSeconds;
+    private bool? _optimizeForStreaming;
 
     public bool IsVideoModeEditable { get; init; } = true;
 
@@ -46,6 +47,26 @@ public partial class OutputSettingsViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _recalculateMatroskaStatistics;
+
+    public bool OptimizeForStreaming
+    {
+        get => _optimizeForStreaming ?? OutputStreamingOptions.IsEnabledByDefault(Format.SelectedContainer);
+        set
+        {
+            if (value == OptimizeForStreaming)
+                return;
+
+            _optimizeForStreaming = value == OutputStreamingOptions.IsEnabledByDefault(Format.SelectedContainer)
+                ? null : value;
+            OnPropertyChanged();
+            RebuildAndNotify();
+        }
+    }
+
+    public bool IsStreamingOptimizationVisible =>
+        OutputStreamingOptions.ArgumentsFor(Format.SelectedContainer).Count > 0;
+
+    public bool IsPostProcessingVisible => IsStreamingOptimizationVisible || IsMatroskaPostProcessingVisible;
 
     public bool IsMatroskaPostProcessingVisible =>
         Format.SelectedContainer is OutputContainer.Mkv
@@ -179,6 +200,7 @@ public partial class OutputSettingsViewModel : ObservableObject
         {
             Format.SelectedVideoMode = settings.VideoMode;
             Format.SelectedContainer = settings.Container;
+            _optimizeForStreaming = settings.OptimizeForStreaming;
             Audio.AvailableAudioCodecs = Format.AvailableAudioCodecs;
             Format.SelectedVideoCodec = settings.VideoCodec;
             Strategy.SelectedStrategy = settings.EncodingStrategy;
@@ -246,6 +268,7 @@ public partial class OutputSettingsViewModel : ObservableObject
             _isSuppressing = false;
         }
 
+        NotifyContainerOptionsChanged();
         RebuildAndNotify();
     }
 
@@ -309,7 +332,8 @@ public partial class OutputSettingsViewModel : ObservableObject
             PostProcessing: new PostProcessingOptions(
                 RecalculateMatroskaStatistics:
                     IsMatroskaPostProcessingAvailable
-                    && RecalculateMatroskaStatistics));
+                    && RecalculateMatroskaStatistics),
+            OptimizeForStreaming: _optimizeForStreaming);
     }
 
     private void OnChildPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -351,10 +375,16 @@ public partial class OutputSettingsViewModel : ObservableObject
         }
 
         if (e.PropertyName == nameof(FormatViewModel.SelectedContainer))
-        {
-            OnPropertyChanged(nameof(IsMatroskaPostProcessingVisible));
-            OnPropertyChanged(nameof(IsMatroskaPostProcessingAvailable));
-        }
+            NotifyContainerOptionsChanged();
+    }
+
+    private void NotifyContainerOptionsChanged()
+    {
+        OnPropertyChanged(nameof(OptimizeForStreaming));
+        OnPropertyChanged(nameof(IsStreamingOptimizationVisible));
+        OnPropertyChanged(nameof(IsPostProcessingVisible));
+        OnPropertyChanged(nameof(IsMatroskaPostProcessingVisible));
+        OnPropertyChanged(nameof(IsMatroskaPostProcessingAvailable));
     }
 
     private void RebuildAndNotify()

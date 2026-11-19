@@ -104,7 +104,7 @@
 
             <!-- Output -->
             <Border Classes="card">
-                <Grid ColumnDefinitions="64,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" Margin="0,0,0,8"
+                <Grid ColumnDefinitions="64,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="0,0,0,8"
                       DataContext="{Binding Output}" x:DataType="vm:OutputViewModel">
                     <TextBlock Grid.ColumnSpan="2" Classes="card-header" Text="Output" />
 
@@ -147,7 +147,11 @@
                                 ToolTip.Tip="Choose where to save the output file." />
                     </Grid>
 
-                    <CheckBox Grid.Row="5" Grid.Column="1" Margin="0,6,8,0" Content="Update track statistics"
+                    <CheckBox Grid.Row="5" Grid.Column="1" Margin="0,6,8,0" Content="Optimize for streaming"
+                              IsChecked="{Binding OptimizeForStreaming}" IsEnabled="{Binding IsEditable}"
+                              IsVisible="{Binding StreamingOptimizationVisible}"
+                              ToolTip.Tip="Moves playback metadata or the seek index to the beginning of the file so players can access it before the download completes. Finishing the file may take longer." />
+                    <CheckBox Grid.Row="6" Grid.Column="1" Margin="0,6,8,0" Content="Update track statistics"
                               IsChecked="{Binding UpdateStatistics}" IsEnabled="{Binding IsEditable}"
                               IsVisible="{Binding StatisticsVisible}"
                               ToolTip.Tip="Run mkvpropedit after the remux to rewrite the BPS, duration, frame and byte statistics of each track. Requires mkvpropedit from MKVToolNix." />

@@ -118,6 +118,8 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
             attachmentIndex++;
         }
         var metadataCleanupArgs = BuildMetadataCleanupArguments(job, mediaInfo);
+        var streamingArgs = (job.OptimizeForStreaming ?? OutputStreamingOptions.IsEnabledByDefault(job.Container))
+            ? OutputStreamingOptions.ArgumentsFor(job.Container) : [];
 
         // Audio-only: no video encoding, no two-pass
         if (job.VideoMode == VideoMode.Remove)
@@ -131,8 +133,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
                 arguments.AddRange(BuildPictureCodecArguments(job, mediaInfo));
             else
                 arguments.AddRange(["-vn"]);
-            if (job.Container is OutputContainer.Mp4 or OutputContainer.M4a)
-                arguments.AddRange(["-movflags", "+faststart"]);
+            arguments.AddRange(streamingArgs);
             arguments.Add(job.OutputPath);
             return [CreateGeneratedCommand(pathsConfig.FfmpegPath, arguments)];
         }
@@ -147,8 +148,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
             arguments.AddRange(BuildEncodingSettingsMetadataArguments(job, mediaInfo));
             arguments.AddRange(["-c:v", "copy"]);
             arguments.AddRange(BuildPictureCodecArguments(job, mediaInfo));
-            if (job.Container is OutputContainer.Mp4 or OutputContainer.M4a)
-                arguments.AddRange(["-movflags", "+faststart"]);
+            arguments.AddRange(streamingArgs);
             arguments.Add(job.OutputPath);
             return [CreateGeneratedCommand(pathsConfig.FfmpegPath, arguments)];
         }
@@ -177,8 +177,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
                 job, mediaInfo, secondPassVideoArgs, isTwoPass: true));
             secondPassArgs.AddRange(["-pass", "2", "-passlogfile", passLogPath]);
             secondPassArgs.AddRange(BuildPictureCodecArguments(job, mediaInfo));
-            if (job.Container == OutputContainer.Mp4)
-                secondPassArgs.AddRange(["-movflags", "+faststart"]);
+            secondPassArgs.AddRange(streamingArgs);
             secondPassArgs.Add(job.OutputPath);
 
             return
@@ -196,8 +195,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         reencodeArgs.AddRange(videoCodecArgs);
         reencodeArgs.AddRange(BuildEncodingSettingsMetadataArguments(job, mediaInfo, videoCodecArgs));
         reencodeArgs.AddRange(BuildPictureCodecArguments(job, mediaInfo));
-        if (job.Container == OutputContainer.Mp4)
-            reencodeArgs.AddRange(["-movflags", "+faststart"]);
+        reencodeArgs.AddRange(streamingArgs);
         reencodeArgs.Add(job.OutputPath);
 
         return [CreateGeneratedCommand(pathsConfig.FfmpegPath, reencodeArgs)];

@@ -132,6 +132,25 @@ public sealed class MainWindowViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task StreamingOptimization_RestoresAndSavesThePreferenceAndUpdatesTheCommandPreview()
+    {
+        _settings.LoadAsync(Arg.Any<CancellationToken>()).Returns(new FFRuxSettings
+        {
+            LastFormat = OutputFormat.Mkv,
+            OptimizeForStreaming = true,
+        });
+        var sut = await OpenAsync(Movie("/media/movie.mkv"));
+
+        sut.CommandPreview.CommandText.Should().Contain("-cues_to_front 1");
+
+        sut.Output.OptimizeForStreaming = false;
+
+        sut.CommandPreview.CommandText.Should().NotContain("-cues_to_front");
+        await _settings.Received().SaveAsync(Arg.Is<FFRuxSettings>(saved =>
+            saved.LastFormat == OutputFormat.Mkv && saved.OptimizeForStreaming != true), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task InitializeAsync_DiscoversOnlyOnce()
     {
         var sut = CreateSut();

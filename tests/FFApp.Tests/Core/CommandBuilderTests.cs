@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 
 using FFApp.Core;
 using FFApp.Core.Models;
+using FFApp.Helpers;
 using FFApp.Tests.Builders;
 using FluentAssertions;
 
@@ -950,7 +951,7 @@ public class CommandBuilderTests
     }
 
     // ---------------------------------------------------------------
-    // MP4 faststart
+    // Streaming optimization
     // ---------------------------------------------------------------
 
     [Fact]
@@ -969,7 +970,46 @@ public class CommandBuilderTests
         var job = JobWith(s => s.WithContainer(container));
         var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
 
-        args.Should().NotContain("-movflags");
+        args.Should().NotContain("-movflags").And.NotContain("-cues_to_front");
+    }
+
+    [Theory]
+    [InlineData(OutputContainer.Mp4, VideoMode.Reencode, false, null, null)]
+    [InlineData(OutputContainer.Mkv, VideoMode.Reencode, true, "-cues_to_front", "1")]
+    [InlineData(OutputContainer.Webm, VideoMode.Copy, true, "-cues_to_front", "1")]
+    [InlineData(OutputContainer.Mkv, VideoMode.Copy, false, null, null)]
+    [InlineData(OutputContainer.M4a, VideoMode.Remove, true, "-movflags", "+faststart")]
+    [InlineData(OutputContainer.M4a, VideoMode.Remove, false, null, null)]
+    [InlineData(OutputContainer.Ogg, VideoMode.Remove, true, null, null)]
+    public void Build_StreamingOptimization_UsesTheSelectedContainerAndPreference(
+        OutputContainer container, VideoMode mode, bool enabled, string? option, string? value)
+    {
+        var settings = new OutputSettings(Container: container, VideoMode: mode, OptimizeForStreaming: enabled);
+        var job = FormatHelpers.BuildJobDefinition("/test/source.mp4", $"/test/out{DefaultCommandBuilder.ContainerExtension(container)}", settings);
+        var args = _sut.Build(job, DefaultMedia()).Should().ContainSingle().Subject.Arguments;
+
+        if (option is null)
+            args.Should().NotContain("-movflags").And.NotContain("-cues_to_front");
+        else
+            args.TakeLast(3).Should().Equal(option, value, job.OutputPath);
+    }
+
+    [Fact]
+    public void Build_TwoPassStreamingOptimization_OnlyAddsCuesToTheFinalOutput()
+    {
+        var job = DefaultJob() with
+        {
+            Container = OutputContainer.Webm,
+            VideoCodec = VideoCodec.Vp9,
+            TargetQuality = new Vp9QualityOptions(TwoPass: true),
+            OptimizeForStreaming = true,
+        };
+
+        var commands = _sut.Build(job, DefaultMedia());
+
+        commands.Should().HaveCount(2);
+        commands[0].Arguments.Should().NotContain("-cues_to_front");
+        commands[1].Arguments.TakeLast(3).Should().Equal("-cues_to_front", "1", job.OutputPath);
     }
 
     // ---------------------------------------------------------------

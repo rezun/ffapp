@@ -45,6 +45,7 @@ public class SettingsSerializerTests
         TargetBitrate: new TargetBitrateOptions(5_000_000, TwoPass: true),
         TargetQuality: new H26xQualityOptions(VideoCodec.H264, Crf: 18, Preset: "slow", Profile: "high"),
         KeyframeInterval: 120,
+        OptimizeForStreaming: false,
         ColorMetadata: new ColorMetadataSettings(ColorMetadataMode.Custom, "bt470bg", "gamma28", "bt470bg", "pc"));
 
     public static TheoryData<OutputSettings> FullyPopulatedSettings => new()
@@ -60,6 +61,7 @@ public class SettingsSerializerTests
             HdrMode: HdrMode.TonemapToSdr,
             ToneMapSettings: new ToneMapSettings(Algorithm: ToneMapAlgorithm.Mobius, Desaturation: 0.5, PeakNits: 1000),
             PostProcessing: new PostProcessingOptions(RecalculateMatroskaStatistics: true),
+            OptimizeForStreaming: true,
             ColorMetadata: new ColorMetadataSettings(ColorMetadataMode.AssumeBt709)),
         new OutputSettings(
             Container: OutputContainer.Webm,

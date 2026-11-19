@@ -91,6 +91,41 @@ public sealed class RemuxCommandBuilderTests
         Values(args, "-movflags").Should().Equal("+faststart");
     }
 
+    [Theory]
+    [InlineData(OutputFormat.Mkv, null, null, null)]
+    [InlineData(OutputFormat.Mkv, true, "-cues_to_front", "1")]
+    [InlineData(OutputFormat.Webm, true, "-cues_to_front", "1")]
+    [InlineData(OutputFormat.Webm, false, null, null)]
+    [InlineData(OutputFormat.Mp4, false, null, null)]
+    [InlineData(OutputFormat.Ts, true, null, null)]
+    public void Build_StreamingOptimization_UsesTheSelectedFormatAndPreference(
+        OutputFormat format, bool? enabled, string? option, string? value)
+    {
+        var media = format == OutputFormat.Webm ? Media("/media/movie.webm", [Video(0, "vp9")])
+            : Media("/media/movie.mkv", [Video(0)]);
+        var plan = Plan(format, media) with { OptimizeForStreaming = enabled };
+        var path = "/out/result" + plan.FormatInfo.Extension;
+
+        var args = Sut.Build(plan, path).Args();
+
+        if (option is null)
+            args.Should().NotContain("-movflags").And.NotContain("-cues_to_front");
+        else
+            args.TakeLast(3).Should().Equal(option, value, path);
+    }
+
+    [Fact]
+    public void Build_M4b_UsesTheAudiobookBrandWithFaststartDisabled()
+    {
+        var media = Media("/media/book.m4a", audio: [Audio(0, "aac")]);
+        var plan = Plan(OutputFormat.M4b, media) with { OptimizeForStreaming = false };
+
+        var args = Sut.Build(plan, "/out/book.m4b").Args();
+
+        Value(args, "-brand").Should().Be("M4B ");
+        args.Should().NotContain("-movflags");
+    }
+
     [Fact]
     public void Build_TagsHevcAsHvc1ForApplePlayers()
     {

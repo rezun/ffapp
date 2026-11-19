@@ -41,6 +41,7 @@ public sealed partial class OutputViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Format), nameof(FormatInfo), nameof(TitleEnabled), nameof(TitleHint), nameof(StatisticsVisible))]
+    [NotifyPropertyChangedFor(nameof(OptimizeForStreaming), nameof(StreamingOptimizationVisible))]
     private FormatOptionViewModel _selectedFormat;
 
     [ObservableProperty] private string _title = "";
@@ -56,6 +57,20 @@ public sealed partial class OutputViewModel : ObservableObject
     /// <summary>Runs mkvpropedit after a Matroska remux to rewrite BPS, duration, frame and byte statistics.</summary>
     [ObservableProperty] private bool _updateStatistics = true;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(OptimizeForStreaming))]
+    private bool? _streamingOptimizationPreference;
+
+    public bool OptimizeForStreaming
+    {
+        get => StreamingOptimizationPreference ?? FormatInfo.IsMp4Family;
+        set
+        {
+            if (value != OptimizeForStreaming)
+                StreamingOptimizationPreference = value == FormatInfo.IsMp4Family ? null : value;
+        }
+    }
+
     /// <summary>Whether mkvpropedit was found; without it the option has no effect.</summary>
     public bool MkvpropeditAvailable { get; set; } = true;
 
@@ -65,6 +80,7 @@ public sealed partial class OutputViewModel : ObservableObject
     public string? TitleHint => TitleEnabled ? null : $"{FormatInfo.Name} can't store a title.";
     public bool HasSources => _sourcePaths.Count > 0;
     public bool StatisticsVisible => FormatInfo.IsMatroska;
+    public bool StreamingOptimizationVisible => FormatInfo.StreamingArguments.Count > 0;
 
     public void SelectFormat(OutputFormat format) =>
         SelectedFormat = Formats.First(option => option.Format == format);
@@ -150,6 +166,8 @@ public sealed partial class OutputViewModel : ObservableObject
     }
 
     partial void OnUpdateStatisticsChanged(bool value) => Changed?.Invoke(this, EventArgs.Empty);
+
+    partial void OnStreamingOptimizationPreferenceChanged(bool? value) => Changed?.Invoke(this, EventArgs.Empty);
 
     partial void OnTitleChanged(string value)
     {

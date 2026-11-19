@@ -8,6 +8,7 @@ namespace FFRux.Infrastructure;
 public sealed record FFRuxSettings
 {
     public OutputFormat? LastFormat { get; init; }
+    public bool? OptimizeForStreaming { get; init; }
 
     /// <summary>Null until the user changes the option; the default is on.</summary>
     public bool? UpdateMatroskaStatistics { get; init; }

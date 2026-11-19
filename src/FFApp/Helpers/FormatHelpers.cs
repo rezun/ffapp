@@ -132,7 +132,8 @@ public static class FormatHelpers
             KeyframeUnit: settings.KeyframeUnit,
             PostProcessing: settings.PostProcessing,
             SelectedAudioStreamIndices: selectedAudioStreamIndices,
-            SelectedSubtitleStreamIndices: selectedSubtitleStreamIndices);
+            SelectedSubtitleStreamIndices: selectedSubtitleStreamIndices,
+            OptimizeForStreaming: settings.OptimizeForStreaming);
 
     public static string VideoCodecLabel(VideoCodec codec) =>
         CompatibilityData.VideoCodecLabel(codec);

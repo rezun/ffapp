@@ -27,7 +27,8 @@ public sealed record JobDefinition(
     PostProcessingOptions? PostProcessing = null,
     ImmutableArray<int>? SelectedAudioStreamIndices = null,
     ColorMetadataSettings? ColorMetadata = null,
-    ImmutableArray<int>? SelectedSubtitleStreamIndices = null)
+    ImmutableArray<int>? SelectedSubtitleStreamIndices = null,
+    bool? OptimizeForStreaming = null)
 {
     public ColorMetadataSettings ColorMetadata { get; init; } = ColorMetadata ?? new ColorMetadataSettings();
     public AudioOptions AudioOptions { get; init; } = AudioOptions ?? new AudioOptions();

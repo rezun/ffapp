@@ -25,6 +25,7 @@ public static class SettingsSerializer
         return new JsonObject
         {
             ["container"] = EnumToString(settings.Container),
+            ["optimize_for_streaming"] = settings.OptimizeForStreaming,
             ["video_mode"] = EnumToString(settings.VideoMode),
             ["video_codec"] = EnumToString(settings.VideoCodec),
             ["encoding_strategy"] = EnumToString(settings.EncodingStrategy),
@@ -241,7 +242,8 @@ public static class SettingsSerializer
             ToneMapSettings: toneMapSettings,
             KeyframeInterval: keyframeInterval,
             KeyframeUnit: keyframeUnit,
-            PostProcessing: postProcessing);
+            PostProcessing: postProcessing,
+            OptimizeForStreaming: ReadOptionalBool(element, "optimize_for_streaming"));
     }
 
     // --- Preset serialization ---
@@ -633,17 +635,14 @@ public static class SettingsSerializer
     }
 
     internal static bool ReadBool(
-        JsonElement element, string property, bool defaultValue = false)
+        JsonElement element, string property, bool defaultValue = false) =>
+        ReadOptionalBool(element, property) ?? defaultValue;
+
+    private static bool? ReadOptionalBool(JsonElement element, string property)
     {
-        if (element.ValueKind != JsonValueKind.Object)
-            return defaultValue;
-        if (!element.TryGetProperty(property, out var prop))
-            return defaultValue;
-        if (prop.ValueKind is JsonValueKind.True)
-            return true;
-        if (prop.ValueKind is JsonValueKind.False)
-            return false;
-        return defaultValue;
+        if (element.ValueKind != JsonValueKind.Object || !element.TryGetProperty(property, out var prop))
+            return null;
+        return prop.ValueKind is JsonValueKind.True or JsonValueKind.False ? prop.GetBoolean() : null;
     }
 
     private static T ReadEnum<T>(

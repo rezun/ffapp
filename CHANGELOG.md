@@ -6,6 +6,10 @@ Add entries under **Unreleased** as part of each change. `scripts/release.py <ve
 
 ## [Unreleased]
 
+### Added
+
+- FFApp and FFRux: **Optimize for streaming** optionally moves MP4 playback metadata or the MKV/WebM seek index to the start of the file. FFApp presets and FFRux output settings remember the option.
+
 ### Fixed
 
 - Linux: recognize system-installed LibVLC for the video preview.

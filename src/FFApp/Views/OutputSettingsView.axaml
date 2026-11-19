@@ -651,20 +651,26 @@
 
         <!-- Post-processing -->
         <Border Classes="card" Margin="0,0,0,8"
-                IsVisible="{Binding IsMatroskaPostProcessingVisible}">
+                IsVisible="{Binding IsPostProcessingVisible}">
             <DockPanel>
                 <TextBlock DockPanel.Dock="Top" Text="Post-processing"
                            Classes="card-header" />
                 <Separator DockPanel.Dock="Top" />
                 <StackPanel Spacing="4" Margin="8,4,8,6">
-                    <CheckBox Content="Recalculate Matroska track statistics"
-                              ToolTip.Tip="Update Matroska track statistics, such as bitrate and duration, after encoding. Requires mkvpropedit and applies to Matroska output."
-                              IsChecked="{Binding RecalculateMatroskaStatistics}"
-                              IsEnabled="{Binding IsMatroskaPostProcessingAvailable}" />
-                    <TextBlock Classes="secondary"
-                               Text="Requires mkvpropedit from MKVToolNix. Rewrites BPS, duration, frame and byte statistics after encoding."
-                               TextWrapping="Wrap"
-                               IsVisible="{Binding !IsMatroskaPostProcessingAvailable}" />
+                    <CheckBox Content="Optimize for streaming"
+                              IsChecked="{Binding OptimizeForStreaming}"
+                              IsVisible="{Binding IsStreamingOptimizationVisible}"
+                              ToolTip.Tip="Moves playback metadata or the seek index to the beginning of the file so players can access it before the download completes. Finishing the file may take longer." />
+                    <StackPanel Spacing="4" IsVisible="{Binding IsMatroskaPostProcessingVisible}">
+                        <CheckBox Content="Recalculate Matroska track statistics"
+                                  ToolTip.Tip="Update Matroska track statistics, such as bitrate and duration, after encoding. Requires mkvpropedit and applies to Matroska output."
+                                  IsChecked="{Binding RecalculateMatroskaStatistics}"
+                                  IsEnabled="{Binding IsMatroskaPostProcessingAvailable}" />
+                        <TextBlock Classes="secondary"
+                                   Text="Requires mkvpropedit from MKVToolNix. Rewrites BPS, duration, frame and byte statistics after encoding."
+                                   TextWrapping="Wrap"
+                                   IsVisible="{Binding !IsMatroskaPostProcessingAvailable}" />
+                    </StackPanel>
                 </StackPanel>
             </DockPanel>
         </Border>

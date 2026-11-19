@@ -52,6 +52,19 @@ public sealed record StreamHandlingOptions(
 public sealed record PostProcessingOptions(
     bool RecalculateMatroskaStatistics = false);
 
+public static class OutputStreamingOptions
+{
+    public static bool IsEnabledByDefault(OutputContainer container) =>
+        container is OutputContainer.Mp4 or OutputContainer.M4a;
+
+    public static IReadOnlyList<string> ArgumentsFor(OutputContainer container) => container switch
+    {
+        OutputContainer.Mp4 or OutputContainer.M4a => StreamingMuxerArguments.FastStart,
+        OutputContainer.Mkv or OutputContainer.Webm => StreamingMuxerArguments.CuesToFront,
+        _ => [],
+    };
+}
+
 public sealed record OutputSettings(
     OutputContainer Container = OutputContainer.Mp4,
     VideoMode VideoMode = VideoMode.Reencode,
@@ -70,7 +83,8 @@ public sealed record OutputSettings(
     int? KeyframeInterval = null,
     KeyframeUnit KeyframeUnit = KeyframeUnit.Frames,
     PostProcessingOptions? PostProcessing = null,
-    ColorMetadataSettings? ColorMetadata = null)
+    ColorMetadataSettings? ColorMetadata = null,
+    bool? OptimizeForStreaming = null)
 {
     public ColorMetadataSettings ColorMetadata { get; init; } = ColorMetadata ?? new ColorMetadataSettings();
     public AudioOptions AudioOptions { get; init; } = AudioOptions ?? new AudioOptions();

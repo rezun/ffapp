@@ -15,6 +15,8 @@ public sealed partial class AppUpdateViewModel(
 {
     private AppUpdate? _update;
     private JobListPanelViewModel? _jobList;
+    private CancellationTokenSource? _checkCancellation;
+    private Task? _cancelCheckTask;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(CheckForUpdatesCommand), nameof(RestartNowCommand))]
@@ -32,8 +34,10 @@ public sealed partial class AppUpdateViewModel(
     private int? _downloadPercentage;
 
     public bool IsDownloading => DownloadPercentage.HasValue;
-    public bool IsVisible => !IsQueueRunning && StatusText.Length > 0;
+    public bool IsVisible => !IsQueueRunning && _checkCancellation?.IsCancellationRequested != true
+        && StatusText.Length > 0;
     private bool IsQueueRunning => _jobList?.IsRunning == true;
+    private bool IsRestarting => IsBusy && _checkCancellation is null;
     private bool CanCheckForUpdates => !IsBusy && !IsQueueRunning;
     private bool CanRestartNow => CanCheckForUpdates && CanRestart;
 
@@ -49,7 +53,7 @@ public sealed partial class AppUpdateViewModel(
         if (_jobList is not null)
         {
             _jobList.PropertyChanged += OnJobListPropertyChanged;
-            _jobList.IsStartBlockedByUpdate = IsBusy;
+            _jobList.IsStartBlockedByUpdate = IsRestarting;
         }
         RefreshQueueState();
     }
@@ -62,6 +66,10 @@ public sealed partial class AppUpdateViewModel(
 
     private void RefreshQueueState()
     {
+        // Let the queue start without waiting for update cancellation callbacks or download cleanup.
+        if (IsQueueRunning && _checkCancellation is { } cancellation)
+            _cancelCheckTask ??= cancellation.CancelAsync();
+
         OnPropertyChanged(nameof(IsVisible));
         CheckForUpdatesCommand.NotifyCanExecuteChanged();
         RestartNowCommand.NotifyCanExecuteChanged();
@@ -70,7 +78,7 @@ public sealed partial class AppUpdateViewModel(
     partial void OnIsBusyChanged(bool value)
     {
         if (_jobList is not null)
-            _jobList.IsStartBlockedByUpdate = value;
+            _jobList.IsStartBlockedByUpdate = IsRestarting;
     }
 
     [RelayCommand(CanExecute = nameof(CanCheckForUpdates))]
@@ -79,36 +87,41 @@ public sealed partial class AppUpdateViewModel(
     public async Task CheckAsync(bool manual, CancellationToken cancellationToken = default)
     {
         if (!CanCheckForUpdates) return;
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        _checkCancellation = cancellation;
+        var token = cancellation.Token;
         IsBusy = true;
         StatusText = "Checking for updates…";
         var result = "";
         var acceptingProgress = false;
         try
         {
-            _update = await source.CheckAsync(cancellationToken);
-            if (_update is { CanInstall: true, IsDownloaded: false } update)
+            var update = await source.CheckAsync(token);
+            token.ThrowIfCancellationRequested();
+            if (update is { CanInstall: true, IsDownloaded: false })
             {
                 StatusText = $"Downloading version {update.Version}…";
                 DownloadPercentage = 0;
                 acceptingProgress = true;
                 var progress = new Progress<int>(percentage =>
                 {
-                    if (acceptingProgress)
+                    if (acceptingProgress && !token.IsCancellationRequested)
                         DownloadPercentage = percentage;
                 });
-                await source.DownloadAsync(progress, cancellationToken);
-                _update = update with { IsDownloaded = true };
+                await source.DownloadAsync(progress, token);
+                update = update with { IsDownloaded = true };
             }
-            if (_update is null && manual)
+            _update = update;
+            if (update is null && manual)
                 result = "FFApp and FFRux are up to date.";
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
         catch (Exception ex)
         {
             // UI operation boundary: third-party update/network failures must not stop startup.
             // A failed download is not offered for installation; the next check retries it.
             logger.LogWarning(ex, "Checking for or downloading updates failed");
-            if (manual)
+            if (manual && !token.IsCancellationRequested)
                 result = acceptingProgress
                     ? "Could not download the update. Try again from the Info menu."
                     : "Could not check for updates. Try again from the Info menu.";
@@ -116,8 +129,15 @@ public sealed partial class AppUpdateViewModel(
         finally
         {
             acceptingProgress = false;
+            if (_cancelCheckTask is { } cancelTask)
+            {
+                try { await cancelTask; }
+                catch (AggregateException ex) { logger.LogWarning(ex, "Canceling the update operation failed"); }
+                _cancelCheckTask = null;
+            }
+            _checkCancellation = null;
             DownloadPercentage = null;
-            ShowResult(result);
+            ShowResult(token.IsCancellationRequested ? "" : result);
             IsBusy = false;
         }
     }

@@ -46,16 +46,8 @@ public class JobListPanelViewModelTests
     private static JobContext MakeContext() =>
         new(new TestMediaInfoBuilder().Build(), new OutputSettings());
 
-    [Fact]
-    public async Task QueueAndUpdatesCannotStartWhileTheOtherIsRunning()
+    private TaskCompletionSource<IReadOnlyList<QueueItem>> HoldQueueOpen()
     {
-        var source = Substitute.For<IAppUpdateSource>();
-        var host = Substitute.For<IUpdateHost>();
-        var updates = new AppUpdateViewModel(source, host, _dialogService, NullLogger<AppUpdateViewModel>.Instance);
-        updates.AttachJobList(_sut);
-        var download = new TaskCompletionSource();
-        source.CheckAsync().Returns(Task.FromResult<AppUpdate?>(new("2.0.0", true, false)));
-        source.DownloadAsync(Arg.Any<IProgress<int>>()).Returns(download.Task);
         var queueRun = new TaskCompletionSource<IReadOnlyList<QueueItem>>();
         _queueService.ExecuteAllAsync(Arg.Any<Action<QueueItem>>(), Arg.Any<Action<QueueItem>>(),
             Arg.Any<Action<QueueItem>>(), Arg.Any<Action<QueueItem, string>>(), Arg.Any<CancellationToken>())
@@ -63,24 +55,88 @@ public class JobListPanelViewModelTests
         var media = new TestMediaInfoBuilder().Build();
         var queued = new QueuedJob(new TestJobDefinitionBuilder().Build(), media, [], new ValidationResult());
         _sut.Jobs.Add(new JobItemViewModel("a", media, queued, "movie") { State = JobState.Pending });
+        return queueRun;
+    }
 
-        var updateTask = updates.CheckAsync(manual: true);
-        var blockedStart = _sut.StartCommand.ExecuteAsync(null);
-        _sut.IsRunning.Should().BeFalse();
-        await blockedStart;
-        download.SetResult();
-        await updateTask;
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task QueueStartsImmediatelyAndCancelsAnUpdateInProgress(bool downloading)
+    {
+        var source = Substitute.For<IAppUpdateSource>();
+        var updates = new AppUpdateViewModel(source, Substitute.For<IUpdateHost>(),
+            _dialogService, NullLogger<AppUpdateViewModel>.Instance);
+        updates.AttachJobList(_sut);
+        var updateGate = new TaskCompletionSource();
+        var updateToken = CancellationToken.None;
+        source.CheckAsync(Arg.Any<CancellationToken>()).Returns<Task<AppUpdate?>>(async call =>
+        {
+            if (!downloading)
+            {
+                updateToken = call.Arg<CancellationToken>();
+                await updateGate.Task;
+            }
+            return new AppUpdate("2.0.0", true, false);
+        });
+        source.DownloadAsync(Arg.Any<IProgress<int>>(), Arg.Any<CancellationToken>()).Returns(async call =>
+        {
+            updateToken = call.Arg<CancellationToken>();
+            await updateGate.Task;
+            updateToken.ThrowIfCancellationRequested();
+        });
+        var queueRun = HoldQueueOpen();
+        var updateTask = updates.CheckAsync(manual: downloading);
+        _sut.StartCommand.CanExecute(null).Should().BeTrue();
 
         var queueTask = _sut.StartCommand.ExecuteAsync(null);
         _sut.IsRunning.Should().BeTrue();
+        updateToken.IsCancellationRequested.Should().BeTrue();
+        updateTask.IsCompleted.Should().BeFalse();
+        updates.IsVisible.Should().BeFalse();
+
+        updateGate.SetResult();
+        await updateTask;
         await updates.CheckAsync(manual: true);
+        await source.Received(1).CheckAsync(Arg.Any<CancellationToken>());
+        await source.Received(downloading ? 1 : 0)
+            .DownloadAsync(Arg.Any<IProgress<int>>(), Arg.Any<CancellationToken>());
+        queueRun.SetResult([]);
+        await queueTask;
+        updates.IsVisible.Should().BeFalse();
+        updates.CanRestart.Should().BeFalse();
+        updates.CheckForUpdatesCommand.CanExecute(null).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task DownloadedUpdateReturnsAfterQueueFinishesAndBlocksQueueDuringRestart()
+    {
+        var source = Substitute.For<IAppUpdateSource>();
+        var host = Substitute.For<IUpdateHost>();
+        var updates = new AppUpdateViewModel(source, host, _dialogService, NullLogger<AppUpdateViewModel>.Instance);
+        updates.AttachJobList(_sut);
+        source.CheckAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<AppUpdate?>(new("2.0.0", true, true)));
+        var restartGate = new TaskCompletionSource<bool>();
+        host.RestartAsync(Arg.Any<Action>()).Returns(restartGate.Task);
+        var queueRun = HoldQueueOpen();
+        await updates.CheckAsync(manual: true);
+
+        var queueTask = _sut.StartCommand.ExecuteAsync(null);
+        _sut.IsRunning.Should().BeTrue();
+        updates.IsVisible.Should().BeFalse();
         await updates.RestartNowCommand.ExecuteAsync(null);
-        await source.Received(1).CheckAsync();
         await host.DidNotReceive().RestartAsync(Arg.Any<Action>());
         queueRun.SetResult([]);
         await queueTask;
         updates.IsVisible.Should().BeTrue();
-        updates.RestartNowCommand.CanExecute(null).Should().BeTrue();
+        var restartTask = updates.RestartNowCommand.ExecuteAsync(null);
+        _sut.StartCommand.CanExecute(null).Should().BeFalse();
+        var blockedStart = _sut.StartCommand.ExecuteAsync(null);
+        _sut.IsRunning.Should().BeFalse();
+        await blockedStart;
+        restartGate.SetResult(false);
+        await restartTask;
+        _sut.StartCommand.CanExecute(null).Should().BeTrue();
     }
 
     [Fact]

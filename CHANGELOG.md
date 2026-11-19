@@ -10,6 +10,10 @@ Add entries under **Unreleased** as part of each change. `scripts/release.py <ve
 
 - FFApp uses the status bar for update checks, download progress, and the restart action while the transcode queue is idle.
 
+### Fixed
+
+- Starting the transcode queue cancels an in-progress update check or download, so a slow or offline connection never delays transcoding.
+
 ## [1.14.3] - 2026-11-19
 
 ### Added

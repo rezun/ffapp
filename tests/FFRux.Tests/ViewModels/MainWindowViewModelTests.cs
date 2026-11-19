@@ -129,6 +129,7 @@ public sealed class MainWindowViewModelTests : IDisposable
         await sut.InitializeAsync();
 
         sut.Output.Format.Should().Be(OutputFormat.Mp4);
+        sut.Output.OptimizeForStreaming.Should().BeFalse();
     }
 
     [Fact]
@@ -147,7 +148,7 @@ public sealed class MainWindowViewModelTests : IDisposable
 
         sut.CommandPreview.CommandText.Should().NotContain("-cues_to_front");
         await _settings.Received().SaveAsync(Arg.Is<FFRuxSettings>(saved =>
-            saved.LastFormat == OutputFormat.Mkv && saved.OptimizeForStreaming != true), Arg.Any<CancellationToken>());
+            saved.LastFormat == OutputFormat.Mkv && saved.OptimizeForStreaming == false), Arg.Any<CancellationToken>());
     }
 
     [Fact]

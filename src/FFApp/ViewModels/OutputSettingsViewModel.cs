@@ -19,7 +19,6 @@ public partial class OutputSettingsViewModel : ObservableObject
     private SourceMediaInfo? _mediaInfo;
     private string? _resolvedOutputPath;
     private double? _trimmedDurationSeconds;
-    private bool? _optimizeForStreaming;
 
     public bool IsVideoModeEditable { get; init; } = true;
 
@@ -48,20 +47,8 @@ public partial class OutputSettingsViewModel : ObservableObject
     [ObservableProperty]
     private bool _recalculateMatroskaStatistics;
 
-    public bool OptimizeForStreaming
-    {
-        get => _optimizeForStreaming ?? OutputStreamingOptions.IsEnabledByDefault(Format.SelectedContainer);
-        set
-        {
-            if (value == OptimizeForStreaming)
-                return;
-
-            _optimizeForStreaming = value == OutputStreamingOptions.IsEnabledByDefault(Format.SelectedContainer)
-                ? null : value;
-            OnPropertyChanged();
-            RebuildAndNotify();
-        }
-    }
+    [ObservableProperty]
+    private bool _optimizeForStreaming;
 
     public bool IsStreamingOptimizationVisible =>
         OutputStreamingOptions.ArgumentsFor(Format.SelectedContainer).Count > 0;
@@ -116,6 +103,12 @@ public partial class OutputSettingsViewModel : ObservableObject
     }
 
     partial void OnRecalculateMatroskaStatisticsChanged(bool value)
+    {
+        if (!_isSuppressing)
+            RebuildAndNotify();
+    }
+
+    partial void OnOptimizeForStreamingChanged(bool value)
     {
         if (!_isSuppressing)
             RebuildAndNotify();
@@ -200,7 +193,7 @@ public partial class OutputSettingsViewModel : ObservableObject
         {
             Format.SelectedVideoMode = settings.VideoMode;
             Format.SelectedContainer = settings.Container;
-            _optimizeForStreaming = settings.OptimizeForStreaming;
+            OptimizeForStreaming = settings.OptimizeForStreaming;
             Audio.AvailableAudioCodecs = Format.AvailableAudioCodecs;
             Format.SelectedVideoCodec = settings.VideoCodec;
             Strategy.SelectedStrategy = settings.EncodingStrategy;
@@ -333,7 +326,7 @@ public partial class OutputSettingsViewModel : ObservableObject
                 RecalculateMatroskaStatistics:
                     IsMatroskaPostProcessingAvailable
                     && RecalculateMatroskaStatistics),
-            OptimizeForStreaming: _optimizeForStreaming);
+            OptimizeForStreaming: OptimizeForStreaming);
     }
 
     private void OnChildPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -380,7 +373,6 @@ public partial class OutputSettingsViewModel : ObservableObject
 
     private void NotifyContainerOptionsChanged()
     {
-        OnPropertyChanged(nameof(OptimizeForStreaming));
         OnPropertyChanged(nameof(IsStreamingOptimizationVisible));
         OnPropertyChanged(nameof(IsPostProcessingVisible));
         OnPropertyChanged(nameof(IsMatroskaPostProcessingVisible));

@@ -88,18 +88,19 @@ public sealed class RemuxCommandBuilderTests
 
         Values(args, "-metadata:s:1").Should().Contain("handler_name=Stereo").And.NotContain(v => v.StartsWith("title=", StringComparison.Ordinal));
         Value(args, "-disposition:1").Should().Be("default");
-        Values(args, "-movflags").Should().Equal("+faststart");
+        args.Should().NotContain("-movflags");
     }
 
     [Theory]
-    [InlineData(OutputFormat.Mkv, null, null, null)]
+    [InlineData(OutputFormat.Mkv, false, null, null)]
     [InlineData(OutputFormat.Mkv, true, "-cues_to_front", "1")]
     [InlineData(OutputFormat.Webm, true, "-cues_to_front", "1")]
     [InlineData(OutputFormat.Webm, false, null, null)]
     [InlineData(OutputFormat.Mp4, false, null, null)]
+    [InlineData(OutputFormat.Mp4, true, "-movflags", "+faststart")]
     [InlineData(OutputFormat.Ts, true, null, null)]
     public void Build_StreamingOptimization_UsesTheSelectedFormatAndPreference(
-        OutputFormat format, bool? enabled, string? option, string? value)
+        OutputFormat format, bool enabled, string? option, string? value)
     {
         var media = format == OutputFormat.Webm ? Media("/media/movie.webm", [Video(0, "vp9")])
             : Media("/media/movie.mkv", [Video(0)]);

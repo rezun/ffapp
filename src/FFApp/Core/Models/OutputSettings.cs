@@ -54,9 +54,6 @@ public sealed record PostProcessingOptions(
 
 public static class OutputStreamingOptions
 {
-    public static bool IsEnabledByDefault(OutputContainer container) =>
-        container is OutputContainer.Mp4 or OutputContainer.M4a;
-
     public static IReadOnlyList<string> ArgumentsFor(OutputContainer container) => container switch
     {
         OutputContainer.Mp4 or OutputContainer.M4a => StreamingMuxerArguments.FastStart,
@@ -84,7 +81,7 @@ public sealed record OutputSettings(
     KeyframeUnit KeyframeUnit = KeyframeUnit.Frames,
     PostProcessingOptions? PostProcessing = null,
     ColorMetadataSettings? ColorMetadata = null,
-    bool? OptimizeForStreaming = null)
+    bool OptimizeForStreaming = false)
 {
     public ColorMetadataSettings ColorMetadata { get; init; } = ColorMetadata ?? new ColorMetadataSettings();
     public AudioOptions AudioOptions { get; init; } = AudioOptions ?? new AudioOptions();

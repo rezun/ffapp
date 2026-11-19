@@ -86,7 +86,7 @@ public sealed record RemuxPlan
     public required OutputFormat Format { get; init; }
     public string? Title { get; init; }
     public string? OutputPath { get; init; }
-    public bool? OptimizeForStreaming { get; init; }
+    public bool OptimizeForStreaming { get; init; }
 
     /// <summary>Rewrites the Matroska track statistics with mkvpropedit after the remux, when it is installed.</summary>
     public bool UpdateMatroskaStatistics { get; init; } = true;

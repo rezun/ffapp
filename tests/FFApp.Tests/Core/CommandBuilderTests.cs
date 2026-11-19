@@ -317,7 +317,6 @@ public class CommandBuilderTests
             .And.EndWith(NullOutput);
         JoinArgs(commands[1]).Should().Contain("-b:v 3000k")
             .And.Contain("-pass 2")
-            .And.Contain("-movflags +faststart")
             .And.EndWith("/test/output.mp4");
     }
 
@@ -954,18 +953,11 @@ public class CommandBuilderTests
     // Streaming optimization
     // ---------------------------------------------------------------
 
-    [Fact]
-    public void Build_Mp4Container_ContainsMovflagsFaststart()
-    {
-        var args = JoinArgs(_sut.Build(DefaultJob(), DefaultMedia())[0]);
-
-        args.Should().Contain("-movflags +faststart");
-    }
-
     [Theory]
+    [InlineData(OutputContainer.Mp4)]
     [InlineData(OutputContainer.Mkv)]
     [InlineData(OutputContainer.Webm)]
-    public void Build_NonMp4Container_DoesNotContainMovflags(OutputContainer container)
+    public void Build_OmitsStreamingOptimizationByDefault(OutputContainer container)
     {
         var job = JobWith(s => s.WithContainer(container));
         var args = JoinArgs(_sut.Build(job, DefaultMedia())[0]);
@@ -975,6 +967,7 @@ public class CommandBuilderTests
 
     [Theory]
     [InlineData(OutputContainer.Mp4, VideoMode.Reencode, false, null, null)]
+    [InlineData(OutputContainer.Mp4, VideoMode.Reencode, true, "-movflags", "+faststart")]
     [InlineData(OutputContainer.Mkv, VideoMode.Reencode, true, "-cues_to_front", "1")]
     [InlineData(OutputContainer.Webm, VideoMode.Copy, true, "-cues_to_front", "1")]
     [InlineData(OutputContainer.Mkv, VideoMode.Copy, false, null, null)]

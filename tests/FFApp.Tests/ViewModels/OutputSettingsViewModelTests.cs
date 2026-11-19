@@ -180,18 +180,19 @@ public class OutputSettingsViewModelTests
     }
 
     [Fact]
-    public void StreamingOptimization_UsesContainerDefaultsUntilThePresetOverridesThem()
+    public void StreamingOptimization_DefaultsOffAndKeepsThePresetChoiceAcrossContainers()
     {
-        _sut.OptimizeForStreaming.Should().BeTrue();
+        _sut.OptimizeForStreaming.Should().BeFalse();
         _sut.Format.SelectedContainer = OutputContainer.Mkv;
         _sut.OptimizeForStreaming.Should().BeFalse();
 
         _sut.OptimizeForStreaming = true;
         var settings = _sut.BuildSettings();
-        _sut.ApplySettings(new OutputSettings(OptimizeForStreaming: false));
+        _sut.ApplySettings(new OutputSettings());
         _sut.OptimizeForStreaming.Should().BeFalse();
 
         _sut.ApplySettings(settings);
+        _sut.Format.SelectedContainer = OutputContainer.Mp4;
         _sut.OptimizeForStreaming.Should().BeTrue();
         _sut.BuildSettings().OptimizeForStreaming.Should().BeTrue();
     }

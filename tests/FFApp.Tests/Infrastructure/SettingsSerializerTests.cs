@@ -122,6 +122,7 @@ public class SettingsSerializerTests
     public static TheoryData<string, OutputSettings> PartialSettings => new()
     {
         { "{}", DecodedDefaults },
+        { """{ "optimize_for_streaming": null }""", DecodedDefaults },
         // Settings written before video_mode existed were always re-encodes.
         { """{ "video_codec": "h264" }""", DecodedDefaults },
         {

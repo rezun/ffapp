@@ -108,7 +108,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncInitia
             // PropertyChanged is synchronous, so remembering the options runs fire-and-forget;
             // SaveSettingsAsync catches and logs its own failures.
             if (e.PropertyName is nameof(OutputViewModel.SelectedFormat) or nameof(OutputViewModel.UpdateStatistics)
-                    or nameof(OutputViewModel.StreamingOptimizationPreference)
+                    or nameof(OutputViewModel.OptimizeForStreaming)
                 && _initialization?.IsCompleted == true)
                 _ = SaveSettingsAsync();
         };
@@ -401,7 +401,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncInitia
         if (settings.LastFormat is { } format)
             Output.SelectFormat(format);
         Output.UpdateStatistics = settings.UpdateMatroskaStatistics ?? true;
-        Output.StreamingOptimizationPreference = settings.OptimizeForStreaming;
+        Output.OptimizeForStreaming = settings.OptimizeForStreaming == true;
 
         _configuredToolPaths = settings.ExecutablePaths ?? ExecutablePaths.Empty;
         var status = await _dependencies.DiscoverAsync(_configuredToolPaths);
@@ -663,7 +663,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncInitia
             Title = Output.Title,
             OutputPath = string.IsNullOrWhiteSpace(Output.OutputPath) ? null : Output.OutputPath,
             UpdateMatroskaStatistics = Output.UpdateStatistics,
-            OptimizeForStreaming = Output.StreamingOptimizationPreference,
+            OptimizeForStreaming = Output.OptimizeForStreaming,
         };
     }
 
@@ -889,7 +889,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncInitia
             {
                 LastFormat = Output.Format,
                 UpdateMatroskaStatistics = Output.UpdateStatistics,
-                OptimizeForStreaming = Output.StreamingOptimizationPreference,
+                OptimizeForStreaming = Output.OptimizeForStreaming,
                 ExecutablePaths = _configuredToolPaths,
             });
         }

@@ -118,7 +118,7 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
             attachmentIndex++;
         }
         var metadataCleanupArgs = BuildMetadataCleanupArguments(job, mediaInfo);
-        var streamingArgs = (job.OptimizeForStreaming ?? OutputStreamingOptions.IsEnabledByDefault(job.Container))
+        var streamingArgs = job.OptimizeForStreaming
             ? OutputStreamingOptions.ArgumentsFor(job.Container) : [];
 
         // Audio-only: no video encoding, no two-pass

@@ -243,7 +243,7 @@ public static class SettingsSerializer
             KeyframeInterval: keyframeInterval,
             KeyframeUnit: keyframeUnit,
             PostProcessing: postProcessing,
-            OptimizeForStreaming: ReadOptionalBool(element, "optimize_for_streaming"));
+            OptimizeForStreaming: ReadBool(element, "optimize_for_streaming"));
     }
 
     // --- Preset serialization ---
@@ -635,14 +635,11 @@ public static class SettingsSerializer
     }
 
     internal static bool ReadBool(
-        JsonElement element, string property, bool defaultValue = false) =>
-        ReadOptionalBool(element, property) ?? defaultValue;
-
-    private static bool? ReadOptionalBool(JsonElement element, string property)
+        JsonElement element, string property, bool defaultValue = false)
     {
         if (element.ValueKind != JsonValueKind.Object || !element.TryGetProperty(property, out var prop))
-            return null;
-        return prop.ValueKind is JsonValueKind.True or JsonValueKind.False ? prop.GetBoolean() : null;
+            return defaultValue;
+        return prop.ValueKind is JsonValueKind.True or JsonValueKind.False ? prop.GetBoolean() : defaultValue;
     }
 
     private static T ReadEnum<T>(

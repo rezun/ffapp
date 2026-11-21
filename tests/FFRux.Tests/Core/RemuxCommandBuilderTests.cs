@@ -92,15 +92,15 @@ public sealed class RemuxCommandBuilderTests
     }
 
     [Theory]
-    [InlineData(OutputFormat.Mkv, false, null, null)]
-    [InlineData(OutputFormat.Mkv, true, "-cues_to_front", "1")]
-    [InlineData(OutputFormat.Webm, true, "-cues_to_front", "1")]
-    [InlineData(OutputFormat.Webm, false, null, null)]
-    [InlineData(OutputFormat.Mp4, false, null, null)]
+    [InlineData(OutputFormat.Mkv, false)]
+    [InlineData(OutputFormat.Mkv, true, "-reserve_index_space", "20224", "-cues_to_front", "1")]
+    [InlineData(OutputFormat.Webm, true, "-reserve_index_space", "20224", "-cues_to_front", "1")]
+    [InlineData(OutputFormat.Webm, false)]
+    [InlineData(OutputFormat.Mp4, false)]
     [InlineData(OutputFormat.Mp4, true, "-movflags", "+faststart")]
-    [InlineData(OutputFormat.Ts, true, null, null)]
+    [InlineData(OutputFormat.Ts, true)]
     public void Build_StreamingOptimization_UsesTheSelectedFormatAndPreference(
-        OutputFormat format, bool enabled, string? option, string? value)
+        OutputFormat format, bool enabled, params string[] expected)
     {
         var media = format == OutputFormat.Webm ? Media("/media/movie.webm", [Video(0, "vp9")])
             : Media("/media/movie.mkv", [Video(0)]);
@@ -109,10 +109,10 @@ public sealed class RemuxCommandBuilderTests
 
         var args = Sut.Build(plan, path).Args();
 
-        if (option is null)
-            args.Should().NotContain("-movflags").And.NotContain("-cues_to_front");
+        if (expected.Length == 0)
+            args.Should().NotContain("-movflags").And.NotContain("-cues_to_front").And.NotContain("-reserve_index_space");
         else
-            args.TakeLast(3).Should().Equal(option, value, path);
+            args.TakeLast(expected.Length + 1).Should().Equal([.. expected, path]);
     }
 
     [Fact]

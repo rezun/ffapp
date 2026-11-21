@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using FFApp.Core;
 using FFRux.Core;
 using FFRux.Core.Models;
 using FFRux.Services;
@@ -69,7 +70,7 @@ public sealed partial class OutputViewModel : ObservableObject
     public string? TitleHint => TitleEnabled ? null : $"{FormatInfo.Name} can't store a title.";
     public bool HasSources => _sourcePaths.Count > 0;
     public bool StatisticsVisible => FormatInfo.IsMatroska;
-    public bool StreamingOptimizationVisible => FormatInfo.StreamingArguments.Count > 0;
+    public bool StreamingOptimizationVisible => FormatInfo.StreamingLayout != StreamingLayout.None;
 
     public void SelectFormat(OutputFormat format) =>
         SelectedFormat = Formats.First(option => option.Format == format);

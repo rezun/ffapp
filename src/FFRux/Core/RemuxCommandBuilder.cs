@@ -72,7 +72,7 @@ public sealed class RemuxCommandBuilder(ExecutablePathsConfig pathsConfig)
         args.AddRange(["-f", format.Muxer]);
         args.AddRange(format.MuxerArguments);
         if (plan.OptimizeForStreaming)
-            args.AddRange(format.StreamingArguments);
+            args.AddRange(StreamingMuxerArguments.For(format.StreamingLayout, ExpectedDurationSeconds(plan)));
         args.Add(outputPath);
 
         var ffmpeg = GeneratedCommand.Create(pathsConfig.FfmpegPath, args);

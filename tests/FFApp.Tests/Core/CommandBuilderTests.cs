@@ -966,25 +966,54 @@ public class CommandBuilderTests
     }
 
     [Theory]
-    [InlineData(OutputContainer.Mp4, VideoMode.Reencode, false, null, null)]
+    [InlineData(OutputContainer.Mp4, VideoMode.Reencode, false)]
     [InlineData(OutputContainer.Mp4, VideoMode.Reencode, true, "-movflags", "+faststart")]
-    [InlineData(OutputContainer.Mkv, VideoMode.Reencode, true, "-cues_to_front", "1")]
-    [InlineData(OutputContainer.Webm, VideoMode.Copy, true, "-cues_to_front", "1")]
-    [InlineData(OutputContainer.Mkv, VideoMode.Copy, false, null, null)]
+    [InlineData(OutputContainer.Mkv, VideoMode.Reencode, true, "-reserve_index_space", "20224", "-cues_to_front", "1")]
+    [InlineData(OutputContainer.Webm, VideoMode.Copy, true, "-reserve_index_space", "20224", "-cues_to_front", "1")]
+    [InlineData(OutputContainer.Mkv, VideoMode.Copy, false)]
     [InlineData(OutputContainer.M4a, VideoMode.Remove, true, "-movflags", "+faststart")]
-    [InlineData(OutputContainer.M4a, VideoMode.Remove, false, null, null)]
-    [InlineData(OutputContainer.Ogg, VideoMode.Remove, true, null, null)]
+    [InlineData(OutputContainer.M4a, VideoMode.Remove, false)]
+    [InlineData(OutputContainer.Ogg, VideoMode.Remove, true)]
     public void Build_StreamingOptimization_UsesTheSelectedContainerAndPreference(
-        OutputContainer container, VideoMode mode, bool enabled, string? option, string? value)
+        OutputContainer container, VideoMode mode, bool enabled, params string[] expected)
     {
         var settings = new OutputSettings(Container: container, VideoMode: mode, OptimizeForStreaming: enabled);
         var job = FormatHelpers.BuildJobDefinition("/test/source.mp4", $"/test/out{DefaultCommandBuilder.ContainerExtension(container)}", settings);
         var args = _sut.Build(job, DefaultMedia()).Should().ContainSingle().Subject.Arguments;
 
-        if (option is null)
-            args.Should().NotContain("-movflags").And.NotContain("-cues_to_front");
+        if (expected.Length == 0)
+            args.Should().NotContain("-movflags").And.NotContain("-cues_to_front").And.NotContain("-reserve_index_space");
         else
-            args.TakeLast(3).Should().Equal(option, value, job.OutputPath);
+            args.TakeLast(expected.Length + 1).Should().Equal([.. expected, job.OutputPath]);
+    }
+
+    [Fact]
+    public void Build_StreamingOptimization_ReservesCueSpaceForTheTrimmedLength()
+    {
+        var job = JobWith(s => s.WithContainer(OutputContainer.Mkv)) with
+        {
+            OptimizeForStreaming = true,
+            TrimStartSeconds = 10,
+            TrimEndSeconds = 40,
+        };
+        var media = new TestMediaInfoBuilder().WithDuration(3600).Build();
+
+        var args = _sut.Build(job, media)[0].Arguments;
+
+        // 16 KiB plus 64 bytes for each of the 30 trimmed seconds.
+        args.TakeLast(5).Should().Equal("-reserve_index_space", "18304", "-cues_to_front", "1", job.OutputPath);
+    }
+
+    [Fact]
+    public void Build_StreamingOptimization_KeepsCuesToFrontWithoutAKnownDuration()
+    {
+        var job = JobWith(s => s.WithContainer(OutputContainer.Mkv)) with { OptimizeForStreaming = true };
+        var media = new TestMediaInfoBuilder().WithDuration(null).Build();
+
+        var args = _sut.Build(job, media)[0].Arguments;
+
+        args.Should().NotContain("-reserve_index_space");
+        args.TakeLast(3).Should().Equal("-cues_to_front", "1", job.OutputPath);
     }
 
     [Fact]
@@ -1001,8 +1030,8 @@ public class CommandBuilderTests
         var commands = _sut.Build(job, DefaultMedia());
 
         commands.Should().HaveCount(2);
-        commands[0].Arguments.Should().NotContain("-cues_to_front");
-        commands[1].Arguments.TakeLast(3).Should().Equal("-cues_to_front", "1", job.OutputPath);
+        commands[0].Arguments.Should().NotContain("-cues_to_front").And.NotContain("-reserve_index_space");
+        commands[1].Arguments.TakeLast(5).Should().Equal("-reserve_index_space", "20224", "-cues_to_front", "1", job.OutputPath);
     }
 
     // ---------------------------------------------------------------

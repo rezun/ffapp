@@ -54,11 +54,11 @@ public sealed record PostProcessingOptions(
 
 public static class OutputStreamingOptions
 {
-    public static IReadOnlyList<string> ArgumentsFor(OutputContainer container) => container switch
+    public static StreamingLayout LayoutFor(OutputContainer container) => container switch
     {
-        OutputContainer.Mp4 or OutputContainer.M4a => StreamingMuxerArguments.FastStart,
-        OutputContainer.Mkv or OutputContainer.Webm => StreamingMuxerArguments.CuesToFront,
-        _ => [],
+        OutputContainer.Mp4 or OutputContainer.M4a => StreamingLayout.FastStart,
+        OutputContainer.Mkv or OutputContainer.Webm => StreamingLayout.CuesToFront,
+        _ => StreamingLayout.None,
     };
 }
 

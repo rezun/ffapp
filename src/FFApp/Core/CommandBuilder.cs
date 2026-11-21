@@ -119,7 +119,8 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
         }
         var metadataCleanupArgs = BuildMetadataCleanupArguments(job, mediaInfo);
         var streamingArgs = job.OptimizeForStreaming
-            ? OutputStreamingOptions.ArgumentsFor(job.Container) : [];
+            ? StreamingMuxerArguments.For(OutputStreamingOptions.LayoutFor(job.Container), OutputDurationSeconds(job, mediaInfo))
+            : [];
 
         // Audio-only: no video encoding, no two-pass
         if (job.VideoMode == VideoMode.Remove)
@@ -788,6 +789,9 @@ public sealed class DefaultCommandBuilder(ExecutablePathsConfig pathsConfig) : I
 
         return arguments;
     }
+
+    private static double? OutputDurationSeconds(JobDefinition job, SourceMediaInfo mediaInfo) =>
+        mediaInfo.DurationSeconds is > 0 ? GetEffectiveDuration(job, mediaInfo) : null;
 
     private static double GetEffectiveDuration(JobDefinition job, SourceMediaInfo mediaInfo)
     {

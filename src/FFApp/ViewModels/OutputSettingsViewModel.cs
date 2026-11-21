@@ -51,7 +51,7 @@ public partial class OutputSettingsViewModel : ObservableObject
     private bool _optimizeForStreaming;
 
     public bool IsStreamingOptimizationVisible =>
-        OutputStreamingOptions.ArgumentsFor(Format.SelectedContainer).Count > 0;
+        OutputStreamingOptions.LayoutFor(Format.SelectedContainer) != StreamingLayout.None;
 
     public bool IsPostProcessingVisible => IsStreamingOptimizationVisible || IsMatroskaPostProcessingVisible;
 

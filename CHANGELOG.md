@@ -13,6 +13,7 @@ Add entries under **Unreleased** as part of each change. `scripts/release.py <ve
 ### Changed
 
 - FFApp uses the status bar for update checks, download progress, and the restart action while the transcode queue is idle.
+- "Optimize for streaming" in FFApp and FFRux reserves room for the index in MKV and WebM outputs, so the file no longer has to be rewritten after muxing. MP4 keeps faststart.
 
 ### Fixed
 

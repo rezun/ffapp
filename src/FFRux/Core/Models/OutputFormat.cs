@@ -61,7 +61,7 @@ public sealed record OutputFormatInfo
     public bool IsSingleAudioTrack { get; init; }
 
     public IReadOnlyList<string> MuxerArguments { get; init; } = [];
-    public IReadOnlyList<string> StreamingArguments { get; init; } = [];
+    public StreamingLayout StreamingLayout { get; init; }
 
     public string Label => string.Concat(Name, " (", Extension, ")");
 }
@@ -74,7 +74,7 @@ public static class OutputFormats
         {
             Format = OutputFormat.Mkv, Name = "Matroska", ShortName = "MKV", Extension = ".mkv", Muxer = "matroska",
             IsMatroska = true, TrackNames = TrackNameStorage.Title, SupportedFlags = TrackFlagNames.All, TextSubtitleCodec = "subrip",
-            StreamingArguments = StreamingMuxerArguments.CuesToFront,
+            StreamingLayout = StreamingLayout.CuesToFront,
         },
         new()
         {
@@ -82,20 +82,20 @@ public static class OutputFormats
             IsMp4Family = true, TrackNames = TrackNameStorage.HandlerName, TextSubtitleCodec = "mov_text",
             SupportedFlags = TrackFlags.Default | TrackFlags.Forced | TrackFlags.HearingImpaired
                 | TrackFlags.VisualImpaired | TrackFlags.Commentary,
-            StreamingArguments = StreamingMuxerArguments.FastStart,
+            StreamingLayout = StreamingLayout.FastStart,
         },
         new()
         {
             Format = OutputFormat.Mov, Name = "QuickTime", ShortName = "MOV", Extension = ".mov", Muxer = "mov",
             IsMp4Family = true, TrackNames = TrackNameStorage.HandlerName, TextSubtitleCodec = "mov_text",
-            SupportedFlags = TrackFlags.Default, StreamingArguments = StreamingMuxerArguments.FastStart,
+            SupportedFlags = TrackFlags.Default, StreamingLayout = StreamingLayout.FastStart,
         },
         new()
         {
             Format = OutputFormat.Webm, Name = "WebM", ShortName = "WebM", Extension = ".webm", Muxer = "webm",
             IsMatroska = true, TrackNames = TrackNameStorage.Title, TextSubtitleCodec = "webvtt",
             SupportedFlags = TrackFlags.Default | TrackFlags.Forced,
-            StreamingArguments = StreamingMuxerArguments.CuesToFront,
+            StreamingLayout = StreamingLayout.CuesToFront,
         },
         new()
         {
@@ -112,14 +112,14 @@ public static class OutputFormats
         {
             Format = OutputFormat.M4a, Name = "MPEG-4 audio", ShortName = "M4A", Extension = ".m4a", Muxer = "ipod",
             IsAudioOnly = true, IsMp4Family = true, SupportsSubtitles = false, TrackNames = TrackNameStorage.HandlerName,
-            SupportedFlags = TrackFlags.Default, StreamingArguments = StreamingMuxerArguments.FastStart,
+            SupportedFlags = TrackFlags.Default, StreamingLayout = StreamingLayout.FastStart,
         },
         new()
         {
             Format = OutputFormat.M4b, Name = "MPEG-4 audiobook", ShortName = "M4B", Extension = ".m4b", Muxer = "ipod",
             IsAudioOnly = true, IsMp4Family = true, SupportsSubtitles = false, TrackNames = TrackNameStorage.HandlerName,
             SupportedFlags = TrackFlags.Default, MuxerArguments = ["-brand", "M4B "],
-            StreamingArguments = StreamingMuxerArguments.FastStart,
+            StreamingLayout = StreamingLayout.FastStart,
         },
         new()
         {

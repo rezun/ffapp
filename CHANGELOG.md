@@ -6,6 +6,8 @@ Add entries under **Unreleased** as part of each change. `scripts/release.py <ve
 
 ## [Unreleased]
 
+## [1.14.4] - 2026-11-21
+
 ### Added
 
 - FFApp debug builds include a Debug menu that simulates an update offline.
@@ -127,7 +129,8 @@ First release on GitHub.
 - Per-job FFmpeg logs, an app log and Info → Open logs folder.
 - Black-bar crop suggestion from samples across the whole source.
 
-[Unreleased]: https://github.com/rezun/ffapp/compare/v1.14.3...HEAD
+[Unreleased]: https://github.com/rezun/ffapp/compare/v1.14.4...HEAD
+[1.14.4]: https://github.com/rezun/ffapp/compare/v1.14.3...v1.14.4
 [1.14.3]: https://github.com/rezun/ffapp/compare/v1.14.2...v1.14.3
 [1.14.2]: https://github.com/rezun/ffapp/compare/v1.14.1...v1.14.2
 [1.14.1]: https://github.com/rezun/ffapp/compare/v1.14.0...v1.14.1
